@@ -98,17 +98,21 @@ public sealed class SaveStorageTests : IDisposable
         items.Should().ContainSingle().Which.Label.Should().Be("Before the boss");
         File.Exists(items[0].ThumbnailPath).Should().BeTrue();
 
-        // Let the game run well past the save, so going back is clear however busy the machine is.
-        var deadline = DateTime.UtcNow.AddSeconds(10);
-        long frameBeforeLoad;
-        while ((frameBeforeLoad = await host.InspectAsync(c => c.Ppu.FrameCount)) < savedFrame + 60 && DateTime.UtcNow < deadline)
+        // Let the game run past the save, then pause so no frame can run between loading and checking:
+        // the result doesn't depend on how busy the machine is.
+        var deadline = DateTime.UtcNow.AddSeconds(60);
+        while (await host.InspectAsync(c => c.Ppu.FrameCount) <= savedFrame + 5 && DateTime.UtcNow < deadline)
         {
             await Task.Delay(20);
         }
 
+        host.Pause();
+        var frameBeforeLoad = await host.InspectAsync(c => c.Ppu.FrameCount);
+        frameBeforeLoad.Should().BeGreaterThan(savedFrame);
         (await service.LoadAsync(key, items[0].Id)).Should().BeTrue();
         var frameAfterLoad = await host.InspectAsync(c => c.Ppu.FrameCount);
-        frameAfterLoad.Should().BeLessThan(frameBeforeLoad, "loading went back in time");
+        frameAfterLoad.Should().BeLessThanOrEqualTo(savedFrame, "loading went back to the saved frame");
+        host.Resume();
         (await service.LoadAsync("sha1:other", items[0].Id)).Should().BeFalse("it isn't the running game");
 
         await service.SaveOnExitAsync();

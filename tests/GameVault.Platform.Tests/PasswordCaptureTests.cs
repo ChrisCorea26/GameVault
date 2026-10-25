@@ -64,7 +64,7 @@ public sealed class PasswordCaptureTests : IDisposable
         service.Captured += (_, p) => captured.Add(p);
 
         host.Load(PasswordScreenRom(), "Password test");
-        var deadline = DateTime.UtcNow.AddSeconds(5);
+        var deadline = DateTime.UtcNow.AddSeconds(30); // generous for slow CI runners; returns as soon as it's captured
         while (captured.Count == 0 && DateTime.UtcNow < deadline)
         {
             await Task.Delay(20);
