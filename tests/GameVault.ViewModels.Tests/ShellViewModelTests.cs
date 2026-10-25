@@ -12,7 +12,7 @@ public class ShellViewModelTests
 
         vm.StartCommand.Execute(null);
 
-        nav.History.Should().Equal(AppPage.Library);
+        nav.History.Select(h => h.Page).Should().Equal(AppPage.Library);
         vm.CurrentPage.Should().Be(AppPage.Library);
     }
 
@@ -26,7 +26,7 @@ public class ShellViewModelTests
         vm.NavigateCommand.Execute(AppPage.Library);
         vm.NavigateCommand.Execute(AppPage.Settings);
 
-        nav.History.Should().Equal(AppPage.Library, AppPage.Settings);
+        nav.History.Select(h => h.Page).Should().Equal(AppPage.Library, AppPage.Settings);
         vm.CurrentPage.Should().Be(AppPage.Settings);
     }
 
@@ -41,21 +41,5 @@ public class ShellViewModelTests
 
         env.IsSampleData.Should().Be(expected);
         new ShellViewModel(new FakeNavigationService(), env).IsSampleData.Should().Be(expected);
-    }
-
-    private sealed class FakeNavigationService : INavigationService
-    {
-        public List<AppPage> History { get; } = [];
-
-        public AppPage? CurrentPage { get; private set; }
-
-        public event EventHandler<AppPage>? Navigated;
-
-        public void NavigateTo(AppPage page)
-        {
-            History.Add(page);
-            CurrentPage = page;
-            Navigated?.Invoke(this, page);
-        }
     }
 }

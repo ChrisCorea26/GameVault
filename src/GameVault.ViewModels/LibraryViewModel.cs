@@ -7,7 +7,10 @@ using GameVault.ViewModels.Services;
 namespace GameVault.ViewModels;
 
 /// <summary>The Library (home) screen: search, owned filter, grid/list toggle and collection summary.</summary>
-public sealed partial class LibraryViewModel(ILibraryService libraryService) : ObservableObject
+public sealed partial class LibraryViewModel(
+    ILibraryService libraryService,
+    IGameFilePicker filePicker,
+    INavigationService navigation) : ObservableObject
 {
     private IReadOnlyList<GameTileViewModel> _allGames = [];
 
@@ -72,6 +75,27 @@ public sealed partial class LibraryViewModel(ILibraryService libraryService) : O
 
     [RelayCommand]
     private void ToggleView() => IsGridView = !IsGridView;
+
+    /// <summary>Lets the user pick any .nes file and plays it (until the library scanner arrives in Phase 5).</summary>
+    [RelayCommand]
+    private async Task OpenGameFileAsync()
+    {
+        var path = await filePicker.PickGameFileAsync();
+        if (path is not null)
+        {
+            navigation.NavigateTo(AppPage.Player, path);
+        }
+    }
+
+    /// <summary>Plays a library game that has a ROM file.</summary>
+    [RelayCommand]
+    private void Play(GameTileViewModel? tile)
+    {
+        if (tile?.Game.RomPath is { } path)
+        {
+            navigation.NavigateTo(AppPage.Player, path);
+        }
+    }
 
     partial void OnSearchTextChanged(string value) => ApplyFilter();
 

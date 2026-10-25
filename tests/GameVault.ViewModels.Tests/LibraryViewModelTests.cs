@@ -6,9 +6,14 @@ namespace GameVault.ViewModels.Tests;
 
 public class LibraryViewModelTests
 {
-    private static async Task<LibraryViewModel> LoadedSampleLibrary()
+    private readonly FakeNavigationService _navigation = new();
+
+    private LibraryViewModel Create(ILibraryService library, IGameFilePicker? picker = null) =>
+        new(library, picker ?? new SampleGameFilePicker(), _navigation);
+
+    private async Task<LibraryViewModel> LoadedSampleLibrary()
     {
-        var vm = new LibraryViewModel(new SampleLibraryService());
+        var vm = Create(new SampleLibraryService());
         await vm.LoadCommand.ExecuteAsync(null);
         return vm;
     }
@@ -78,7 +83,7 @@ public class LibraryViewModelTests
     [Fact]
     public async Task Empty_library_reports_empty_state()
     {
-        var vm = new LibraryViewModel(new EmptyLibraryService());
+        var vm = Create(new EmptyLibraryService());
 
         await vm.LoadCommand.ExecuteAsync(null);
 
@@ -90,13 +95,51 @@ public class LibraryViewModelTests
     [Fact]
     public void Toggle_view_switches_between_grid_and_list()
     {
-        var vm = new LibraryViewModel(new EmptyLibraryService());
+        var vm = Create(new EmptyLibraryService());
         vm.IsGridView.Should().BeTrue();
 
         vm.ToggleViewCommand.Execute(null);
 
         vm.IsGridView.Should().BeFalse();
         vm.IsListView.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Open_game_file_navigates_to_the_player_with_the_picked_path()
+    {
+        var vm = Create(new EmptyLibraryService());
+
+        await vm.OpenGameFileCommand.ExecuteAsync(null);
+
+        _navigation.History.Should().Equal((AppPage.Player, SampleGameFilePicker.SamplePath));
+    }
+
+    [Fact]
+    public async Task Cancelling_the_picker_stays_on_the_library()
+    {
+        var vm = Create(new EmptyLibraryService(), new CancellingPicker());
+
+        await vm.OpenGameFileCommand.ExecuteAsync(null);
+
+        _navigation.History.Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task Play_opens_games_that_have_a_rom_and_ignores_the_rest()
+    {
+        var vm = await LoadedSampleLibrary();
+        var playable = vm.Games.First(g => g.IsPlayable);
+        var catalogOnly = vm.Games.First(g => !g.IsPlayable);
+
+        vm.PlayCommand.Execute(catalogOnly);
+        vm.PlayCommand.Execute(playable);
+
+        _navigation.History.Should().Equal((AppPage.Player, playable.Game.RomPath));
+    }
+
+    private sealed class CancellingPicker : IGameFilePicker
+    {
+        public Task<string?> PickGameFileAsync() => Task.FromResult<string?>(null);
     }
 
     [Fact]

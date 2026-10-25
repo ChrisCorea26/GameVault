@@ -19,6 +19,9 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore) : Ob
     [ObservableProperty]
     public partial bool PauseWhenInactive { get; set; } = true;
 
+    [ObservableProperty]
+    public partial bool AllowOppositeDirections { get; set; }
+
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
@@ -27,6 +30,7 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore) : Ob
         CropOverscan = settings.CropOverscan;
         RunAheadFrames = Math.Clamp(settings.RunAheadFrames, 0, AppSettings.MaxRunAheadFrames);
         PauseWhenInactive = settings.PauseWhenInactive;
+        AllowOppositeDirections = settings.AllowOppositeDirections;
         _isLoaded = true;
     }
 
@@ -38,6 +42,7 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore) : Ob
         CropOverscan = defaults.CropOverscan;
         RunAheadFrames = defaults.RunAheadFrames;
         PauseWhenInactive = defaults.PauseWhenInactive;
+        AllowOppositeDirections = defaults.AllowOppositeDirections;
         _isLoaded = true;
         return SaveAsync();
     }
@@ -57,6 +62,8 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore) : Ob
 
     partial void OnPauseWhenInactiveChanged(bool value) => SaveIfLoaded();
 
+    partial void OnAllowOppositeDirectionsChanged(bool value) => SaveIfLoaded();
+
     private void SaveIfLoaded()
     {
         if (_isLoaded)
@@ -70,5 +77,6 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore) : Ob
         CropOverscan = CropOverscan,
         RunAheadFrames = Math.Clamp(RunAheadFrames, 0, AppSettings.MaxRunAheadFrames),
         PauseWhenInactive = PauseWhenInactive,
+        AllowOppositeDirections = AllowOppositeDirections,
     });
 }

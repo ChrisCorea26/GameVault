@@ -12,4 +12,10 @@ public sealed record AppSettings
     public int RunAheadFrames { get; init; } = 1;
 
     public bool PauseWhenInactive { get; init; } = true;
+
+    /// <summary>
+    /// Let the game see Left+Right or Up+Down at once. Off by default: the most recent direction on each
+    /// axis wins, like a real pad (docs/design/input.md §6).
+    /// </summary>
+    public bool AllowOppositeDirections { get; init; }
 }

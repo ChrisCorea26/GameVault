@@ -5,4 +5,5 @@ public enum AppPage
 {
     Library,
     Settings,
+    Player,
 }
