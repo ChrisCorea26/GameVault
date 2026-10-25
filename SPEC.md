@@ -169,6 +169,7 @@ GameVault.sln
 - On startup and hot-plug, SDL detects controllers and applies a default mapping with **no setup screen required**.
 - Keyboard defaults: arrows, Z = B, X = A, Enter = Start, Right Shift = Select.
 - Remapping is per-player and can be per-game. Includes turbo buttons and one-handed layout presets.
+- Port assignment, hot-plug, player 2 keyboard and hotkey details: see `docs/design/input.md` (draft).
 
 ### 5.5 Run-ahead (latency reduction)
 - **On by default with 1 frame** for games marked safe in the game database. The user can set 0–3 frames.
