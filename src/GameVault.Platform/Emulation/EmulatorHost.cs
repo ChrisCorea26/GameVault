@@ -2,11 +2,13 @@ using System.Collections.Concurrent;
 using System.Diagnostics;
 using GameVault.Core;
 using GameVault.Core.Cartridge;
+using GameVault.Core.Cartridge.Fds;
 using GameVault.Core.Ppu;
 using GameVault.Platform.Audio;
 using GameVault.Core.Input;
 using GameVault.Core.State;
 using GameVault.Library.Hashing;
+using GameVault.Library.Scanning;
 using GameVault.Library.Profiles;
 using GameVault.Platform.Input;
 using GameVault.Platform.Storage;
@@ -39,6 +41,15 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private readonly ISettingsStore? _settings;
     private readonly IAudioOutput? _audio;
     private readonly BatterySaveStore? _batteries;
+    private readonly BatterySaveStore? _diskSaves;
+
+    // Famicom Disk System: the tracks as built from the image (the patch base) and as last saved.
+    private byte[][]? _diskOriginal;
+    private byte[][]? _diskSaved;
+    private bool _diskKeyHeld;
+    private int _diskSideRequested;
+    private int _reportedDiskSide = -1;
+    private volatile int _insertedDiskSide = -1;
     private readonly RunAhead _runAhead = new();
     private readonly RewindBuffer _rewind = new();
     private readonly PasswordWatcher _passwords = new();
@@ -95,6 +106,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         _settings = settings;
         _audio = audio;
         _batteries = paths is null ? null : new BatterySaveStore(paths);
+        _diskSaves = paths is null ? null : new BatterySaveStore(paths, ".fdssave");
         _context = SynchronizationContext.Current;
         _present = console => _video.Present(console.Ppu.FrameBuffer, _palette);
     }
@@ -128,6 +140,35 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     /// <summary>F12: save a screenshot to the journal (SPEC §7.4). Raised on the UI thread.</summary>
     public event EventHandler? ScreenshotRequested;
+
+    /// <summary>A disk side was inserted or ejected (Famicom Disk System). Raised on the UI thread.</summary>
+    public event EventHandler? DiskChanged;
+
+    public int DiskSideCount { get; private set; }
+
+    public int? InsertedDiskSide => _insertedDiskSide < 0 ? null : _insertedDiskSide;
+
+    public void InsertDiskSide(int side) => Post(() =>
+    {
+        if (_console?.Fds is { } fds && side >= 0 && side < fds.SideCount)
+        {
+            _diskSideRequested = side;
+            fds.InsertSide(side);
+            UpdateDiskSide(fds);
+        }
+    });
+
+    public void EjectDisk() => Post(() =>
+    {
+        if (_console?.Fds is { } fds)
+        {
+            fds.Eject();
+            UpdateDiskSide(fds);
+        }
+    });
+
+    /// <summary>"Disk 1, side A", "Disk 1, side B", "Disk 2, side A", … (sides are stored in that order).</summary>
+    public static string DiskSideName(int side) => $"Disk {side / 2 + 1}, side {(char)('A' + side % 2)}";
 
     /// <summary>F6 / F7: practice mode retry and split (SPEC §7.6). Raised on the UI thread.</summary>
     public event EventHandler? PracticeRetryRequested;
@@ -205,9 +246,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         byte[] data;
         try
         {
-            data = await File.ReadAllBytesAsync(path, cancellationToken).ConfigureAwait(false);
+            // Library games can be zipped (one .nes or .fds inside), so read them the way the scanner does.
+            data = await Task.Run(() => LibraryScanner.ReadRom(path), cancellationToken).ConfigureAwait(false)
+                ?? throw new GameLoadException("That file isn't an NES game GameVault can open. It plays .nes and .fds files, and .zip files with one of them inside.");
         }
-        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
             throw new GameLoadException("GameVault couldn't open that file. Check that it still exists and isn't in use.", ex);
         }
@@ -224,22 +267,61 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             }
         }
 
-        Load(data, Path.GetFileNameWithoutExtension(path));
+        byte[]? bios = null;
+        if (FdsImage.IsFdsImage(data) && _settings is not null)
+        {
+            var biosPath = (await _settings.LoadAsync(cancellationToken).ConfigureAwait(false)).FdsBiosPath;
+            if (!string.IsNullOrWhiteSpace(biosPath))
+            {
+                try
+                {
+                    bios = await File.ReadAllBytesAsync(biosPath, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    throw new GameLoadException(
+                        "GameVault couldn't open your Disk System BIOS. Check the file chosen in Settings → Disk System.", ex);
+                }
+            }
+        }
+
+        Load(data, Path.GetFileNameWithoutExtension(path), bios);
     }
 
-    /// <summary>Loads a game from bytes already in memory.</summary>
-    public void Load(byte[] data, string title)
+    /// <summary>
+    /// Loads a game from bytes already in memory. Famicom Disk System images also need the player's own
+    /// 8 KB BIOS in <paramref name="fdsBios"/>.
+    /// </summary>
+    public void Load(byte[] data, string title, byte[]? fdsBios = null)
     {
         var hashes = RomHasher.Hash(data);
         var profile = ProfileResolver?.Invoke(hashes.Sha1) ?? new GameProfile { Sha1 = hashes.Sha1 };
         NesConsole console;
         try
         {
-            console = new NesConsole(ApplyProfile(INesRom.Parse(data), profile));
+            if (FdsImage.IsFdsImage(data))
+            {
+                if (fdsBios is null)
+                {
+                    throw new GameLoadException(
+                        "This is a Famicom Disk System game. To play it, choose your own Disk System BIOS " +
+                        "(disksys.rom) in Settings → Disk System. GameVault doesn't include it.");
+                }
+
+                console = NesConsole.FromFds(data, fdsBios);
+            }
+            else
+            {
+                console = new NesConsole(ApplyProfile(INesRom.Parse(data), profile));
+            }
+        }
+        catch (RomFormatException ex) when (FdsImage.IsFdsImage(data))
+        {
+            throw new GameLoadException(ex.Message, ex); // a damaged disk image or a BIOS of the wrong size
         }
         catch (RomFormatException ex)
         {
-            throw new GameLoadException("That file isn't an NES game, or it's damaged. GameVault plays .nes files.", ex);
+            throw new GameLoadException("That file isn't an NES game, or it's damaged. GameVault plays .nes and .fds files.", ex);
         }
         catch (UnsupportedMapperException ex)
         {
@@ -278,6 +360,26 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             }
         }
 
+        byte[][]? diskOriginal = null;
+        byte[][]? diskSaved = null;
+        if (console.Fds is { } disk)
+        {
+            diskOriginal = disk.Tracks.Select(t => t.ToArray()).ToArray();
+            try
+            {
+                if (_diskSaves?.TryRead(console.RomHash) is { } patch)
+                {
+                    disk.ApplyDiskPatch(patch);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or InvalidDataException)
+            {
+                RaiseNotice("GameVault couldn't read this disk's saved progress, so the game starts without it.");
+            }
+
+            diskSaved = disk.Tracks.Select(t => t.ToArray()).ToArray();
+        }
+
         console.ConnectInput(profile.Input switch
         {
             InputType.Zapper => InputSetup.Zapper,
@@ -292,6 +394,14 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         {
             FlushBattery(); // the previous game's
             _console = console;
+            _diskOriginal = diskOriginal;
+            _diskSaved = diskSaved;
+            _diskSideRequested = 0;
+            _reportedDiskSide = -1;
+            if (console.Fds is { } fds)
+            {
+                UpdateDiskSide(fds);
+            }
             _battery = battery;
             _batterySaved = battery?.BatteryRam.ToArray() ?? [];
             _batteryTitle = title;
@@ -315,6 +425,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         Profile = profile;
         UsesZapper = console.InputSetup == InputSetup.Zapper;
         UsesFourScore = console.InputSetup == InputSetup.FourScore;
+        DiskSideCount = console.Fds?.SideCount ?? 0;
+        _insertedDiskSide = console.Fds is null ? -1 : 0;
         SetAudioPaused(false);
 
         GameTitle = title;
@@ -375,6 +487,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         GameKey = null;
         UsesZapper = false;
         UsesFourScore = false;
+        DiskSideCount = 0;
+        _insertedDiskSide = -1;
         Profile = null;
         SetStatus(EmulatorStatus.Idle);
     }
@@ -605,6 +719,10 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             }
 
             _rewind.OnFrame(console);
+            if (console.Fds is { } drive)
+            {
+                UpdateDiskSide(drive);
+            }
 
             var runAheadOff = _runAhead.RunFrame(console, _present);
             if (_passwords.OnFrame(console) is { } password)
@@ -758,6 +876,18 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         _quickSaveHeld = save;
         _quickLoadHeld = load;
 
+        // F4: the next disk side, as when turning the disk over or swapping disks (input.md §8).
+        var diskKey = _input.IsHotkeyHeld(VirtualKeys.F4);
+        if (diskKey && !_diskKeyHeld && _console?.Fds is { } fds)
+        {
+            _diskSideRequested = (_diskSideRequested + 1) % fds.SideCount;
+            fds.InsertSide(_diskSideRequested);
+            RaiseNotice($"Inserting {DiskSideName(_diskSideRequested)}.");
+            UpdateDiskSide(fds);
+        }
+
+        _diskKeyHeld = diskKey;
+
         Edge(VirtualKeys.F9, ref _passwordKeyHeld, () => ManualPasswordRequested?.Invoke(this, EventArgs.Empty));
         Edge(VirtualKeys.F12, ref _screenshotKeyHeld, () => ScreenshotRequested?.Invoke(this, EventArgs.Empty));
         Edge(VirtualKeys.F6, ref _retryKeyHeld, () => PracticeRetryRequested?.Invoke(this, EventArgs.Empty));
@@ -775,8 +905,77 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         wasHeld = held;
     }
 
-    /// <summary>Writes battery RAM to its .sav file if it changed. Runs on the emulation thread.</summary>
+    /// <summary>Raises <see cref="DiskChanged"/> when the drive's contents changed. Emulation thread.</summary>
+    private void UpdateDiskSide(FdsAdapter fds)
+    {
+        var side = fds.InsertedSide ?? -1;
+        if (side == _reportedDiskSide)
+        {
+            return;
+        }
+
+        _reportedDiskSide = side;
+        _insertedDiskSide = side;
+        Raise(() => DiskChanged?.Invoke(this, EventArgs.Empty));
+    }
+
+    /// <summary>Saves battery RAM and disk writes that changed. Runs on the emulation thread.</summary>
     private void FlushBattery(bool background = false)
+    {
+        FlushBatteryRam(background);
+        FlushDisk(background);
+    }
+
+    /// <summary>
+    /// Disk writes go to "Title - hash.fdssave" as a patch against the image, never into the image itself
+    /// (Phase 7 plan).
+    /// </summary>
+    private void FlushDisk(bool background)
+    {
+        if (_console?.Fds is not { IsDiskModified: true } fds || _diskSaves is null || _diskOriginal is null || _diskSaved is null)
+        {
+            return;
+        }
+
+        var changed = false;
+        for (var i = 0; i < fds.SideCount && !changed; i++)
+        {
+            changed = !fds.Tracks[i].AsSpan().SequenceEqual(_diskSaved[i]);
+        }
+
+        if (!changed)
+        {
+            return;
+        }
+
+        _diskSaved = fds.Tracks.Select(t => t.ToArray()).ToArray();
+        var patch = FdsDiskPatch.Create(_diskOriginal, _diskSaved);
+        var title = _batteryTitle;
+        var hash = _console.RomHash;
+
+        void Write()
+        {
+            try
+            {
+                _diskSaves.Save(title, hash, patch);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                RaiseNotice("GameVault couldn't save this disk's progress. " + ex.Message);
+            }
+        }
+
+        if (background)
+        {
+            _ = Task.Run(Write);
+        }
+        else
+        {
+            Write();
+        }
+    }
+
+    private void FlushBatteryRam(bool background)
     {
         if (_battery is null || _batteries is null || _battery.BatteryRam.SequenceEqual(_batterySaved))
         {

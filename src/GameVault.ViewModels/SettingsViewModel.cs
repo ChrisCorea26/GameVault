@@ -19,6 +19,13 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
     [ObservableProperty]
     public partial string DumperPath { get; set; } = string.Empty;
 
+    /// <summary>
+    /// The player's own Famicom Disk System BIOS (disksys.rom). GameVault never includes it. Saved when the
+    /// text box loses focus.
+    /// </summary>
+    [ObservableProperty]
+    public partial string FdsBiosPath { get; set; } = string.Empty;
+
     /// <summary>Index into <see cref="RewindMemoryOptions"/>.</summary>
     [ObservableProperty]
     public partial int RewindMemoryIndex { get; set; } = 2;
@@ -66,6 +73,7 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
         Volume = Math.Clamp(settings.Volume, 0, 100);
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
         DumperPath = settings.DumperPath;
+        FdsBiosPath = settings.FdsBiosPath;
         _isLoaded = true;
         await Library.LoadCommand.ExecuteAsync(null);
     }
@@ -120,6 +128,9 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
     [RelayCommand]
     private void SaveDumperPath() => SaveIfLoaded();
 
+    [RelayCommand]
+    private void SaveFdsBiosPath() => SaveIfLoaded();
+
     partial void OnRewindMemoryIndexChanged(int value)
     {
         if (value >= 0 && value < RewindMemoryValues.Length)
@@ -150,6 +161,7 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
             AllowOppositeDirections = AllowOppositeDirections,
             Volume = (int)Math.Round(Math.Clamp(Volume, 0, 100)),
             DumperPath = DumperPath.Trim().Trim('"'),
+            FdsBiosPath = FdsBiosPath.Trim().Trim('"'),
             RewindMemoryMb = RewindMemoryIndex >= 0 && RewindMemoryIndex < RewindMemoryValues.Length
                 ? RewindMemoryValues[RewindMemoryIndex]
                 : current.RewindMemoryMb,

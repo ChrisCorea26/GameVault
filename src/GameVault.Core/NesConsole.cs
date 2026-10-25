@@ -2,6 +2,7 @@ using GameVault.Core.Apu;
 using GameVault.Core.Audio;
 using GameVault.Core.Bus;
 using GameVault.Core.Cartridge;
+using GameVault.Core.Cartridge.Fds;
 using GameVault.Core.Cpu;
 using GameVault.Core.Input;
 using GameVault.Core.Ppu;
@@ -19,9 +20,14 @@ public sealed class NesConsole : IStateful
     private static readonly StateTag SnapshotTag = StateTag.From("GVST");
 
     public NesConsole(INesRom rom)
+        : this(rom, MapperFactory.Create(rom))
+    {
+    }
+
+    private NesConsole(INesRom rom, IMapper mapper)
     {
         Rom = rom;
-        Mapper = MapperFactory.Create(rom);
+        Mapper = mapper;
         Ppu = new Ppu2C02(Mapper);
         Apu = new Apu2A03(pal: rom.TvSystem is TvSystem.Pal or TvSystem.Dendy) { ExpansionAudio = Mapper.ExpansionAudio };
         var clock = rom.TvSystem switch
@@ -35,7 +41,7 @@ public sealed class NesConsole : IStateful
         Cpu = new Cpu6502(Bus) { DmcSource = Apu };
         Bus.AttachCpu(Cpu);
         Apu.CpuCycle = () => Cpu.CycleCount;
-        RomHash = HashRom(rom);
+        RomHash = HashRom(rom, (mapper as FdsAdapter)?.Tracks);
     }
 
     /// <summary>FNV-1a over PRG and CHR. Identifies the game a snapshot belongs to (not a security hash).</summary>
@@ -104,6 +110,19 @@ public sealed class NesConsole : IStateful
     }
 
     public static NesConsole FromBytes(ReadOnlySpan<byte> romData) => new(INesRom.Parse(romData));
+
+    /// <summary>
+    /// A Famicom Disk System console (SPEC §4.5 Tier 4) from a disk image and the player's own 8 KB BIOS
+    /// (<c>disksys.rom</c>), which is never shipped with GameVault. Side A of the first disk starts inserted.
+    /// </summary>
+    public static NesConsole FromFds(ReadOnlySpan<byte> diskImage, ReadOnlySpan<byte> bios)
+    {
+        var rom = FdsAdapter.BiosRom(bios);
+        return new NesConsole(rom, new FdsAdapter(rom, FdsImage.Parse(diskImage)));
+    }
+
+    /// <summary>The Disk System adapter when this console runs an FDS game.</summary>
+    public FdsAdapter? Fds => Mapper as FdsAdapter;
 
     /// <summary>Starts producing audio samples at <paramref name="sampleRate"/>; read them from <see cref="Audio"/>.</summary>
     public BandLimitedResampler EnableAudio(int sampleRate = 48000)
@@ -209,9 +228,17 @@ public sealed class NesConsole : IStateful
         reader.EndChunk();
     }
 
-    private static ulong HashRom(INesRom rom)
+    private static ulong HashRom(INesRom rom, IReadOnlyList<byte[]>? diskTracks)
     {
         var hash = 14695981039346656037UL;
+        foreach (var track in diskTracks ?? [])
+        {
+            foreach (var b in track)
+            {
+                hash = (hash ^ b) * 1099511628211UL;
+            }
+        }
+
         foreach (var b in rom.PrgRom)
         {
             hash = (hash ^ b) * 1099511628211UL;

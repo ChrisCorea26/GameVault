@@ -44,6 +44,82 @@ public sealed class EmulatorHostTests : IDisposable
         return image;
     }
 
+    /// <summary>A one-side disk image with just the disk info block, and a "BIOS" that loops at $E000.</summary>
+    private static (byte[] Image, byte[] Bios) DiskGame(int sides)
+    {
+        var image = new byte[sides * 65500];
+        for (var side = 0; side < sides; side++)
+        {
+            image[side * 65500] = 0x01;
+            "*NINTENDO-HVC*"u8.CopyTo(image.AsSpan(side * 65500 + 1));
+        }
+
+        var bios = new byte[0x2000];
+        bios[0] = 0x4C; // JMP $E000
+        bios[1] = 0x00;
+        bios[2] = 0xE0;
+        bios[0x1FFC] = 0x00;
+        bios[0x1FFD] = 0xE0;
+        return (image, bios);
+    }
+
+    [Fact]
+    public void Disk_system_games_need_the_players_own_bios()
+    {
+        var (image, _) = DiskGame(1);
+
+        var act = () => _host.Load(image, "disk");
+
+        act.Should().Throw<GameLoadException>().WithMessage("*Disk System BIOS (disksys.rom)*doesn't include it*");
+        _host.Status.Should().Be(EmulatorStatus.Idle);
+    }
+
+    [Fact]
+    public void Disk_system_games_run_and_switch_sides()
+    {
+        var (image, bios) = DiskGame(2);
+        var changes = 0;
+        _host.DiskChanged += (_, _) => Interlocked.Increment(ref changes);
+
+        _host.Load(image, "disk", bios);
+
+        _host.Status.Should().Be(EmulatorStatus.Running);
+        _host.DiskSideCount.Should().Be(2);
+        _host.InsertedDiskSide.Should().Be(0);
+
+        _host.InsertDiskSide(1);
+        WaitFor(() => _host.InsertedDiskSide == 1);
+        changes.Should().BeGreaterThanOrEqualTo(2, "the drive empties, then the new side goes in");
+
+        _host.Stop();
+        _host.DiskSideCount.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Zipped_games_load_from_the_library()
+    {
+        var folder = Directory.CreateTempSubdirectory("gamevault-zip-");
+        try
+        {
+            var path = Path.Combine(folder.FullName, "echo.zip");
+            using (var zip = System.IO.Compression.ZipFile.Open(path, System.IO.Compression.ZipArchiveMode.Create))
+            {
+                using var stream = zip.CreateEntry("Echo.nes").Open();
+                stream.Write(ControllerEchoRom());
+            }
+
+            await _host.LoadAsync(path);
+
+            _host.Status.Should().Be(EmulatorStatus.Running);
+            _host.GameTitle.Should().Be("echo");
+        }
+        finally
+        {
+            _host.Stop();
+            folder.Delete(recursive: true);
+        }
+    }
+
     private static void WaitFor(Func<bool> condition)
     {
         var deadline = DateTime.UtcNow.AddSeconds(5);

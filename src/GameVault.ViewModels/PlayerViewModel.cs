@@ -19,6 +19,68 @@ public sealed partial class PlayerViewModel(
     PracticeViewModel practice) : ObservableObject
 {
     private byte[]? _passwordScreenshot;
+    private bool _updatingDisk;
+
+    /// <summary>True for Famicom Disk System games: the Player shows the disk side menu.</summary>
+    [ObservableProperty]
+    public partial bool IsDiskSystem { get; private set; }
+
+    /// <summary>"No disk", then every side in the image ("Disk 1, side A", …).</summary>
+    public System.Collections.ObjectModel.ObservableCollection<string> DiskSlots { get; } = [];
+
+    /// <summary>The selected entry of <see cref="DiskSlots"/>: 0 for no disk, otherwise side + 1.</summary>
+    [ObservableProperty]
+    public partial int DiskSlotIndex { get; set; }
+
+    /// <summary>"Disk 1, side A", "Disk 1, side B", "Disk 2, side A", … (FDS images store sides in that order).</summary>
+    public static string DiskSideName(int side) => $"Disk {side / 2 + 1}, side {(char)('A' + side % 2)}";
+
+    partial void OnDiskSlotIndexChanged(int value)
+    {
+        if (_updatingDisk || !IsDiskSystem || value < 0)
+        {
+            return;
+        }
+
+        if (value == 0)
+        {
+            emulator.EjectDisk();
+        }
+        else
+        {
+            emulator.InsertDiskSide(value - 1);
+        }
+    }
+
+    private void OnDiskChanged(object? sender, EventArgs e) => RefreshDisk();
+
+    private void RefreshDisk()
+    {
+        _updatingDisk = true;
+        try
+        {
+            var count = emulator.DiskSideCount;
+            IsDiskSystem = count > 0;
+            if (DiskSlots.Count != (count > 0 ? count + 1 : 0))
+            {
+                DiskSlots.Clear();
+                if (count > 0)
+                {
+                    DiskSlots.Add("No disk");
+                    for (var side = 0; side < count; side++)
+                    {
+                        DiskSlots.Add(DiskSideName(side));
+                    }
+                }
+            }
+
+            DiskSlotIndex = count > 0 ? (emulator.InsertedDiskSide ?? -1) + 1 : -1;
+        }
+        finally
+        {
+            _updatingDisk = false;
+        }
+    }
 
     /// <summary>Assist mode for this session (SPEC §7.6).</summary>
     public AssistViewModel Assist => assist;
@@ -140,6 +202,7 @@ public sealed partial class PlayerViewModel(
         {
             IsLoading = false;
             Refresh();
+            RefreshDisk();
         }
 
         if (emulator.GameKey is { } key && emulator.Status == EmulatorStatus.Running)
@@ -306,6 +369,7 @@ public sealed partial class PlayerViewModel(
             emulator.StatusChanged += OnStatusChanged;
             emulator.Notice += OnNotice;
             emulator.RewindChanged += OnRewindChanged;
+            emulator.DiskChanged += OnDiskChanged;
             emulator.PlaytimeElapsed += OnPlaytimeElapsed;
             emulator.ManualPasswordRequested += OnManualPasswordRequested;
             emulator.ScreenshotRequested += OnScreenshotRequested;
@@ -328,6 +392,7 @@ public sealed partial class PlayerViewModel(
             emulator.StatusChanged -= OnStatusChanged;
             emulator.Notice -= OnNotice;
             emulator.RewindChanged -= OnRewindChanged;
+            emulator.DiskChanged -= OnDiskChanged;
             emulator.PlaytimeElapsed -= OnPlaytimeElapsed;
             emulator.ManualPasswordRequested -= OnManualPasswordRequested;
             emulator.ScreenshotRequested -= OnScreenshotRequested;

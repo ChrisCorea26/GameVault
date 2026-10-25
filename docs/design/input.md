@@ -154,6 +154,7 @@ These keys never reach the game, so game bindings can't use them:
 | Overlay / pause | Esc | Guide, or hold Back + Start |
 | Rewind (hold) | Backspace | Left shoulder |
 | Fast-forward (hold) | Tab | Right shoulder |
+| Next disk side (Famicom Disk System, added in Phase 7) | F4 | — |
 | Quick save / quick load | F5 / F8 | — |
 | Practice: retry / split (SPEC §7.6, added in Phase 6) | F6 / F7 | — |
 | Capture password (SPEC §7.3, added in Phase 6) | F9 | — |

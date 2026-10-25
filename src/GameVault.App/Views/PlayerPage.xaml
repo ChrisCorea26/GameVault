@@ -33,6 +33,7 @@
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
 
       <Button
@@ -66,6 +67,17 @@
           AllowFocusOnInteraction="False"
           Command="{x:Bind ViewModel.ResetCommand}"
           Content="Reset" />
+      <!-- Famicom Disk System: the side in the drive; F4 inserts the next side (input.md §8) -->
+      <ComboBox
+          Grid.Column="8"
+          MinWidth="170"
+          VerticalAlignment="Center"
+          AutomationProperties.Name="Disk side"
+          DropDownClosed="DiskSide_DropDownClosed"
+          ItemsSource="{x:Bind ViewModel.DiskSlots}"
+          SelectedIndex="{x:Bind ViewModel.DiskSlotIndex, Mode=TwoWay}"
+          ToolTipService.ToolTip="Disk side (F4: next side)"
+          Visibility="{x:Bind ViewModel.IsDiskSystem, Mode=OneWay}" />
       <!-- SPEC §7.1: the save-state timeline; F5 saves, F8 loads the newest (docs/design/input.md §8). -->
       <Button Grid.Column="5" AccessKey="S" Content="Save states">
         <Button.Flyout>

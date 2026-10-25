@@ -65,6 +65,28 @@ public interface IEmulatorService
     /// <summary>The current screen as a PNG. Null when idle.</summary>
     Task<byte[]?> CaptureScreenshotAsync();
 
+    /// <summary>Disk sides of a Famicom Disk System game (0 for cartridges).</summary>
+    int DiskSideCount => 0;
+
+    /// <summary>The disk side in the drive, or null while it is empty (or for cartridges).</summary>
+    int? InsertedDiskSide => null;
+
+    /// <summary>Raised on the UI thread when a disk side is inserted or ejected (including by F4).</summary>
+    event EventHandler? DiskChanged
+    {
+        add { }
+        remove { }
+    }
+
+    /// <summary>Ejects the current side and inserts <paramref name="side"/> after a short pause, like a real drive.</summary>
+    void InsertDiskSide(int side)
+    {
+    }
+
+    void EjectDisk()
+    {
+    }
+
     /// <summary>Plain-language reason for <see cref="EmulatorStatus.Faulted"/>.</summary>
     string? FaultMessage { get; }
 

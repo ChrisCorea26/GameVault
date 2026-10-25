@@ -98,6 +98,8 @@ public sealed partial class PlayerPage : Page
 
     private void Flyout_Closed(object sender, object e) => ReturnFocusToGame();
 
+    private void DiskSide_DropDownClosed(object sender, object e) => ReturnFocusToGame();
+
     private void ReturnFocusToGame()
     {
         if (!ViewModel.IsEnteringPassword)

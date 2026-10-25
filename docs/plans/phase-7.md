@@ -61,3 +61,16 @@ The parts that need decisions:
 3. FDS.
 4. The netplay engine with a simulated link.
 5. The netplay transport, once the owner picks the service.
+
+## Results so far
+- **Expansion audio:** MMC5 pulses and PCM, Sunsoft 5B noise and envelope, VRC7 FM (OPLL) and the FDS
+  wavetable are mixed into the APU output.
+- **Tier 4 mappers:** every board in the list above has unit tests and a console state round-trip.
+- **FDS:**
+  - `.fds` images (with or without the fwNES header) load with the player's own `disksys.rom`, set in
+    Settings → Disk System. Without it, the player sees a plain message.
+  - The library scans `.fds` files (hashed without the fwNES header, like No-Intro) and zipped games now
+    play from the library.
+  - The Player shows a disk side picker; F4 inserts the next side.
+  - Disk writes are saved as `Title - hash.fdssave` patches, never into the image.
+  - Tests use synthetic disks and a stub BIOS written for the test.

@@ -20,7 +20,7 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="GameVault looks for .nes and .zip files in these folders and notices when you add or remove games."
+              Text="GameVault looks for .nes, .fds and .zip files in these folders and notices when you add or remove games."
               TextWrapping="Wrap" />
           <ItemsRepeater ItemsSource="{x:Bind ViewModel.Library.Folders}">
             <ItemsRepeater.ItemTemplate>
@@ -324,6 +324,23 @@
               LostFocus="DumperPath_LostFocus"
               PlaceholderText="C:\INL-retro\inlretro.exe"
               Text="{x:Bind ViewModel.DumperPath, Mode=TwoWay}" />
+        </StackPanel>
+      </Border>
+
+      <!-- Famicom Disk System (SPEC §4.5): the player's own BIOS; GameVault never ships it -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Disk System" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Famicom Disk System games (.fds) need the Disk System BIOS (disksys.rom, 8 KB) from your own console. GameVault doesn't include it. Paste where the file is."
+              TextWrapping="Wrap" />
+          <TextBox
+              AutomationProperties.Name="Disk System BIOS file"
+              LostFocus="FdsBiosPath_LostFocus"
+              PlaceholderText="C:\NES\disksys.rom"
+              Text="{x:Bind ViewModel.FdsBiosPath, Mode=TwoWay}" />
         </StackPanel>
       </Border>
 

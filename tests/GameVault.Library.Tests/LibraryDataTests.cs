@@ -80,6 +80,35 @@ public sealed class LibraryDataTests : IDisposable
     }
 
     [Fact]
+    public void Disk_system_images_are_found_and_hashed_without_the_fwnes_header()
+    {
+        static byte[] Disk(byte seed)
+        {
+            var side = new byte[65500];
+            side[0] = 0x01;
+            "*NINTENDO-HVC*"u8.CopyTo(side.AsSpan(1));
+            side[100] = seed;
+            return side;
+        }
+
+        byte[] withHeader = [.. "FDS\u001A"u8, 1, .. new byte[11], .. Disk(1)];
+        RomHasher.Hash(withHeader).Should().Be(RomHasher.Hash(Disk(1)), "No-Intro hashes FDS images without the fwNES header");
+
+        File.WriteAllBytes(Path.Combine(_fx.Root, "Disk Quest.fds"), withHeader);
+        using (var zip = System.IO.Compression.ZipFile.Open(Path.Combine(_fx.Root, "zipped.zip"), System.IO.Compression.ZipArchiveMode.Create))
+        {
+            using var stream = zip.CreateEntry("Zipped Disk.fds").Open();
+            stream.Write(Disk(2));
+        }
+
+        var result = new LibraryScanner(_fx.Database).Scan([_fx.Root]);
+
+        result.Added.Should().Be(2);
+        LibraryScanner.IsGameFile("x.FDS").Should().BeTrue();
+        LibraryScanner.ReadRom(Path.Combine(_fx.Root, "zipped.zip")).Should().Equal(Disk(2));
+    }
+
+    [Fact]
     public void Rescan_skips_unchanged_files_and_drops_removed_ones()
     {
         var scanner = new LibraryScanner(_fx.Database);

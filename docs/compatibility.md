@@ -102,6 +102,12 @@ underruns, an average latency under 40 ms and a peak under 50 ms.
 | 76 / 88 / 95 / 154 | Namco 108 variants | ✅ Including 95's CHR-selected nametables and 154's one-screen mirroring |
 | 80 / 207 | Taito X1-005 | ✅ Internal RAM; 207 nametables from CHR registers |
 | 152, 180, 184, 185, 232 | Discrete boards | ✅ 185 CHR-disable protection by submapper |
+| 28 | Action 53 | ✅ All PRG modes and game sizes inside the outer bank |
+| 64 | Tengen RAMBO-1 | ✅ 1 KB CHR mode, scanline and CPU-cycle IRQ |
+| 68 | Sunsoft-4 | ✅ CHR-ROM nametables |
+| 82 | Taito X1-017 | ✅ CHR inversion, three unlockable RAM chunks |
+| 228 | Action 52 / Cheetahmen II | ✅ Address-decoded banking, 4-bit RAM |
+| 20 | Famicom Disk System | ✅ With the player's own BIOS: RAM adapter, timer IRQ, drive with gaps and CRC-16/KERMIT, side switching (F4), disk writes saved as a separate patch, FDS wavetable audio with modulation |
 
 Every mapper has a console-level save-state round-trip test (`MapperTests.Console_state_round_trips_for_every_mapper`).
 Save and load take about 0.005–0.008 ms each (budget: 1 ms).

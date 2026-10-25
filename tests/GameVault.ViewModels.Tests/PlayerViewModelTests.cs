@@ -48,6 +48,36 @@ public class PlayerViewModelTests
     }
 
     [Fact]
+    public async Task Disk_system_games_offer_their_sides()
+    {
+        _emulator.DiskSideCount = 2;
+        _emulator.InsertedDiskSide = 0;
+
+        await _vm.StartCommand.ExecuteAsync("disk.fds");
+
+        _vm.IsDiskSystem.Should().BeTrue();
+        _vm.DiskSlots.Should().Equal("No disk", "Disk 1, side A", "Disk 1, side B");
+        _vm.DiskSlotIndex.Should().Be(1);
+
+        _vm.DiskSlotIndex = 2;
+        _emulator.DiskCommands.Should().Equal("insert 1");
+
+        _vm.DiskSlotIndex = 0;
+        _emulator.DiskCommands.Should().Equal("insert 1", "eject");
+        _vm.DiskSlotIndex.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Cartridge_games_have_no_disk_menu()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+
+        _vm.IsDiskSystem.Should().BeFalse();
+        _vm.DiskSlots.Should().BeEmpty();
+        PlayerViewModel.DiskSideName(3).Should().Be("Disk 2, side B");
+    }
+
+    [Fact]
     public async Task Toggle_pause_switches_between_paused_and_running()
     {
         await _vm.StartCommand.ExecuteAsync("game.nes");
@@ -357,6 +387,28 @@ public class PlayerViewModelTests
         public event EventHandler? PracticeRetryRequested;
 
         public event EventHandler? PracticeSplitRequested;
+
+        public int DiskSideCount { get; set; }
+
+        public int? InsertedDiskSide { get; set; }
+
+        public event EventHandler? DiskChanged;
+
+        public List<string> DiskCommands { get; } = [];
+
+        public void InsertDiskSide(int side)
+        {
+            DiskCommands.Add($"insert {side}");
+            InsertedDiskSide = side;
+            DiskChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public void EjectDisk()
+        {
+            DiskCommands.Add("eject");
+            InsertedDiskSide = null;
+            DiskChanged?.Invoke(this, EventArgs.Empty);
+        }
 
         public void PressF9() => ManualPasswordRequested?.Invoke(this, EventArgs.Empty);
 

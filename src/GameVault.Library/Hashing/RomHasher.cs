@@ -12,7 +12,8 @@ public readonly record struct RomHashes(string Crc32, string Sha1)
 
 /// <summary>
 /// Hashes a ROM image without its 16-byte iNES header (and 512-byte trainer, when present), as SPEC §2
-/// requires. Files without an iNES header are hashed whole.
+/// requires. Famicom Disk System images drop their 16-byte fwNES header, as No-Intro's FDS DAT does. Files
+/// without a header are hashed whole.
 /// </summary>
 public static class RomHasher
 {
@@ -30,6 +31,11 @@ public static class RomHasher
         {
             var skip = 16 + ((image[6] & 0x04) != 0 ? 512 : 0);
             return image.Length > skip ? image[skip..] : [];
+        }
+
+        if (image.Length >= 16 && image[0] == 'F' && image[1] == 'D' && image[2] == 'S' && image[3] == 0x1A)
+        {
+            return image[16..];
         }
 
         return image;

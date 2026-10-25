@@ -14,6 +14,8 @@ public sealed class WinUiGameFilePicker : IGameFilePicker
             CommitButtonText = "Play",
         };
         picker.FileTypeFilter.Add(".nes");
+        picker.FileTypeFilter.Add(".fds");
+        picker.FileTypeFilter.Add(".zip");
 
         var result = await picker.PickSingleFileAsync();
         return result?.Path;

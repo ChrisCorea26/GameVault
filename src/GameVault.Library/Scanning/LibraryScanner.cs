@@ -12,8 +12,8 @@ public sealed record ScanResult(int Added, int Updated, int Removed, int Unchang
 }
 
 /// <summary>
-/// Finds the user's ROMs in their library folders (SPEC §6.2): <c>.nes</c> files and <c>.zip</c> files with
-/// exactly one <c>.nes</c> inside. Hashes them without the header and matches them against the catalog by
+/// Finds the user's ROMs in their library folders (SPEC §6.2): <c>.nes</c> and <c>.fds</c> (Famicom Disk
+/// System) files, and <c>.zip</c> files with exactly one of them inside. Hashes them without the header and matches them against the catalog by
 /// SHA-1, then CRC32. Unmatched files are kept as "Unknown / Homebrew". Files whose size and modified time
 /// haven't changed since the last scan are skipped.
 /// </summary>
@@ -142,13 +142,17 @@ public sealed class LibraryScanner(LibraryDatabase database)
         transaction.Commit();
     }
 
-    /// <summary>Reads a .nes file, or the single .nes inside a .zip. Null when it isn't a usable ROM file.</summary>
+    /// <summary>True for the file types GameVault plays: .nes and .fds.</summary>
+    public static bool IsGameFile(string path) =>
+        path.EndsWith(".nes", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".fds", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>Reads a .nes or .fds file, or the single one inside a .zip. Null when it isn't a usable ROM file.</summary>
     public static byte[]? ReadRom(string path)
     {
         if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
         {
             using var zip = ZipFile.OpenRead(path);
-            var entries = zip.Entries.Where(e => e.FullName.EndsWith(".nes", StringComparison.OrdinalIgnoreCase)).ToList();
+            var entries = zip.Entries.Where(e => IsGameFile(e.FullName)).ToList();
             if (entries.Count != 1 || entries[0].Length > MaxRomBytes)
             {
                 return null;
@@ -175,7 +179,9 @@ public sealed class LibraryScanner(LibraryDatabase database)
     private static IEnumerable<string> EnumerateCandidates(string folder)
     {
         var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, MatchCasing = MatchCasing.CaseInsensitive };
-        return Directory.EnumerateFiles(folder, "*.nes", options).Concat(Directory.EnumerateFiles(folder, "*.zip", options));
+        return Directory.EnumerateFiles(folder, "*.nes", options)
+            .Concat(Directory.EnumerateFiles(folder, "*.fds", options))
+            .Concat(Directory.EnumerateFiles(folder, "*.zip", options));
     }
 
     private static bool IsUnder(string path, IEnumerable<string> folders) =>

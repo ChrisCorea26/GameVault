@@ -31,6 +31,12 @@ public sealed record AppSettings
     /// <summary>Full path of the INL Retro-Prog program (inlretro.exe), or empty when no dumper is used (SPEC §8).</summary>
     public string DumperPath { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Full path of the player's own Famicom Disk System BIOS (disksys.rom, 8 KB), or empty. GameVault never
+    /// ships, downloads or links to it (SPEC §4.5).
+    /// </summary>
+    public string FdsBiosPath { get; init; } = string.Empty;
+
     /// <summary>Game volume, 0–100 (0 mutes).</summary>
     public int Volume { get; init; } = 80;
 

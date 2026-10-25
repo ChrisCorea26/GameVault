@@ -10,7 +10,7 @@ public sealed class KeyboardMapping
     /// <summary>Keys reserved for hotkeys (input.md §8). They never reach the game.</summary>
     public static IReadOnlySet<int> Hotkeys { get; } = new HashSet<int>
     {
-        VirtualKeys.Escape, VirtualKeys.Backspace, VirtualKeys.Tab, VirtualKeys.F5, VirtualKeys.F6, VirtualKeys.F7,
+        VirtualKeys.Escape, VirtualKeys.Backspace, VirtualKeys.Tab, VirtualKeys.F4, VirtualKeys.F5, VirtualKeys.F6, VirtualKeys.F7,
         VirtualKeys.F8, VirtualKeys.F9, VirtualKeys.F12,
     };
 

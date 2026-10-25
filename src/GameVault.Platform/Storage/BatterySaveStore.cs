@@ -3,15 +3,18 @@ namespace GameVault.Platform.Storage;
 /// <summary>
 /// Battery-backed cartridge RAM as <c>.sav</c> files in <see cref="AppPaths.SavesDirectory"/>, never next to
 /// the ROM (SPEC §4.5). Files are named "Title - hash.sav" and found by the hash, so renaming a ROM keeps
-/// its save.
+/// its save. Famicom Disk System games use the same scheme with <c>.fdssave</c> disk patches.
 /// </summary>
-public sealed class BatterySaveStore(AppPaths paths)
+public sealed class BatterySaveStore(AppPaths paths, string extension = ".sav")
 {
     public string PathFor(string title, ulong romHash)
     {
         var existing = Find(romHash);
-        return existing ?? Path.Combine(paths.SavesDirectory, $"{SafeName(title)} - {romHash:x16}.sav");
+        return existing ?? Path.Combine(paths.SavesDirectory, $"{SafeName(title)} - {romHash:x16}{extension}");
     }
+
+    /// <summary>The whole save file, or null when there is none.</summary>
+    public byte[]? TryRead(ulong romHash) => Find(romHash) is { } path ? File.ReadAllBytes(path) : null;
 
     /// <summary>Reads the save into <paramref name="destination"/>. Returns false when there is none.</summary>
     public bool TryLoad(ulong romHash, Span<byte> destination)
@@ -63,6 +66,6 @@ public sealed class BatterySaveStore(AppPaths paths)
             return null;
         }
 
-        return Directory.EnumerateFiles(paths.SavesDirectory, $"*{romHash:x16}.sav").FirstOrDefault();
+        return Directory.EnumerateFiles(paths.SavesDirectory, $"*{romHash:x16}{extension}").FirstOrDefault();
     }
 }

@@ -51,7 +51,7 @@ public sealed class LibraryWatcher : IDisposable
     private void OnChange(object sender, FileSystemEventArgs e)
     {
         var path = e.FullPath;
-        if (path.EndsWith(".nes", StringComparison.OrdinalIgnoreCase)
+        if (LibraryScanner.IsGameFile(path)
             || path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)
             || !Path.HasExtension(path)) // a folder
         {
