@@ -272,6 +272,39 @@ public class Tier3MapperTests
     }
 
     [Fact]
+    public void Mmc5_split_screen_draws_its_columns_from_exram()
+    {
+        var mapper = new Mmc5(Rom(5, 32, 128));
+        var ciram = new byte[0x800];
+        ciram[7] = 0x99;
+        mapper.CpuWrite(0x5104, 2); // ExRAM as plain RAM while we fill it
+        for (var column = 0; column < 32; column++)
+        {
+            mapper.CpuWrite((ushort)(0x5C00 + 32 + column), (byte)(0x10 + column)); // row 1 (lines 8-15)
+        }
+
+        mapper.CpuWrite(0x5C00 + 0x3C0, 0b0000_1100); // top-left attribute byte: palette 3 for columns 2-3
+        mapper.CpuWrite(0x5104, 0);    // ExRAM as a nametable: the split can use it
+        mapper.CpuWrite(0x5200, 0x84); // split on, left side, columns 0-3
+        mapper.CpuWrite(0x5201, 8);    // the split starts at its line 8
+        mapper.CpuWrite(0x5202, 3);    // and uses 4 KB CHR bank 3
+
+        // Two dummy fetches end the line; the third identical one (tile 2) starts scanline 0.
+        mapper.ReadNametable(0x2005, ciram);
+        mapper.ReadNametable(0x2005, ciram);
+        mapper.ReadNametable(0x2005, ciram).Should().Be(0x12, "column 2 comes from ExRAM row 1");
+        mapper.ReadNametable(0x23C1, ciram).Should().Be(0xFF, "palette 3, repeated for every quadrant");
+        mapper.PpuRead(0x0125).Should().Be(12, "4 KB bank 3 is 1 KB bank 12, with the split's own fine scroll");
+
+        mapper.ReadNametable(0x2006, ciram).Should().Be(0x13);
+        mapper.ReadNametable(0x23C1, ciram);
+
+        mapper.ReadNametable(0x2007, ciram).Should().Be(0x99, "column 4 is outside the split");
+        mapper.ReadNametable(0x23C1, ciram).Should().Be(0);
+        mapper.PpuRead(0x0125).Should().NotBe(12);
+    }
+
+    [Fact]
     public void Mmc5_finds_scanlines_and_fires_its_irq_while_rendering()
     {
         var console = NesConsole.FromBytes(BankedRom.Build(5, 32, 128));

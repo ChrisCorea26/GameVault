@@ -75,7 +75,7 @@ underruns, an average latency under 40 ms and a peak under 50 ms.
 | 3 | CNROM | ✅ Bus conflicts on submapper 2 |
 | 4 | MMC3 / MMC6 | ✅ IRQ counter with A12 filtering; new (Sharp) behavior by default, old (NEC) on submapper 4; MMC6 RAM on submapper 1 |
 | 7 | AxROM | ✅ One-screen mirroring; bus conflicts on submapper 2 |
-| 5 | MMC5 | ✅ PRG/CHR modes, PRG-RAM banks, ExRAM modes 0–3 incl. extended attributes, fill mode, scanline IRQ, multiplier, 2 pulse + PCM audio. ⏳ Vertical split screen |
+| 5 | MMC5 | ✅ PRG/CHR modes, PRG-RAM banks, ExRAM modes 0–3 incl. extended attributes, fill mode, scanline IRQ, multiplier, vertical split screen, 2 pulse + PCM audio |
 | 9 / 10 | MMC2 / MMC4 | ✅ CHR latches on tiles $FD/$FE |
 | 11 | Color Dreams | ✅ Bus conflicts |
 | 19 | Namco 163 | ✅ Banking, CHR-ROM nametables, CPU-cycle IRQ, wavetable audio (channels averaged) |

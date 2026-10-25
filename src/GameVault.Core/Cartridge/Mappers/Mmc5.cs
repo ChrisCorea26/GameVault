@@ -6,7 +6,8 @@ namespace GameVault.Core.Cartridge.Mappers;
 /// Mapper 5, MMC5 (NESdev Wiki: "MMC5"): four PRG modes with ROM or RAM in each 8 KB slot, four CHR modes with
 /// separate sprite and background sets for 8×16 sprites, 1 KB of ExRAM (nametable, extended attributes,
 /// or plain RAM), fill mode, a scanline IRQ found by watching nametable fetches, and an 8×8 multiplier.
-/// Its sound is <see cref="Mmc5Audio"/>. Not emulated yet: the vertical split screen.
+/// Its sound is <see cref="Mmc5Audio"/>. The vertical split screen draws part of each line from ExRAM with its
+/// own scroll and CHR bank.
 /// </summary>
 public sealed class Mmc5 : MapperBase
 {
@@ -50,6 +51,14 @@ public sealed class Mmc5 : MapperBase
 
     // Extended attribute mode: the ExRAM byte of the tile being fetched.
     private byte _exAttribute;
+
+    // Vertical split ($5200-$5202; NESdev Wiki: "MMC5", vertical split mode).
+    private byte _splitControl;
+    private byte _splitScroll;
+    private byte _splitBank;
+    private bool _splitTile;   // the tile being fetched comes from the split region
+    private int _splitY;       // its line within the split's 240-line picture
+    private int _splitColumn;
 
     public Mmc5(INesRom rom)
         : base(rom, "MMC5")
@@ -158,6 +167,15 @@ public sealed class Mmc5 : MapperBase
             case 0x5104:
                 _exRamMode = value & 3;
                 return;
+            case 0x5200:
+                _splitControl = value;
+                return;
+            case 0x5201:
+                _splitScroll = value;
+                return;
+            case 0x5202:
+                _splitBank = value;
+                return;
             case 0x5105:
                 _ntMapping = value;
                 return;
@@ -239,7 +257,13 @@ public sealed class Mmc5 : MapperBase
 
         var offset = address & 0x3FF;
         var isAttribute = offset >= 0x3C0;
-        if (_exRamMode == 1 && _ntReadsThisLine is <= 64 or > 80)
+        var backgroundFetch = _ntReadsThisLine is <= 64 or > 80;
+        if (backgroundFetch && SplitFetch(isAttribute) is { } split)
+        {
+            return split;
+        }
+
+        if (_exRamMode == 1 && backgroundFetch)
         {
             // Extended attributes: each tile's palette and 4 KB CHR bank come from ExRAM.
             if (!isAttribute)
@@ -259,6 +283,48 @@ public sealed class Mmc5 : MapperBase
             2 => _exRamMode <= 1 ? _exRam[offset] : (byte)0,
             _ => isAttribute ? _fillAttribute : _fillTile,
         };
+    }
+
+    /// <summary>
+    /// The split region's nametable and attribute bytes, from ExRAM, or null outside it. Fetch counting:
+    /// read 1 is the nametable byte of tile 2 (tiles 0 and 1 were fetched at the end of the line before), and
+    /// reads 81-84 fetch tiles 0 and 1 of the next line.
+    /// </summary>
+    private byte? SplitFetch(bool isAttribute)
+    {
+        if (!isAttribute)
+        {
+            _splitTile = false;
+            if ((_splitControl & 0x80) == 0 || _exRamMode > 1 || !_inFrame)
+            {
+                return null;
+            }
+
+            var n = _ntReadsThisLine;
+            var nextLine = n > 80;
+            var column = nextLine ? (n - 81) / 2 : (n - 1) / 2 + 2;
+            var threshold = _splitControl & 0x1F;
+            var rightSide = (_splitControl & 0x40) != 0;
+            _splitTile = rightSide ? column >= threshold : column < threshold;
+            if (!_splitTile)
+            {
+                return null;
+            }
+
+            var y = _splitScroll + _scanline + (nextLine ? 1 : 0);
+            _splitY = y % 240;
+            _splitColumn = column & 31;
+            return _exRam[(_splitY >> 3) * 32 + _splitColumn];
+        }
+
+        if (!_splitTile)
+        {
+            return null;
+        }
+
+        var attributes = _exRam[0x3C0 + (_splitY >> 5) * 8 + (_splitColumn >> 2)];
+        var shift = ((_splitY >> 2) & 4) | (_splitColumn & 2);
+        return (byte)(((attributes >> shift) & 3) * 0x55);
     }
 
     public override void WriteNametable(ushort address, byte value, byte[] ciram)
@@ -287,6 +353,13 @@ public sealed class Mmc5 : MapperBase
         _lastNtAddress = 0xFFFF;
         _sameNtReads = 0;
         var spriteFetch = _ntReadsThisLine is > 64 and <= 80;
+        if (_splitTile && !spriteFetch)
+        {
+            // The split has its own 4 KB bank and fine scroll: keep the tile and plane, replace the row.
+            var row = (address & 0x0FF8) | (_splitY & 7);
+            return Chr[((_splitBank << 12) | row) % Chr.Length];
+        }
+
         if (_exRamMode == 1 && !spriteFetch && _inFrame)
         {
             var bank = (_exAttribute & 0x3F) | (_chrUpper << 6);
@@ -465,6 +538,12 @@ public sealed class Mmc5 : MapperBase
         writer.WriteInt32(_cyclesSincePpuRead);
         writer.WriteByte(_exAttribute);
         _audio.Save(writer);
+        writer.WriteByte(_splitControl);
+        writer.WriteByte(_splitScroll);
+        writer.WriteByte(_splitBank);
+        writer.WriteBool(_splitTile);
+        writer.WriteInt32(_splitY);
+        writer.WriteInt32(_splitColumn);
     }
 
     protected override void LoadRegisters(StateReader reader)
@@ -507,6 +586,12 @@ public sealed class Mmc5 : MapperBase
         _cyclesSincePpuRead = reader.ReadInt32();
         _exAttribute = reader.ReadByte();
         _audio.Load(reader);
+        _splitControl = reader.ReadByte();
+        _splitScroll = reader.ReadByte();
+        _splitBank = reader.ReadByte();
+        _splitTile = reader.ReadBool();
+        _splitY = reader.ReadInt32();
+        _splitColumn = reader.ReadInt32();
         UpdatePrg();
         UpdateChr();
     }

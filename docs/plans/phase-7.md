@@ -74,6 +74,8 @@ The parts that need decisions:
   - The Player shows a disk side picker; F4 inserts the next side.
   - Disk writes are saved as `Title - hash.fdssave` patches, never into the image.
   - Tests use synthetic disks and a stub BIOS written for the test.
+- **MMC5 vertical split screen:** columns left or right of the threshold come from ExRAM, with their own
+  scroll and 4 KB CHR bank.
 - **Netplay engine** (`GameVault.Platform/Netplay`), tested over a simulated lossy link:
   - Rollback with input prediction and an input delay of 0–2 frames. It predicts at most 8 frames
     ahead, then waits.
