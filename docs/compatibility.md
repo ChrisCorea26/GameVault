@@ -4,7 +4,7 @@ This page will be generated in CI from the test-ROM harness (SPEC §11.2). Until
 at the end of each phase. Run `tests/TestRoms/fetch-test-roms.sh` (or `.ps1`) and then `dotnet test` to
 reproduce it.
 
-_Last updated: Phase 4._
+_Last updated: Phase 5._
 
 ## CPU
 
@@ -85,3 +85,11 @@ Save and load take about 0.005–0.008 ms each (budget: 1 ms).
 |---|---|---|---|
 | mmc3_test_2 | 1-clocking … 5-MMC3 (5) | ✅ Pass | |
 | mmc3_test_2 | 6-MMC3_alt | ✅ Pass as submapper 4 | Expects the old (NEC) IRQ behavior; the test marks the header as NES 2.0 submapper 4 |
+
+## Input devices
+
+| Device | Status | Notes |
+|---|---|---|
+| Standard controller | ✅ | Two ports; turbo and pads in the platform layer |
+| Zapper | ✅ | Port 2. Light sense needs a bright pixel the beam drew within the last 20 scanlines (NESdev Wiki: "Zapper"). The mouse aims and the left button fires. |
+| Four Score | ✅ Core | Players 3–4 and the signature bits; the settings UI for four ports is deferred to Phase 6 |

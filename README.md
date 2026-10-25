@@ -18,8 +18,9 @@ full feature specification and [CLAUDE.md](CLAUDE.md) for the contributor rules.
 | 2 | PPU, NROM rendering, Win2D game view, keyboard input | ✅ PPU suites and golden images pass |
 | 3 | APU, audio, SDL controllers | ✅ blargg APU suites and the 30-minute audio soak pass |
 | 4 | Tier 1 mappers, save states, run-ahead, video presets | ✅ MMC3 IRQ tests and state round-trips for every mapper pass |
-| 5 | Library, timeline, rewind, Zapper | Next |
-| 6–7 | Signature features, netplay | Planned |
+| 5 | Library, timeline, rewind, Zapper | ✅ Zero-config test (empty library → add folder → playing) passes |
+| 6 | Passwords, journal, assist/practice, Tier 2–3 mappers, dumper | Next |
+| 7 | Netplay, FDS, Tier 4 mappers | Planned |
 
 Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md).
 

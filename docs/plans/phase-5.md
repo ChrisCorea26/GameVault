@@ -134,3 +134,34 @@ Password capture, journal, assist/practice modes, Tier 2–3 mappers, dumper (Ph
 **Bundled homebrew (SPEC §6.4)** needs titles whose authors clearly permit redistribution. Choosing them
 needs a license review by the owner, so the Library falls back to the empty-state flow until titles are
 picked.
+
+## Results
+- **Zero-config test passes** (`Platform.Tests/ZeroConfigTests`). It uses the real SQLite library, scanner
+  and emulator:
+  1. The Library is empty.
+  2. Add a ROM folder; the scan finds the game.
+  3. Open Game Details, then Play.
+  4. The game is running and emulating frames.
+
+  It finishes in about a second, with no Settings visit.
+- **Library:**
+  - DAT import (No-Intro name tags) and scanning (`.nes`, single-`.nes` `.zip`, unknown files).
+  - Rescan skips unchanged files and drops removed ones; catalog imports re-match earlier scans.
+  - 1,000 files scan in well under the 10 s budget.
+  - Folder watching is debounced.
+- **Timeline:**
+  - Unlimited states with thumbnails; rename, pin, and delete with undo.
+  - One auto-exit "resume" point per game; Phase 4 slots are imported once.
+- **Rewind:**
+  - Exact restores, and capture resumes cleanly after rewinding.
+  - About 1–2 KB per entry, so a minute is a small fraction of the default 256 MB cap.
+- **Zapper:** light sense depends on brightness and on how recently the beam drew the pixel. The mouse aims
+  through the same layout the renderer uses.
+- **Four Score:** done in the core (players 3–4 with the signature), selected by game profile.
+
+### Deferred
+- **Players 3–4 in the input settings UI and port assignment**: `docs/design/input.md` lists them for
+  Phase 5. The core and profiles support the Four Score; extending port assignment and Settings → Input to
+  four ports moves to Phase 6 with the other input work.
+- **Bundled homebrew (SPEC §6.4)**: needs titles whose licenses clearly allow redistribution. Choosing them
+  is the owner's decision. Until then, the empty Library leads with **Add a ROM folder**.
