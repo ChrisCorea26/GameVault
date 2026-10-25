@@ -270,6 +270,24 @@ The **Passwords panel** lists saved passwords per game with a copy button. Ship 
 
 ---
 
+### 7.9 Game-aware features (Phase 9)
+These build on **memory maps**. A memory map is a small JSON file per game, keyed by headerless SHA-1, that says where the game keeps facts in RAM: lives, the current room, health. Memory maps are documented like password definitions, so the community can add more. They contain addresses only, never ROM data.
+- **"Rewind to before I died."** When the lives counter drops, the timeline gets a marker. One button, or the Backspace hotkey held with Shift, returns to about 5 seconds before the death.
+- **Automatic maps.** GameVault records each room or screen the player visits (room id from RAM, placed on a grid by the memory map) with a thumbnail. It builds a map image of where they have been and shows it in the journal.
+- **"Previously on…"** When a game is opened after a break of a day or more, the Player shows a recap card: last session length, latest screenshots and journal note, newest password, the resume point, and the map. Continue, or dismiss.
+- **Family profiles.** Each person gets their own library status, saves, timeline, journal, codes and settings.
+  - A parent PIN protects profile settings.
+  - Optional daily play-time limits warn 5 minutes before the end and then save and pause.
+  - Profiles are switched from the title bar.
+- **Verified challenges.** A player shares a challenge as a file: a save state, a goal (memory-map conditions, such as "boss HP = 0 with lives ≥ 3") and a time limit. The other player's attempt is saved as an input recording. GameVault replays it on the deterministic core to confirm the result, with no video and no server.
+- **Stat overlays.** Values from the memory map (exact health, boss HP, hidden timers) are drawn over the game in a small overlay, toggled per game.
+
+### 7.10 RetroAchievements (Phase 10)
+- Support for [RetroAchievements](https://retroachievements.org): sign in with the player's own RetroAchievements account; games are identified by RetroAchievements' NES hash.
+- Achievement conditions are evaluated on the emulation thread after every frame, the same way as RetroAchievements' reference implementation (rcheevos). Unlocks show as notifications, plus leaderboards and rich presence.
+- **Hardcore mode** follows RetroAchievements' rules: no save-state loading, rewind, slow motion, codes or run-ahead beyond what they allow.
+- RetroAchievements must approve the emulator for hardcore unlocks; that registration is the owner's task.
+
 ## 8. Cartridge Dumper Integration (Phase 6)
 - Support **INL Retro-Prog** first (open-source USB dumper). Initial integration shells out to its CLI tool; a native USB implementation is a later option.
 - Flow: *Library → Dump Cartridge* → pick the board/mapper (pre-filled from a catalog search) → dump → verify the hash against the catalog → add to library and mark as "Owned: Cartridge + Digital dump."
@@ -357,6 +375,8 @@ Each phase ends with all tests green and a tagged release.
 | **6. Signature features** | Password capture, journal, assist/practice modes, Tier 2–3 mappers, dumper integration | Password capture works for the 5 launch titles; dumper flow verified on hardware |
 | **7. Stretch** | Rollback netplay, FDS, Tier 4 mappers, expansion audio completion | — |
 | **8. Game Genie codes** | Game Genie and RAM code engine, per-game code library, import/export, Player and Game Details UI, bundled code database | Codes decode and apply correctly in tests; codes can be added, toggled and imported for a game; the screens render under `--sample-data` |
+| **9. Game-aware features** | Memory maps, rewind-to-before-death markers, automatic maps, "Previously on…" recap, family profiles, verified challenges, stat overlays | Each feature works end to end with synthetic test ROMs and memory maps; the screens render under `--sample-data`; launch memory maps for real games are listed for the owner to verify |
+| **10. RetroAchievements** | Sign-in, NES hashing, achievement/leaderboard/rich-presence runtime, hardcore rules, notifications | Achievement conditions pass rcheevos' published test cases; login and unlock flow work against RetroAchievements (needs the owner's account and RetroAchievements' approval for hardcore) |
 
 ---
 
