@@ -1,6 +1,7 @@
 using GameVault.Core.Bus;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Cpu;
+using GameVault.Core.Input;
 using GameVault.Core.Ppu;
 using GameVault.Core.State;
 
@@ -18,14 +19,14 @@ public sealed class NesConsole : IStateful
     {
         Rom = rom;
         Mapper = MapperFactory.Create(rom);
-        Ppu = new PpuTimingStub();
+        Ppu = new Ppu2C02(Mapper);
         var clock = rom.TvSystem switch
         {
             TvSystem.Pal => ClockRatio.Pal,
             TvSystem.Dendy => ClockRatio.Dendy,
             _ => ClockRatio.Ntsc,
         };
-        Bus = new NesBus(Ppu, Mapper, clock);
+        Bus = new NesBus(Ppu, Mapper, clock, Controller1, Controller2);
         Cpu = new Cpu6502(Bus);
         Bus.AttachCpu(Cpu);
     }
@@ -36,9 +37,13 @@ public sealed class NesConsole : IStateful
 
     public NesBus Bus { get; }
 
-    public PpuTimingStub Ppu { get; }
+    public Ppu2C02 Ppu { get; }
 
     public IMapper Mapper { get; }
+
+    public StandardController Controller1 { get; } = new();
+
+    public StandardController Controller2 { get; } = new();
 
     public static NesConsole FromBytes(ReadOnlySpan<byte> romData) => new(INesRom.Parse(romData));
 
@@ -50,9 +55,32 @@ public sealed class NesConsole : IStateful
     }
 
     /// <summary>The console's reset button.</summary>
-    public void Reset() => Cpu.Reset();
+    public void Reset()
+    {
+        Ppu.Reset();
+        Cpu.Reset();
+    }
 
     public void StepInstruction() => Cpu.Step();
+
+    /// <summary>
+    /// Sets the buttons for port 0 (Player 1) or 1 (Player 2). The platform layer calls this between frames
+    /// with the merged state for each port (docs/design/input.md §2).
+    /// </summary>
+    public void SetControllerState(int port, ControllerState state)
+    {
+        switch (port)
+        {
+            case 0:
+                Controller1.State = state;
+                break;
+            case 1:
+                Controller2.State = state;
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(port), port, "Only ports 0 and 1 exist without a Four Score.");
+        }
+    }
 
     /// <summary>Runs until the PPU starts a new frame.</summary>
     public void RunFrame()
@@ -64,8 +92,19 @@ public sealed class NesConsole : IStateful
         }
     }
 
-    /// <summary>The next instruction in nestest.log format.</summary>
-    public string Trace() => CpuTracer.Format(Cpu, Bus.Peek, Ppu.Scanline, Ppu.Dot);
+    /// <summary>The next instruction in nestest.log format, with the PPU position as of the CPU's clock.</summary>
+    public string Trace()
+    {
+        var scanline = Ppu.Scanline;
+        var dot = Ppu.Dot + Bus.PendingPpuDots;
+        if (dot >= Ppu2C02.DotsPerScanline)
+        {
+            dot -= Ppu2C02.DotsPerScanline;
+            scanline = (scanline + 1) % Ppu2C02.ScanlinesPerFrame;
+        }
+
+        return CpuTracer.Format(Cpu, Bus.Peek, scanline, dot);
+    }
 
     public void SaveState(StateWriter writer)
     {
@@ -74,6 +113,8 @@ public sealed class NesConsole : IStateful
         Bus.SaveState(writer);
         Ppu.SaveState(writer);
         Mapper.SaveState(writer);
+        Controller1.SaveState(writer);
+        Controller2.SaveState(writer);
         writer.EndChunk();
     }
 
@@ -84,6 +125,8 @@ public sealed class NesConsole : IStateful
         Bus.LoadState(reader);
         Ppu.LoadState(reader);
         Mapper.LoadState(reader);
+        Controller1.LoadState(reader);
+        Controller2.LoadState(reader);
         reader.EndChunk();
     }
 }
