@@ -99,7 +99,6 @@
 - **Downloaded test ROMs:**
   - `mmc3_test_2` rom singles 1–5. `6-MMC3_alt` expects the NEC behavior and is listed as expected-fail
     under the default submapper.
-  - `MMC1_A12`.
   - Deferred combined ROMs: `instr_test-v5` `all_instrs` / `official_only`, the `ppu_vbl_nmi` combined
     ROM, `ppu_read_buffer`, and `cpu_dummy_reads` / `cpu_dummy_writes`.
 - Unit tests per mapper:
@@ -114,3 +113,22 @@
 Tier 2+ mappers (Phase 6), the visual timeline and rewind (Phase 5), and the game database's run-ahead
 "safe" flag (Phase 5, with the catalog). Until then, run-ahead defaults to 1 frame for every game, and the
 user can change it.
+
+## Results
+- **MMC3:** `mmc3_test_2` 1–5 pass. `6-MMC3_alt` passes when declared as NES 2.0 submapper 4.
+  - The A12 filter needs about 4 CPU cycles of low time. The 9-dot low from dot 337 to dot 5 must not
+    count when the background uses $1000; that is `4-scanline_timing` #12.
+- **Deferred combined ROMs now pass:** `all_instrs`, `official_only`, `ppu_vbl_nmi`, `test_ppu_read_buffer`
+  and `cpu_dummy_writes`. `cpu_dummy_reads` is checked by golden image.
+- **`MMC1_A12` dropped:** it is an interactive visual test (adjust a delay with the D-pad), not
+  machine-checkable. The combined MMC1 ROMs cover MMC1.
+- **State:** every mapper round-trips at console level. Snapshots take about 0.005–0.008 ms to save or
+  load and are about 14 KB.
+- **Run-ahead:**
+  - With N frames, the shown frame equals a plain console's frame N ahead.
+  - The real timeline is unchanged.
+  - Run-ahead switches itself off after 30 frames in a row over budget.
+- **D3D11:** the presets are checked on Windows CI with WARP by reading pixels back. Win2D remains the
+  fallback, and the fallback reason goes to the log.
+- **Speed:** unchanged by the per-dot sprite fetches (about 10× real time on nestest in Release on the cloud
+  container).

@@ -39,3 +39,9 @@ All downloads are pinned to commit `95d8f621ae55cee0d09b91519a8989ae0e64753b` of
 | `dmc_tests/*.nes` (4) | dmc_tests | Shay Green (blargg) | No explicit redistribution license | Phase 3: DMC (run-to-completion only) |
 | `sprdma_and_dmc_dma/*.nes` (2) | sprdma_and_dmc_dma | Shay Green (blargg) | No explicit redistribution license | Phase 3: OAM/DMC DMA overlap (known gap) |
 | `dmc_dma_during_read4/*.nes` (5) | dmc_dma_during_read4 | Shay Green (blargg) | No explicit redistribution license | Phase 3: DMC DMA during reads (not yet asserted) |
+| `mmc3_test_2/*.nes` (6 single ROMs) | mmc3_test_2 | Shay Green (blargg) | No explicit redistribution license | Phase 4: MMC3 IRQ counter |
+| `instr_test-v5/all_instrs.nes`, `official_only.nes` | instr_test-v5 | Shay Green (blargg) | No explicit redistribution license | Phase 4: combined ROMs (MMC1) |
+| `ppu_vbl_nmi/ppu_vbl_nmi.nes` | ppu_vbl_nmi | Shay Green (blargg) | No explicit redistribution license | Phase 4: combined ROM (MMC1) |
+| `ppu_read_buffer/test_ppu_read_buffer.nes` | ppu_read_buffer | Joel Yliluoma (Bisqwit) | No explicit redistribution license | Phase 4: $2007 read buffer (CNROM) |
+| `cpu_dummy_reads/cpu_dummy_reads.nes` | cpu_dummy_reads | Shay Green (blargg) | No explicit redistribution license | Phase 4: dummy reads (CNROM) |
+| `cpu_dummy_writes/*.nes` (2) | cpu_dummy_writes | Joel Yliluoma (Bisqwit) | No explicit redistribution license | Phase 4: dummy writes |

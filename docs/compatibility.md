@@ -4,7 +4,7 @@ This page will be generated in CI from the test-ROM harness (SPEC §11.2). Until
 at the end of each phase. Run `tests/TestRoms/fetch-test-roms.sh` (or `.ps1`) and then `dotnet test` to
 reproduce it.
 
-_Last updated: Phase 3._
+_Last updated: Phase 4._
 
 ## CPU
 
@@ -27,7 +27,9 @@ _Last updated: Phase 3._
 | instr_test-v5 | 14-rti | ✅ Pass | |
 | instr_test-v5 | 15-brk | ✅ Pass | |
 | instr_test-v5 | 16-special | ✅ Pass | |
-| instr_test-v5 | all_instrs / official_only | ⏳ Phase 4 | MMC1 board |
+| instr_test-v5 | all_instrs / official_only | ✅ Pass | Combined ROMs on MMC1 |
+| cpu_dummy_reads | | ✅ Golden image | CNROM; reports on screen only |
+| cpu_dummy_writes | oam, ppumem | ✅ Pass | |
 | instr_timing | 1-instr_timing, 2-branch_timing | ✅ Pass | |
 | cpu_interrupts_v2 | 1-cli_latency … 5-branch_delays_irq (5) | ✅ Pass | |
 
@@ -45,8 +47,8 @@ Each ROM is also checked against a golden image of its final screen (`tests/Game
 | ppu_open_bus | | ✅ Pass | I/O latch with per-bit decay |
 | oam_read | | ✅ Pass | |
 | nestest | Menu screen | ✅ Golden image | Normal (non-automation) mode |
-| ppu_vbl_nmi | Combined ROM | ⏳ Phase 4 | MMC1 board |
-| ppu_read_buffer | test_ppu_read_buffer | ⏳ Phase 4 | CNROM board |
+| ppu_vbl_nmi | Combined ROM | ✅ Pass | MMC1 |
+| ppu_read_buffer | test_ppu_read_buffer | ✅ Pass | CNROM |
 
 ## APU
 
@@ -68,3 +70,18 @@ underruns, an average latency under 40 ms and a peak under 50 ms.
 | Mapper | Board | Status |
 |---|---|---|
 | 0 | NROM | ✅ PRG-ROM, PRG-RAM, CHR-ROM/RAM, mirroring |
+| 1 | MMC1 / SxROM | ✅ Serial writes (consecutive-write rule), all PRG/CHR modes, SUROM 512 KB, SOROM/SXROM PRG-RAM banks |
+| 2 | UxROM | ✅ Bus conflicts on submapper 2 |
+| 3 | CNROM | ✅ Bus conflicts on submapper 2 |
+| 4 | MMC3 / MMC6 | ✅ IRQ counter with A12 filtering; new (Sharp) behavior by default, old (NEC) on submapper 4; MMC6 RAM on submapper 1 |
+| 7 | AxROM | ✅ One-screen mirroring; bus conflicts on submapper 2 |
+
+Every mapper has a console-level save-state round-trip test (`MapperTests.Console_state_round_trips_for_every_mapper`).
+Save and load take about 0.005–0.008 ms each (budget: 1 ms).
+
+### MMC3
+
+| Suite | Tests | Status | Notes |
+|---|---|---|---|
+| mmc3_test_2 | 1-clocking … 5-MMC3 (5) | ✅ Pass | |
+| mmc3_test_2 | 6-MMC3_alt | ✅ Pass as submapper 4 | Expects the old (NEC) IRQ behavior; the test marks the header as NES 2.0 submapper 4 |
