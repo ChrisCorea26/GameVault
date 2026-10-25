@@ -6,7 +6,7 @@ namespace GameVault.Library.Data;
 /// The library database (<c>library.db</c>): catalog, files, collection and playtime. Metadata only, never
 /// ROM contents. The schema version is kept in <c>PRAGMA user_version</c> and migrated on open.
 /// </summary>
-public sealed class LibraryDatabase
+public sealed class LibraryDatabase : IDisposable
 {
     public const int SchemaVersion = 1;
 
@@ -30,6 +30,17 @@ public sealed class LibraryDatabase
         }
 
         Migrate();
+    }
+
+    /// <summary>Closes pooled connections so the file can be moved or deleted (Windows keeps it locked otherwise).</summary>
+    public void Dispose()
+    {
+        using (var connection = new SqliteConnection(_connectionString))
+        {
+            SqliteConnection.ClearPool(connection);
+        }
+
+        _keepAlive?.Dispose();
     }
 
     public SqliteConnection Open()

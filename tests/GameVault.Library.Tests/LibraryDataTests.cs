@@ -162,9 +162,13 @@ public sealed class LibraryDataTests : IDisposable
     public void Database_on_disk_survives_reopening()
     {
         var path = Path.Combine(_fx.Root, "library.db");
-        new LibraryRepository(new LibraryDatabase(path)).AddFolder(_fx.Root);
+        using (var first = new LibraryDatabase(path))
+        {
+            new LibraryRepository(first).AddFolder(_fx.Root);
+        }
 
-        new LibraryRepository(new LibraryDatabase(path)).GetFolders().Should().Equal(Path.GetFullPath(_fx.Root));
+        using var second = new LibraryDatabase(path);
+        new LibraryRepository(second).GetFolders().Should().Equal(Path.GetFullPath(_fx.Root));
     }
 
     /// <summary>SPEC §10: 1,000 files in under 10 s on an SSD. CI gets the same budget.</summary>

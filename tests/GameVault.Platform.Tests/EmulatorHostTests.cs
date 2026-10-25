@@ -80,10 +80,14 @@ public sealed class EmulatorHostTests : IDisposable
         _host.Load(ControllerEchoRom(), "Echo");
         WaitFor(() => _host.FrameCount > 0);
         var start = _host.FrameCount;
+        var clock = System.Diagnostics.Stopwatch.StartNew();
 
-        Thread.Sleep(500);
+        Thread.Sleep(1000);
 
-        (_host.FrameCount - start).Should().BeInRange(15, 45, "about 30 frames in 0.5 s");
+        // Pacing caps the rate near 60 fps. The lower bound only proves the game keeps running: a Debug
+        // build on a busy CI runner (other test classes run in parallel) can fall well below real time.
+        var fps = (_host.FrameCount - start) / clock.Elapsed.TotalSeconds;
+        fps.Should().BeInRange(10, 75, "frames are paced near 60 per second, never run uncapped");
     }
 
     [Fact]

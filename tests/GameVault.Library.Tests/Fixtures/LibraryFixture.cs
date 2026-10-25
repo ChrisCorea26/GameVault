@@ -74,6 +74,7 @@ public sealed class LibraryFixture : IDisposable
 
     public void Dispose()
     {
+        Database.Dispose();
         if (Directory.Exists(Root))
         {
             Directory.Delete(Root, recursive: true);

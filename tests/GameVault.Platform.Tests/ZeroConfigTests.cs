@@ -40,7 +40,8 @@ public sealed class ZeroConfigTests : IDisposable
 
         // Fresh install: empty database and app folder.
         var paths = new AppPaths(Path.Combine(_root, "AppData"));
-        using var library = new LibraryService(new LibraryDatabase(paths.LibraryDatabase), new GameProfiles(null));
+        using var database = new LibraryDatabase(paths.LibraryDatabase);
+        using var library = new LibraryService(database, new GameProfiles(null));
         using var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), new InMemorySettingsStore(), paths: paths);
         host.ProfileResolver = library.ResolveProfile;
         var timeline = new TimelineService(host, new TimelineStore(paths.StatesDirectory));
