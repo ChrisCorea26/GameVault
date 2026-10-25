@@ -3,6 +3,7 @@ using System.Diagnostics;
 using GameVault.Core;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Cartridge.Fds;
+using GameVault.Core.Cheats;
 using GameVault.Core.Ppu;
 using GameVault.Platform.Audio;
 using GameVault.Core.Input;
@@ -50,6 +51,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private int _diskSideRequested;
     private int _reportedDiskSide = -1;
     private volatile int _insertedDiskSide = -1;
+
+    // Codes (SPEC §7.8): the engine last reported, to notice when a load or rewind brought back other codes.
+    private CheatEngine? _seenCheats;
+    private volatile bool _cheatsActive;
+    private bool _codesOffKeyHeld;
     private readonly RunAhead _runAhead = new();
     private readonly RewindBuffer _rewind = new();
     private readonly PasswordWatcher _passwords = new();
@@ -140,6 +146,28 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     /// <summary>F12: save a screenshot to the journal (SPEC §7.4). Raised on the UI thread.</summary>
     public event EventHandler? ScreenshotRequested;
+
+    /// <summary>
+    /// The active codes changed without <see cref="SetCheats"/>: a save state or rewind brought back the codes
+    /// that were on then, or F3 turned them all off. Raised on the UI thread with the codes now on.
+    /// </summary>
+    public event EventHandler<IReadOnlyList<CheatCode>>? CheatsChanged;
+
+    public bool CheatsActive => _cheatsActive;
+
+    public void SetCheats(IReadOnlyList<CheatCode> codes)
+    {
+        var copy = codes.ToList();
+        _cheatsActive = copy.Count > 0;
+        Post(() =>
+        {
+            if (_console is { } console)
+            {
+                console.SetCheats(copy);
+                _seenCheats = console.Bus.Cheats;
+            }
+        });
+    }
 
     /// <summary>A disk side was inserted or ejected (Famicom Disk System). Raised on the UI thread.</summary>
     public event EventHandler? DiskChanged;
@@ -394,6 +422,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         {
             FlushBattery(); // the previous game's
             _console = console;
+            _seenCheats = null;
+            _cheatsActive = false;
             _diskOriginal = diskOriginal;
             _diskSaved = diskSaved;
             _diskSideRequested = 0;
@@ -718,6 +748,14 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 console.Zapper.Trigger = trigger;
             }
 
+            if (console.Bus.Cheats != _seenCheats)
+            {
+                _seenCheats = console.Bus.Cheats;
+                var codes = console.Cheats;
+                _cheatsActive = codes.Count > 0;
+                Raise(() => CheatsChanged?.Invoke(this, codes));
+            }
+
             _rewind.OnFrame(console);
             if (console.Fds is { } drive)
             {
@@ -887,6 +925,16 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
 
         _diskKeyHeld = diskKey;
+
+        // F3: every code off at once (SPEC §7.8; input.md §8).
+        var codesOff = _input.IsHotkeyHeld(VirtualKeys.F3);
+        if (codesOff && !_codesOffKeyHeld && _console is { Cheats.Count: > 0 } withCodes)
+        {
+            withCodes.SetCheats([]);
+            RaiseNotice("All codes are off.");
+        }
+
+        _codesOffKeyHeld = codesOff;
 
         Edge(VirtualKeys.F9, ref _passwordKeyHeld, () => ManualPasswordRequested?.Invoke(this, EventArgs.Empty));
         Edge(VirtualKeys.F12, ref _screenshotKeyHeld, () => ScreenshotRequested?.Invoke(this, EventArgs.Empty));

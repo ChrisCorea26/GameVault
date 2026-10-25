@@ -23,6 +23,7 @@
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
       </Grid.RowDefinitions>
 
       <!-- Cover: the user's own picture (SPEC §6.5), or initials -->
@@ -166,6 +167,12 @@
           </ItemsRepeater.ItemTemplate>
         </ItemsRepeater>
         <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.Passwords.CopiedText, Mode=OneWay}" />
+      </StackPanel>
+
+      <!-- SPEC §7.8: Game Genie and RAM codes -->
+      <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Spacing="8">
+        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Codes" />
+        <controls:CodesPanel MaxWidth="720" HorizontalAlignment="Left" ViewModel="{x:Bind ViewModel.Codes}" />
       </StackPanel>
 
       <!-- SPEC §7.4: journal -->

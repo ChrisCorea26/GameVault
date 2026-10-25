@@ -24,6 +24,7 @@ public static class VirtualKeys
     public const int Z = 0x5A;
     public const int Comma = 0xBC;
     public const int Period = 0xBE;
+    public const int F3 = 0x72;
     public const int F4 = 0x73;
     public const int F5 = 0x74;
     public const int F6 = 0x75;

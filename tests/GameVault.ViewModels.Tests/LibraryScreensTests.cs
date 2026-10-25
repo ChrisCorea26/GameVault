@@ -21,7 +21,8 @@ public class LibraryScreensTests
         _navigation,
         new SampleGameFilePicker(),
         new PasswordsViewModel(_passwords, _clipboard),
-        new JournalViewModel(_journal, new SampleGameFilePicker()));
+        new JournalViewModel(_journal, new SampleGameFilePicker()),
+        new CodesViewModel(new SampleCheatService(), new SampleCodeFilePicker()));
 
     [Fact]
     public async Task Passwords_panel_lists_copies_and_deletes()

@@ -131,6 +131,10 @@ public sealed class NesBus : ICpuBus, IStateful
         else
         {
             value = _mapper.CpuRead(address, _openBus);
+            if (Cheats is { } cheats && address >= 0x8000)
+            {
+                value = cheats.ReadRom(address, value);
+            }
         }
 
         _openBus = value;
@@ -184,6 +188,24 @@ public sealed class NesBus : ICpuBus, IStateful
     }
 
     /// <summary>Side-effect-free read for the tracer. I/O registers read as $FF, matching nestest.log.</summary>
+    /// <summary>Active Game Genie and RAM codes (SPEC §7.8), or null. Set between frames.</summary>
+    public Cheats.CheatEngine? Cheats { get; set; }
+
+    /// <summary>
+    /// Writes RAM without a bus cycle, for RAM codes: internal RAM, or cartridge RAM at $6000-$7FFF.
+    /// </summary>
+    public void PokeRam(ushort address, byte value)
+    {
+        if (address < 0x2000)
+        {
+            _ram[address & 0x7FF] = value;
+        }
+        else if (address is >= 0x6000 and < 0x8000)
+        {
+            _mapper.CpuWrite(address, value);
+        }
+    }
+
     public byte Peek(ushort address) => address switch
     {
         < 0x2000 => _ram[address & 0x7FF],

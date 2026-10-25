@@ -34,6 +34,9 @@ public sealed class AppPaths
     /// <summary>Game journals: notes, screenshots, maps (SPEC §7.4).</summary>
     public string JournalDirectory => Path.Combine(Root, "Journal");
 
+    /// <summary>The player's Game Genie and RAM codes, one file per game (SPEC §7.8).</summary>
+    public string CheatsDirectory => Path.Combine(Root, "Cheats");
+
     /// <summary>Practice personal bests (SPEC §7.6).</summary>
     public string PracticeDirectory => Path.Combine(Root, "Practice");
 

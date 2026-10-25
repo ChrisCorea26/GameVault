@@ -47,7 +47,8 @@ Player and Game Details UI, and a bundled code database.
   - Player → **Codes** flyout with toggles, plus a hotkey to turn all codes off at once (recorded in
     `docs/design/input.md` §8).
   - A small "Codes on" badge on the Player while any code is active.
-- **CI smoke test** adds `--sample-data --page=codes`.
+- **CI smoke test:** the Codes list lives on Game Details and in the Player's flyout rather than on a page
+  of its own, so the existing `--page=gamedetails` and `--page=player` launches cover it.
 
 ## Tests
 - **Decoding:**
@@ -80,3 +81,26 @@ Player and Game Details UI, and a bundled code database.
 3. Service and ViewModels.
 4. App screens and smoke test.
 5. Bundled database, once the owner picks a source.
+
+## Results
+- **Core:**
+  - `CheatCode` parses and writes 6- and 8-letter Game Genie codes and RAM codes, with plain-language
+    errors.
+  - `CheatEngine` replaces ROM reads, honoring the compare byte, and writes RAM codes before each frame.
+    When no codes are on, the cost is one check per cartridge read.
+  - Console snapshots (chunk v3) record the active codes.
+  - Tests check the documented SXIOPO patch ($91D9 = $AD) and a 20,000-code encode/decode round-trip.
+- **Library:**
+  - `CheatStore` keeps per-game lists in `%LOCALAPPDATA%\GameVault\Cheats`. Game Genie letters are kept as
+    typed.
+  - `CheatFiles` imports plain text and FCEUX `.cht` files (all or nothing, with line numbers) and exports
+    plain text.
+  - `CheatSuggestions` reads `data/gamedb/cheats/` (empty for now).
+- **Platform:**
+  - `CheatService` pushes the enabled codes to the running game.
+  - When a save state, rewind or F3 changes what is on, the list's switches follow.
+- **UI:**
+  - Codes on Game Details and in a Player flyout: switches, live "Decodes to …" checking, import, export,
+    "Turn all off" and suggestions.
+  - A "Codes on" badge, and F3 to switch every code off.
+  - Practice personal bests aren't recorded while codes are on.

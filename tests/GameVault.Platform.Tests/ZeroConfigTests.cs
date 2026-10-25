@@ -62,7 +62,8 @@ public sealed class ZeroConfigTests : IDisposable
         var details = new GameDetailsViewModel(
             library, new TimelineViewModel(timeline), navigation, picker,
             new PasswordsViewModel(new SamplePasswordService(), new InMemoryClipboard()),
-            new JournalViewModel(new SampleJournalService(), picker));
+            new JournalViewModel(new SampleJournalService(), picker),
+            new CodesViewModel(new SampleCheatService(), new SampleCodeFilePicker()));
         await details.LoadCommand.ExecuteAsync(navigation.LastParameter as string);
         details.CanPlay.Should().BeTrue();
         details.PlayCommand.Execute(null);
@@ -70,7 +71,8 @@ public sealed class ZeroConfigTests : IDisposable
         // 4. The Player starts the game.
         var player = new PlayerViewModel(
             host, navigation, new InMemorySettingsStore(), new SampleInputDevicesService(), new TimelineViewModel(timeline), library,
-            new SamplePasswordService(), new SampleJournalService(), new AssistViewModel(host), new PracticeViewModel(host, new InMemoryPracticeRecords()));
+            new SamplePasswordService(), new SampleJournalService(), new AssistViewModel(host), new PracticeViewModel(host, new InMemoryPracticeRecords()),
+            new CodesViewModel(new SampleCheatService(), new SampleCodeFilePicker()), new SampleCheatService());
         await player.StartCommand.ExecuteAsync(navigation.LastParameter);
         player.HasError.Should().BeFalse(player.ErrorMessage);
         host.Status.Should().Be(EmulatorStatus.Running);

@@ -14,6 +14,7 @@ public class PlayerViewModelTests
     private readonly SamplePasswordService _passwords = new();
     private readonly SampleJournalService _journal = new();
     private readonly InMemoryPracticeRecords _records = new();
+    private readonly SampleCheatService _cheats = new();
     private readonly PlayerViewModel _vm;
 
     public PlayerViewModelTests()
@@ -22,7 +23,33 @@ public class PlayerViewModelTests
         _navigation.NavigateTo(AppPage.Player, "game.nes");
         _vm = new PlayerViewModel(
             _emulator, _navigation, _settings, _devices, new TimelineViewModel(_timeline), _library, _passwords, _journal,
-            new AssistViewModel(_emulator), new PracticeViewModel(_emulator, _records));
+            new AssistViewModel(_emulator), new PracticeViewModel(_emulator, _records),
+            new CodesViewModel(_cheats, new SampleCodeFilePicker()), _cheats);
+    }
+
+    [Fact]
+    public async Task Starting_a_game_turns_on_the_codes_left_on_for_it()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+
+        _cheats.Applied.Should().ContainSingle().Which.GameKey.Should().Be(_emulator.GameKey);
+        _cheats.Applied[0].Codes.Select(c => c.ToString()).Should().Equal("SXIOPO");
+        _vm.Codes.Items.Should().HaveCount(2);
+        _vm.Codes.AnyEnabled.Should().BeTrue("the Player shows a Codes on badge");
+    }
+
+    [Fact]
+    public async Task Personal_bests_are_not_recorded_while_codes_are_on()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+        _emulator.CheatsActive = true;
+        await _vm.Practice.SetPointCommand.ExecuteAsync(null);
+        _emulator.FrameCount += 60;
+
+        _vm.Practice.SplitCommand.Execute(null);
+
+        _vm.Practice.Segments.Should().ContainSingle().Which.IsPersonalBest.Should().BeFalse();
+        _records.Bests(_emulator.GameKey!).Should().BeEmpty();
     }
 
     [Fact]
@@ -387,6 +414,8 @@ public class PlayerViewModelTests
         public event EventHandler? PracticeRetryRequested;
 
         public event EventHandler? PracticeSplitRequested;
+
+        public bool CheatsActive { get; set; }
 
         public int DiskSideCount { get; set; }
 

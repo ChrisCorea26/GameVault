@@ -65,6 +65,14 @@ public interface IEmulatorService
     /// <summary>The current screen as a PNG. Null when idle.</summary>
     Task<byte[]?> CaptureScreenshotAsync();
 
+    /// <summary>True while any Game Genie or RAM code is on (SPEC §7.8).</summary>
+    bool CheatsActive => false;
+
+    /// <summary>Replaces the running game's active codes; applied between frames.</summary>
+    void SetCheats(IReadOnlyList<GameVault.Core.Cheats.CheatCode> codes)
+    {
+    }
+
     /// <summary>Disk sides of a Famicom Disk System game (0 for cartridges).</summary>
     int DiskSideCount => 0;
 

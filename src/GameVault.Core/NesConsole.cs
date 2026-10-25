@@ -3,6 +3,7 @@ using GameVault.Core.Audio;
 using GameVault.Core.Bus;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Cartridge.Fds;
+using GameVault.Core.Cheats;
 using GameVault.Core.Cpu;
 using GameVault.Core.Input;
 using GameVault.Core.Ppu;
@@ -167,9 +168,20 @@ public sealed class NesConsole : IStateful
         controller.State = state;
     }
 
+    /// <summary>The active Game Genie and RAM codes (SPEC §7.8).</summary>
+    public IReadOnlyList<CheatCode> Cheats => Bus.Cheats?.Codes ?? [];
+
+    /// <summary>Replaces the active codes. Call between frames; an empty list turns codes off.</summary>
+    public void SetCheats(IEnumerable<CheatCode> codes)
+    {
+        var list = codes.ToList();
+        Bus.Cheats = list.Count == 0 ? null : new CheatEngine(list);
+    }
+
     /// <summary>Runs until the PPU starts a new frame, then closes the frame's audio.</summary>
     public void RunFrame()
     {
+        Bus.Cheats?.ApplyRam(Bus);
         var frame = Ppu.FrameCount;
         while (Ppu.FrameCount == frame)
         {
@@ -268,7 +280,7 @@ public sealed class NesConsole : IStateful
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 2);
+        writer.BeginChunk(Tag, 3);
         Cpu.SaveState(writer);
         Bus.SaveState(writer);
         Ppu.SaveState(writer);
@@ -280,6 +292,19 @@ public sealed class NesConsole : IStateful
         Controller3.SaveState(writer);
         Controller4.SaveState(writer);
         Zapper.SaveState(writer);
+
+        // Version 3: the codes that were on, so loading a state or rewinding restores them (SPEC §7.8).
+        var cheats = Cheats;
+        writer.WriteInt32(cheats.Count);
+        foreach (var code in cheats)
+        {
+            writer.WriteByte((byte)code.Kind);
+            writer.WriteUInt16(code.Address);
+            writer.WriteByte(code.Value);
+            writer.WriteBool(code.Compare.HasValue);
+            writer.WriteByte(code.Compare ?? 0);
+        }
+
         writer.EndChunk();
     }
 
@@ -304,6 +329,26 @@ public sealed class NesConsole : IStateful
             Controller3.LoadState(reader);
             Controller4.LoadState(reader);
             Zapper.LoadState(reader);
+        }
+
+        var codes = new List<CheatCode>();
+        if (version >= 3)
+        {
+            var count = reader.ReadInt32();
+            for (var i = 0; i < count; i++)
+            {
+                var kind = (CheatKind)reader.ReadByte();
+                var address = reader.ReadUInt16();
+                var value = reader.ReadByte();
+                var hasCompare = reader.ReadBool();
+                var compare = reader.ReadByte();
+                codes.Add(new CheatCode(kind, address, value, hasCompare ? compare : null));
+            }
+        }
+
+        if (!codes.SequenceEqual(Cheats))
+        {
+            SetCheats(codes);
         }
 
         reader.EndChunk();

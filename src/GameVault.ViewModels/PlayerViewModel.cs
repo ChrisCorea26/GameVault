@@ -16,7 +16,9 @@ public sealed partial class PlayerViewModel(
     IPasswordService passwords,
     IJournalService journal,
     AssistViewModel assist,
-    PracticeViewModel practice) : ObservableObject
+    PracticeViewModel practice,
+    CodesViewModel codes,
+    ICheatService cheats) : ObservableObject
 {
     private byte[]? _passwordScreenshot;
     private bool _updatingDisk;
@@ -84,6 +86,9 @@ public sealed partial class PlayerViewModel(
 
     /// <summary>Assist mode for this session (SPEC §7.6).</summary>
     public AssistViewModel Assist => assist;
+
+    /// <summary>Game Genie and RAM codes for the running game (SPEC §7.8).</summary>
+    public CodesViewModel Codes => codes;
 
     /// <summary>Practice mode: practice point, retry, splits (SPEC §7.6).</summary>
     public PracticeViewModel Practice => practice;
@@ -211,6 +216,8 @@ public sealed partial class PlayerViewModel(
             devices.SetPlayerCount(emulator.UsesFourScore ? 4 : 2);
             timeline.CanSave = true;
             await timeline.ShowAsync(key);
+            await cheats.ApplyAsync(key); // the codes the player left on for this game
+            await codes.ShowAsync(key);
             if (launch?.StateId is { } stateId)
             {
                 await timeline.Service.LoadAsync(key, stateId);
@@ -359,6 +366,7 @@ public sealed partial class PlayerViewModel(
 
         emulator.Stop();
         timeline.Detach();
+        codes.Detach();
         Detach();
     }
 

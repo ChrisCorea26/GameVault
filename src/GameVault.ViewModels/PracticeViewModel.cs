@@ -57,7 +57,8 @@ public sealed partial class PracticeViewModel(IEmulatorService emulator, IPracti
     private void Split()
     {
         var frames = emulator.FrameCount - _segmentStart;
-        var isBest = _gameKey is not null && records.Record(_gameKey, CurrentSegment, frames);
+        // SPEC §7.8: personal bests aren't recorded while codes are on.
+        var isBest = _gameKey is not null && !emulator.CheatsActive && records.Record(_gameKey, CurrentSegment, frames);
         Segments.Add(new SegmentViewModel(CurrentSegment, Format(frames), isBest));
         _segmentStart = emulator.FrameCount;
         CurrentSegment++;

@@ -1,5 +1,6 @@
 using GameVault.Dumper;
 using GameVault.Library.Data;
+using GameVault.Library.Cheats;
 using GameVault.Library.Journal;
 using GameVault.Library.Passwords;
 using GameVault.Library.Practice;
@@ -102,6 +103,8 @@ public partial class App : Application
             services.AddSingleton<IPracticeRecords, InMemoryPracticeRecords>();
             services.AddSingleton<IDumperService, SampleDumperService>();
             services.AddSingleton<IClipboardService, InMemoryClipboard>();
+            services.AddSingleton<ICheatService, SampleCheatService>();
+            services.AddSingleton<ICodeFilePicker, SampleCodeFilePicker>();
         }
         else
         {
@@ -133,6 +136,11 @@ public partial class App : Application
             services.AddSingleton<IJournalService>(sp => new JournalService(new JournalStore(sp.GetRequiredService<AppPaths>().JournalDirectory)));
             services.AddSingleton<IPracticeRecords>(sp => new PracticeRecords(new PracticeStore(sp.GetRequiredService<AppPaths>().PracticeDirectory)));
             services.AddSingleton<IClipboardService, WinUiClipboard>();
+            services.AddSingleton<ICheatService>(sp => new CheatService(
+                sp.GetRequiredService<EmulatorHost>(),
+                new CheatStore(sp.GetRequiredService<AppPaths>().CheatsDirectory),
+                new CheatSuggestions(Path.Combine(AppContext.BaseDirectory, "data", "gamedb", "cheats"))));
+            services.AddSingleton<ICodeFilePicker, WinUiCodeFilePicker>();
             services.AddSingleton<IDumperService>(sp =>
             {
                 // The dumper is optional (SPEC §8): only set up when its program is configured.
@@ -169,6 +177,7 @@ public partial class App : Application
         services.AddTransient<JournalViewModel>();
         services.AddTransient<AssistViewModel>();
         services.AddTransient<PracticeViewModel>();
+        services.AddTransient<CodesViewModel>();
         services.AddTransient<DumpCartridgeViewModel>();
         services.AddTransient<PlayerViewModel>();
 

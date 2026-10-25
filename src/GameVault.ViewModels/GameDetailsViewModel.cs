@@ -17,8 +17,12 @@ public sealed partial class GameDetailsViewModel(
     INavigationService navigation,
     IGameFilePicker picker,
     PasswordsViewModel passwords,
-    JournalViewModel journal) : ObservableObject
+    JournalViewModel journal,
+    CodesViewModel codes) : ObservableObject
 {
+    /// <summary>Game Genie and RAM codes (SPEC §7.8).</summary>
+    public CodesViewModel Codes => codes;
+
     /// <summary>The Passwords panel (SPEC §7.3).</summary>
     public PasswordsViewModel Passwords => passwords;
 
@@ -153,6 +157,7 @@ public sealed partial class GameDetailsViewModel(
         await timeline.ShowAsync(key);
         await passwords.ShowAsync(key);
         await journal.ShowAsync(key);
+        await codes.ShowAsync(key);
     }
 
     /// <summary>Called when the page is left.</summary>
@@ -162,6 +167,7 @@ public sealed partial class GameDetailsViewModel(
         timeline.Detach();
         passwords.Detach();
         journal.Detach();
+        codes.Detach();
     }
 
     [RelayCommand(CanExecute = nameof(CanPlay))]

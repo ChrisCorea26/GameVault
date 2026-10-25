@@ -34,6 +34,7 @@
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
 
       <Button
@@ -67,6 +68,25 @@
           AllowFocusOnInteraction="False"
           Command="{x:Bind ViewModel.ResetCommand}"
           Content="Reset" />
+      <!-- SPEC §7.8: codes for this game; the badge shows while any are on. F3 turns them all off. -->
+      <Button Grid.Column="9" AccessKey="C" AutomationProperties.Name="Codes">
+        <StackPanel Orientation="Horizontal" Spacing="6">
+          <TextBlock Text="Codes" />
+          <Border
+              Padding="6,0"
+              Background="{ThemeResource AccentFillColorDefaultBrush}"
+              CornerRadius="8"
+              Visibility="{x:Bind ViewModel.Codes.AnyEnabled, Mode=OneWay}">
+            <TextBlock Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="on" />
+          </Border>
+        </StackPanel>
+        <Button.Flyout>
+          <Flyout Closed="Flyout_Closed" Placement="BottomEdgeAlignedRight">
+            <controls:CodesPanel Width="460" ViewModel="{x:Bind ViewModel.Codes}" />
+          </Flyout>
+        </Button.Flyout>
+      </Button>
+
       <!-- Famicom Disk System: the side in the drive; F4 inserts the next side (input.md §8) -->
       <ComboBox
           Grid.Column="8"

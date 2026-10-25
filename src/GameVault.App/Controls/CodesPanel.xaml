@@ -1,0 +1,95 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPEC §7.8: the player's Game Genie and RAM codes for one game. Used on Game Details and in the Player's Codes flyout. -->
+<UserControl
+    x:Class="GameVault.App.Controls.CodesPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:vm="using:GameVault.ViewModels">
+
+  <StackPanel Spacing="8">
+    <TextBlock
+        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+        Text="No codes yet. Type a Game Genie code (6 or 8 letters) or a RAM code like 075A:09, or import a list."
+        TextWrapping="Wrap"
+        Visibility="{x:Bind ViewModel.IsEmpty, Mode=OneWay, FallbackValue=Collapsed}" />
+
+    <ItemsRepeater ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}">
+      <ItemsRepeater.ItemTemplate>
+        <DataTemplate x:DataType="vm:CodeItemViewModel">
+          <Grid Padding="0,4" ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="Auto" />
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ToggleSwitch
+                MinWidth="0"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="{x:Bind Description}"
+                IsOn="{x:Bind IsEnabled, Mode=TwoWay}"
+                OffContent=""
+                OnContent="" />
+            <StackPanel Grid.Column="1" VerticalAlignment="Center">
+              <TextBlock FontFamily="Consolas" IsTextSelectionEnabled="True" Text="{x:Bind Code}" />
+              <TextBlock Text="{x:Bind Description}" TextTrimming="CharacterEllipsis" />
+              <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Detail}" />
+            </StackPanel>
+            <Button Grid.Column="2" VerticalAlignment="Center" Command="{x:Bind DeleteCommand}" Content="Delete" />
+          </Grid>
+        </DataTemplate>
+      </ItemsRepeater.ItemTemplate>
+    </ItemsRepeater>
+
+    <Grid ColumnSpacing="8">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="160" />
+        <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
+      </Grid.ColumnDefinitions>
+      <TextBox
+          AutomationProperties.Name="New code"
+          FontFamily="Consolas"
+          PlaceholderText="SXIOPO"
+          Text="{x:Bind ViewModel.NewCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, FallbackValue=''}" />
+      <TextBox
+          Grid.Column="1"
+          AutomationProperties.Name="What the code does"
+          PlaceholderText="What it does"
+          Text="{x:Bind ViewModel.NewDescription, Mode=TwoWay, FallbackValue=''}" />
+      <Button Grid.Column="2" Command="{x:Bind ViewModel.AddCommand, Mode=OneWay}" Content="Add" Style="{StaticResource AccentButtonStyle}" />
+    </Grid>
+    <TextBlock
+        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+        Style="{StaticResource CaptionTextBlockStyle}"
+        Text="{x:Bind ViewModel.Validation, Mode=OneWay}"
+        TextWrapping="Wrap" />
+
+    <StackPanel Orientation="Horizontal" Spacing="8">
+      <Button Command="{x:Bind ViewModel.ImportCommand, Mode=OneWay}" Content="Import…" />
+      <Button Command="{x:Bind ViewModel.ExportCommand, Mode=OneWay}" Content="Export…" />
+      <Button Command="{x:Bind ViewModel.AllOffCommand, Mode=OneWay}" Content="Turn all off" ToolTipService.ToolTip="F3 while playing" />
+    </StackPanel>
+    <TextBlock Text="{x:Bind ViewModel.Message, Mode=OneWay}" TextWrapping="Wrap" />
+
+    <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.HasSuggestions, Mode=OneWay, FallbackValue=Collapsed}">
+      <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Suggested codes" />
+      <ItemsRepeater ItemsSource="{x:Bind ViewModel.Suggestions, Mode=OneWay}">
+        <ItemsRepeater.ItemTemplate>
+          <DataTemplate x:DataType="vm:CodeSuggestionViewModel">
+            <Grid Padding="0,4" ColumnSpacing="8">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock FontFamily="Consolas" Text="{x:Bind Code}" />
+                <TextBlock Text="{x:Bind Description}" TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+              <Button Grid.Column="1" VerticalAlignment="Center" Command="{x:Bind UseCommand}" Content="Add" />
+            </Grid>
+          </DataTemplate>
+        </ItemsRepeater.ItemTemplate>
+      </ItemsRepeater>
+    </StackPanel>
+  </StackPanel>
+</UserControl>
