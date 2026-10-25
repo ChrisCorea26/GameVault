@@ -76,6 +76,31 @@ public class PlayerViewModelTests
     }
 
     [Fact]
+    public async Task Returning_to_the_window_resumes_a_game_that_paused_itself()
+    {
+        await _settings.SaveAsync(new AppSettings { PauseWhenInactive = true });
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+
+        _vm.OnWindowDeactivated();
+        _vm.OnWindowActivated();
+
+        _vm.Status.Should().Be(EmulatorStatus.Running);
+    }
+
+    [Fact]
+    public async Task Returning_to_the_window_keeps_a_game_the_player_paused()
+    {
+        await _settings.SaveAsync(new AppSettings { PauseWhenInactive = true });
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+        _vm.TogglePauseCommand.Execute(null);
+
+        _vm.OnWindowDeactivated();
+        _vm.OnWindowActivated();
+
+        _vm.Status.Should().Be(EmulatorStatus.Paused);
+    }
+
+    [Fact]
     public async Task Back_stops_the_game_and_returns_to_the_previous_page()
     {
         await _vm.StartCommand.ExecuteAsync("game.nes");

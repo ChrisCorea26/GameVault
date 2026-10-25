@@ -86,6 +86,10 @@ many keys at once and may drop presses when both players hold several buttons.
 - Keyboard input reaches the game only while the game view has focus.
 - When the game view loses focus or the window is deactivated (Alt+Tab, a dialog), **all held keys
   are released** for every port, so no button stays stuck down.
+- Coming back to the window gives the keyboard back to the game view. If "Pause when inactive" paused the
+  game, it resumes; a game the player paused stays paused.
+- Clicking Pause, Reset or Resume doesn't take focus from the game, and closing a Player flyout (Save
+  states, Assist, Practice) returns focus to it.
 
 ## 5. Hot-plug
 

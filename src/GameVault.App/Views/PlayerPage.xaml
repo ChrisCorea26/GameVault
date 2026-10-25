@@ -53,20 +53,23 @@
           VerticalAlignment="Center"
           Foreground="{ThemeResource TextFillColorSecondaryBrush}"
           Text="{x:Bind ViewModel.StatusText, Mode=OneWay}" />
+      <!-- Clicking these leaves keyboard focus on the game, so the controls keep working (input.md §4.4). -->
       <Button
           Grid.Column="3"
           AccessKey="P"
+          AllowFocusOnInteraction="False"
           Command="{x:Bind ViewModel.TogglePauseCommand}"
           Content="{x:Bind ViewModel.PauseButtonLabel, Mode=OneWay}" />
       <Button
           Grid.Column="4"
           AccessKey="R"
+          AllowFocusOnInteraction="False"
           Command="{x:Bind ViewModel.ResetCommand}"
           Content="Reset" />
       <!-- SPEC §7.1: the save-state timeline; F5 saves, F8 loads the newest (docs/design/input.md §8). -->
       <Button Grid.Column="5" AccessKey="S" Content="Save states">
         <Button.Flyout>
-          <Flyout Placement="BottomEdgeAlignedRight">
+          <Flyout Closed="Flyout_Closed" Placement="BottomEdgeAlignedRight">
             <StackPanel Width="620" Spacing="8">
               <Grid>
                 <TextBlock VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Save states" />
@@ -94,7 +97,7 @@
       <!-- SPEC §7.6: Assist mode, per session, never forced -->
       <Button Grid.Column="6" AccessKey="A" Content="Assist">
         <Button.Flyout>
-          <Flyout Placement="BottomEdgeAlignedRight">
+          <Flyout Closed="Flyout_Closed" Placement="BottomEdgeAlignedRight">
             <StackPanel Width="300" Spacing="8">
               <ToggleSwitch Header="Assist mode" IsOn="{x:Bind ViewModel.Assist.IsEnabled, Mode=TwoWay}" />
               <ComboBox
@@ -119,7 +122,7 @@
       <!-- SPEC §7.6: Practice mode -->
       <Button Grid.Column="7" Content="Practice">
         <Button.Flyout>
-          <Flyout Placement="BottomEdgeAlignedRight">
+          <Flyout Closed="Flyout_Closed" Placement="BottomEdgeAlignedRight">
             <StackPanel Width="300" Spacing="8">
               <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Practice" />
               <TextBlock
@@ -184,7 +187,7 @@
           Severity="Informational"
           Title="Resume">
         <InfoBar.ActionButton>
-          <Button Command="{x:Bind ViewModel.ResumeCommand}" Content="Resume" Style="{StaticResource AccentButtonStyle}" />
+          <Button AllowFocusOnInteraction="False" Command="{x:Bind ViewModel.ResumeCommand}" Content="Resume" Style="{StaticResource AccentButtonStyle}" />
         </InfoBar.ActionButton>
       </InfoBar>
     </StackPanel>

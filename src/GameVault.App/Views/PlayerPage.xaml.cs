@@ -82,11 +82,27 @@ public sealed partial class PlayerPage : Page
 
     private void OnPauseRequested(object? sender, EventArgs e) => ViewModel.TogglePauseCommand.Execute(null);
 
+    // Coming back to the window resumes a game that paused itself and gives the keyboard back to the game
+    // (input.md §4.4), unless the password box is being typed into.
     private void OnWindowActivated(object sender, WindowActivatedEventArgs args)
     {
         if (args.WindowActivationState == WindowActivationState.Deactivated)
         {
             ViewModel.OnWindowDeactivated();
+            return;
+        }
+
+        ViewModel.OnWindowActivated();
+        ReturnFocusToGame();
+    }
+
+    private void Flyout_Closed(object sender, object e) => ReturnFocusToGame();
+
+    private void ReturnFocusToGame()
+    {
+        if (!ViewModel.IsEnteringPassword)
+        {
+            Game.Focus(FocusState.Programmatic);
         }
     }
 

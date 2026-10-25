@@ -60,6 +60,7 @@ public sealed partial class PlayerViewModel(
 
     private bool _attached;
     private bool _pauseWhenInactive = true;
+    private bool _pausedForInactive;
 
     [ObservableProperty]
     public partial string Title { get; private set; } = "Player";
@@ -232,6 +233,7 @@ public sealed partial class PlayerViewModel(
     [RelayCommand]
     private void TogglePause()
     {
+        _pausedForInactive = false;
         if (Status == EmulatorStatus.Running)
         {
             emulator.Pause();
@@ -251,7 +253,22 @@ public sealed partial class PlayerViewModel(
         if (_pauseWhenInactive && Status == EmulatorStatus.Running)
         {
             emulator.Pause();
+            _pausedForInactive = true;
         }
+    }
+
+    /// <summary>
+    /// Resumes when the window is active again, but only if <see cref="OnWindowDeactivated"/> paused the
+    /// game: a game the player paused stays paused.
+    /// </summary>
+    public void OnWindowActivated()
+    {
+        if (_pausedForInactive && Status == EmulatorStatus.Paused)
+        {
+            emulator.Resume();
+        }
+
+        _pausedForInactive = false;
     }
 
     [RelayCommand]
