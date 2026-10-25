@@ -352,6 +352,37 @@
         </StackPanel>
       </Border>
 
+      <!-- SPEC §7.8: code collections the player imports; they stay on this PC and are never part of GameVault -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Codes" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Import a list of Game Genie codes you have, as a spreadsheet (.xlsx) or .csv with Game, Code (or Key in…) and Effect columns. Each game's matching codes then appear under Codes on its details and in the Player. The list stays on this PC."
+              TextWrapping="Wrap" />
+          <ItemsRepeater ItemsSource="{x:Bind Codes.Items}">
+            <ItemsRepeater.ItemTemplate>
+              <DataTemplate x:DataType="vm:CodeCollectionItemViewModel">
+                <Grid Padding="0,4" ColumnSpacing="8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <StackPanel>
+                    <TextBlock Text="{x:Bind Name}" />
+                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Summary}" />
+                  </StackPanel>
+                  <Button Grid.Column="1" VerticalAlignment="Center" Command="{x:Bind RemoveCommand}" Content="Remove" />
+                </Grid>
+              </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
+          </ItemsRepeater>
+          <Button Command="{x:Bind Codes.ImportCommand}" Content="Import a code collection…" />
+          <TextBlock Text="{x:Bind Codes.Message, Mode=OneWay}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
       <!-- Famicom Disk System (SPEC §4.5): the player's own BIOS; GameVault never ships it -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Disk System" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">

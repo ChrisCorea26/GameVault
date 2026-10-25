@@ -20,6 +20,20 @@ public sealed class WinUiCodeFilePicker : ICodeFilePicker
         return result?.Path;
     }
 
+    public async Task<string?> PickCollectionFileAsync()
+    {
+        var picker = new FileOpenPicker(App.MainWindow.AppWindow.Id)
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            CommitButtonText = "Import",
+        };
+        picker.FileTypeFilter.Add(".xlsx");
+        picker.FileTypeFilter.Add(".csv");
+
+        var result = await picker.PickSingleFileAsync();
+        return result?.Path;
+    }
+
     public async Task<string?> PickExportFileAsync(string suggestedName)
     {
         var picker = new FileSavePicker(App.MainWindow.AppWindow.Id)

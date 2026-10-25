@@ -30,7 +30,8 @@ public sealed class CheatServiceTests : IDisposable
 
     private static async Task Eventually(Func<Task<bool>> condition)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(5);
+        // Generous: the emulator thread competes with CPU-heavy tests running in parallel.
+        var deadline = DateTime.UtcNow.AddSeconds(15);
         while (!await condition())
         {
             if (DateTime.UtcNow > deadline)

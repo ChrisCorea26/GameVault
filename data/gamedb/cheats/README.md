@@ -20,6 +20,8 @@ Published codebooks, and most code websites, are copyrighted collections, so the
 here**. A file can only be added when its source allows redistribution, and every source must be listed
 with its license in [`SOURCES.md`](SOURCES.md).
 
-Choosing the source of the bundled codes is the project owner's decision; see `docs/plans/phase-8.md`. Until
-then this folder holds no codes. Players can still add, import (plain text or FCEUX `.cht`) and export
-their own.
+This folder holds no codes yet. Players get codes in three other ways, none of which puts third-party codes
+into this repository (see [`SOURCES.md`](SOURCES.md)):
+- **GameGenie.com:** downloaded on request, and always shown with credit to the site.
+- **Code collections:** spreadsheets or .csv files the player imports in Settings → Codes.
+- **Their own:** typed in, or imported as plain text or FCEUX `.cht` files.

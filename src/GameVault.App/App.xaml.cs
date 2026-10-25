@@ -10,6 +10,7 @@ using GameVault.Platform.Audio;
 using GameVault.Platform.Emulation;
 using GameVault.Platform.Input;
 using GameVault.Platform.Input.Controllers;
+using GameVault.Platform.Online;
 using GameVault.Platform.Storage;
 using GameVault.Platform.Video;
 using GameVault.ViewModels;
@@ -139,7 +140,11 @@ public partial class App : Application
             services.AddSingleton<ICheatService>(sp => new CheatService(
                 sp.GetRequiredService<EmulatorHost>(),
                 new CheatStore(sp.GetRequiredService<AppPaths>().CheatsDirectory),
-                new CheatSuggestions(Path.Combine(AppContext.BaseDirectory, "data", "gamedb", "cheats"))));
+                new CheatSuggestions(Path.Combine(AppContext.BaseDirectory, "data", "gamedb", "cheats")),
+                new CodeCollections(sp.GetRequiredService<AppPaths>().CodeCollectionsDirectory),
+                new GameGenieDotCom(
+                    new HttpClient { DefaultRequestHeaders = { { "User-Agent", "GameVault (NES emulator; code lookup on request)" } } },
+                    sp.GetRequiredService<AppPaths>().OnlineCodesCacheDirectory)));
             services.AddSingleton<ICodeFilePicker, WinUiCodeFilePicker>();
             services.AddSingleton<IDumperService>(sp =>
             {
@@ -179,6 +184,7 @@ public partial class App : Application
         services.AddTransient<PracticeViewModel>();
         services.AddTransient<CodesViewModel>();
         services.AddTransient<NetplayViewModel>();
+        services.AddTransient<CodeCollectionsViewModel>();
         services.AddTransient<DumpCartridgeViewModel>();
         services.AddTransient<PlayerViewModel>();
 

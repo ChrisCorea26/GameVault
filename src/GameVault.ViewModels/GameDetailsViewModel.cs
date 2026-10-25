@@ -157,7 +157,7 @@ public sealed partial class GameDetailsViewModel(
         await timeline.ShowAsync(key);
         await passwords.ShowAsync(key);
         await journal.ShowAsync(key);
-        await codes.ShowAsync(key);
+        await codes.ShowAsync(key, _game?.Title);
     }
 
     /// <summary>Called when the page is left.</summary>

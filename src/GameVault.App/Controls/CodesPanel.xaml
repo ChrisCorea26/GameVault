@@ -6,6 +6,22 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:vm="using:GameVault.ViewModels">
 
+  <UserControl.Resources>
+    <DataTemplate x:Key="SuggestionTemplate" x:DataType="vm:CodeSuggestionViewModel">
+            <Grid Padding="0,4" ColumnSpacing="8">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <StackPanel>
+                <TextBlock FontFamily="Consolas" Text="{x:Bind Code}" />
+                <TextBlock Text="{x:Bind Description}" TextTrimming="CharacterEllipsis" />
+              </StackPanel>
+              <Button Grid.Column="1" VerticalAlignment="Center" Command="{x:Bind UseCommand}" Content="Add" />
+            </Grid>
+          </DataTemplate>
+  </UserControl.Resources>
+
   <StackPanel Spacing="8">
     <TextBlock
         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
@@ -71,25 +87,41 @@
     </StackPanel>
     <TextBlock Text="{x:Bind ViewModel.Message, Mode=OneWay}" TextWrapping="Wrap" />
 
+    <!-- The player's own imported code collections (Settings → Codes) -->
+    <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.HasCollectionCodes, Mode=OneWay, FallbackValue=Collapsed}">
+      <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind ViewModel.CollectionHeading, Mode=OneWay}" />
+      <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.CollectionCredit, Mode=OneWay}" TextWrapping="Wrap" />
+      <TextBlock
+          Style="{StaticResource CaptionTextBlockStyle}"
+          Text="{x:Bind ViewModel.CollectionNotes, Mode=OneWay}"
+          TextWrapping="Wrap"
+          Visibility="{x:Bind ViewModel.HasCollectionNotes, Mode=OneWay, FallbackValue=Collapsed}" />
+      <ItemsRepeater ItemsSource="{x:Bind ViewModel.CollectionCodes, Mode=OneWay}" ItemTemplate="{StaticResource SuggestionTemplate}" />
+    </StackPanel>
+    <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.HasCollections, Mode=OneWay, FallbackValue=Collapsed}">
+      <AutoSuggestBox
+          AutomationProperties.Name="Find this game in your code collection"
+          ItemsSource="{x:Bind ViewModel.CollectionMatches, Mode=OneWay}"
+          PlaceholderText="Not the right game? Find it in your code collection"
+          QuerySubmitted="CollectionSearch_QuerySubmitted"
+          Text="{x:Bind ViewModel.CollectionSearch, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged, FallbackValue=''}" />
+    </StackPanel>
+
+    <!-- GameGenie.com: downloaded only when the player asks, always shown with its credit and source page -->
+    <StackPanel Spacing="4">
+      <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Codes from GameGenie.com" />
+      <Button Command="{x:Bind ViewModel.GetOnlineCodesCommand, Mode=OneWay}" Content="Get codes from GameGenie.com" />
+      <TextBlock Text="{x:Bind ViewModel.OnlineMessage, Mode=OneWay}" TextWrapping="Wrap" />
+      <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.HasOnlineCodes, Mode=OneWay, FallbackValue=Collapsed}">
+        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.OnlineCredit, Mode=OneWay}" TextWrapping="Wrap" />
+        <HyperlinkButton Padding="0" Content="Open this game's page on GameGenie.com" NavigateUri="{x:Bind ViewModel.OnlineUrl, Mode=OneWay}" />
+        <ItemsRepeater ItemsSource="{x:Bind ViewModel.OnlineCodes, Mode=OneWay}" ItemTemplate="{StaticResource SuggestionTemplate}" />
+      </StackPanel>
+    </StackPanel>
+
     <StackPanel Spacing="4" Visibility="{x:Bind ViewModel.HasSuggestions, Mode=OneWay, FallbackValue=Collapsed}">
       <TextBlock Margin="0,8,0,0" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Suggested codes" />
-      <ItemsRepeater ItemsSource="{x:Bind ViewModel.Suggestions, Mode=OneWay}">
-        <ItemsRepeater.ItemTemplate>
-          <DataTemplate x:DataType="vm:CodeSuggestionViewModel">
-            <Grid Padding="0,4" ColumnSpacing="8">
-              <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-              </Grid.ColumnDefinitions>
-              <StackPanel>
-                <TextBlock FontFamily="Consolas" Text="{x:Bind Code}" />
-                <TextBlock Text="{x:Bind Description}" TextTrimming="CharacterEllipsis" />
-              </StackPanel>
-              <Button Grid.Column="1" VerticalAlignment="Center" Command="{x:Bind UseCommand}" Content="Add" />
-            </Grid>
-          </DataTemplate>
-        </ItemsRepeater.ItemTemplate>
-      </ItemsRepeater>
+      <ItemsRepeater ItemsSource="{x:Bind ViewModel.Suggestions, Mode=OneWay}" ItemTemplate="{StaticResource SuggestionTemplate}" />
     </StackPanel>
   </StackPanel>
 </UserControl>

@@ -262,6 +262,10 @@ The **Passwords panel** lists saved passwords per game with a copy button. Ship 
 - **Library.** Codes are saved per game (keyed by hash) with a description, and can be switched on and off individually while playing. Enabled codes are remembered per game.
 - **Import and export.** Plain-text lists (`CODE  description`) and the cheat files of other emulators, so players can bring their own collections.
 - **Bundled codes.** A community code database in `data/gamedb/cheats/` ships only from sources whose license allows redistribution, each listed with its license in `data/gamedb/cheats/SOURCES.md`. Published codebook text is never copied.
+- **Code sources.** These are separate from the player's own list. The owner chose them in October 2026:
+  - **GameGenie.com.** A game's codes are downloaded on request and shown with the credit "These codes come from GameGenie.com (© Danworld, Inc.)" and a link to the page.
+  - **Code collections the player imports** (.xlsx or .csv). They are kept in the player's app folder, like ROMs and the BIOS.
+  - Neither source puts third-party codes into the repository.
 - **Honesty with other features.** Practice personal bests are not recorded while codes are on. Save states and rewind record which codes were on. Netplay requires both players to use the same codes.
 
 ---

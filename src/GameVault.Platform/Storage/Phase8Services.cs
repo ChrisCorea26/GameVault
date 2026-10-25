@@ -1,6 +1,7 @@
 using GameVault.Core.Cheats;
 using GameVault.Library.Cheats;
 using GameVault.Platform.Emulation;
+using GameVault.Platform.Online;
 using GameVault.ViewModels.Services;
 
 namespace GameVault.Platform.Storage;
@@ -15,14 +16,84 @@ public sealed class CheatService : ICheatService
     private readonly EmulatorHost _host;
     private readonly CheatStore _store;
     private readonly CheatSuggestions _suggestions;
+    private readonly CodeCollections? _collections;
+    private readonly GameGenieDotCom? _online;
     private readonly SynchronizationContext? _context = SynchronizationContext.Current;
 
-    public CheatService(EmulatorHost host, CheatStore store, CheatSuggestions suggestions)
+    public CheatService(EmulatorHost host, CheatStore store, CheatSuggestions suggestions, CodeCollections? collections = null, GameGenieDotCom? online = null)
     {
         _host = host;
         _store = store;
         _suggestions = suggestions;
+        _collections = collections;
+        _online = online;
         _host.CheatsChanged += OnHostCheatsChanged;
+    }
+
+    /// <summary>Shown with every code that comes from GameGenie.com.</summary>
+    public const string GameGenieDotComCredit =
+        "These codes come from GameGenie.com (© Danworld, Inc.). GameVault downloads them from the site when you ask; they aren't part of GameVault.";
+
+    public Task<IReadOnlyList<CodeCollectionInfo>> GetCollectionsAsync() => Task.Run(() =>
+        (IReadOnlyList<CodeCollectionInfo>)(_collections?.List().Select(c => new CodeCollectionInfo(c.Name, c.Games, c.Codes)).ToList() ?? []));
+
+    public Task<CodeCollectionImportResult> ImportCollectionAsync(string path) => Task.Run(() =>
+    {
+        if (_collections is null)
+        {
+            return new CodeCollectionImportResult(Path.GetFileNameWithoutExtension(path), 0, 0, ["Code collections aren't available."]);
+        }
+
+        var result = _collections.Import(path);
+        return new CodeCollectionImportResult(result.Name, result.Games, result.Codes, result.Errors);
+    });
+
+    public Task RemoveCollectionAsync(string name) => Task.Run(() => _collections?.Remove(name));
+
+    public Task<CodeSourceResult?> GetCollectionCodesAsync(string gameKey, string? title) => Task.Run(() =>
+    {
+        if (_collections is null)
+        {
+            return null;
+        }
+
+        var matches = _collections.Find(_store.GetCollectionTitle(gameKey) ?? title);
+        if (matches.Count == 0)
+        {
+            return null;
+        }
+
+        var codes = matches.SelectMany(m => m.Game.Codes).DistinctBy(c => c.Code).Select(c => new CodeSuggestion(c.Code, c.Description)).ToList();
+        var sources = matches.SelectMany(m => m.Game.Codes).Select(c => c.Source).Where(s => s.Length > 0).Distinct().ToList();
+        var credit = $"From your code collection \"{string.Join("\", \"", matches.Select(m => m.Collection).Distinct())}\""
+            + (sources.Count > 0 ? $" (source: {string.Join(", ", sources)})." : ".");
+        return (CodeSourceResult?)new CodeSourceResult(matches[0].Game.Title, credit, null, codes, matches.SelectMany(m => m.Game.Notes).ToList());
+    });
+
+    public Task<IReadOnlyList<string>> SearchCollectionsAsync(string text) =>
+        Task.Run(() => _collections?.Search(text) ?? (IReadOnlyList<string>)[]);
+
+    public Task SetCollectionTitleAsync(string gameKey, string collectionTitle) => Task.Run(() => _store.SetCollectionTitle(gameKey, collectionTitle));
+
+    public async Task<CodeSourceResult?> GetOnlineCodesAsync(string gameKey, string? title)
+    {
+        if (_online is null || string.IsNullOrWhiteSpace(title))
+        {
+            return null;
+        }
+
+        try
+        {
+            var page = await _online.GetCodesAsync(_store.GetCollectionTitle(gameKey) ?? title).ConfigureAwait(false)
+                ?? await _online.GetCodesAsync(title).ConfigureAwait(false);
+            return page is null
+                ? null
+                : new CodeSourceResult(page.Title, GameGenieDotComCredit, page.PageUrl, page.Codes.Select(c => new CodeSuggestion(c.Code, c.Description)).ToList(), []);
+        }
+        catch (Exception ex) when (ex is HttpRequestException or TaskCanceledException or IOException)
+        {
+            throw new CodeSourceException("GameVault couldn't reach GameGenie.com. Check the internet connection and try again.", ex);
+        }
     }
 
     public event EventHandler<string>? Changed;
@@ -89,7 +160,7 @@ public sealed class CheatService : ICheatService
     {
         if (_host.GameKey == gameKey)
         {
-            _host.SetCheats(_store.List(gameKey).Where(c => c.Enabled).Select(c => c.Parsed).ToList());
+            _host.SetCheats(_store.List(gameKey).Where(c => c.Enabled).SelectMany(c => c.Parsed).ToList());
         }
     }
 
@@ -105,7 +176,7 @@ public sealed class CheatService : ICheatService
         {
             foreach (var code in _store.List(key))
             {
-                var on = active.Contains(code.Parsed);
+                var on = code.Parsed.All(active.Contains);
                 if (on != code.Enabled)
                 {
                     _store.Update(key, code with { Enabled = on });

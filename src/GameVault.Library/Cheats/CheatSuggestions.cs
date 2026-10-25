@@ -38,7 +38,7 @@ public sealed class CheatSuggestions
                 var codes = new List<SuggestedCode>();
                 foreach (var code in entry.Codes ?? [])
                 {
-                    if (CheatCode.TryParse(code.Code, out _, out var error))
+                    if (CheatCode.TryParseList(code.Code, out _, out var error))
                     {
                         codes.Add(new SuggestedCode(CheatCode.Normalize(code.Code), code.Description ?? string.Empty));
                     }

@@ -6,8 +6,8 @@ namespace GameVault.Library.Cheats;
 /// <summary>A code in the player's list for a game (SPEC §7.8).</summary>
 public sealed record SavedCode(string Id, string Code, string Description, bool Enabled)
 {
-    /// <summary>The parsed code; codes are checked before they are saved, so this always succeeds.</summary>
-    public CheatCode Parsed => CheatCode.Parse(Code);
+    /// <summary>The parsed code, or codes that work together ("A + B"); checked before saving, so this always succeeds.</summary>
+    public IReadOnlyList<CheatCode> Parsed => CheatCode.ParseList(Code);
 }
 
 /// <summary>
@@ -56,6 +56,32 @@ public sealed class CheatStore(string root)
     public void SetAllEnabled(string gameKey, bool enabled) =>
         Write(gameKey, Read(gameKey).Select(e => e with { Enabled = enabled }).ToList());
 
+    /// <summary>The collection game the player chose for <paramref name="gameKey"/>, when titles don't match by themselves.</summary>
+    public string? GetCollectionTitle(string gameKey) => ReadTitles().GetValueOrDefault(gameKey);
+
+    public void SetCollectionTitle(string gameKey, string title)
+    {
+        var titles = ReadTitles();
+        titles[gameKey] = title;
+        Directory.CreateDirectory(root);
+        var path = Path.Combine(root, "collection-titles.json");
+        File.WriteAllBytes(path + ".tmp", JsonSerializer.SerializeToUtf8Bytes(titles, Json));
+        File.Move(path + ".tmp", path, overwrite: true);
+    }
+
+    private Dictionary<string, string> ReadTitles()
+    {
+        var path = Path.Combine(root, "collection-titles.json");
+        try
+        {
+            return File.Exists(path) ? JsonSerializer.Deserialize<Dictionary<string, string>>(File.ReadAllText(path), Json) ?? [] : [];
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
     private string PathFor(string gameKey) => Path.Combine(root, gameKey.Replace(':', '-') + ".json");
 
     private List<SavedCode> Read(string gameKey)
@@ -70,7 +96,7 @@ public sealed class CheatStore(string root)
         {
             // A code edited by hand into something unreadable is dropped rather than breaking the list.
             return (JsonSerializer.Deserialize<List<SavedCode>>(File.ReadAllText(path), Json) ?? [])
-                .Where(e => CheatCode.TryParse(e.Code, out _, out _))
+                .Where(e => CheatCode.TryParseList(e.Code, out _, out _))
                 .ToList();
         }
         catch (JsonException)

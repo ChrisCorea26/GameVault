@@ -21,6 +21,9 @@ public sealed partial class CodesPanel : UserControl
         set => SetValue(ViewModelProperty, value);
     }
 
+    private void CollectionSearch_QuerySubmitted(AutoSuggestBox sender, AutoSuggestBoxQuerySubmittedEventArgs args) =>
+        ViewModel?.ChooseCollectionGameCommand.Execute(args.ChosenSuggestion as string ?? args.QueryText);
+
     // The control's own x:Bind paths start at ViewModel, so refresh them when the page sets it.
     private static void OnViewModelChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
         ((CodesPanel)d).Bindings.Update();

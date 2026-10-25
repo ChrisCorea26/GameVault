@@ -37,6 +37,12 @@ public sealed class AppPaths
     /// <summary>The player's Game Genie and RAM codes, one file per game (SPEC §7.8).</summary>
     public string CheatsDirectory => Path.Combine(Root, "Cheats");
 
+    /// <summary>Code collections the player imported (Settings → Codes).</summary>
+    public string CodeCollectionsDirectory => Path.Combine(Root, "Cheats", "Collections");
+
+    /// <summary>Pages fetched from GameGenie.com when the player asked for a game's codes.</summary>
+    public string OnlineCodesCacheDirectory => Path.Combine(Root, "Cheats", "GameGenie.com");
+
     /// <summary>Practice personal bests (SPEC §7.6).</summary>
     public string PracticeDirectory => Path.Combine(Root, "Practice");
 

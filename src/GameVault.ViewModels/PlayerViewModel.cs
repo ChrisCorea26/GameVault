@@ -221,7 +221,7 @@ public sealed partial class PlayerViewModel(
             timeline.CanSave = true;
             await timeline.ShowAsync(key);
             await cheats.ApplyAsync(key); // the codes the player left on for this game
-            await codes.ShowAsync(key);
+            await codes.ShowAsync(key, (await library.GetGameAsync(key))?.Title ?? Title);
             netplay.Attach();
             if (launch?.StateId is { } stateId)
             {

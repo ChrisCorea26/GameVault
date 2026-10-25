@@ -85,3 +85,13 @@ ROM into a failure. Sources, authors and hashes are listed in
 
 To run tests against your own dumps, set `GAMEVAULT_LOCAL_ROMS` to a local folder. Those tests are skipped
 otherwise.
+
+## Credits
+
+- **Game Genie codes from GameGenie.com.** In the Codes panel, "Get codes from GameGenie.com" shows codes
+  that come from [GameGenie.com](https://gamegenie.com/cheats/gamegenie/nes/index.html) (© Danworld, Inc.).
+  GameVault downloads them from the site when you ask and always shows them with this credit and a link to
+  the game's page. They aren't stored in this repository. See
+  [`data/gamedb/cheats/SOURCES.md`](data/gamedb/cheats/SOURCES.md).
+- **Code collections** that you import in Settings → Codes stay on your PC and are shown with their own
+  source.

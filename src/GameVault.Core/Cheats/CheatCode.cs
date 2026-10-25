@@ -62,15 +62,57 @@ public readonly record struct CheatCode(CheatKind Kind, ushort Address, byte Val
     }
 
     /// <summary>
-    /// How a valid code is stored and shown: Game Genie letters as the player typed them (upper case, without
-    /// spaces or dashes), RAM codes in the standard AAAA:VV form. Throws <see cref="FormatException"/> for bad codes.
+    /// Reads one code or several that work together, joined with "+" ("OZTLLX + AATLGZ + SZLIVO"), as code
+    /// lists often write them. All must be valid.
+    /// </summary>
+    public static bool TryParseList(string? text, out IReadOnlyList<CheatCode> codes, out string error)
+    {
+        codes = [];
+        var parts = (text ?? string.Empty).Split('+');
+        var parsed = new List<CheatCode>(parts.Length);
+        foreach (var part in parts)
+        {
+            if (!TryParse(part, out var code, out error))
+            {
+                if (parts.Length > 1 && !string.IsNullOrWhiteSpace(part))
+                {
+                    error = $"{part.Trim()}: {error}";
+                }
+
+                return false;
+            }
+
+            parsed.Add(code);
+        }
+
+        codes = parsed;
+        error = string.Empty;
+        return true;
+    }
+
+    public static IReadOnlyList<CheatCode> ParseList(string text) =>
+        TryParseList(text, out var codes, out var error) ? codes : throw new FormatException(error);
+
+    /// <summary>
+    /// How a valid code (or "+" list) is stored and shown: Game Genie letters as the player typed them (upper
+    /// case, without spaces or dashes), RAM codes in the standard AAAA:VV form, joined with " + ". Throws
+    /// <see cref="FormatException"/> for bad codes.
     /// </summary>
     public static string Normalize(string text)
+    {
+        _ = ParseList(text);
+        return string.Join(" + ", text.Split('+').Select(NormalizeOne));
+    }
+
+    private static string NormalizeOne(string text)
     {
         var code = Parse(text);
         var letters = new string(text.Where(c => !char.IsWhiteSpace(c) && c != '-').ToArray()).ToUpperInvariant();
         return letters.Contains(':') ? code.ToString() : letters;
     }
+
+    /// <summary>What a code list does: each code's <see cref="Describe()"/>, separated by semicolons.</summary>
+    public static string Describe(IReadOnlyList<CheatCode> codes) => string.Join("; ", codes.Select(c => c.Describe()));
 
     public static CheatCode Parse(string text) =>
         TryParse(text, out var code, out var error) ? code : throw new FormatException(error);

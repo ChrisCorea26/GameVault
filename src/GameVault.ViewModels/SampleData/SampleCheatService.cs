@@ -78,7 +78,7 @@ public sealed class SampleCheatService : ICheatService
             }
 
             var code = text.Split(' ', 2)[0];
-            if (CheatCode.TryParse(code, out _, out var error))
+            if (CheatCode.TryParseList(code, out _, out var error))
             {
                 added.Add(new CodeItem(NewId(), CheatCode.Normalize(code), text.Length > code.Length ? text[code.Length..].Trim() : string.Empty, true));
             }
@@ -107,14 +107,82 @@ public sealed class SampleCheatService : ICheatService
     public async Task ApplyAsync(string gameKey)
     {
         var codes = await GetAsync(gameKey);
-        Applied.Add((gameKey, codes.Where(c => c.Enabled).Select(c => CheatCode.Parse(c.Code)).ToList()));
+        Applied.Add((gameKey, codes.Where(c => c.Enabled).SelectMany(c => CheatCode.ParseList(c.Code)).ToList()));
+    }
+
+    /// <summary>Imported collections; tests and --sample-data add to it.</summary>
+    public List<CodeCollectionInfo> Collections { get; } = [new CodeCollectionInfo("Sample code collection", 2, 5)];
+
+    public Dictionary<string, string> CollectionTitles { get; } = [];
+
+    public Task<IReadOnlyList<CodeCollectionInfo>> GetCollectionsAsync() => Task.FromResult<IReadOnlyList<CodeCollectionInfo>>([.. Collections]);
+
+    public Task<CodeCollectionImportResult> ImportCollectionAsync(string path)
+    {
+        var name = Path.GetFileNameWithoutExtension(path.Replace('\\', '/'));
+        if (!path.EndsWith(".xlsx", StringComparison.OrdinalIgnoreCase) && !path.EndsWith(".csv", StringComparison.OrdinalIgnoreCase))
+        {
+            return Task.FromResult(new CodeCollectionImportResult(name, 0, 0, ["Choose an .xlsx or .csv file."]));
+        }
+
+        Collections.Add(new CodeCollectionInfo(name, 3, 12));
+        return Task.FromResult(new CodeCollectionImportResult(name, 3, 12, []));
+    }
+
+    public Task RemoveCollectionAsync(string name)
+    {
+        Collections.RemoveAll(c => c.Name == name);
+        return Task.CompletedTask;
+    }
+
+    public Task<CodeSourceResult?> GetCollectionCodesAsync(string gameKey, string? title)
+    {
+        var chosen = CollectionTitles.GetValueOrDefault(gameKey);
+        if (Collections.Count == 0 || (chosen is null && title is not ("Star Courier" or "Sample Game")))
+        {
+            return Task.FromResult<CodeSourceResult?>(null);
+        }
+
+        return Task.FromResult<CodeSourceResult?>(new CodeSourceResult(
+            chosen ?? title!,
+            "From your code collection \"Sample code collection\" (source: made-up sample codes).",
+            null,
+            [new CodeSuggestion("GXOOZTEY", "Start with 9 lives"), new CodeSuggestion("PAXOPO + ZAXOZO", "Start on the last level")],
+            ["Codes 1 and 2 work in 1-player games only."]));
+    }
+
+    public Task<IReadOnlyList<string>> SearchCollectionsAsync(string text) =>
+        Task.FromResult<IReadOnlyList<string>>(new[] { "Star Courier", "Star Courier II" }.Where(t => t.Contains(text, StringComparison.OrdinalIgnoreCase)).ToList());
+
+    public Task SetCollectionTitleAsync(string gameKey, string collectionTitle)
+    {
+        CollectionTitles[gameKey] = collectionTitle;
+        return Task.CompletedTask;
+    }
+
+    /// <summary>When set, the online lookup fails with this message (tests).</summary>
+    public string? OnlineFailure { get; set; }
+
+    public Task<CodeSourceResult?> GetOnlineCodesAsync(string gameKey, string? title)
+    {
+        if (OnlineFailure is { } failure)
+        {
+            return Task.FromException<CodeSourceResult?>(new CodeSourceException(failure));
+        }
+
+        return Task.FromResult<CodeSourceResult?>(new CodeSourceResult(
+            title ?? "Sample Game",
+            "These codes come from GameGenie.com (© Danworld, Inc.). GameVault downloads them from the site when you ask; they aren't part of GameVault.",
+            new Uri("https://gamegenie.com/cheats/gamegenie/nes/index.html"),
+            [new CodeSuggestion("AEKPIL", "Jump higher"), new CodeSuggestion("YEUZUGAA", "Slower timer")],
+            []));
     }
 
     private string NewId() => (++_next).ToString(System.Globalization.CultureInfo.InvariantCulture);
 
     private void Raise(string gameKey)
     {
-        Applied.Add((gameKey, _codes[gameKey].Where(c => c.Enabled).Select(c => CheatCode.Parse(c.Code)).ToList()));
+        Applied.Add((gameKey, _codes[gameKey].Where(c => c.Enabled).SelectMany(c => CheatCode.ParseList(c.Code)).ToList()));
         Changed?.Invoke(this, gameKey);
     }
 }
@@ -129,4 +197,8 @@ public sealed class SampleCodeFilePicker : ICodeFilePicker
     public Task<string?> PickImportFileAsync() => Task.FromResult(ImportPath);
 
     public Task<string?> PickExportFileAsync(string suggestedName) => Task.FromResult(ExportPath);
+
+    public string? CollectionPath { get; set; }
+
+    public Task<string?> PickCollectionFileAsync() => Task.FromResult(CollectionPath);
 }

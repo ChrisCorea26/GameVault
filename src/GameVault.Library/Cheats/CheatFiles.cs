@@ -19,8 +19,13 @@ public sealed record CheatImport(IReadOnlyList<(string Code, string Description,
 /// </list>
 /// Nothing is half-imported: one bad line rejects the file, with line numbers in the errors.
 /// </summary>
-public static class CheatFiles
+public static partial class CheatFiles
 {
+    [System.Text.RegularExpressions.GeneratedRegex(@"^(\S.*?)(?:\t|\s{2,})(.*)$")]
+    private static partial System.Text.RegularExpressions.Regex CodeAndDescriptionRegex();
+
+    private static readonly System.Text.RegularExpressions.Regex CodeAndDescription = CodeAndDescriptionRegex();
+
     public static CheatImport Import(string text, string fileName) =>
         fileName.EndsWith(".cht", StringComparison.OrdinalIgnoreCase) ? ImportCht(text) : ImportText(text);
 
@@ -55,10 +60,11 @@ public static class CheatFiles
                 continue;
             }
 
-            var space = line.IndexOfAny([' ', '\t']);
-            var codeText = space < 0 ? line : line[..space];
-            var description = space < 0 ? string.Empty : line[space..].Trim();
-            if (CheatCode.TryParse(codeText, out _, out var error))
+            // The code ends at a tab or two spaces (so "A + B  description" works), else at the first space.
+            var split = CodeAndDescription.Match(line);
+            var codeText = split.Success ? split.Groups[1].Value : line.Split(' ', 2)[0];
+            var description = split.Success ? split.Groups[2].Value.Trim() : line[codeText.Length..].Trim();
+            if (CheatCode.TryParseList(codeText, out _, out var error))
             {
                 codes.Add((CheatCode.Normalize(codeText), description, true));
             }

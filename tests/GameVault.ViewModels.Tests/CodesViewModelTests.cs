@@ -94,4 +94,85 @@ public class CodesViewModelTests
         _service.Files["Codes/mine.txt"].Should().Contain("SXIOPO  Infinite lives");
         _vm.Message.Should().Be("Saved the codes to mine.txt.");
     }
+
+    [Fact]
+    public async Task Collection_codes_show_with_their_credit_notes_and_a_game_picker()
+    {
+        await _vm.ShowAsync(Game, "Star Courier");
+
+        _vm.HasCollections.Should().BeTrue();
+        _vm.CollectionHeading.Should().Be("Codes for Star Courier in your collection");
+        _vm.CollectionCredit.Should().StartWith("From your code collection");
+        _vm.CollectionNotes.Should().Contain("1-player");
+        _vm.CollectionCodes.Select(c => c.Code).Should().Equal("GXOOZTEY", "PAXOPO + ZAXOZO");
+
+        await _vm.CollectionCodes[0].UseCommand.ExecuteAsync(null);
+        _vm.Items.Select(i => i.Code).Should().Contain("GXOOZTEY");
+        _vm.CollectionCodes.Select(c => c.Code).Should().Equal("PAXOPO + ZAXOZO");
+    }
+
+    [Fact]
+    public async Task A_game_with_another_title_can_be_chosen_from_the_collection()
+    {
+        await _vm.ShowAsync(Game, "Courier of the Stars");
+        _vm.HasCollectionCodes.Should().BeFalse();
+
+        _vm.CollectionSearch = "star";
+        await Task.Delay(20);
+        _vm.CollectionMatches.Should().Equal("Star Courier", "Star Courier II");
+
+        await _vm.ChooseCollectionGameCommand.ExecuteAsync("Star Courier II");
+
+        _service.CollectionTitles[Game].Should().Be("Star Courier II");
+        _vm.CollectionHeading.Should().Be("Codes for Star Courier II in your collection");
+    }
+
+    [Fact]
+    public async Task GameGenie_com_codes_come_with_their_credit_and_page()
+    {
+        await _vm.ShowAsync(Game, "Star Courier");
+        _vm.HasOnlineCodes.Should().BeFalse("nothing is downloaded until the player asks");
+
+        await _vm.GetOnlineCodesCommand.ExecuteAsync(null);
+
+        _vm.OnlineCodes.Select(c => c.Code).Should().Equal("AEKPIL", "YEUZUGAA");
+        _vm.OnlineCredit.Should().StartWith("These codes come from GameGenie.com");
+        _vm.OnlineUrl!.Host.Should().Be("gamegenie.com");
+        _vm.OnlineMessage.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task A_failed_GameGenie_com_lookup_says_why()
+    {
+        _service.OnlineFailure = "GameVault couldn't reach GameGenie.com.";
+        await _vm.ShowAsync(Game, "Star Courier");
+
+        await _vm.GetOnlineCodesCommand.ExecuteAsync(null);
+
+        _vm.OnlineMessage.Should().Be("GameVault couldn't reach GameGenie.com.");
+        _vm.HasOnlineCodes.Should().BeFalse();
+        _vm.GetOnlineCodesCommand.CanExecute(null).Should().BeTrue("the player can try again");
+    }
+
+    [Fact]
+    public async Task Settings_imports_and_removes_code_collections()
+    {
+        var settings = new CodeCollectionsViewModel(_service, _picker);
+        await settings.LoadCommand.ExecuteAsync(null);
+        settings.Items.Should().ContainSingle();
+
+        _picker.CollectionPath = "Codes/My Codes.xlsx";
+        await settings.ImportCommand.ExecuteAsync(null);
+
+        settings.Message.Should().Be("Imported 12 codes for 3 games from \"My Codes\". They appear under Codes for each game.");
+        settings.Items.Select(i => i.Name).Should().Equal("Sample code collection", "My Codes");
+        settings.Items[1].Summary.Should().Be("12 codes for 3 games");
+
+        await settings.Items[0].RemoveCommand.ExecuteAsync(null);
+        settings.Items.Should().ContainSingle().Which.Name.Should().Be("My Codes");
+
+        _picker.CollectionPath = "notes.txt";
+        await settings.ImportCommand.ExecuteAsync(null);
+        settings.Message.Should().Be("Choose an .xlsx or .csv file.");
+    }
 }

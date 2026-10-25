@@ -104,3 +104,22 @@ Player and Game Details UI, and a bundled code database.
     "Turn all off" and suggestions.
   - A "Codes on" badge, and F3 to switch every code off.
   - Practice personal bests aren't recorded while codes are on.
+
+## Follow-up: code sources (owner decision)
+- **GameGenie.com**
+  - Codes → "Get codes from GameGenie.com" downloads the game's page from the site's NES Game Genie list.
+    The game is matched by title, or by the collection game the player chose.
+  - The codes are shown under "Codes from GameGenie.com" with the credit "These codes come from
+    GameGenie.com (© Danworld, Inc.)…" and a link to the page.
+  - Pages are cached (the list for 7 days, each game for 30), and an old copy is used when offline.
+- **Player code collections**
+  - Settings → Codes imports .xlsx (the "NES" sheet, else the first) or .csv files with Game, Code ("Key
+    in…") and Effect columns.
+  - Rows that aren't codes become notes for the game.
+  - Codes appear per game "in your collection", with the collection name and the row's source.
+  - A search box picks the right game when titles differ ("Zelda II: The Adventures of Link").
+- **Why nothing is bundled:**
+  - The site's list and the official codebook compilations the owner supplied carry no license that
+    allows redistribution, so the repository keeps none of their codes.
+  - The owner's spreadsheet imports locally: 5,173 codes for 478 games.
+- **Combined codes:** codes written "A + B + C" are stored and switched together.
