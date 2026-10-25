@@ -15,6 +15,13 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
     [ObservableProperty]
     public partial bool CropOverscan { get; set; } = true;
 
+    /// <summary>A <see cref="Services.DisplayPreset"/> as an index, for a RadioButtons group.</summary>
+    [ObservableProperty]
+    public partial int DisplayPresetIndex { get; set; }
+
+    [ObservableProperty]
+    public partial bool TvPixelShape { get; set; }
+
     /// <summary>0–3. Bound to a RadioButtons group by index.</summary>
     [ObservableProperty]
     public partial int RunAheadFrames { get; set; } = 1;
@@ -35,6 +42,8 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
         _isLoaded = false;
         var settings = await settingsStore.LoadAsync(cancellationToken);
         CropOverscan = settings.CropOverscan;
+        DisplayPresetIndex = (int)settings.DisplayPreset;
+        TvPixelShape = settings.TvPixelShape;
         RunAheadFrames = Math.Clamp(settings.RunAheadFrames, 0, AppSettings.MaxRunAheadFrames);
         PauseWhenInactive = settings.PauseWhenInactive;
         AllowOppositeDirections = settings.AllowOppositeDirections;
@@ -48,6 +57,8 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
         var defaults = new AppSettings();
         _isLoaded = false;
         CropOverscan = defaults.CropOverscan;
+        DisplayPresetIndex = (int)defaults.DisplayPreset;
+        TvPixelShape = defaults.TvPixelShape;
         RunAheadFrames = defaults.RunAheadFrames;
         PauseWhenInactive = defaults.PauseWhenInactive;
         AllowOppositeDirections = defaults.AllowOppositeDirections;
@@ -57,6 +68,16 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
     }
 
     partial void OnCropOverscanChanged(bool value) => SaveIfLoaded();
+
+    partial void OnDisplayPresetIndexChanged(int value)
+    {
+        if (Enum.IsDefined((DisplayPreset)value))
+        {
+            SaveIfLoaded();
+        }
+    }
+
+    partial void OnTvPixelShapeChanged(bool value) => SaveIfLoaded();
 
     partial void OnRunAheadFramesChanged(int value)
     {
@@ -90,6 +111,8 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
         await settingsStore.SaveAsync(current with
         {
             CropOverscan = CropOverscan,
+            DisplayPreset = Enum.IsDefined((DisplayPreset)DisplayPresetIndex) ? (DisplayPreset)DisplayPresetIndex : current.DisplayPreset,
+            TvPixelShape = TvPixelShape,
             RunAheadFrames = Math.Clamp(RunAheadFrames, 0, AppSettings.MaxRunAheadFrames),
             PauseWhenInactive = PauseWhenInactive,
             AllowOppositeDirections = AllowOppositeDirections,

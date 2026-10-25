@@ -73,17 +73,22 @@ public partial class App : Application
             services.AddSingleton<IEmulatorService>(sp => new SampleEmulatorHost(sp.GetRequiredService<FrameSink>()));
             services.AddSingleton<IGameFilePicker, SampleGameFilePicker>();
             services.AddSingleton<IInputDevicesService, SampleInputDevicesService>();
+            services.AddSingleton<ISaveStateService, SampleSaveStateService>();
         }
         else
         {
             services.AddSingleton(_ => new AppPaths());
             services.AddSingleton<ILibraryService, EmptyLibraryService>();
             services.AddSingleton<ISettingsStore, JsonSettingsStore>();
-            services.AddSingleton<IEmulatorService>(sp => new EmulatorHost(
+            services.AddSingleton(sp => new EmulatorHost(
                 sp.GetRequiredService<FrameSink>(),
                 sp.GetRequiredService<InputService>(),
                 sp.GetRequiredService<ISettingsStore>(),
-                new WasapiAudioOutput()));
+                new WasapiAudioOutput(),
+                sp.GetRequiredService<AppPaths>()));
+            services.AddSingleton<IEmulatorService>(sp => sp.GetRequiredService<EmulatorHost>());
+            services.AddSingleton<SaveStateStore>();
+            services.AddSingleton<ISaveStateService, SaveStateService>();
             services.AddSingleton<IGameFilePicker, WinUiGameFilePicker>();
             services.AddSingleton(sp => new ControllerManager(
                 sp.GetRequiredService<InputService>(),
@@ -104,6 +109,7 @@ public partial class App : Application
         services.AddTransient<InputSettingsViewModel>();
         services.AddTransient<SettingsViewModel>();
         services.AddSingleton<PadNavigation>();
+        services.AddTransient<SaveStatesViewModel>();
         services.AddTransient<PlayerViewModel>();
 
         services.AddSingleton<MainWindow>();

@@ -13,6 +13,14 @@
   <ItemGroup>
     <PackageReference Include="NAudio.Wasapi" />
     <PackageReference Include="Silk.NET.SDL" />
+    <PackageReference Include="System.IO.Hashing" />
+    <PackageReference Include="Vortice.D3DCompiler" />
+    <PackageReference Include="Vortice.Direct3D11" />
+    <PackageReference Include="Vortice.DXGI" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Video\Shaders\Display.hlsl" LogicalName="GameVault.Display.hlsl" />
   </ItemGroup>
 
   <ItemGroup>

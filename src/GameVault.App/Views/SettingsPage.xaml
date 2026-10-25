@@ -37,6 +37,46 @@
         </Grid>
       </Border>
 
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Picture style" />
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Changes apply the next time a game starts."
+              TextWrapping="Wrap" />
+          <RadioButtons MaxColumns="2" SelectedIndex="{x:Bind ViewModel.DisplayPresetIndex, Mode=TwoWay}">
+            <x:String>Sharp pixels</x:String>
+            <x:String>Smooth</x:String>
+            <x:String>Living room CRT</x:String>
+            <x:String>Arcade monitor</x:String>
+          </RadioButtons>
+        </StackPanel>
+      </Border>
+
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <Grid ColumnSpacing="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="TV pixel shape" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="Makes the picture a little wider, the way it looked on a TV."
+                TextWrapping="Wrap" />
+          </StackPanel>
+          <ToggleSwitch
+              Grid.Column="1"
+              MinWidth="0"
+              IsOn="{x:Bind ViewModel.TvPixelShape, Mode=TwoWay}"
+              OffContent=""
+              OnContent="" />
+        </Grid>
+      </Border>
+
       <!-- Audio -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Audio" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">

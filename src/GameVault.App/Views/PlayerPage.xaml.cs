@@ -55,6 +55,8 @@ public sealed partial class PlayerPage : Page
         }
     }
 
+    private void SaveStates_Opening(object? sender, object e) => ViewModel.SaveStates.RefreshCommand.Execute(null);
+
     private void OnPauseRequested(object? sender, EventArgs e) => ViewModel.TogglePauseCommand.Execute(null);
 
     private void OnWindowActivated(object sender, WindowActivatedEventArgs args)

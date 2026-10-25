@@ -10,8 +10,12 @@ public sealed partial class PlayerViewModel(
     IEmulatorService emulator,
     INavigationService navigation,
     ISettingsStore settingsStore,
-    IInputDevicesService devices) : ObservableObject
+    IInputDevicesService devices,
+    SaveStatesViewModel saveStates) : ObservableObject
 {
+    /// <summary>The "Save states" flyout.</summary>
+    public SaveStatesViewModel SaveStates => saveStates;
+
     private bool _attached;
     private bool _pauseWhenInactive = true;
 
@@ -138,6 +142,8 @@ public sealed partial class PlayerViewModel(
         if (!_attached)
         {
             emulator.StatusChanged += OnStatusChanged;
+            emulator.Notice += OnNotice;
+            saveStates.Service.Notice += OnNotice;
             devices.ControllerDisconnected += OnControllerDisconnected;
             devices.Changed += OnDevicesChanged;
             devices.Notice += OnNotice;
@@ -151,6 +157,8 @@ public sealed partial class PlayerViewModel(
         if (_attached)
         {
             emulator.StatusChanged -= OnStatusChanged;
+            emulator.Notice -= OnNotice;
+            saveStates.Service.Notice -= OnNotice;
             devices.ControllerDisconnected -= OnControllerDisconnected;
             devices.Changed -= OnDevicesChanged;
             devices.Notice -= OnNotice;
@@ -176,7 +184,11 @@ public sealed partial class PlayerViewModel(
         }
     }
 
-    private void OnNotice(object? sender, string notice) => Notice = notice;
+    private void OnNotice(object? sender, string notice)
+    {
+        Notice = null; // re-opens the notice bar if the player closed the previous one
+        Notice = notice;
+    }
 
     private void OnStatusChanged(object? sender, EventArgs e) => Refresh();
 

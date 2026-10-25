@@ -30,6 +30,12 @@ public sealed class SampleEmulatorHost : IEmulatorService, IDisposable
 
     public event EventHandler? StatusChanged;
 
+    public event EventHandler<string>? Notice
+    {
+        add { }
+        remove { }
+    }
+
     public Task LoadAsync(string path, CancellationToken cancellationToken = default)
     {
         GameTitle = "Sample Game";

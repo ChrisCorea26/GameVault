@@ -24,6 +24,12 @@ public interface IEmulatorService
 
     event EventHandler? StatusChanged;
 
+    /// <summary>
+    /// Something the player should know that doesn't stop the game, such as run-ahead switching itself off.
+    /// Raised on the UI thread.
+    /// </summary>
+    event EventHandler<string>? Notice;
+
     /// <summary>Loads a game file and starts it. Throws <see cref="GameLoadException"/> with a user-facing message.</summary>
     Task LoadAsync(string path, CancellationToken cancellationToken = default);
 

@@ -13,7 +13,9 @@
       <Setter.Value>
         <ControlTemplate TargetType="controls:GameView">
           <Grid Background="{TemplateBinding Background}">
-            <canvas:CanvasSwapChainPanel x:Name="PART_SwapChainPanel" />
+            <!-- Direct3D 11 presets (SPEC §5.2); the Win2D panel is the fallback when D3D11 can't start. -->
+            <SwapChainPanel x:Name="PART_D3DPanel" />
+            <canvas:CanvasSwapChainPanel x:Name="PART_SwapChainPanel" Visibility="Collapsed" />
           </Grid>
         </ControlTemplate>
       </Setter.Value>

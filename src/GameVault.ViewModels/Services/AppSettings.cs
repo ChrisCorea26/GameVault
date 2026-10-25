@@ -8,6 +8,12 @@ public sealed record AppSettings
     /// <summary>Hide the top and bottom 8 lines, like most TVs did (SPEC §5.2).</summary>
     public bool CropOverscan { get; init; } = true;
 
+    /// <summary>Picture style (SPEC §5.2).</summary>
+    public DisplayPreset DisplayPreset { get; init; } = DisplayPreset.SharpPixels;
+
+    /// <summary>Stretch pixels to the 8:7 shape they had on a TV, instead of square.</summary>
+    public bool TvPixelShape { get; init; }
+
     /// <summary>0–3 frames of run-ahead (SPEC §5.5). 1 by default.</summary>
     public int RunAheadFrames { get; init; } = 1;
 

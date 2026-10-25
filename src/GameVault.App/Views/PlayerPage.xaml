@@ -6,6 +6,8 @@
     xmlns:controls="using:GameVault.App.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:helpers="using:GameVault.App.Helpers"
+    xmlns:vm="using:GameVault.ViewModels"
     mc:Ignorable="d">
 
   <Page.KeyboardAccelerators>
@@ -25,6 +27,7 @@
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
@@ -58,6 +61,54 @@
           AccessKey="R"
           Command="{x:Bind ViewModel.ResetCommand}"
           Content="Reset" />
+      <!-- SPEC §4.6: ten slots; F5 / F8 use the selected one (docs/design/input.md §8). -->
+      <Button Grid.Column="5" AccessKey="S" Content="Save states">
+        <Button.Flyout>
+          <Flyout Opening="SaveStates_Opening" Placement="BottomEdgeAlignedRight">
+            <StackPanel Width="560" Spacing="8">
+              <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Save states" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="F5 saves and F8 loads the highlighted slot." />
+              <ItemsRepeater ItemsSource="{x:Bind ViewModel.SaveStates.Slots}">
+                <ItemsRepeater.Layout>
+                  <UniformGridLayout MinColumnSpacing="8" MinItemWidth="168" MinRowSpacing="8" />
+                </ItemsRepeater.Layout>
+                <ItemsRepeater.ItemTemplate>
+                  <DataTemplate x:DataType="vm:SaveSlotViewModel">
+                    <Border
+                        Padding="8"
+                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+                        BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+                        BorderThickness="{x:Bind helpers:BindingHelpers.SelectionBorder(IsSelected), Mode=OneWay}"
+                        CornerRadius="6">
+                      <StackPanel Spacing="4">
+                        <Grid Height="90" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4">
+                          <Image Stretch="Uniform" Visibility="{x:Bind HasThumbnail}">
+                            <Image.Source>
+                              <BitmapImage CreateOptions="IgnoreImageCache" UriSource="{x:Bind ThumbnailUri}" />
+                            </Image.Source>
+                          </Image>
+                        </Grid>
+                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind Title}" />
+                        <TextBlock
+                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                            Style="{StaticResource CaptionTextBlockStyle}"
+                            Text="{x:Bind Subtitle}" />
+                        <StackPanel Orientation="Horizontal" Spacing="4">
+                          <Button Command="{x:Bind SaveCommand}" Content="Save" />
+                          <Button Command="{x:Bind LoadCommand}" Content="Load" />
+                        </StackPanel>
+                      </StackPanel>
+                    </Border>
+                  </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+              </ItemsRepeater>
+            </StackPanel>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
     </Grid>
 
     <StackPanel Grid.Row="1" Margin="12,0,12,0" Spacing="8">

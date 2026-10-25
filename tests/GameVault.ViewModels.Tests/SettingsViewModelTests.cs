@@ -36,6 +36,22 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task Display_preset_and_pixel_shape_are_saved()
+    {
+        var store = new InMemorySettingsStore(new AppSettings { DisplayPreset = DisplayPreset.Smooth });
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store));
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.DisplayPresetIndex.Should().Be(1);
+
+        vm.DisplayPresetIndex = (int)DisplayPreset.ArcadeMonitor;
+        vm.TvPixelShape = true;
+        vm.DisplayPresetIndex = -1; // RadioButtons clearing its selection
+
+        store.Current.DisplayPreset.Should().Be(DisplayPreset.ArcadeMonitor);
+        store.Current.TvPixelShape.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Out_of_range_run_ahead_from_disk_is_clamped()
     {
         var store = new InMemorySettingsStore(new AppSettings { RunAheadFrames = 99 });

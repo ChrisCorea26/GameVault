@@ -7,6 +7,11 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <!-- Synthetic mapper ROMs shared with the core tests. -->
+    <Compile Include="..\GameVault.Core.Tests\Cartridge\BankedRom.cs" Link="BankedRom.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\..\src\GameVault.Platform\GameVault.Platform.csproj" />
   </ItemGroup>
 

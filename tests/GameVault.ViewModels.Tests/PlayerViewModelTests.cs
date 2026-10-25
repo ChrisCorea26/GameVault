@@ -9,13 +9,14 @@ public class PlayerViewModelTests
     private readonly FakeNavigationService _navigation = new();
     private readonly InMemorySettingsStore _settings = new();
     private readonly SampleInputDevicesService _devices = new();
+    private readonly SampleSaveStateService _saveStates = new();
     private readonly PlayerViewModel _vm;
 
     public PlayerViewModelTests()
     {
         _navigation.NavigateTo(AppPage.Library);
         _navigation.NavigateTo(AppPage.Player, "game.nes");
-        _vm = new PlayerViewModel(_emulator, _navigation, _settings, _devices);
+        _vm = new PlayerViewModel(_emulator, _navigation, _settings, _devices, new SaveStatesViewModel(_saveStates));
     }
 
     [Fact]
@@ -135,6 +136,18 @@ public class PlayerViewModelTests
         _vm.HasControllerMessage.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task Emulator_and_save_state_notices_are_shown()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+
+        _emulator.RaiseNotice("Reduce input lag is off for now");
+        _vm.Notice.Should().Be("Reduce input lag is off for now");
+
+        await _saveStates.SaveAsync(2);
+        _vm.Notice.Should().Be("Saved to slot 3");
+    }
+
     private sealed class FakeEmulator : IEmulatorService
     {
         public EmulatorStatus Status { get; private set; }
@@ -150,6 +163,10 @@ public class PlayerViewModelTests
         public bool HasListeners => StatusChanged is not null;
 
         public event EventHandler? StatusChanged;
+
+        public event EventHandler<string>? Notice;
+
+        public void RaiseNotice(string message) => Notice?.Invoke(this, message);
 
         public Task LoadAsync(string path, CancellationToken cancellationToken = default)
         {

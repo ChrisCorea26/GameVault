@@ -4,7 +4,9 @@ using GameVault.Core;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Ppu;
 using GameVault.Platform.Audio;
+using GameVault.Core.State;
 using GameVault.Platform.Input;
+using GameVault.Platform.Storage;
 using GameVault.Platform.Video;
 using GameVault.ViewModels.Services;
 
@@ -33,6 +35,9 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private readonly InputService _input;
     private readonly ISettingsStore? _settings;
     private readonly IAudioOutput? _audio;
+    private readonly BatterySaveStore? _batteries;
+    private readonly RunAhead _runAhead = new();
+    private readonly Action<NesConsole> _present;
     private readonly float[] _samples = new float[8192];
     private AudioPacing? _pacing;
     private bool _audioActive;
@@ -50,14 +55,29 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private NesConsole? _console;
     private bool _running;
     private long _frameCount;
+    private IBatteryBacked? _battery;
+    private byte[] _batterySaved = [];
+    private string _batteryTitle = string.Empty;
+    private bool _quickSaveHeld;
+    private bool _quickLoadHeld;
 
-    public EmulatorHost(IVideoSink video, InputService input, ISettingsStore? settings = null, IAudioOutput? audio = null)
+    /// <summary>Check battery RAM for changes about once a minute (60.1 frames per second).</summary>
+    private const int BatteryCheckFrames = 3600;
+
+    public EmulatorHost(
+        IVideoSink video,
+        InputService input,
+        ISettingsStore? settings = null,
+        IAudioOutput? audio = null,
+        AppPaths? paths = null)
     {
         _video = video;
         _input = input;
         _settings = settings;
         _audio = audio;
+        _batteries = paths is null ? null : new BatterySaveStore(paths);
         _context = SynchronizationContext.Current;
+        _present = console => _video.Present(console.Ppu.FrameBuffer, NtscPalette.Argb);
     }
 
     public EmulatorStatus Status { get; private set; }
@@ -70,6 +90,27 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     public long FrameCount => Interlocked.Read(ref _frameCount);
 
     public event EventHandler? StatusChanged;
+
+    public event EventHandler<string>? Notice;
+
+    /// <summary>F5 was pressed in the game (docs/design/input.md §8). Raised on the UI thread.</summary>
+    public event EventHandler? QuickSaveRequested;
+
+    /// <summary>F8 was pressed in the game. Raised on the UI thread.</summary>
+    public event EventHandler? QuickLoadRequested;
+
+    /// <summary>Hash of the running game's ROM, which names its save files. Null when idle.</summary>
+    public ulong? RomHash { get; private set; }
+
+    /// <summary>Run-ahead frames (0–3, SPEC §5.5). Applied between frames.</summary>
+    public int RunAheadFrames
+    {
+        set => Post(() =>
+        {
+            _runAhead.Frames = Math.Clamp(value, 0, 3);
+            _runAhead.ResetAutoDisable();
+        });
+    }
 
     public async Task LoadAsync(string path, CancellationToken cancellationToken = default)
     {
@@ -87,6 +128,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         {
             var settings = await _settings.LoadAsync(cancellationToken).ConfigureAwait(false);
             _input.AllowOppositeDirections = settings.AllowOppositeDirections;
+            RunAheadFrames = settings.RunAheadFrames;
             if (_audio is not null)
             {
                 _audio.Volume = Math.Clamp(settings.Volume, 0, 100) / 100f;
@@ -126,14 +168,39 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             }
         }
 
+        var battery = console.Mapper as IBatteryBacked;
+        if (battery is { HasBattery: false })
+        {
+            battery = null;
+        }
+
+        if (battery is not null && _batteries is not null)
+        {
+            try
+            {
+                _batteries.TryLoad(console.RomHash, battery.BatteryRam);
+            }
+            catch (IOException)
+            {
+                // A damaged or locked save shouldn't stop the game; it starts with empty RAM instead.
+                RaiseNotice("GameVault couldn't read this game's save file, so the game starts without it.");
+            }
+        }
+
         console.Power();
         EnsureThread();
         Post(() =>
         {
+            FlushBattery(); // the previous game's
             _console = console;
+            _battery = battery;
+            _batterySaved = battery?.BatteryRam.ToArray() ?? [];
+            _batteryTitle = title;
             _running = true;
+            _runAhead.ResetAutoDisable();
             Interlocked.Exchange(ref _frameCount, 0);
         });
+        RomHash = console.RomHash;
         SetAudioPaused(false);
 
         GameTitle = title;
@@ -148,7 +215,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             return;
         }
 
-        Post(() => _running = false);
+        Post(() =>
+        {
+            _running = false;
+            FlushBattery();
+        });
         SetAudioPaused(true);
         SetStatus(EmulatorStatus.Paused);
     }
@@ -176,11 +247,14 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
         Post(() =>
         {
+            FlushBattery();
             _console = null;
+            _battery = null;
             _running = false;
         });
         SetAudioPaused(true);
         GameTitle = null;
+        RomHash = null;
         SetStatus(EmulatorStatus.Idle);
     }
 
@@ -189,6 +263,51 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     {
         var result = new TaskCompletionSource<T?>(TaskCreationOptions.RunContinuationsAsynchronously);
         Post(() => result.SetResult(_console is null ? default : query(_console)));
+        return result.Task;
+    }
+
+    /// <summary>
+    /// Takes a save state between frames, with a thumbnail of the current screen. Null when no game is running.
+    /// </summary>
+    public async Task<StateCapture?> CaptureAsync()
+    {
+        var captured = await InspectAsync(console => (console.RomHash, console.SaveSnapshot(), console.Ppu.FrameBuffer.ToArray()))
+            .ConfigureAwait(false);
+        if (captured.Item2 is null)
+        {
+            return null;
+        }
+
+        // PNG encoding happens off the emulation thread.
+        var thumbnail = PngEncoder.Thumbnail(captured.Item3, NtscPalette.Argb);
+        return new StateCapture(captured.RomHash, captured.Item2, thumbnail);
+    }
+
+    /// <summary>Loads a save state between frames. Returns false if it doesn't fit the running game.</summary>
+    public Task<bool> RestoreAsync(byte[] state)
+    {
+        var result = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Post(() =>
+        {
+            if (_console is null)
+            {
+                result.SetResult(false);
+                return;
+            }
+
+            var backup = _console.SaveSnapshot();
+            try
+            {
+                _console.LoadSnapshot(state);
+                _present(_console);
+                result.SetResult(true);
+            }
+            catch (StateFormatException)
+            {
+                _console.LoadSnapshot(backup); // a bad file must not leave the game half-loaded
+                result.SetResult(false);
+            }
+        });
         return result.Task;
     }
 
@@ -212,6 +331,17 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     public void Dispose()
     {
+        if (_thread is not null)
+        {
+            var flushed = new ManualResetEventSlim();
+            Post(() =>
+            {
+                FlushBattery();
+                flushed.Set();
+            });
+            flushed.Wait(TimeSpan.FromSeconds(2));
+        }
+
         _shutdown = true;
         _wake.Set();
         _thread?.Join(TimeSpan.FromSeconds(2));
@@ -265,6 +395,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             }
 
             var console = _console;
+            PollStateHotkeys();
             var fastForward = _input.IsHotkeyHeld(VirtualKeys.Tab);
             if (wasFastForward && !fastForward)
             {
@@ -335,9 +466,16 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 console.SetControllerState(port, _input.Sample(port, console.Ppu.FrameCount));
             }
 
-            console.RunFrame();
-            _video.Present(console.Ppu.FrameBuffer, NtscPalette.Argb);
-            Interlocked.Increment(ref _frameCount);
+            if (_runAhead.RunFrame(console, _present))
+            {
+                RaiseNotice("Reduce input lag is off for now because this PC couldn't keep up. You can change it in Settings.");
+            }
+
+            if (Interlocked.Increment(ref _frameCount) % BatteryCheckFrames == 0)
+            {
+                FlushBattery(background: true);
+            }
+
             return true;
         }
         catch (Exception ex)
@@ -348,6 +486,62 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             return false;
         }
     }
+
+    /// <summary>F5 / F8 act on the press, not while held.</summary>
+    private void PollStateHotkeys()
+    {
+        var save = _input.IsHotkeyHeld(VirtualKeys.F5);
+        var load = _input.IsHotkeyHeld(VirtualKeys.F8);
+        if (save && !_quickSaveHeld)
+        {
+            Raise(() => QuickSaveRequested?.Invoke(this, EventArgs.Empty));
+        }
+
+        if (load && !_quickLoadHeld)
+        {
+            Raise(() => QuickLoadRequested?.Invoke(this, EventArgs.Empty));
+        }
+
+        _quickSaveHeld = save;
+        _quickLoadHeld = load;
+    }
+
+    /// <summary>Writes battery RAM to its .sav file if it changed. Runs on the emulation thread.</summary>
+    private void FlushBattery(bool background = false)
+    {
+        if (_battery is null || _batteries is null || _battery.BatteryRam.SequenceEqual(_batterySaved))
+        {
+            return;
+        }
+
+        var data = _battery.BatteryRam.ToArray();
+        _batterySaved = data;
+        var title = _batteryTitle;
+        var hash = _console!.RomHash;
+
+        void Write()
+        {
+            try
+            {
+                _batteries.Save(title, hash, data);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                RaiseNotice("GameVault couldn't save this game's progress file. " + ex.Message);
+            }
+        }
+
+        if (background)
+        {
+            _ = Task.Run(Write); // keep disk writes off the frame loop
+        }
+        else
+        {
+            Write();
+        }
+    }
+
+    private void RaiseNotice(string message) => Raise(() => Notice?.Invoke(this, message));
 
     /// <summary>
     /// Sleeps most of the wait, then spins the last stretch for accurate pacing. Returns false if the
@@ -405,3 +599,6 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
     }
 }
+
+/// <summary>A save state taken by <see cref="EmulatorHost.CaptureAsync"/>, with a PNG thumbnail.</summary>
+public sealed record StateCapture(ulong RomHash, byte[] State, byte[] ThumbnailPng);
