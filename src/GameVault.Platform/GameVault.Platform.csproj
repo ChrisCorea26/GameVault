@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <InternalsVisibleTo Include="GameVault.Platform.Tests" />
+  </ItemGroup>
+
+  <ItemGroup>
     <ProjectReference Include="..\GameVault.Core\GameVault.Core.csproj" />
     <!-- Only for the service interfaces it implements (see docs/plans/phase-0.md). -->
     <ProjectReference Include="..\GameVault.ViewModels\GameVault.ViewModels.csproj" />
