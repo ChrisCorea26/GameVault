@@ -22,6 +22,12 @@ public sealed record AppSettings
     /// <summary>"Two players, one keyboard" preset (docs/design/input.md §4.3).</summary>
     public bool TwoPlayerKeyboard { get; init; }
 
+    /// <summary>
+    /// Frames per turbo press-and-release, for pads and keyboard turbo keys (input.md §6): 4 by default
+    /// (15 presses per second).
+    /// </summary>
+    public int TurboPeriodFrames { get; init; } = 4;
+
     /// <summary>Pinned controllers as "key=port" entries separated by '|' (input.md §3.5).</summary>
     public string ControllerPins { get; init; } = string.Empty;
 

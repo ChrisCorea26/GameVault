@@ -310,6 +310,31 @@
         </Grid>
       </Border>
 
+      <!-- Turbo speed (input.md §6): pads' West/North buttons and the keyboard's A/S turbo keys -->
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <Grid ColumnSpacing="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="Turbo speed" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="How fast turbo buttons repeat while held. On the keyboard, A is turbo B and S is turbo A; on a controller, the left and top face buttons."
+                TextWrapping="Wrap" />
+          </StackPanel>
+          <ComboBox
+              Grid.Column="1"
+              MinWidth="220"
+              VerticalAlignment="Center"
+              AutomationProperties.Name="Turbo speed"
+              ItemsSource="{x:Bind ViewModel.Input.TurboSpeedOptions}"
+              SelectedIndex="{x:Bind ViewModel.Input.TurboSpeedIndex, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+
       <!-- Cartridge dumper (SPEC §8) -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Cartridge dumper" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">

@@ -59,6 +59,11 @@ Player 2"*.
 | A | X |
 | Select | Right Shift |
 | Start | Enter |
+| Turbo B | A |
+| Turbo A | S |
+
+The turbo keys sit beside Z/X in the same order (B on the left). They repeat at the turbo speed set in
+Settings → Input (§6). The two-player preset (§4.3) uses A and S for Player 2's D-pad, so it has no turbo keys.
 
 ### 4.2 Player 2: no default binding
 
@@ -124,7 +129,9 @@ SDL's GameController API reports buttons by **position**, so the defaults are po
   `SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS=0` so Nintendo-layout pads are also positional.
 - **West and North are turbo B / turbo A** by default (SPEC §5.4, §7.6). While held, turbo presses
   the button for 2 frames and releases it for 2 frames (15 presses per second at 60 Hz). The rate is
-  derived from the frame count, so it is deterministic and adjustable in *Settings → Input*.
+  derived from the frame count, so it is deterministic. *Settings → Input → Turbo speed* offers 30, 20,
+  15 (default), 12, 10 and 7.5 presses per second (a cycle of 2-8 frames, pressed for the first half,
+  rounded up). The same speed applies to the keyboard turbo keys (§4.1).
 - **Left stick** drives the D-pad as 8-way input with a radial dead zone of 50%.
 - **Opposite directions.** A real NES pad can't press Left+Right or Up+Down at the same time, and some
   games misbehave when they see it (see the Standard controller page above). By default the most

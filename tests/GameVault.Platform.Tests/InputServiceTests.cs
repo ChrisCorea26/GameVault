@@ -144,6 +144,52 @@ public class TurboStickAndPresetTests
         pattern.Should().Equal(true, true, false, false, true, true, false, false);
     }
 
+    [Theory]
+    [InlineData(2, new[] { true, false, true, false, true, false })]
+    [InlineData(3, new[] { true, true, false, true, true, false })]
+    [InlineData(6, new[] { true, true, true, false, false, false })]
+    public void Turbo_speed_is_configurable(int period, bool[] expected)
+    {
+        _input.TurboPeriodFrames = period;
+        _input.PressTurbo(5, 0, ControllerState.A);
+
+        Enumerable.Range(0, 6).Select(f => _input.Sample(0, f) == ControllerState.A).Should().Equal(expected);
+    }
+
+    [Fact]
+    public void Turbo_speed_stays_in_range()
+    {
+        _input.TurboPeriodFrames = 1;
+        _input.TurboPeriodFrames.Should().Be(2);
+        _input.TurboPeriodFrames = 50;
+        _input.TurboPeriodFrames.Should().Be(8);
+    }
+
+    [Fact]
+    public void Keyboard_a_and_s_are_turbo_b_and_turbo_a_for_player_1()
+    {
+        _input.KeyDown(VirtualKeys.A).Should().BeTrue();
+        _input.KeyDown(VirtualKeys.S).Should().BeTrue();
+
+        var pattern = Enumerable.Range(0, 4).Select(f => _input.Sample(0, f)).ToArray();
+        pattern.Should().Equal(
+            ControllerState.A | ControllerState.B, ControllerState.A | ControllerState.B,
+            ControllerState.None, ControllerState.None);
+
+        _input.KeyUp(VirtualKeys.A);
+        _input.KeyUp(VirtualKeys.S);
+        _input.Sample(0, 0).Should().Be(ControllerState.None);
+    }
+
+    [Fact]
+    public void The_two_player_preset_uses_a_and_s_for_player_2s_d_pad()
+    {
+        _input.SetKeyboardMapping(KeyboardMapping.CreateTwoPlayer());
+        _input.KeyDown(VirtualKeys.A);
+
+        Enumerable.Range(0, 4).Select(f => _input.Sample(1, f)).Should().OnlyContain(s => s == ControllerState.Left);
+    }
+
     [Fact]
     public void Turbo_and_a_held_button_combine()
     {

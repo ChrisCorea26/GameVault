@@ -5,7 +5,7 @@ namespace GameVault.Platform.Input;
 /// <summary>Keyboard bindings: virtual key → (port, button). Defaults per docs/design/input.md §4.1.</summary>
 public sealed class KeyboardMapping
 {
-    private readonly Dictionary<int, (int Port, ControllerState Button)> _bindings = [];
+    private readonly Dictionary<int, (int Port, ControllerState Button, bool Turbo)> _bindings = [];
 
     /// <summary>Keys reserved for hotkeys (input.md §8). They never reach the game.</summary>
     public static IReadOnlySet<int> Hotkeys { get; } = new HashSet<int>
@@ -14,7 +14,10 @@ public sealed class KeyboardMapping
         VirtualKeys.F8, VirtualKeys.F9, VirtualKeys.F12,
     };
 
-    /// <summary>Player 1 on arrows, Z = B, X = A, Enter = Start, Right Shift = Select. Player 2 has no default.</summary>
+    /// <summary>
+    /// Player 1 on arrows, Z = B, X = A, Enter = Start, Right Shift = Select, and turbo next to them: A = turbo B,
+    /// S = turbo A (input.md §4.1). Player 2 has no default.
+    /// </summary>
     public static KeyboardMapping CreateDefault()
     {
         var mapping = new KeyboardMapping();
@@ -26,6 +29,8 @@ public sealed class KeyboardMapping
         mapping.Bind(VirtualKeys.X, 0, ControllerState.A);
         mapping.Bind(VirtualKeys.Enter, 0, ControllerState.Start);
         mapping.Bind(VirtualKeys.RightShift, 0, ControllerState.Select);
+        mapping.BindTurbo(VirtualKeys.A, 0, ControllerState.B);
+        mapping.BindTurbo(VirtualKeys.S, 0, ControllerState.A);
         return mapping;
     }
 
@@ -63,19 +68,30 @@ public sealed class KeyboardMapping
             throw new ArgumentException($"Key 0x{virtualKey:X2} is reserved for a hotkey.", nameof(virtualKey));
         }
 
-        _bindings[virtualKey] = (port, button);
+        _bindings[virtualKey] = (port, button, false);
     }
 
-    public bool TryGetBinding(int virtualKey, out int port, out ControllerState button)
+    /// <summary>Binds a key to a turbo button: while held, the button is pressed and released repeatedly.</summary>
+    public void BindTurbo(int virtualKey, int port, ControllerState button)
+    {
+        Bind(virtualKey, port, button);
+        _bindings[virtualKey] = (port, button, true);
+    }
+
+    public bool TryGetBinding(int virtualKey, out int port, out ControllerState button) =>
+        TryGetBinding(virtualKey, out port, out button, out _);
+
+    public bool TryGetBinding(int virtualKey, out int port, out ControllerState button, out bool turbo)
     {
         if (_bindings.TryGetValue(virtualKey, out var binding))
         {
-            (port, button) = binding;
+            (port, button, turbo) = binding;
             return true;
         }
 
         port = 0;
         button = ControllerState.None;
+        turbo = false;
         return false;
     }
 }

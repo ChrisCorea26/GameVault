@@ -29,6 +29,9 @@ public interface IInputDevicesService
     /// <summary>"Two players, one keyboard" (input.md §4.3).</summary>
     bool TwoPlayerKeyboard { get; set; }
 
+    /// <summary>Frames per turbo press-and-release (2-8), for pads and keyboard turbo keys (input.md §6).</summary>
+    int TurboPeriodFrames { get; set; }
+
     /// <summary>Ports or devices changed.</summary>
     event EventHandler? Changed;
 

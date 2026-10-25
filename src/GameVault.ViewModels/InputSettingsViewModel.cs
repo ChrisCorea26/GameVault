@@ -50,6 +50,42 @@ public sealed partial class InputSettingsViewModel : ObservableObject
         }
     }
 
+    /// <summary>Turbo frames per press-and-release, matching <see cref="TurboSpeedOptions"/>.</summary>
+    private static readonly int[] TurboPeriods = [2, 3, 4, 5, 6, 8];
+
+    /// <summary>How fast turbo buttons repeat (input.md §6).</summary>
+    public IReadOnlyList<string> TurboSpeedOptions { get; } =
+    [
+        "30 presses per second",
+        "20 presses per second",
+        "15 presses per second (default)",
+        "12 presses per second",
+        "10 presses per second",
+        "7.5 presses per second",
+    ];
+
+    public int TurboSpeedIndex
+    {
+        get => Math.Max(0, Array.IndexOf(TurboPeriods, _devices.TurboPeriodFrames));
+        set
+        {
+            if (value < 0 || value >= TurboPeriods.Length || TurboPeriods[value] == _devices.TurboPeriodFrames)
+            {
+                return;
+            }
+
+            _devices.TurboPeriodFrames = TurboPeriods[value];
+            OnPropertyChanged();
+            _ = SaveTurboAsync(TurboPeriods[value]);
+        }
+    }
+
+    private async Task SaveTurboAsync(int period)
+    {
+        var current = await _settings.LoadAsync();
+        await _settings.SaveAsync(current with { TurboPeriodFrames = period });
+    }
+
     [RelayCommand]
     private void SwapPlayers() => _devices.SwapPorts(0, 1);
 

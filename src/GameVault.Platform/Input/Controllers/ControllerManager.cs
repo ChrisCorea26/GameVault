@@ -91,7 +91,13 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         }
     }
 
-    /// <summary>Loads pins and the keyboard preset, then starts the backend. Call once the window is up.</summary>
+    public int TurboPeriodFrames
+    {
+        get => _input.TurboPeriodFrames;
+        set => _input.TurboPeriodFrames = value;
+    }
+
+    /// <summary>Loads pins, the keyboard preset and the turbo speed, then starts the backend. Call once the window is up.</summary>
     public async Task StartAsync()
     {
         if (_started)
@@ -112,6 +118,8 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
             {
                 TwoPlayerKeyboard = true;
             }
+
+            TurboPeriodFrames = settings.TurboPeriodFrames;
         }
 
         _backend.Start(this);

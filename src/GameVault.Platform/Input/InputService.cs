@@ -14,8 +14,13 @@ public sealed class InputService
     public const int KeyboardSource = 0;
 
     private const int ButtonCount = 8;
-    /// <summary>Turbo presses for 2 frames and releases for 2: 15 presses per second at 60 Hz (input.md §6).</summary>
-    public const int TurboHalfPeriod = 2;
+    /// <summary>The default turbo cycle: pressed for 2 frames, released for 2, 15 presses per second at 60 Hz (input.md §6).</summary>
+    public const int DefaultTurboPeriodFrames = 4;
+
+    /// <summary>The turbo speeds Settings → Input offers, as frames per press-and-release (30, 20, 15, 12, 10 and 7.5 per second).</summary>
+    public static IReadOnlyList<int> TurboPeriods { get; } = [2, 3, 4, 5, 6, 8];
+
+    private int _turboPeriod = DefaultTurboPeriodFrames;
 
     private readonly Lock _gate = new();
     private KeyboardMapping _keyboard;
@@ -90,7 +95,7 @@ public sealed class InputService
             return virtualKey != VirtualKeys.Escape;
         }
 
-        if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button))
+        if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button, out var turbo))
         {
             return false;
         }
@@ -100,7 +105,14 @@ public sealed class InputService
             // Ignore key-repeat: only the first KeyDown of a held key counts as a press.
             if (_heldKeys.Add(virtualKey))
             {
-                Press(KeyboardSource, port, button);
+                if (turbo)
+                {
+                    PressTurbo(KeyboardSource, port, button);
+                }
+                else
+                {
+                    Press(KeyboardSource, port, button);
+                }
             }
         }
 
@@ -119,7 +131,7 @@ public sealed class InputService
             return virtualKey != VirtualKeys.Escape;
         }
 
-        if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button))
+        if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button, out var turbo))
         {
             return false;
         }
@@ -128,7 +140,14 @@ public sealed class InputService
         {
             if (_heldKeys.Remove(virtualKey))
             {
-                Release(KeyboardSource, port, button);
+                if (turbo)
+                {
+                    ReleaseTurbo(KeyboardSource, port, button);
+                }
+                else
+                {
+                    Release(KeyboardSource, port, button);
+                }
             }
         }
 
@@ -166,7 +185,17 @@ public sealed class InputService
         }
     }
 
-    /// <summary>Holds a turbo button: it toggles every <see cref="TurboHalfPeriod"/> frames while held.</summary>
+    /// <summary>
+    /// Frames per turbo press-and-release (2-8). The button is pressed for the first half of each cycle, rounded
+    /// up, so a 3-frame cycle presses for 2 frames and releases for 1.
+    /// </summary>
+    public int TurboPeriodFrames
+    {
+        get => _turboPeriod;
+        set => _turboPeriod = Math.Clamp(value, 2, 8);
+    }
+
+    /// <summary>Holds a turbo button: it is pressed and released every <see cref="TurboPeriodFrames"/> frames while held.</summary>
     public void PressTurbo(int source, int port, ControllerState button)
     {
         lock (_gate)
@@ -271,7 +300,8 @@ public sealed class InputService
                 }
             }
 
-            if (frame / TurboHalfPeriod % 2 == 0)
+            var period = _turboPeriod;
+            if (frame % period < (period + 1) / 2)
             {
                 foreach (var ((_, p, bit), _) in _turboCount)
                 {

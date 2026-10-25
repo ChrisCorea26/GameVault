@@ -31,6 +31,8 @@ public sealed class SampleInputDevicesService : IInputDevicesService
         }
     }
 
+    public int TurboPeriodFrames { get; set; } = 4;
+
     public event EventHandler? Changed;
 
     public event EventHandler<string>? Notice;

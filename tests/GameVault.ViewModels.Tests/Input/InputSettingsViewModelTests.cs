@@ -26,6 +26,19 @@ public class InputSettingsViewModelTests
     }
 
     [Fact]
+    public async Task Turbo_speed_is_applied_and_saved()
+    {
+        _vm.TurboSpeedIndex.Should().Be(2, "15 presses per second is the default");
+        _vm.TurboSpeedOptions[2].Should().Contain("default");
+
+        _vm.TurboSpeedIndex = 0;
+
+        _devices.TurboPeriodFrames.Should().Be(2, "30 presses per second");
+        await Task.Delay(50);
+        (await _settings.LoadAsync()).TurboPeriodFrames.Should().Be(2);
+    }
+
+    [Fact]
     public void Swap_players_exchanges_the_controllers_but_keeps_the_keyboard_on_player_1()
     {
         _vm.SwapPlayersCommand.Execute(null);
