@@ -22,13 +22,51 @@ public sealed class PortAssignmentPolicy
     private readonly Dictionary<string, int> _pins = new(StringComparer.Ordinal);
     private readonly Dictionary<string, string> _reservedNames = new(StringComparer.Ordinal);
 
+    public const int MaxPorts = 4;
+
     public PortAssignmentPolicy(int portCount = 2)
     {
-        _assigned = new ControllerInfo?[portCount];
-        _reservedFor = new string?[portCount];
+        _assigned = new ControllerInfo?[MaxPorts];
+        _reservedFor = new string?[MaxPorts];
+        PortCount = Math.Clamp(portCount, 1, MaxPorts);
     }
 
-    public int PortCount => _assigned.Length;
+    /// <summary>Ports in use: 2 normally, 4 while a Four Score game runs (input.md §11, Phase 5-6).</summary>
+    public int PortCount { get; private set; }
+
+    /// <summary>
+    /// Changes how many ports are in use. Pads on ports that go away become unassigned; when ports are added,
+    /// waiting pads fill them in connection order. Returns the notices to show.
+    /// </summary>
+    public IReadOnlyList<string> SetPortCount(int count)
+    {
+        count = Math.Clamp(count, 1, MaxPorts);
+        var notices = new List<string>();
+        if (count < PortCount)
+        {
+            for (var port = count; port < PortCount; port++)
+            {
+                _assigned[port] = null;
+                _reservedFor[port] = null;
+            }
+
+            PortCount = count;
+            return notices;
+        }
+
+        PortCount = count;
+        foreach (var pad in Unassigned.ToList())
+        {
+            if (LowestFreePort() is not { } free)
+            {
+                break;
+            }
+
+            notices.Add(Place(pad, free));
+        }
+
+        return notices;
+    }
 
     /// <summary>True while a game is running; disconnects only reserve ports (and pause) during play.</summary>
     public bool GameRunning { get; set; }
@@ -63,7 +101,7 @@ public sealed class PortAssignmentPolicy
         _pins.Clear();
         foreach (var (key, port) in pins)
         {
-            if (port >= 0 && port < PortCount)
+            if (port >= 0 && port < MaxPorts)
             {
                 _pins[key] = port;
             }
@@ -84,7 +122,7 @@ public sealed class PortAssignmentPolicy
         }
 
         // 2. A pinned port, which pushes an unpinned pad to the next free port.
-        if (_pins.TryGetValue(controller.Key, out var pinned) && _reservedFor[pinned] is null)
+        if (_pins.TryGetValue(controller.Key, out var pinned) && pinned < PortCount && _reservedFor[pinned] is null)
         {
             if (_assigned[pinned] is { } occupant && !IsPinned(occupant.Key))
             {

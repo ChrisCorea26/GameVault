@@ -16,4 +16,6 @@ public sealed partial class SettingsPage : Page
     public SettingsViewModel ViewModel { get; }
 
     private void OnLoaded(object sender, RoutedEventArgs e) => ViewModel.LoadCommand.Execute(null);
+
+    private void DumperPath_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveDumperPathCommand.Execute(null);
 }

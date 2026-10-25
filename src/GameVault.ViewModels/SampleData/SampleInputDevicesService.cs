@@ -39,6 +39,16 @@ public sealed class SampleInputDevicesService : IInputDevicesService
 
     public void SetGameRunning(bool running) => _model.Policy.GameRunning = running;
 
+    public void SetPlayerCount(int count)
+    {
+        foreach (var notice in _model.Policy.SetPortCount(count))
+        {
+            Notice?.Invoke(this, notice);
+        }
+
+        Changed?.Invoke(this, EventArgs.Empty);
+    }
+
     public void SwapPorts(int a, int b)
     {
         _model.Policy.Swap(a, b);

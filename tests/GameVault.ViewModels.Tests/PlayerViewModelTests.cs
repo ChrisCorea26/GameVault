@@ -11,13 +11,18 @@ public class PlayerViewModelTests
     private readonly SampleInputDevicesService _devices = new();
     private readonly SampleTimelineService _timeline = new();
     private readonly SampleLibraryService _library = new();
+    private readonly SamplePasswordService _passwords = new();
+    private readonly SampleJournalService _journal = new();
+    private readonly InMemoryPracticeRecords _records = new();
     private readonly PlayerViewModel _vm;
 
     public PlayerViewModelTests()
     {
         _navigation.NavigateTo(AppPage.Library);
         _navigation.NavigateTo(AppPage.Player, "game.nes");
-        _vm = new PlayerViewModel(_emulator, _navigation, _settings, _devices, new TimelineViewModel(_timeline), _library);
+        _vm = new PlayerViewModel(
+            _emulator, _navigation, _settings, _devices, new TimelineViewModel(_timeline), _library, _passwords, _journal,
+            new AssistViewModel(_emulator), new PracticeViewModel(_emulator, _records));
     }
 
     [Fact]
@@ -199,6 +204,78 @@ public class PlayerViewModelTests
         (await _library.GetGameAsync("sample:2"))!.Playtime.Should().Be(before + TimeSpan.FromMinutes(1));
     }
 
+    [Fact]
+    public async Task F9_pauses_and_saves_a_typed_password()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+
+        _emulator.PressF9();
+        await Task.Yield();
+        _vm.IsEnteringPassword.Should().BeTrue();
+        _emulator.Status.Should().Be(EmulatorStatus.Paused);
+        _vm.SaveManualPasswordCommand.CanExecute(null).Should().BeFalse();
+
+        _vm.ManualPassword = " QUEST 2024 ";
+        _vm.ManualPasswordNote = "After the boss";
+        await _vm.SaveManualPasswordCommand.ExecuteAsync(null);
+
+        _vm.IsEnteringPassword.Should().BeFalse();
+        _emulator.Status.Should().Be(EmulatorStatus.Running);
+        (await _passwords.GetAsync("sample:2")).Should().Contain(p => p.Password == "QUEST 2024" && p.Note == "After the boss");
+        _vm.Notice.Should().Be("Password saved: QUEST 2024");
+    }
+
+    [Fact]
+    public async Task F12_saves_a_screenshot_to_the_journal()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+
+        _emulator.PressF12();
+        await Task.Yield();
+
+        (await _journal.GetImagesAsync("sample:2")).Should().ContainSingle();
+        _vm.Notice.Should().Be("Screenshot saved to the journal");
+    }
+
+    [Fact]
+    public async Task Practice_retry_and_splits_track_personal_bests()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+        _emulator.FrameCount = 100;
+        await _vm.Practice.SetPointCommand.ExecuteAsync(null);
+
+        _emulator.FrameCount = 160;
+        _emulator.PressF7(); // segment 1: 60 frames
+        _vm.Practice.Segments.Should().ContainSingle().Which.IsPersonalBest.Should().BeTrue();
+        _vm.Practice.Segments[0].Time.Should().Be("0:00.99", "60 frames at 60.0988 fps");
+
+        _emulator.FrameCount = 200;
+        _emulator.PressF6(); // retry
+        await Task.Yield();
+        _emulator.RestoredState.Should().Equal(100);
+        _vm.Practice.Segments.Should().BeEmpty();
+        _vm.Practice.BestForCurrent.Should().Be("Best 0:00.99");
+
+        _emulator.FrameCount = 290; // 90 frames: slower, not a best
+        _emulator.PressF7();
+        _vm.Practice.Segments[0].IsPersonalBest.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task Assist_mode_is_sent_to_the_emulator_and_starts_off()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+        _emulator.Assist.Should().Be(AssistOptions.Off);
+
+        _vm.Assist.SpeedIndex = 1;
+        _emulator.Assist.Should().Be(AssistOptions.Off, "nothing applies until Assist is turned on");
+
+        _vm.Assist.IsEnabled = true;
+        _vm.Assist.PaletteIndex = 1;
+        _vm.Assist.RemoveFlicker = true;
+        _emulator.Assist.Should().Be(new AssistOptions(50, false, true, ColorVision.Deuteranopia));
+    }
+
     private sealed class FakeEmulator : IEmulatorService
     {
         public EmulatorStatus Status { get; private set; }
@@ -225,6 +302,8 @@ public class PlayerViewModelTests
 
         public bool UsesZapper { get; set; }
 
+        public bool UsesFourScore { get; set; }
+
         public bool IsRewinding { get; set; }
 
         public double RewindSeconds { get; set; }
@@ -239,6 +318,40 @@ public class PlayerViewModelTests
         }
 
         public void RaisePlaytime(TimeSpan time) => PlaytimeElapsed?.Invoke(this, time);
+
+        public long FrameCount { get; set; }
+
+        public AssistOptions Assist { get; private set; } = AssistOptions.Off;
+
+        public byte[]? RestoredState { get; private set; }
+
+        public event EventHandler? ManualPasswordRequested;
+
+        public event EventHandler? ScreenshotRequested;
+
+        public event EventHandler? PracticeRetryRequested;
+
+        public event EventHandler? PracticeSplitRequested;
+
+        public void PressF9() => ManualPasswordRequested?.Invoke(this, EventArgs.Empty);
+
+        public void PressF12() => ScreenshotRequested?.Invoke(this, EventArgs.Empty);
+
+        public void PressF6() => PracticeRetryRequested?.Invoke(this, EventArgs.Empty);
+
+        public void PressF7() => PracticeSplitRequested?.Invoke(this, EventArgs.Empty);
+
+        public void SetAssist(AssistOptions options) => Assist = options;
+
+        public Task<byte[]?> CaptureStateAsync() => Task.FromResult<byte[]?>([(byte)FrameCount]);
+
+        public Task<bool> RestoreStateAsync(byte[] state)
+        {
+            RestoredState = state;
+            return Task.FromResult(true);
+        }
+
+        public Task<byte[]?> CaptureScreenshotAsync() => Task.FromResult<byte[]?>([0x89, 0x50]);
 
         public Task LoadAsync(string path, CancellationToken cancellationToken = default)
         {

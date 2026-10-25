@@ -12,4 +12,7 @@ public enum AppPage
 
     /// <summary>The Catalog Import wizard.</summary>
     CatalogImport,
+
+    /// <summary>The Dump Cartridge wizard (SPEC §8).</summary>
+    DumpCartridge,
 }

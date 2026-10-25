@@ -160,4 +160,26 @@ public class PortAssignmentPolicyTests
         _policy.IsPinned("a").Should().BeTrue();
         _policy.IsPinned("b").Should().BeFalse();
     }
+
+    [Fact]
+    public void Four_score_games_give_waiting_pads_players_3_and_4_and_take_them_back_after()
+    {
+        var policy = new PortAssignmentPolicy();
+        var pads = Enumerable.Range(1, 4).Select(i => new ControllerInfo(i, $"key{i}", $"Pad {i}")).ToList();
+        foreach (var pad in pads)
+        {
+            policy.Connect(pad);
+        }
+
+        policy.Unassigned.Should().HaveCount(2, "two ports in normal games");
+
+        var notices = policy.SetPortCount(4);
+
+        notices.Should().Equal("Pad 3 is now Player 3", "Pad 4 is now Player 4");
+        policy.PortOf(4).Should().Be(3);
+
+        policy.SetPortCount(2);
+        policy.PortOf(3).Should().BeNull();
+        policy.Unassigned.Should().HaveCount(2);
+    }
 }

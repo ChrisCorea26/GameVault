@@ -305,6 +305,12 @@ public sealed class Ppu2C02 : IStateful
         }
     }
 
+    /// <summary>
+    /// Side-effect-free nametable read ($2000-$2FFF) from console RAM, for tools such as password capture.
+    /// Boards that supply their own nametables (MMC5, Namco 163) are read as plain CIRAM.
+    /// </summary>
+    public byte PeekNametable(int address) => _ciram[NametableIndex((ushort)(0x2000 | (address & 0x0FFF)))];
+
     /// <summary>Side-effect-free palette read for debuggers.</summary>
     public byte PeekPalette(int index) => _palette[PaletteIndex(index)];
 

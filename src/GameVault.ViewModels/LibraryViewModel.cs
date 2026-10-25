@@ -232,6 +232,9 @@ public sealed partial class LibraryViewModel(
     [RelayCommand]
     private void ImportCatalog() => navigation.NavigateTo(AppPage.CatalogImport);
 
+    [RelayCommand]
+    private void DumpCartridge() => navigation.NavigateTo(AppPage.DumpCartridge);
+
     /// <summary>Plays a library game that has a ROM file.</summary>
     [RelayCommand]
     private void Play(GameTileViewModel? tile)

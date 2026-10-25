@@ -19,7 +19,7 @@ full feature specification and [CLAUDE.md](CLAUDE.md) for the contributor rules.
 | 3 | APU, audio, SDL controllers | ✅ blargg APU suites and the 30-minute audio soak pass |
 | 4 | Tier 1 mappers, save states, run-ahead, video presets | ✅ MMC3 IRQ tests and state round-trips for every mapper pass |
 | 5 | Library, timeline, rewind, Zapper | ✅ Zero-config test (empty library → add folder → playing) passes |
-| 6 | Passwords, journal, assist/practice, Tier 2–3 mappers, dumper | Next |
+| 6 | Passwords, journal, assist/practice, Tier 2–3 mappers, dumper | 🟡 Built and tested; owner checks with real cartridges pending ([plan](docs/plans/phase-6.md#open-needs-the-owner)) |
 | 7 | Netplay, FDS, Tier 4 mappers | Planned |
 
 Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md).

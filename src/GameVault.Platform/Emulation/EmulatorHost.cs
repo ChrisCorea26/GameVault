@@ -41,6 +41,12 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private readonly BatterySaveStore? _batteries;
     private readonly RunAhead _runAhead = new();
     private readonly RewindBuffer _rewind = new();
+    private readonly PasswordWatcher _passwords = new();
+    private uint[] _palette = NtscPalette.Argb.ToArray();
+    private double _speed = 1.0;
+    private long _rewindCapacity = RewindBuffer.DefaultCapacity;
+    private bool _profileRemovesSpriteLimit;
+    private AssistOptions _assist = AssistOptions.Off;
     private readonly Action<NesConsole> _present;
     private readonly float[] _samples = new float[8192];
     private AudioPacing? _pacing;
@@ -64,6 +70,10 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private string _batteryTitle = string.Empty;
     private bool _quickSaveHeld;
     private bool _quickLoadHeld;
+    private bool _passwordKeyHeld;
+    private bool _screenshotKeyHeld;
+    private bool _retryKeyHeld;
+    private bool _splitKeyHeld;
     private bool _rewinding;
     private long _playedFrames;
 
@@ -86,7 +96,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         _audio = audio;
         _batteries = paths is null ? null : new BatterySaveStore(paths);
         _context = SynchronizationContext.Current;
-        _present = console => _video.Present(console.Ppu.FrameBuffer, NtscPalette.Argb);
+        _present = console => _video.Present(console.Ppu.FrameBuffer, _palette);
     }
 
     public EmulatorStatus Status { get; private set; }
@@ -110,6 +120,23 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     public event EventHandler? RewindChanged;
 
+    /// <summary>A password screen was recognized (SPEC §7.3). Raised on the UI thread with a screenshot.</summary>
+    public event EventHandler<PasswordCapturedEventArgs>? PasswordCaptured;
+
+    /// <summary>F9: the player wants to note a password by hand. Raised on the UI thread.</summary>
+    public event EventHandler? ManualPasswordRequested;
+
+    /// <summary>F12: save a screenshot to the journal (SPEC §7.4). Raised on the UI thread.</summary>
+    public event EventHandler? ScreenshotRequested;
+
+    /// <summary>F6 / F7: practice mode retry and split (SPEC §7.6). Raised on the UI thread.</summary>
+    public event EventHandler? PracticeRetryRequested;
+
+    public event EventHandler? PracticeSplitRequested;
+
+    /// <summary>Finds the password definition for a game by headerless SHA-1. Null: no password capture.</summary>
+    public Func<string, Library.Passwords.PasswordDefinition?>? PasswordDefinitionResolver { get; set; }
+
     public event EventHandler<TimeSpan>? PlaytimeElapsed;
 
     /// <summary>Looks up a game's profile by headerless SHA-1 (SPEC §7.5). Null: no profiles.</summary>
@@ -118,6 +145,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     public string? GameKey { get; private set; }
 
     public bool UsesZapper { get; private set; }
+
+    public bool UsesFourScore { get; private set; }
 
     public bool IsRewinding { get; private set; }
 
@@ -129,8 +158,34 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     /// <summary>Rewind memory cap in bytes (SPEC §7.2; 256 MB by default).</summary>
     public long RewindCapacity
     {
-        set => Post(() => _rewind.CapacityBytes = Math.Max(1024 * 1024, value));
+        set => Post(() =>
+        {
+            _rewindCapacity = Math.Max(1024 * 1024, value);
+            ApplyAssist();
+        });
     }
+
+    public void SetAssist(AssistOptions options) => Post(() =>
+    {
+        _assist = options;
+        ApplyAssist();
+    });
+
+    /// <summary>Applies assist mode on the emulation thread (SPEC §7.6).</summary>
+    private void ApplyAssist()
+    {
+        _speed = Math.Clamp(_assist.SpeedPercent, 10, 100) / 100.0;
+        _palette = Video.ColorVisionPalettes.Create(NtscPalette.Argb, _assist.Palette);
+        _rewind.CapacityBytes = _assist.UnlimitedRewind ? 4L * 1024 * 1024 * 1024 : _rewindCapacity;
+        if (_console is { } console)
+        {
+            console.Ppu.RemoveSpriteLimit = _profileRemovesSpriteLimit || _assist.RemoveFlicker;
+        }
+    }
+
+    public Task<byte[]?> CaptureStateAsync() => InspectAsync(console => console.SaveSnapshot());
+
+    public Task<bool> RestoreStateAsync(byte[] state) => RestoreAsync(state);
 
     /// <summary>Hash of the running game's ROM, which names its save files. Null when idle.</summary>
     public ulong? RomHash { get; private set; }
@@ -229,7 +284,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             InputType.FourScore => InputSetup.FourScore,
             _ => InputSetup.Controllers,
         });
-        console.Ppu.RemoveSpriteLimit = profile.RemoveSpriteLimit == true;
+        console.Ppu.RemoveSpriteLimit = profile.RemoveSpriteLimit == true || _assist.RemoveFlicker;
+        var passwordDefinition = PasswordDefinitionResolver?.Invoke(hashes.Sha1);
         console.Power();
         EnsureThread();
         Post(() =>
@@ -244,6 +300,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             _rewind.Clear();
             _rewinding = false;
             _playedFrames = 0;
+            _passwords.Definition = passwordDefinition;
+            _profileRemovesSpriteLimit = profile.RemoveSpriteLimit == true;
             Interlocked.Exchange(ref _frameCount, 0);
         });
         if (profile.RunAheadSafe == false)
@@ -256,6 +314,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         GameKey = hashes.Key;
         Profile = profile;
         UsesZapper = console.InputSetup == InputSetup.Zapper;
+        UsesFourScore = console.InputSetup == InputSetup.FourScore;
         SetAudioPaused(false);
 
         GameTitle = title;
@@ -315,6 +374,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         RomHash = null;
         GameKey = null;
         UsesZapper = false;
+        UsesFourScore = false;
         Profile = null;
         SetStatus(EmulatorStatus.Idle);
     }
@@ -342,6 +402,13 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         // PNG encoding happens off the emulation thread.
         var thumbnail = PngEncoder.Thumbnail(captured.Item3, NtscPalette.Argb);
         return new StateCapture(captured.RomHash, captured.Item2, thumbnail);
+    }
+
+    /// <summary>The current screen as a full-size PNG (screenshots, manual password capture).</summary>
+    public async Task<byte[]?> CaptureScreenshotAsync()
+    {
+        var frame = await InspectAsync(console => console.Ppu.FrameBuffer.ToArray()).ConfigureAwait(false);
+        return frame is null ? null : PngEncoder.Encode(PngEncoder.ToArgb(frame, NtscPalette.Argb), 256, 240);
     }
 
     /// <summary>Loads a save state between frames. Returns false if it doesn't fit the running game.</summary>
@@ -478,7 +545,9 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             {
                 _rateClock ??= Stopwatch.StartNew();
                 var consumed = _samplesWritten - _audio!.BufferedSamples;
-                console.Audio!.ClockRate = console.CpuClockRate * _pacing!.ClockRateFactor(consumed, _rateClock.Elapsed.TotalSeconds);
+                // Slow motion: telling the resampler the CPU runs slower stretches each frame's sound, so the
+                // audio clock paces fewer frames per second and the pitch drops with the speed.
+                console.Audio!.ClockRate = console.CpuClockRate * _speed * _pacing!.ClockRateFactor(consumed, _rateClock.Elapsed.TotalSeconds);
             }
             else
             {
@@ -510,7 +579,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 continue;
             }
 
-            nextFrame += fastForward ? frameTicks / MaxFastForward : frameTicks;
+            nextFrame += fastForward ? frameTicks / MaxFastForward : frameTicks / _speed;
             if (!WaitUntil(clock, nextFrame))
             {
                 // Fell far behind (debugger, system sleep): re-anchor instead of bursting to catch up.
@@ -537,7 +606,14 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
             _rewind.OnFrame(console);
 
-            if (_runAhead.RunFrame(console, _present))
+            var runAheadOff = _runAhead.RunFrame(console, _present);
+            if (_passwords.OnFrame(console) is { } password)
+            {
+                var png = PngEncoder.Encode(PngEncoder.ToArgb(console.Ppu.FrameBuffer, _palette), 256, 240);
+                Raise(() => PasswordCaptured?.Invoke(this, new PasswordCapturedEventArgs(password, png)));
+            }
+
+            if (runAheadOff)
             {
                 RaiseNotice("Reduce input lag is off for now because this PC couldn't keep up. You can change it in Settings.");
             }
@@ -681,6 +757,22 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
         _quickSaveHeld = save;
         _quickLoadHeld = load;
+
+        Edge(VirtualKeys.F9, ref _passwordKeyHeld, () => ManualPasswordRequested?.Invoke(this, EventArgs.Empty));
+        Edge(VirtualKeys.F12, ref _screenshotKeyHeld, () => ScreenshotRequested?.Invoke(this, EventArgs.Empty));
+        Edge(VirtualKeys.F6, ref _retryKeyHeld, () => PracticeRetryRequested?.Invoke(this, EventArgs.Empty));
+        Edge(VirtualKeys.F7, ref _splitKeyHeld, () => PracticeSplitRequested?.Invoke(this, EventArgs.Empty));
+    }
+
+    private void Edge(int key, ref bool wasHeld, Action onPress)
+    {
+        var held = _input.IsHotkeyHeld(key);
+        if (held && !wasHeld)
+        {
+            Raise(onPress);
+        }
+
+        wasHeld = held;
     }
 
     /// <summary>Writes battery RAM to its .sav file if it changed. Runs on the emulation thread.</summary>
@@ -779,3 +871,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
 /// <summary>A save state taken by <see cref="EmulatorHost.CaptureAsync"/>, with a PNG thumbnail.</summary>
 public sealed record StateCapture(ulong RomHash, byte[] State, byte[] ThumbnailPng);
+
+/// <summary>A password read from the screen, with a screenshot of it.</summary>
+public sealed class PasswordCapturedEventArgs(string password, byte[] screenshotPng) : EventArgs
+{
+    public string Password { get; } = password;
+
+    public byte[] ScreenshotPng { get; } = screenshotPng;
+}

@@ -40,6 +40,9 @@ public interface IInputDevicesService
     /// <summary>Tells the service whether a game is running (disconnects only reserve ports during play).</summary>
     void SetGameRunning(bool running);
 
+    /// <summary>2 normally; 4 while a Four Score game runs, so players 3 and 4 get pads.</summary>
+    void SetPlayerCount(int count);
+
     void SwapPorts(int a, int b);
 
     void AssignToPort(string sourceId, int port);

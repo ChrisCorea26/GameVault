@@ -42,7 +42,8 @@ jobs:
           if (-not $exe) { throw "GameVault.exe was not built." }
           $crashLog = Join-Path $env:LOCALAPPDATA 'GameVault\logs\crash.log'
           $launches = @('', '--sample-data', '--sample-data --page=player', '--sample-data --page=gamedetails',
-                        '--sample-data --page=catalogimport', '--sample-data --page=settings', '--sample-data=empty')
+                        '--sample-data --page=catalogimport', '--sample-data --page=settings', '--sample-data --page=dumpcartridge',
+                        '--sample-data=empty')
           foreach ($launch in $launches) {
             Write-Host "Launching $($exe.FullName) $launch"
             # An empty argument list means a real launch: real library database, devices and settings.

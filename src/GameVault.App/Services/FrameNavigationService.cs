@@ -32,6 +32,7 @@ public sealed class FrameNavigationService : INavigationService
             AppPage.Player => typeof(PlayerPage),
             AppPage.GameDetails => typeof(GameDetailsPage),
             AppPage.CatalogImport => typeof(CatalogImportPage),
+            AppPage.DumpCartridge => typeof(DumpCartridgePage),
             _ => throw new ArgumentOutOfRangeException(nameof(page), page, null),
         };
 

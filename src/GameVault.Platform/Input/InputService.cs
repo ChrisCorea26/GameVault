@@ -9,7 +9,8 @@ namespace GameVault.Platform.Input;
 /// </summary>
 public sealed class InputService
 {
-    public const int PortCount = 2;
+    /// <summary>Four ports: players 3 and 4 are used only with the Four Score.</summary>
+    public const int PortCount = 4;
     public const int KeyboardSource = 0;
 
     private const int ButtonCount = 8;

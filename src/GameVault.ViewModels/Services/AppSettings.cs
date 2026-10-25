@@ -28,6 +28,9 @@ public sealed record AppSettings
     /// <summary>Memory for rewind history in MB (SPEC §7.2: 256 MB by default).</summary>
     public int RewindMemoryMb { get; init; } = 256;
 
+    /// <summary>Full path of the INL Retro-Prog program (inlretro.exe), or empty when no dumper is used (SPEC §8).</summary>
+    public string DumperPath { get; init; } = string.Empty;
+
     /// <summary>Game volume, 0–100 (0 mutes).</summary>
     public int Volume { get; init; } = 80;
 

@@ -109,3 +109,42 @@ Shared pieces:
    correct password.
 2. Connect an INL Retro-Prog and dump an NROM, an MMC1 and an MMC3 cartridge. Confirm the hash matches the
    catalog and the game appears as Owned: Cartridge + Digital dump.
+
+## Results
+- **Mappers:** every Tier 2 and Tier 3 board in the table above has banking, IRQ and audio unit tests and a
+  console state round-trip.
+  - The PPU routes nametables through a per-slot page table, used by TxSROM.
+  - Boards can supply nametable data themselves (MMC5 ExRAM and fill mode, Namco 163 CHR-ROM
+    nametables).
+  - The bus lets the MMC5 watch $2000 and $2001 writes.
+- **Expansion audio:** VRC6 pulse and saw, Sunsoft 5B tones and Namco 163 wavetable are mixed into the
+  APU output.
+- **Not done yet:** VRC7 FM, MMC5 audio, the 5B noise/envelope and the MMC5 split screen remain for Phase 7
+  ("expansion audio completion").
+- **Passwords:**
+  - Definition format, RAM and nametable decoding, the automatic watcher (verified end to end with a
+    synthetic "password screen" ROM), the store, and the Passwords panel with Copy.
+  - Manual capture with F9.
+  - The format is documented in `docs/password-definitions.md`.
+- **Journal:** rich-text notes (RTF), F12 screenshots, imported maps, and one-click "Attach to note".
+- **Assist:**
+  - Slow motion at 50% and 25%: the resampler clock is scaled, so sound slows with the picture.
+  - Unlimited rewind (4 GB cap).
+  - Flicker removal.
+  - Daltonized palettes for deuteranopia, protanopia and tritanopia.
+- **Practice:** a practice point, F6 retry and F7 splits timed in emulated frames, with personal bests
+  per segment.
+- **Four Score:** the port policy has an active port count (2 or 4). Four Score games give waiting pads
+  players 3 and 4 and take them back afterwards.
+- **Dumper:**
+  - `GameVault.Dumper` runs the INL Retro-Prog CLI, retries up to 3 reads until two agree or one matches
+    the catalog, and gives plain-language errors.
+  - The Dump Cartridge wizard is backed by a simulated dumper in `--sample-data`.
+  - A successful dump is scanned in and marked "Owned: Cartridge + Digital dump".
+- **New hotkeys:** F6 / F7 (practice) and F9 (capture password), recorded in `docs/design/input.md` §8.
+
+### Open: needs the owner
+- **Choosing the 5 launch password titles, and writing and verifying their definitions against real
+  cartridges.** The repository can't hold the games, and RAM layouts must be checked on the real thing.
+- **Verifying the dumper flow on an INL Retro-Prog with real cartridges.** The board names passed to
+  `inlretro` follow its NES script, and should be confirmed against the installed version.

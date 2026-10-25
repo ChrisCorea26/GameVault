@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="GameVault.App.Views.DumpCartridgePage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:lib="using:GameVault.Library.Models"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:svc="using:GameVault.ViewModels.Services"
+    mc:Ignorable="d">
+
+  <!-- SPEC §8: optional; the app works fully without a dumper. -->
+  <ScrollViewer>
+    <StackPanel MaxWidth="720" Padding="32,16,32,32" HorizontalAlignment="Left" Spacing="16">
+      <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Dump a cartridge" />
+      <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.DumperText}" TextWrapping="Wrap" />
+
+      <!-- Step 1: which game and board -->
+      <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsChoosing, Mode=OneWay}">
+        <AutoSuggestBox
+            x:Name="SearchBox"
+            Header="Which game is it?"
+            PlaceholderText="Search the catalog"
+            QueryIcon="Find"
+            Text="{x:Bind ViewModel.Search, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        <ListView
+            MaxHeight="240"
+            ItemsSource="{x:Bind ViewModel.Matches}"
+            SelectedItem="{x:Bind ViewModel.SelectedGameItem, Mode=TwoWay}"
+            SelectionMode="Single">
+          <ListView.ItemTemplate>
+            <DataTemplate x:DataType="lib:GameEntry">
+              <TextBlock Padding="0,6" Text="{x:Bind Title}" />
+            </DataTemplate>
+          </ListView.ItemTemplate>
+        </ListView>
+        <TextBox Header="Not in the catalog? Type its name" PlaceholderText="For example, a homebrew cartridge" Text="{x:Bind ViewModel.CustomTitle, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        <ComboBox
+            Header="Board"
+            ItemsSource="{x:Bind ViewModel.Boards}"
+            SelectedItem="{x:Bind ViewModel.SelectedBoardItem, Mode=TwoWay}">
+          <ComboBox.ItemTemplate>
+            <DataTemplate x:DataType="svc:DumpBoard">
+              <TextBlock Text="{x:Bind Name}" />
+            </DataTemplate>
+          </ComboBox.ItemTemplate>
+        </ComboBox>
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <ComboBox Header="Program size (KB)" ItemsSource="{x:Bind ViewModel.PrgSizes, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.PrgChoice, Mode=TwoWay}" />
+          <ComboBox Header="Graphics size (KB)" ItemsSource="{x:Bind ViewModel.ChrSizes, Mode=OneWay}" SelectedItem="{x:Bind ViewModel.ChrChoice, Mode=TwoWay}" />
+        </StackPanel>
+        <Button Command="{x:Bind ViewModel.NextCommand}" Content="Next" Style="{StaticResource AccentButtonStyle}" />
+      </StackPanel>
+
+      <!-- Step 2: insert -->
+      <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsInserting, Mode=OneWay}">
+        <TextBlock Text="Insert the cartridge into the dumper, label facing you, and make sure it's seated firmly." TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Command="{x:Bind ViewModel.DumpCommand}" Content="Dump" Style="{StaticResource AccentButtonStyle}" />
+          <Button Command="{x:Bind ViewModel.BackCommand}" Content="Back" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Step 3: dumping -->
+      <StackPanel Orientation="Horizontal" Spacing="12" Visibility="{x:Bind ViewModel.IsDumping, Mode=OneWay}">
+        <ProgressRing IsActive="{x:Bind ViewModel.IsDumping, Mode=OneWay}" />
+        <TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.Progress, Mode=OneWay}" />
+      </StackPanel>
+
+      <!-- Step 4: result -->
+      <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsDone, Mode=OneWay}">
+        <TextBlock Text="{x:Bind ViewModel.OutcomeMessage, Mode=OneWay}" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Command="{x:Bind ViewModel.OpenGameCommand}" Content="Open the game" Style="{StaticResource AccentButtonStyle}" />
+          <Button Command="{x:Bind ViewModel.TryAgainCommand}" Content="Try again" />
+        </StackPanel>
+      </StackPanel>
+    </StackPanel>
+  </ScrollViewer>
+</Page>

@@ -131,6 +131,23 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         Raise(() => Changed?.Invoke(this, EventArgs.Empty));
     }
 
+    public void SetPlayerCount(int count)
+    {
+        IReadOnlyList<string> notices;
+        lock (_gate)
+        {
+            notices = _model.Policy.SetPortCount(count);
+            ReleaseAllPads();
+        }
+
+        foreach (var notice in notices)
+        {
+            RaiseNotice(notice);
+        }
+
+        Raise(() => Changed?.Invoke(this, EventArgs.Empty));
+    }
+
     public void SwapPorts(int a, int b)
     {
         lock (_gate)

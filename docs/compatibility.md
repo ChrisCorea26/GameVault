@@ -4,7 +4,7 @@ This page will be generated in CI from the test-ROM harness (SPEC §11.2). Until
 at the end of each phase. Run `tests/TestRoms/fetch-test-roms.sh` (or `.ps1`) and then `dotnet test` to
 reproduce it.
 
-_Last updated: Phase 5._
+_Last updated: Phase 6._
 
 ## CPU
 
@@ -75,6 +75,21 @@ underruns, an average latency under 40 ms and a peak under 50 ms.
 | 3 | CNROM | ✅ Bus conflicts on submapper 2 |
 | 4 | MMC3 / MMC6 | ✅ IRQ counter with A12 filtering; new (Sharp) behavior by default, old (NEC) on submapper 4; MMC6 RAM on submapper 1 |
 | 7 | AxROM | ✅ One-screen mirroring; bus conflicts on submapper 2 |
+| 5 | MMC5 | ✅ PRG/CHR modes, PRG-RAM banks, ExRAM modes 0–3 incl. extended attributes, fill mode, scanline IRQ, multiplier. ⏳ Vertical split screen and MMC5 audio (Phase 7) |
+| 9 / 10 | MMC2 / MMC4 | ✅ CHR latches on tiles $FD/$FE |
+| 11 | Color Dreams | ✅ Bus conflicts |
+| 19 | Namco 163 | ✅ Banking, CHR-ROM nametables, CPU-cycle IRQ, wavetable audio (channels averaged) |
+| 21 / 22 / 23 / 25 | VRC2 / VRC4 | ✅ All address-line variants (ORed per mapper), VRC IRQ |
+| 24 / 26 | VRC6 | ✅ Banking, IRQ, 2 pulse + sawtooth audio |
+| 34 | BNROM / NINA-001 | ✅ |
+| 66 | GxROM | ✅ |
+| 69 | Sunsoft FME-7 / 5B | ✅ Banking, RAM/ROM at $6000, cycle IRQ, 5B tone channels. ⏳ 5B noise and envelope |
+| 71 | Camerica | ✅ Fire Hawk mirroring (submapper 1) |
+| 79 | NINA-03/06 | ✅ |
+| 85 | VRC7 | ✅ Banking and IRQ. ⏳ FM audio (Phase 7) |
+| 87, 140 | Jaleco / Konami discrete | ✅ |
+| 118 / 119 | TxSROM / TQROM | ✅ CIRAM routing from CHR bit 7; CHR-RAM via bit 6 |
+| 206 | Namco 108 | ✅ |
 
 Every mapper has a console-level save-state round-trip test (`MapperTests.Console_state_round_trips_for_every_mapper`).
 Save and load take about 0.005–0.008 ms each (budget: 1 ms).

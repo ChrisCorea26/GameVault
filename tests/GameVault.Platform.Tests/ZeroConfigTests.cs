@@ -59,13 +59,18 @@ public sealed class ZeroConfigTests : IDisposable
 
         // 3. Open the game and press Play.
         libraryPage.OpenDetailsCommand.Execute(libraryPage.Games[0]);
-        var details = new GameDetailsViewModel(library, new TimelineViewModel(timeline), navigation, picker);
+        var details = new GameDetailsViewModel(
+            library, new TimelineViewModel(timeline), navigation, picker,
+            new PasswordsViewModel(new SamplePasswordService(), new InMemoryClipboard()),
+            new JournalViewModel(new SampleJournalService(), picker));
         await details.LoadCommand.ExecuteAsync(navigation.LastParameter as string);
         details.CanPlay.Should().BeTrue();
         details.PlayCommand.Execute(null);
 
         // 4. The Player starts the game.
-        var player = new PlayerViewModel(host, navigation, new InMemorySettingsStore(), new SampleInputDevicesService(), new TimelineViewModel(timeline), library);
+        var player = new PlayerViewModel(
+            host, navigation, new InMemorySettingsStore(), new SampleInputDevicesService(), new TimelineViewModel(timeline), library,
+            new SamplePasswordService(), new SampleJournalService(), new AssistViewModel(host), new PracticeViewModel(host, new InMemoryPracticeRecords()));
         await player.StartCommand.ExecuteAsync(navigation.LastParameter);
         player.HasError.Should().BeFalse(player.ErrorMessage);
         host.Status.Should().Be(EmulatorStatus.Running);

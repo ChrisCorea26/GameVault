@@ -15,6 +15,10 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
 
     private static readonly int[] RewindMemoryValues = [64, 128, 256, 512, 1024];
 
+    /// <summary>Where inlretro.exe is (SPEC §8). Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string DumperPath { get; set; } = string.Empty;
+
     /// <summary>Index into <see cref="RewindMemoryOptions"/>.</summary>
     [ObservableProperty]
     public partial int RewindMemoryIndex { get; set; } = 2;
@@ -61,6 +65,7 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
         AllowOppositeDirections = settings.AllowOppositeDirections;
         Volume = Math.Clamp(settings.Volume, 0, 100);
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
+        DumperPath = settings.DumperPath;
         _isLoaded = true;
         await Library.LoadCommand.ExecuteAsync(null);
     }
@@ -111,6 +116,10 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
 
     partial void OnVolumeChanged(double value) => SaveIfLoaded();
 
+    /// <summary>Called when the dumper path box loses focus (saving on every keystroke would be wasteful).</summary>
+    [RelayCommand]
+    private void SaveDumperPath() => SaveIfLoaded();
+
     partial void OnRewindMemoryIndexChanged(int value)
     {
         if (value >= 0 && value < RewindMemoryValues.Length)
@@ -140,6 +149,7 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
             PauseWhenInactive = PauseWhenInactive,
             AllowOppositeDirections = AllowOppositeDirections,
             Volume = (int)Math.Round(Math.Clamp(Volume, 0, 100)),
+            DumperPath = DumperPath.Trim().Trim('"'),
             RewindMemoryMb = RewindMemoryIndex >= 0 && RewindMemoryIndex < RewindMemoryValues.Length
                 ? RewindMemoryValues[RewindMemoryIndex]
                 : current.RewindMemoryMb,

@@ -6,6 +6,8 @@
     xmlns:controls="using:GameVault.App.Controls"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:helpers="using:GameVault.App.Helpers"
+    xmlns:svc="using:GameVault.ViewModels.Services"
+    xmlns:vm="using:GameVault.ViewModels"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d">
 
@@ -16,6 +18,8 @@
         <ColumnDefinition Width="*" />
       </Grid.ColumnDefinitions>
       <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
         <RowDefinition Height="Auto" />
@@ -132,6 +136,100 @@
         <ComboBox Header="Controls" ItemsSource="{x:Bind ViewModel.InputOptions}" SelectedIndex="{x:Bind ViewModel.InputIndex, Mode=TwoWay}" />
         <ComboBox Header="Reduce input lag" ItemsSource="{x:Bind ViewModel.AutoOnOffOptions}" SelectedIndex="{x:Bind ViewModel.RunAheadIndex, Mode=TwoWay}" />
         <ComboBox Header="Reduce flicker (more sprites per line)" ItemsSource="{x:Bind ViewModel.AutoOnOffOptions}" SelectedIndex="{x:Bind ViewModel.SpriteLimitIndex, Mode=TwoWay}" />
+      </StackPanel>
+
+      <!-- SPEC §7.3: passwords -->
+      <StackPanel Grid.Row="3" Grid.Column="1" Spacing="8">
+        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Passwords" />
+        <TextBlock
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Text="No passwords yet. GameVault saves them automatically for games it knows; for others, press F9 on the password screen."
+            TextWrapping="Wrap"
+            Visibility="{x:Bind ViewModel.Passwords.IsEmpty, Mode=OneWay}" />
+        <ItemsRepeater ItemsSource="{x:Bind ViewModel.Passwords.Items}">
+          <ItemsRepeater.ItemTemplate>
+            <DataTemplate x:DataType="vm:PasswordItemViewModel">
+              <Grid Padding="0,6" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel>
+                  <TextBlock FontFamily="Consolas" FontSize="18" IsTextSelectionEnabled="True" Text="{x:Bind Password}" />
+                  <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Subtitle}" />
+                </StackPanel>
+                <Button Grid.Column="1" Command="{x:Bind CopyCommand}" Content="Copy" />
+                <Button Grid.Column="2" Command="{x:Bind DeleteCommand}" Content="Delete" />
+              </Grid>
+            </DataTemplate>
+          </ItemsRepeater.ItemTemplate>
+        </ItemsRepeater>
+        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.Passwords.CopiedText, Mode=OneWay}" />
+      </StackPanel>
+
+      <!-- SPEC §7.4: journal -->
+      <StackPanel Grid.Row="4" Grid.Column="0" Grid.ColumnSpan="2" Spacing="8">
+        <Grid>
+          <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Journal" />
+          <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+            <Button Command="{x:Bind ViewModel.Journal.NewNoteCommand}" Content="New note" />
+            <Button Command="{x:Bind ViewModel.Journal.ImportMapCommand}" Content="Add a map…" />
+          </StackPanel>
+        </Grid>
+        <Grid ColumnSpacing="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="220" />
+            <ColumnDefinition Width="*" />
+          </Grid.ColumnDefinitions>
+          <ListView
+              MaxHeight="320"
+              ItemsSource="{x:Bind ViewModel.Journal.Notes}"
+              SelectedItem="{x:Bind ViewModel.Journal.SelectedNoteItem, Mode=TwoWay}"
+              SelectionMode="Single">
+            <ListView.ItemTemplate>
+              <DataTemplate x:DataType="svc:JournalNoteItem">
+                <TextBlock Padding="0,6" Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+              </DataTemplate>
+            </ListView.ItemTemplate>
+          </ListView>
+          <StackPanel Grid.Column="1" Spacing="8" Visibility="{x:Bind ViewModel.Journal.HasSelectedNote, Mode=OneWay}">
+            <TextBox
+                AutomationProperties.Name="Note title"
+                LostFocus="NoteEditor_LostFocus"
+                Text="{x:Bind ViewModel.Journal.NoteTitle, Mode=TwoWay}" />
+            <RichEditBox x:Name="NoteEditor" MinHeight="200" AutomationProperties.Name="Note" LostFocus="NoteEditor_LostFocus" />
+            <Button HorizontalAlignment="Right" Command="{x:Bind ViewModel.Journal.DeleteNoteCommand}" Content="Delete note" />
+          </StackPanel>
+        </Grid>
+        <TextBlock
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Text="Screenshots you take with F12 and maps you add appear here."
+            Visibility="{x:Bind ViewModel.Journal.HasNoImages, Mode=OneWay}" />
+        <ItemsRepeater ItemsSource="{x:Bind ViewModel.Journal.Images}">
+          <ItemsRepeater.Layout>
+            <UniformGridLayout MinColumnSpacing="8" MinItemWidth="200" MinRowSpacing="8" />
+          </ItemsRepeater.Layout>
+          <ItemsRepeater.ItemTemplate>
+            <DataTemplate x:DataType="vm:JournalImageViewModel">
+              <StackPanel Spacing="4">
+                <Grid Height="140" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4">
+                  <Image Stretch="Uniform" Visibility="{x:Bind HasImage}">
+                    <Image.Source>
+                      <BitmapImage DecodePixelWidth="400" UriSource="{x:Bind ImageUri}" />
+                    </Image.Source>
+                  </Image>
+                </Grid>
+                <TextBlock Text="{x:Bind Title}" />
+                <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Subtitle}" />
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                  <Button Command="{x:Bind AttachToNoteCommand}" Content="Attach to note" />
+                  <Button Command="{x:Bind DeleteCommand}" Content="Delete" />
+                </StackPanel>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsRepeater.ItemTemplate>
+        </ItemsRepeater>
       </StackPanel>
     </Grid>
   </ScrollViewer>

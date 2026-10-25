@@ -173,6 +173,7 @@
             </StackPanel>
           </Button>
           <Button AccessKey="I" Command="{x:Bind ViewModel.ImportCatalogCommand}" Content="Import catalog" />
+          <Button AccessKey="D" Command="{x:Bind ViewModel.DumpCartridgeCommand}" Content="Dump cartridge" />
         </StackPanel>
       </Grid>
       <StackPanel Orientation="Horizontal" Spacing="12" Visibility="{x:Bind ViewModel.IsScanning, Mode=OneWay}">

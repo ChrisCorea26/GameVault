@@ -15,8 +15,16 @@ public sealed partial class GameDetailsViewModel(
     ILibraryService library,
     TimelineViewModel timeline,
     INavigationService navigation,
-    IGameFilePicker picker) : ObservableObject
+    IGameFilePicker picker,
+    PasswordsViewModel passwords,
+    JournalViewModel journal) : ObservableObject
 {
+    /// <summary>The Passwords panel (SPEC §7.3).</summary>
+    public PasswordsViewModel Passwords => passwords;
+
+    /// <summary>The journal: notes, screenshots, maps (SPEC §7.4).</summary>
+    public JournalViewModel Journal => journal;
+
     private GameEntry? _game;
     private bool _loading;
 
@@ -143,6 +151,8 @@ public sealed partial class GameDetailsViewModel(
         timeline.LoadRequested -= OnLoadRequested;
         timeline.LoadRequested += OnLoadRequested;
         await timeline.ShowAsync(key);
+        await passwords.ShowAsync(key);
+        await journal.ShowAsync(key);
     }
 
     /// <summary>Called when the page is left.</summary>
@@ -150,6 +160,8 @@ public sealed partial class GameDetailsViewModel(
     {
         timeline.LoadRequested -= OnLoadRequested;
         timeline.Detach();
+        passwords.Detach();
+        journal.Detach();
     }
 
     [RelayCommand(CanExecute = nameof(CanPlay))]

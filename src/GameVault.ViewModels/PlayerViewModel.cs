@@ -12,8 +12,31 @@ public sealed partial class PlayerViewModel(
     ISettingsStore settingsStore,
     IInputDevicesService devices,
     TimelineViewModel timeline,
-    ILibraryService library) : ObservableObject
+    ILibraryService library,
+    IPasswordService passwords,
+    IJournalService journal,
+    AssistViewModel assist,
+    PracticeViewModel practice) : ObservableObject
 {
+    private byte[]? _passwordScreenshot;
+
+    /// <summary>Assist mode for this session (SPEC §7.6).</summary>
+    public AssistViewModel Assist => assist;
+
+    /// <summary>Practice mode: practice point, retry, splits (SPEC §7.6).</summary>
+    public PracticeViewModel Practice => practice;
+
+    /// <summary>The "Write down a password" panel is open (F9, SPEC §7.3 manual fallback).</summary>
+    [ObservableProperty]
+    public partial bool IsEnteringPassword { get; private set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SaveManualPasswordCommand))]
+    public partial string ManualPassword { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string ManualPasswordNote { get; set; } = string.Empty;
+
     /// <summary>The save-state timeline flyout (SPEC §7.1).</summary>
     public TimelineViewModel Timeline => timeline;
 
@@ -120,6 +143,8 @@ public sealed partial class PlayerViewModel(
 
         if (emulator.GameKey is { } key && emulator.Status == EmulatorStatus.Running)
         {
+            emulator.SetAssist(assist.Options); // a new session starts with Assist off
+            devices.SetPlayerCount(emulator.UsesFourScore ? 4 : 2);
             timeline.CanSave = true;
             await timeline.ShowAsync(key);
             if (launch?.StateId is { } stateId)
@@ -145,6 +170,64 @@ public sealed partial class PlayerViewModel(
 
     [RelayCommand]
     private void DismissResume() => ResumeOffer = null;
+
+    /// <summary>Opens the manual password panel with a screenshot of the password screen (F9).</summary>
+    [RelayCommand]
+    private async Task CapturePasswordAsync()
+    {
+        if (emulator.GameKey is null)
+        {
+            return;
+        }
+
+        if (emulator.Status == EmulatorStatus.Running)
+        {
+            emulator.Pause();
+        }
+
+        _passwordScreenshot = await emulator.CaptureScreenshotAsync();
+        ManualPassword = string.Empty;
+        ManualPasswordNote = string.Empty;
+        IsEnteringPassword = true;
+    }
+
+    [RelayCommand(CanExecute = nameof(CanSaveManualPassword))]
+    private async Task SaveManualPasswordAsync()
+    {
+        if (emulator.GameKey is { } key)
+        {
+            await passwords.AddAsync(key, ManualPassword, _passwordScreenshot, string.IsNullOrWhiteSpace(ManualPasswordNote) ? null : ManualPasswordNote.Trim());
+            OnNotice(this, $"Password saved: {ManualPassword.Trim()}");
+        }
+
+        CloseManualPassword();
+    }
+
+    private bool CanSaveManualPassword() => !string.IsNullOrWhiteSpace(ManualPassword);
+
+    [RelayCommand]
+    private void CancelManualPassword() => CloseManualPassword();
+
+    private void CloseManualPassword()
+    {
+        IsEnteringPassword = false;
+        _passwordScreenshot = null;
+        if (emulator.Status == EmulatorStatus.Paused)
+        {
+            emulator.Resume();
+        }
+    }
+
+    /// <summary>Saves the current screen to the game's journal (F12, SPEC §7.4).</summary>
+    [RelayCommand]
+    private async Task ScreenshotAsync()
+    {
+        if (emulator.GameKey is { } key && await emulator.CaptureScreenshotAsync() is { } png)
+        {
+            await journal.AddScreenshotAsync(key, png);
+            OnNotice(this, "Screenshot saved to the journal");
+        }
+    }
 
     [RelayCommand]
     private void TogglePause()
@@ -207,6 +290,11 @@ public sealed partial class PlayerViewModel(
             emulator.Notice += OnNotice;
             emulator.RewindChanged += OnRewindChanged;
             emulator.PlaytimeElapsed += OnPlaytimeElapsed;
+            emulator.ManualPasswordRequested += OnManualPasswordRequested;
+            emulator.ScreenshotRequested += OnScreenshotRequested;
+            emulator.PracticeRetryRequested += OnPracticeRetry;
+            emulator.PracticeSplitRequested += OnPracticeSplit;
+            passwords.Captured += OnPasswordCaptured;
             timeline.Service.Notice += OnNotice;
             devices.ControllerDisconnected += OnControllerDisconnected;
             devices.Changed += OnDevicesChanged;
@@ -224,11 +312,17 @@ public sealed partial class PlayerViewModel(
             emulator.Notice -= OnNotice;
             emulator.RewindChanged -= OnRewindChanged;
             emulator.PlaytimeElapsed -= OnPlaytimeElapsed;
+            emulator.ManualPasswordRequested -= OnManualPasswordRequested;
+            emulator.ScreenshotRequested -= OnScreenshotRequested;
+            emulator.PracticeRetryRequested -= OnPracticeRetry;
+            emulator.PracticeSplitRequested -= OnPracticeSplit;
+            passwords.Captured -= OnPasswordCaptured;
             timeline.Service.Notice -= OnNotice;
             devices.ControllerDisconnected -= OnControllerDisconnected;
             devices.Changed -= OnDevicesChanged;
             devices.Notice -= OnNotice;
             devices.SetGameRunning(false);
+            devices.SetPlayerCount(2);
             _attached = false;
         }
     }
@@ -257,6 +351,28 @@ public sealed partial class PlayerViewModel(
     }
 
     private void OnStatusChanged(object? sender, EventArgs e) => Refresh();
+
+    private void OnManualPasswordRequested(object? sender, EventArgs e) => CapturePasswordCommand.Execute(null);
+
+    private void OnScreenshotRequested(object? sender, EventArgs e) => ScreenshotCommand.Execute(null);
+
+    private void OnPracticeRetry(object? sender, EventArgs e)
+    {
+        if (practice.RetryCommand.CanExecute(null))
+        {
+            practice.RetryCommand.Execute(null);
+        }
+    }
+
+    private void OnPracticeSplit(object? sender, EventArgs e)
+    {
+        if (practice.SplitCommand.CanExecute(null))
+        {
+            practice.SplitCommand.Execute(null);
+        }
+    }
+
+    private void OnPasswordCaptured(object? sender, string password) => OnNotice(this, $"Password saved: {password}");
 
     private void OnRewindChanged(object? sender, EventArgs e)
     {

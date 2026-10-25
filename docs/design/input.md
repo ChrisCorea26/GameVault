@@ -151,6 +151,8 @@ These keys never reach the game, so game bindings can't use them:
 | Rewind (hold) | Backspace | Left shoulder |
 | Fast-forward (hold) | Tab | Right shoulder |
 | Quick save / quick load | F5 / F8 | — |
+| Practice: retry / split (SPEC §7.6, added in Phase 6) | F6 / F7 | — |
+| Capture password (SPEC §7.3, added in Phase 6) | F9 | — |
 | Screenshot | F12 | — |
 
 Controller hotkeys work only from pads assigned to a port.

@@ -25,6 +25,9 @@ public interface IEmulatorService
     /// <summary>True when the game is set up for the Zapper, so the mouse aims (SPEC §7.5).</summary>
     bool UsesZapper { get; }
 
+    /// <summary>True when the game is set up for the Four Score (four players).</summary>
+    bool UsesFourScore { get; }
+
     /// <summary>True while rewind is held (SPEC §7.2).</summary>
     bool IsRewinding { get; }
 
@@ -36,6 +39,31 @@ public interface IEmulatorService
 
     /// <summary>Time actually played (running, not paused), reported every minute and on pause or stop.</summary>
     event EventHandler<TimeSpan>? PlaytimeElapsed;
+
+    /// <summary>Frames emulated since the game started (practice timer, SPEC §7.6).</summary>
+    long FrameCount { get; }
+
+    /// <summary>F9: note a password by hand (SPEC §7.3).</summary>
+    event EventHandler? ManualPasswordRequested;
+
+    /// <summary>F12: save a screenshot to the journal (SPEC §7.4).</summary>
+    event EventHandler? ScreenshotRequested;
+
+    /// <summary>F6 / F7: practice retry and split (SPEC §7.6).</summary>
+    event EventHandler? PracticeRetryRequested;
+
+    event EventHandler? PracticeSplitRequested;
+
+    /// <summary>Assist mode for this session (SPEC §7.6). Applied between frames.</summary>
+    void SetAssist(AssistOptions options);
+
+    /// <summary>A save state of the running game (practice points). Null when idle.</summary>
+    Task<byte[]?> CaptureStateAsync();
+
+    Task<bool> RestoreStateAsync(byte[] state);
+
+    /// <summary>The current screen as a PNG. Null when idle.</summary>
+    Task<byte[]?> CaptureScreenshotAsync();
 
     /// <summary>Plain-language reason for <see cref="EmulatorStatus.Faulted"/>.</summary>
     string? FaultMessage { get; }

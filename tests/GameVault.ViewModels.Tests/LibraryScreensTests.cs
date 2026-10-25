@@ -11,8 +11,55 @@ public class LibraryScreensTests
     private readonly SampleLibraryService _library = new();
     private readonly SampleTimelineService _timeline = new();
 
-    private GameDetailsViewModel Details() =>
-        new(_library, new TimelineViewModel(_timeline), _navigation, new SampleGameFilePicker());
+    private readonly SamplePasswordService _passwords = new();
+    private readonly SampleJournalService _journal = new();
+    private readonly InMemoryClipboard _clipboard = new();
+
+    private GameDetailsViewModel Details() => new(
+        _library,
+        new TimelineViewModel(_timeline),
+        _navigation,
+        new SampleGameFilePicker(),
+        new PasswordsViewModel(_passwords, _clipboard),
+        new JournalViewModel(_journal, new SampleGameFilePicker()));
+
+    [Fact]
+    public async Task Passwords_panel_lists_copies_and_deletes()
+    {
+        var vm = Details();
+        await vm.LoadCommand.ExecuteAsync("sample:2");
+
+        vm.Passwords.Items.Select(p => p.Password).Should().Equal("STAR GATE 0917", "BLUE MOON 4421");
+        vm.Passwords.Items[0].Subtitle.Should().Contain("Entered by you").And.Contain("Before the ice palace");
+
+        vm.Passwords.Items[1].CopyCommand.Execute(null);
+        _clipboard.Text.Should().Be("BLUE MOON 4421");
+        vm.Passwords.CopiedText.Should().Be("Copied BLUE MOON 4421");
+
+        await vm.Passwords.Items[0].DeleteCommand.ExecuteAsync(null);
+        vm.Passwords.Items.Should().ContainSingle();
+    }
+
+    [Fact]
+    public async Task Journal_creates_saves_and_attaches()
+    {
+        var vm = Details();
+        await vm.LoadCommand.ExecuteAsync("sample:2");
+        vm.Journal.SelectedNote!.Title.Should().Be("Secrets of World 2");
+        vm.Journal.NoteRtf.Should().Contain("second pipe");
+
+        await vm.Journal.NewNoteCommand.ExecuteAsync(null);
+        vm.Journal.SelectedNote!.Title.Should().Be("New note");
+        vm.Journal.NoteTitle = "Boss patterns";
+        await vm.Journal.SaveNoteAsync(@"{
+tf1 Jump twice}");
+        (await _journal.LoadNoteAsync("sample:2", vm.Journal.SelectedNote!.Id)).Should().Be(@"{
+tf1 Jump twice}");
+
+        await _journal.AddScreenshotAsync("sample:2", [1]);
+        await vm.Journal.Images[0].AttachToNoteCommand.ExecuteAsync(null);
+        (await _journal.GetNotesAsync("sample:2")).Single(n => n.Title == "Boss patterns").Attachments.Should().ContainSingle();
+    }
 
     [Fact]
     public async Task Details_show_the_game_and_its_timeline()
@@ -152,5 +199,49 @@ public class LibraryScreensTests
 
         await vm.Folders[0].RemoveCommand.ExecuteAsync(null);
         vm.HasNoFolders.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task Dump_wizard_picks_a_catalog_game_and_dumps_it()
+    {
+        var vm = new DumpCartridgeViewModel(new SampleDumperService(), _library, _navigation);
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.HasDumper.Should().BeTrue();
+        vm.SelectedBoard!.Name.Should().Be("NROM");
+
+        vm.Search = "harbor";
+        vm.Matches.Select(g => g.Title).Should().Equal("Harbor Patrol");
+        vm.SelectedGame = vm.Matches[0];
+        vm.SelectedBoard = vm.Boards.Single(b => b.Mapper == 4);
+        vm.PrgKb.Should().Be(128);
+        vm.NextCommand.Execute(null);
+        vm.IsInserting.Should().BeTrue();
+
+        await vm.DumpCommand.ExecuteAsync(null);
+
+        vm.IsDone.Should().BeTrue();
+        vm.Outcome!.MatchesCatalog.Should().BeTrue();
+        vm.OpenGameCommand.Execute(null);
+        _navigation.History.Last().Should().Be((AppPage.GameDetails, "sample:6"));
+    }
+
+    [Fact]
+    public void Without_a_dumper_the_wizard_explains_and_cannot_continue()
+    {
+        var vm = new DumpCartridgeViewModel(new NoDumper(), _library, _navigation) { CustomTitle = "My homebrew" };
+
+        vm.HasDumper.Should().BeFalse();
+        vm.DumperText.Should().Contain("INL Retro-Prog");
+        vm.NextCommand.CanExecute(null).Should().BeFalse();
+    }
+
+    private sealed class NoDumper : IDumperService
+    {
+        public string? DumperName => null;
+
+        public IReadOnlyList<DumpBoard> Boards => DumperBoards.All;
+
+        public Task<DumpOutcome> DumpAsync(string? catalogGameKey, string title, DumpBoard board, int prgKb, int chrKb, IProgress<string>? progress = null, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new DumpOutcome(false, false, "No dumper", null));
     }
 }

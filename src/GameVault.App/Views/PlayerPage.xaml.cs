@@ -10,6 +10,7 @@ namespace GameVault.App.Views;
 public sealed partial class PlayerPage : Page
 {
     private object? _launch;
+    private DispatcherTimer? _practiceTimer;
 
     public PlayerPage()
     {
@@ -44,14 +45,38 @@ public sealed partial class PlayerPage : Page
 
         ViewModel.StartCommand.Execute(_launch);
         Game.Focus(FocusState.Programmatic);
+
+        // The practice timer shows emulated time; refresh it a few times a second (view-only concern).
+        _practiceTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(100) };
+        _practiceTimer.Tick += (_, _) => ViewModel.Practice.Tick();
+        _practiceTimer.Start();
+        ViewModel.PropertyChanged += OnViewModelPropertyChanged;
     }
 
     private void OnUnloaded(object sender, RoutedEventArgs e)
     {
+        _practiceTimer?.Stop();
+        ViewModel.PropertyChanged -= OnViewModelPropertyChanged;
         App.MainWindow.Activated -= OnWindowActivated;
         if (App.TryGetService<ControllerManager>() is { } controllers)
         {
             controllers.PauseRequested -= OnPauseRequested;
+        }
+    }
+
+    // Focus moves to the password box when the panel opens, and back to the game when it closes.
+    private void OnViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(PlayerViewModel.IsEnteringPassword))
+        {
+            if (ViewModel.IsEnteringPassword)
+            {
+                PasswordBox.Focus(FocusState.Programmatic);
+            }
+            else
+            {
+                Game.Focus(FocusState.Programmatic);
+            }
         }
     }
 

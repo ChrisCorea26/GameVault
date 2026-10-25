@@ -1,4 +1,8 @@
+using GameVault.Dumper;
 using GameVault.Library.Data;
+using GameVault.Library.Journal;
+using GameVault.Library.Passwords;
+using GameVault.Library.Practice;
 using GameVault.Library.Profiles;
 using GameVault.Library.Timeline;
 using GameVault.Platform.Audio;
@@ -93,6 +97,11 @@ public partial class App : Application
             services.AddSingleton<IGameFilePicker, SampleGameFilePicker>();
             services.AddSingleton<IInputDevicesService, SampleInputDevicesService>();
             services.AddSingleton<ITimelineService, SampleTimelineService>();
+            services.AddSingleton<IPasswordService, SamplePasswordService>();
+            services.AddSingleton<IJournalService, SampleJournalService>();
+            services.AddSingleton<IPracticeRecords, InMemoryPracticeRecords>();
+            services.AddSingleton<IDumperService, SampleDumperService>();
+            services.AddSingleton<IClipboardService, InMemoryClipboard>();
         }
         else
         {
@@ -110,6 +119,7 @@ public partial class App : Application
                 sp.GetRequiredService<AppPaths>())
             {
                 ProfileResolver = sp.GetRequiredService<LibraryService>().ResolveProfile,
+                PasswordDefinitionResolver = new PasswordDefinitions(Path.Combine(AppContext.BaseDirectory, "data", "gamedb", "passwords")).For,
             });
             services.AddSingleton<IEmulatorService>(sp => sp.GetRequiredService<EmulatorHost>());
             services.AddSingleton(sp => new TimelineStore(sp.GetRequiredService<AppPaths>().StatesDirectory));
@@ -118,6 +128,19 @@ public partial class App : Application
                 sp.GetRequiredService<TimelineStore>(),
                 new SaveStateStore(sp.GetRequiredService<AppPaths>()),
                 sp.GetRequiredService<LibraryService>().PlaytimeOf));
+            services.AddSingleton<IPasswordService>(sp => new PasswordService(
+                sp.GetRequiredService<EmulatorHost>(), new PasswordStore(sp.GetRequiredService<AppPaths>().PasswordsDirectory)));
+            services.AddSingleton<IJournalService>(sp => new JournalService(new JournalStore(sp.GetRequiredService<AppPaths>().JournalDirectory)));
+            services.AddSingleton<IPracticeRecords>(sp => new PracticeRecords(new PracticeStore(sp.GetRequiredService<AppPaths>().PracticeDirectory)));
+            services.AddSingleton<IClipboardService, WinUiClipboard>();
+            services.AddSingleton<IDumperService>(sp =>
+            {
+                // The dumper is optional (SPEC §8): only set up when its program is configured.
+                var store = sp.GetRequiredService<ISettingsStore>();
+                var path = Task.Run(() => store.LoadAsync()).GetAwaiter().GetResult().DumperPath;
+                IDumper? dumper = string.IsNullOrWhiteSpace(path) ? null : new InlRetroDumper(new SystemProcessRunner(), path);
+                return new DumperService(dumper, sp.GetRequiredService<ILibraryService>());
+            });
             services.AddSingleton<IGameFilePicker, WinUiGameFilePicker>();
             services.AddSingleton(sp => new ControllerManager(
                 sp.GetRequiredService<InputService>(),
@@ -142,6 +165,11 @@ public partial class App : Application
         services.AddTransient<GameDetailsViewModel>();
         services.AddTransient<CatalogImportViewModel>();
         services.AddTransient<LibrarySettingsViewModel>();
+        services.AddTransient<PasswordsViewModel>();
+        services.AddTransient<JournalViewModel>();
+        services.AddTransient<AssistViewModel>();
+        services.AddTransient<PracticeViewModel>();
+        services.AddTransient<DumpCartridgeViewModel>();
         services.AddTransient<PlayerViewModel>();
 
         services.AddSingleton<MainWindow>();

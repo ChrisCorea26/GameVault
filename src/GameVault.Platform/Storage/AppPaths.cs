@@ -28,5 +28,14 @@ public sealed class AppPaths
 
     public string LibraryDatabase => Path.Combine(Root, "library.db");
 
+    /// <summary>Captured passwords (SPEC §7.3).</summary>
+    public string PasswordsDirectory => Path.Combine(Root, "Passwords");
+
+    /// <summary>Game journals: notes, screenshots, maps (SPEC §7.4).</summary>
+    public string JournalDirectory => Path.Combine(Root, "Journal");
+
+    /// <summary>Practice personal bests (SPEC §7.6).</summary>
+    public string PracticeDirectory => Path.Combine(Root, "Practice");
+
     public string CrashLogFile => Path.Combine(Root, "logs", "crash.log");
 }

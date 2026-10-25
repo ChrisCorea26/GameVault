@@ -38,6 +38,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\GameVault.Core\GameVault.Core.csproj" />
+    <ProjectReference Include="..\GameVault.Dumper\GameVault.Dumper.csproj" />
     <ProjectReference Include="..\GameVault.Library\GameVault.Library.csproj" />
     <ProjectReference Include="..\GameVault.Platform\GameVault.Platform.csproj" />
     <ProjectReference Include="..\GameVault.ViewModels\GameVault.ViewModels.csproj" />

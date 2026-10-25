@@ -53,6 +53,54 @@ public sealed class SampleEmulatorHost : IEmulatorService, IDisposable
 
     public bool UsesZapper => false;
 
+    public bool UsesFourScore => false;
+
+    public long FrameCount => _tick;
+
+    public event EventHandler? ManualPasswordRequested
+    {
+        add { }
+        remove { }
+    }
+
+    public event EventHandler? ScreenshotRequested
+    {
+        add { }
+        remove { }
+    }
+
+    public event EventHandler? PracticeRetryRequested
+    {
+        add { }
+        remove { }
+    }
+
+    public event EventHandler? PracticeSplitRequested
+    {
+        add { }
+        remove { }
+    }
+
+    public void SetAssist(AssistOptions options)
+    {
+    }
+
+    public Task<byte[]?> CaptureStateAsync() => Task.FromResult<byte[]?>(BitConverter.GetBytes(_tick));
+
+    public Task<bool> RestoreStateAsync(byte[] state)
+    {
+        Interlocked.Exchange(ref _tick, BitConverter.ToInt32(state));
+        return Task.FromResult(true);
+    }
+
+    public Task<byte[]?> CaptureScreenshotAsync()
+    {
+        lock (_frame)
+        {
+            return Task.FromResult<byte[]?>(PngEncoder.Encode(PngEncoder.ToArgb(_frame, GameVault.Core.Ppu.NtscPalette.Argb), 256, 240));
+        }
+    }
+
     public bool IsRewinding => false;
 
     public double RewindSeconds => 42;

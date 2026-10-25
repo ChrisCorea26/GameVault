@@ -48,8 +48,8 @@ public sealed partial class ShellViewModel : ObservableObject
             case AppPage.GameDetails:
                 _navigation.NavigateTo(AppPage.GameDetails, _environment.IsSampleData ? "sample:2" : null);
                 break;
-            case AppPage.CatalogImport:
-                _navigation.NavigateTo(AppPage.CatalogImport);
+            case AppPage.CatalogImport or AppPage.DumpCartridge:
+                _navigation.NavigateTo(_environment.StartPage);
                 break;
         }
     }

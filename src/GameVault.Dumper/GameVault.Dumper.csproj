@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Cartridge dumper integration (SPEC §8). Optional: the app works fully without a dumper. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>GameVault.Dumper</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GameVault.Library\GameVault.Library.csproj" />
+  </ItemGroup>
+
+</Project>

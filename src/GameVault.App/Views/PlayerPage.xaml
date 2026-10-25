@@ -31,6 +31,8 @@
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
 
       <Button
@@ -88,6 +90,70 @@
           </Flyout>
         </Button.Flyout>
       </Button>
+
+      <!-- SPEC §7.6: Assist mode, per session, never forced -->
+      <Button Grid.Column="6" AccessKey="A" Content="Assist">
+        <Button.Flyout>
+          <Flyout Placement="BottomEdgeAlignedRight">
+            <StackPanel Width="300" Spacing="8">
+              <ToggleSwitch Header="Assist mode" IsOn="{x:Bind ViewModel.Assist.IsEnabled, Mode=TwoWay}" />
+              <ComboBox
+                  Header="Speed"
+                  HorizontalAlignment="Stretch"
+                  IsEnabled="{x:Bind ViewModel.Assist.IsEnabled, Mode=OneWay}"
+                  ItemsSource="{x:Bind ViewModel.Assist.SpeedOptions}"
+                  SelectedIndex="{x:Bind ViewModel.Assist.SpeedIndex, Mode=TwoWay}" />
+              <ComboBox
+                  Header="Colors"
+                  HorizontalAlignment="Stretch"
+                  IsEnabled="{x:Bind ViewModel.Assist.IsEnabled, Mode=OneWay}"
+                  ItemsSource="{x:Bind ViewModel.Assist.PaletteOptions}"
+                  SelectedIndex="{x:Bind ViewModel.Assist.PaletteIndex, Mode=TwoWay}" />
+              <CheckBox Content="Unlimited rewind" IsChecked="{x:Bind ViewModel.Assist.UnlimitedRewind, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.Assist.IsEnabled, Mode=OneWay}" />
+              <CheckBox Content="Reduce flicker" IsChecked="{x:Bind ViewModel.Assist.RemoveFlicker, Mode=TwoWay}" IsEnabled="{x:Bind ViewModel.Assist.IsEnabled, Mode=OneWay}" />
+            </StackPanel>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
+
+      <!-- SPEC §7.6: Practice mode -->
+      <Button Grid.Column="7" Content="Practice">
+        <Button.Flyout>
+          <Flyout Placement="BottomEdgeAlignedRight">
+            <StackPanel Width="300" Spacing="8">
+              <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Practice" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Set a practice point, then press F6 to retry from it and F7 to mark a split."
+                  TextWrapping="Wrap" />
+              <StackPanel Orientation="Horizontal" Spacing="8">
+                <Button Command="{x:Bind ViewModel.Practice.SetPointCommand}" Content="Set practice point" />
+                <Button Command="{x:Bind ViewModel.Practice.RetryCommand}" Content="Retry" />
+                <Button Command="{x:Bind ViewModel.Practice.SplitCommand}" Content="Split" />
+              </StackPanel>
+              <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind ViewModel.Practice.CurrentTime, Mode=OneWay}" />
+              <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.Practice.BestForCurrent, Mode=OneWay}" />
+              <ItemsRepeater ItemsSource="{x:Bind ViewModel.Practice.Segments}">
+                <ItemsRepeater.ItemTemplate>
+                  <DataTemplate x:DataType="vm:SegmentViewModel">
+                    <Grid Padding="0,2" ColumnSpacing="8">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
+                      <TextBlock Text="{x:Bind Title}" />
+                      <TextBlock Grid.Column="1" Text="{x:Bind Time}" />
+                      <TextBlock Grid.Column="2" Foreground="{ThemeResource SystemFillColorSuccessBrush}" Text="{x:Bind Badge}" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+              </ItemsRepeater>
+            </StackPanel>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
     </Grid>
 
     <StackPanel Grid.Row="1" Margin="12,0,12,0" Spacing="8">
@@ -124,6 +190,27 @@
     </StackPanel>
 
     <controls:GameView x:Name="Game" Grid.Row="2" ZapperEnabled="{x:Bind ViewModel.UsesZapper, Mode=OneWay}" />
+
+    <!-- SPEC §7.3 manual fallback: F9 pauses and lets the player type the password -->
+    <Border
+        Grid.Row="2"
+        MaxWidth="420"
+        Padding="16"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center"
+        Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+        CornerRadius="8"
+        Visibility="{x:Bind ViewModel.IsEnteringPassword, Mode=OneWay}">
+      <StackPanel Spacing="8">
+        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Write down the password" />
+        <TextBox x:Name="PasswordBox" Header="Password" Text="{x:Bind ViewModel.ManualPassword, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+        <TextBox Header="Note (optional)" PlaceholderText="Where you are in the game" Text="{x:Bind ViewModel.ManualPasswordNote, Mode=TwoWay}" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Command="{x:Bind ViewModel.SaveManualPasswordCommand}" Content="Save" Style="{StaticResource AccentButtonStyle}" />
+          <Button Command="{x:Bind ViewModel.CancelManualPasswordCommand}" Content="Cancel" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
 
     <!-- SPEC §7.2: shown while rewinding -->
     <Border
