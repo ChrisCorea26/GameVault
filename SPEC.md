@@ -256,6 +256,13 @@ The **Passwords panel** lists saved passwords per game with a copy button. Ship 
 - Connection by **invite code** through a lightweight relay/STUN service, with no manual port forwarding.
 - Both players must have a ROM with the same hash. The app verifies hashes and never transfers ROM data.
 
+### 7.8 Game Genie code library (Phase 8)
+- **Codes.** Enter 6- and 8-letter Game Genie codes and raw RAM codes (`address:value`, held each frame). Each code shows what it decodes to (address, value, compare) and is checked as it is typed.
+- **Library.** Codes are saved per game (keyed by hash) with a description, and can be switched on and off individually while playing. Enabled codes are remembered per game.
+- **Import and export.** Plain-text lists (`CODE  description`) and the cheat files of other emulators, so players can bring their own collections.
+- **Bundled codes.** A community code database in `data/gamedb/cheats/` ships only from sources whose license allows redistribution, each listed with its license in `data/gamedb/cheats/SOURCES.md`. Published codebook text is never copied.
+- **Honesty with other features.** Practice personal bests are not recorded while codes are on. Save states and rewind record which codes were on. Netplay requires both players to use the same codes.
+
 ---
 
 ## 8. Cartridge Dumper Integration (Phase 6)
@@ -344,6 +351,7 @@ Each phase ends with all tests green and a tagged release.
 | **5. Library** | Catalog import, scanner, collection tracking, playtime, game profiles, timeline, rewind, Zapper | Zero-config 60-second test passes with a fresh install |
 | **6. Signature features** | Password capture, journal, assist/practice modes, Tier 2–3 mappers, dumper integration | Password capture works for the 5 launch titles; dumper flow verified on hardware |
 | **7. Stretch** | Rollback netplay, FDS, Tier 4 mappers, expansion audio completion | — |
+| **8. Game Genie codes** | Game Genie and RAM code engine, per-game code library, import/export, Player and Game Details UI, bundled code database | Codes decode and apply correctly in tests; codes can be added, toggled and imported for a game; the screens render under `--sample-data` |
 
 ---
 

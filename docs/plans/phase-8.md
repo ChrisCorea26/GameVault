@@ -1,0 +1,82 @@
+# Phase 8 — Game Genie code library
+
+**Goal (SPEC §7.8, §12):** a Game Genie and RAM code engine, a per-game code library with import and export,
+Player and Game Details UI, and a bundled code database.
+
+**Done when:**
+- codes decode and apply correctly in tests;
+- codes can be added, toggled and imported for a game;
+- the new screens render under `--sample-data`.
+
+## Core (`GameVault.Core/Cheats`)
+- **`GameGenieCode`**: decode and encode 6- and 8-letter codes (NESdev Wiki: "Game Genie").
+  - The letters `APZLGITYEOXUKSVN` stand for 0–15.
+  - A code yields an address in `$8000-$FFFF`, a value and, for 8 letters, a compare byte.
+  - Invalid letters or lengths give a plain-language reason.
+- **`RamCode`**: `AAAA:VV`, a RAM address (`$0000-$07FF` or `$6000-$7FFF`) and a value written before each
+  frame.
+- **`CheatEngine`** on the bus:
+  - **ROM codes.** A CPU read in `$8000-$FFFF` that matches a code returns the code's value. For an 8-letter
+    code, only when the real byte equals the compare byte, as the real device does.
+  - **RAM codes.** Written at the start of every frame.
+  - **Cost.** One branch per CPU read when no codes are on. When codes are on, a 32 KB-indexed lookup with no
+    allocation and no LINQ.
+  - **Determinism.** Codes change only between frames, so run-ahead and rewind stay deterministic.
+- **State.** The active code set is part of the console snapshot (console chunk v3). Loading a state or
+  rewinding restores the codes that were on.
+
+## Library (`GameVault.Library/Cheats`)
+- **`CheatStore`**: per game (headerless SHA-1), `%LOCALAPPDATA%\GameVault\Cheats\<sha1>.json`. It holds
+  each code, a description, and whether it is on.
+- **Import / export**
+  - Plain text: one `CODE  description` per line; `#` comments.
+  - FCEUX `.cht` (`S:` and `SC:` lines) on import.
+  - Bad lines are reported with line numbers. Nothing is half-imported.
+- **Bundled database**: `data/gamedb/cheats/<sha1>.json`, the same format. Shown read-only as "Suggested
+  codes" and copied into the player's list when used. **Its content needs the owner** (see below).
+  Every source is listed with its license in `data/gamedb/cheats/SOURCES.md`.
+
+## Platform / ViewModels / App
+- **`ICheatService`** (Platform): load and save per game, push the enabled set to the emulator between
+  frames, and tell practice mode when codes are on (personal bests are not recorded then).
+- **`CodesViewModel`**:
+  - add, edit, delete, toggle and import/export, with live validation ("Decodes to $C3A2 = 05").
+  - Sample data uses fictional games and made-up codes.
+- **App**
+  - Game Details → **Codes** tab (list with toggles, add box, import/export buttons).
+  - Player → **Codes** flyout with toggles, plus a hotkey to turn all codes off at once (recorded in
+    `docs/design/input.md` §8).
+  - A small "Codes on" badge on the Player while any code is active.
+- **CI smoke test** adds `--sample-data --page=codes`.
+
+## Tests
+- **Decoding:**
+  - The NESdev Wiki's worked examples decode to the documented address, value and compare.
+  - Encoding then decoding returns the same code, for every address/value/compare.
+  - Malformed codes are rejected with a reason.
+- **Engine:** with a synthetic ROM,
+  - a 6-letter code replaces a byte;
+  - an 8-letter code replaces it only when the compare matches (and not after a bank switch changes the
+    byte);
+  - RAM codes hold a value across frames.
+- **State:** a snapshot with codes on round-trips and restores the code set. Rewind across a toggle
+  restores the earlier set.
+- **Library:** store round-trip, plain-text and `.cht` import (including error lines), export.
+- **ViewModels:** validation messages, toggling, import results, the practice personal-best rule.
+
+## Open: needs the owner
+- **Where the bundled codes come from.** Published codebooks, and most code websites, are copyrighted
+  compilations, so they can't be copied into the repository. Options:
+  1. Ship an empty database plus the documented format. Accept community contributions under CC0, with
+     each contributor confirming they found or verified the code themselves.
+  2. Use a specific source whose license the owner has checked.
+  3. No bundled database: codes come only from players and their imports.
+
+  The engine, library and UI don't depend on this choice.
+
+## Order of work
+1. Core decoder, engine and state.
+2. Library store and import/export.
+3. Service and ViewModels.
+4. App screens and smoke test.
+5. Bundled database, once the owner picks a source.
