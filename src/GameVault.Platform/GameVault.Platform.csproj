@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Windows platform services: audio (NAudio), video sinks, SDL input, timing, storage. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0-windows</TargetFramework>
+    <RootNamespace>GameVault.Platform</RootNamespace>
+    <!-- Lets the library build on Linux/macOS (CI and cloud sessions); it still only runs on Windows. -->
+    <EnableWindowsTargeting>true</EnableWindowsTargeting>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GameVault.Core\GameVault.Core.csproj" />
+    <!-- Only for the service interfaces it implements (see docs/plans/phase-0.md). -->
+    <ProjectReference Include="..\GameVault.ViewModels\GameVault.ViewModels.csproj" />
+  </ItemGroup>
+
+</Project>
