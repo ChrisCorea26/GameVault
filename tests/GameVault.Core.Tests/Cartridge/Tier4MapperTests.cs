@@ -281,20 +281,127 @@ public class Tier4MapperTests
         m207.NametablePage(0).Should().Be(0);
     }
 
+    [Fact]
+    public void Action53_supports_32k_and_unrom_modes_inside_an_outer_bank()
+    {
+        var mapper = new Action53(Rom(28, 64, 0)); // 512 KB
+        mapper.CpuWrite(0x5000, 0x81);
+        mapper.CpuWrite(0x8000, 0x02);   // outer 32 KB bank 2 -> 16 KB banks 4/5
+        mapper.CpuWrite(0x5000, 0x80);
+        mapper.CpuWrite(0x8000, 0x02);   // 32 KB mode, 32 KB game, vertical
+        mapper.CpuRead(0x8000, 0).Should().Be(8);
+        mapper.CpuRead(0xC000, 0).Should().Be(10);
+        mapper.Mirroring.Should().Be(Mirroring.Vertical);
+
+        mapper.CpuWrite(0x8000, 0x2F);   // UNROM mode ($C000 fixed), 128 KB game, horizontal
+        mapper.CpuWrite(0x5000, 0x01);
+        mapper.CpuWrite(0x8000, 0x03);   // inner bank 3
+        mapper.CpuRead(0x8000, 0).Should().Be(6, "(4 & ~7) | 3 = bank 3");
+        mapper.CpuRead(0xC000, 0).Should().Be(10, "the last 16 KB of the outer bank");
+        mapper.Mirroring.Should().Be(Mirroring.Horizontal);
+    }
+
+    [Fact]
+    public void Rambo1_banks_with_1k_mode_and_counts_cpu_cycles()
+    {
+        var mapper = new Rambo1(Rom(64, 16, 128));
+        mapper.CpuWrite(0x8000, 0x2F);
+        mapper.CpuWrite(0x8001, 5);      // R15
+        mapper.CpuWrite(0x8000, 0x28);
+        mapper.CpuWrite(0x8001, 33);     // R8 (1 KB mode)
+        mapper.CpuRead(0xC000, 0).Should().Be(5);
+        mapper.PpuRead(0x0400).Should().Be(33);
+
+        mapper.CpuWrite(0x8000, 0x46);   // PRG swap: $8000 = R15
+        mapper.CpuRead(0x8000, 0).Should().Be(5);
+
+        mapper.CpuWrite(0xC000, 2);
+        mapper.CpuWrite(0xC001, 1);      // CPU-cycle mode, reload
+        mapper.CpuWrite(0xE001, 0);
+        var cycles = 0;
+        while (!mapper.IrqPending && cycles < 100)
+        {
+            mapper.OnCpuCycle();
+            cycles++;
+        }
+
+        cycles.Should().Be(16, "reload to 3, then 2, 1, 0: four clocks of 4 cycles");
+    }
+
+    [Fact]
+    public void Sunsoft4_reads_nametables_from_chr_rom()
+    {
+        var mapper = new Sunsoft4(Rom(68, 16, 256));
+        var ciram = new byte[0x800];
+        ciram[0] = 0x77;
+        mapper.CpuWrite(0xC000, 5);
+        mapper.CpuWrite(0xD000, 6);
+        mapper.CpuWrite(0xE000, 0x00);
+        mapper.ReadNametable(0x2000, ciram).Should().Be(0x77);
+
+        mapper.CpuWrite(0xE000, 0x10);   // CHR-ROM nametables, vertical
+        mapper.ReadNametable(0x2000, ciram).Should().Be(0x85);
+        mapper.ReadNametable(0x2400, ciram).Should().Be(0x86);
+        mapper.WriteNametable(0x2000, 0x12, ciram);
+        ciram[0].Should().Be(0x77, "ROM nametables ignore writes");
+
+        mapper.CpuWrite(0xF000, 0x03);
+        mapper.CpuRead(0x8000, 0).Should().Be(6);
+        mapper.CpuWrite(0x6000, 1);
+        mapper.CpuRead(0x6000, 0x5A).Should().Be(0x5A, "PRG-RAM is disabled");
+    }
+
+    [Fact]
+    public void Taito_x1017_banks_and_unlocks_ram_chunks()
+    {
+        var mapper = new TaitoX1017(Rom(82, 16, 128));
+        mapper.CpuWrite(0x7EFA, 3 << 2);
+        mapper.CpuWrite(0x7EF2, 40);
+        mapper.CpuWrite(0x7EF6, 0x02);   // horizontal, CHR inverted
+        mapper.CpuRead(0x8000, 0).Should().Be(3);
+        mapper.PpuRead(0x0000).Should().Be(40);
+        mapper.Mirroring.Should().Be(Mirroring.Horizontal);
+
+        mapper.CpuWrite(0x7EF8, 0x69);   // second chunk only
+        mapper.CpuWrite(0x6800, 0x44);
+        mapper.CpuWrite(0x6000, 0x44);
+        mapper.CpuRead(0x6800, 0).Should().Be(0x44);
+        mapper.CpuRead(0x6000, 0x11).Should().Be(0x11);
+    }
+
+    [Fact]
+    public void Mapper228_decodes_the_written_address()
+    {
+        var mapper = new Mapper228(Rom(228, 64, 64));
+        // Chip 0, page 5, 16 KB mode, CHR high 1, horizontal; data low CHR 2 -> CHR 8 KB bank 6.
+        mapper.CpuWrite((ushort)(0x8000 | 0x2000 | (5 << 6) | 0x20 | 0x01), 0x02);
+        mapper.CpuRead(0x8000, 0).Should().Be(10);
+        mapper.CpuRead(0xC000, 0).Should().Be(10);
+        mapper.PpuRead(0x0000).Should().Be(48);
+        mapper.Mirroring.Should().Be(Mirroring.Horizontal);
+
+        mapper.CpuWrite(0x4021, 0xFB);
+        mapper.CpuRead(0x4021, 0xA0).Should().Be(0xAB);
+    }
+
     public static TheoryData<int, int, int, int> Boards { get; } = new()
     {
         { 13, 4, 0, 0 },
         { 15, 16, 0, 0 },
+        { 28, 16, 0, 0 },
         { 30, 16, 0, 0 },
         { 32, 16, 64, 0 },
         { 33, 16, 64, 0 },
         { 48, 16, 64, 0 },
+        { 64, 16, 128, 0 },
         { 65, 16, 64, 0 },
         { 67, 16, 64, 0 },
+        { 68, 16, 256, 0 },
         { 73, 16, 0, 0 },
         { 75, 16, 128, 0 },
         { 76, 16, 64, 0 },
         { 80, 16, 128, 0 },
+        { 82, 16, 128, 0 },
         { 88, 16, 128, 0 },
         { 95, 16, 64, 0 },
         { 152, 16, 64, 0 },
@@ -303,6 +410,7 @@ public class Tier4MapperTests
         { 184, 4, 32, 0 },
         { 185, 4, 8, 0 },
         { 207, 16, 128, 0 },
+        { 228, 64, 64, 0 },
         { 232, 32, 0, 0 },
     };
 
