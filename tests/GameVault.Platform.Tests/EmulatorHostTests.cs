@@ -121,9 +121,9 @@ public sealed class EmulatorHostTests : IDisposable
         notNes.Should().Throw<GameLoadException>().WithMessage("*isn't an NES game*");
 
         var rom = ControllerEchoRom();
-        rom[6] = 0x40; // mapper 4
-        var unsupported = () => _host.Load(rom, "mmc3");
-        unsupported.Should().Throw<GameLoadException>().WithMessage("*doesn't support yet (mapper 4)*");
+        rom[6] = 0x50; // mapper 5 (MMC5, Tier 3)
+        var unsupported = () => _host.Load(rom, "mmc5");
+        unsupported.Should().Throw<GameLoadException>().WithMessage("*doesn't support yet (mapper 5)*");
 
         _host.Status.Should().Be(EmulatorStatus.Idle);
     }

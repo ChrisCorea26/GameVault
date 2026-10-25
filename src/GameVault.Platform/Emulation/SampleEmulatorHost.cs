@@ -33,8 +33,11 @@ public sealed class SampleEmulatorHost : IEmulatorService, IDisposable
     public Task LoadAsync(string path, CancellationToken cancellationToken = default)
     {
         GameTitle = "Sample Game";
-        _timer ??= new Timer(_ => DrawFrame(), null, TimeSpan.Zero, TimeSpan.FromMilliseconds(1000 / 60.0));
         SetStatus(EmulatorStatus.Running);
+
+        // The first frame is drawn right away, so a starved thread pool can't leave the screen empty.
+        DrawFrame();
+        _timer ??= new Timer(_ => DrawFrame(), null, TimeSpan.FromMilliseconds(1000 / 60.0), TimeSpan.FromMilliseconds(1000 / 60.0));
         return Task.CompletedTask;
     }
 
@@ -73,7 +76,15 @@ public sealed class SampleEmulatorHost : IEmulatorService, IDisposable
             return;
         }
 
-        var tick = Interlocked.Increment(ref _tick);
+        lock (_frame)
+        {
+            DrawPattern(Interlocked.Increment(ref _tick));
+            _video.Present(_frame, []);
+        }
+    }
+
+    private void DrawPattern(int tick)
+    {
         for (var y = 0; y < IVideoSink.Height; y++)
         {
             for (var x = 0; x < IVideoSink.Width; x++)
@@ -85,8 +96,6 @@ public sealed class SampleEmulatorHost : IEmulatorService, IDisposable
                 _frame[(y << 8) | x] = (ushort)color;
             }
         }
-
-        _video.Present(_frame, []);
     }
 
     private void SetStatus(EmulatorStatus status)
