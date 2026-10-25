@@ -111,16 +111,14 @@
           Severity="Informational" />
       <!-- SPEC §7.1: resume where you left off -->
       <InfoBar
-          IsClosable="False"
+          CloseButtonCommand="{x:Bind ViewModel.DismissResumeCommand}"
+          IsClosable="True"
           IsOpen="{x:Bind ViewModel.HasResumeOffer, Mode=OneWay}"
-          Message="Pick up where you stopped last time?"
+          Message="Pick up where you stopped last time? Close this to start fresh."
           Severity="Informational"
           Title="Resume">
         <InfoBar.ActionButton>
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <Button Command="{x:Bind ViewModel.ResumeCommand}" Content="Resume" Style="{StaticResource AccentButtonStyle}" />
-            <Button Command="{x:Bind ViewModel.DismissResumeCommand}" Content="Start fresh" />
-          </StackPanel>
+          <Button Command="{x:Bind ViewModel.ResumeCommand}" Content="Resume" Style="{StaticResource AccentButtonStyle}" />
         </InfoBar.ActionButton>
       </InfoBar>
     </StackPanel>
