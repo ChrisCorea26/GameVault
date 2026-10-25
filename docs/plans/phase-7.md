@@ -85,5 +85,11 @@ The parts that need decisions:
   - Checksums of final frames detect desyncs.
   - Tests cover up to 30% packet loss with jitter: both players end in the same state as an offline run
     with the same inputs.
-  - **Still open (needs the owner):** the real transport, meaning the relay/STUN service and invite
-    codes, and the Player UI that goes with it.
+  - **Transport: local network only** (the owner's choice).
+    - UDP; the invite code is the host's LAN address and port in 10 characters (`ABCDE-12345`).
+    - Player → Netplay hosts or joins.
+    - Both games restart from power-on without save files or codes, and states can't be loaded during
+      a session.
+    - Netplay is for cartridge games; Disk System games aren't supported yet.
+    - Tests run two complete emulator hosts against each other over loopback.
+    - Internet play through a relay/STUN service can come later.

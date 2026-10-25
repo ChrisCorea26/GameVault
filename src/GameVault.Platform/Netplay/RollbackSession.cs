@@ -121,12 +121,14 @@ public sealed class RollbackSession
     {
         if (State is NetplayState.Desynced or NetplayState.Mismatch)
         {
+            SendPacket(); // keep telling the other side (our hello or checksums show them why)
             return false;
         }
 
         Receive();
         if (State is NetplayState.Desynced or NetplayState.Mismatch)
         {
+            SendPacket();
             return false;
         }
 
@@ -161,16 +163,12 @@ public sealed class RollbackSession
     /// </summary>
     public void Poll()
     {
-        if (State is NetplayState.Desynced or NetplayState.Mismatch)
-        {
-            return;
-        }
-
-        Receive();
         if (State is not (NetplayState.Desynced or NetplayState.Mismatch))
         {
-            SendPacket();
+            Receive();
         }
+
+        SendPacket();
     }
 
     private void Receive()
@@ -189,11 +187,8 @@ public sealed class RollbackSession
                 _remoteHelloSeen = true;
             }
 
-            if (packet.AckFrame >= 0)
-            {
-                _helloAnswered = true;
-                _remoteAck = Math.Max(_remoteAck, packet.AckFrame);
-            }
+            _helloAnswered |= packet.HelloSeen;
+            _remoteAck = Math.Max(_remoteAck, packet.AckFrame);
 
             for (var i = 0; i < packet.Inputs.Length; i++)
             {
@@ -331,7 +326,8 @@ public sealed class RollbackSession
 
         _link.Send(new NetplayPacket
         {
-            Hello = _helloAnswered ? null : new HelloMessage(_console.RomHash, InputDelay, ProtocolVersion),
+            Hello = _helloAnswered && State != NetplayState.Mismatch ? null : new HelloMessage(_console.RomHash, InputDelay, ProtocolVersion),
+            HelloSeen = _remoteHelloSeen,
             FirstFrame = first,
             Inputs = [.. inputs],
             AckFrame = _remoteContiguous,

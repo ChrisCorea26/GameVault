@@ -1,5 +1,6 @@
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.Net;
 using GameVault.Core;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Cartridge.Fds;
@@ -10,6 +11,7 @@ using GameVault.Core.Input;
 using GameVault.Core.State;
 using GameVault.Library.Hashing;
 using GameVault.Library.Scanning;
+using GameVault.Platform.Netplay;
 using GameVault.Library.Profiles;
 using GameVault.Platform.Input;
 using GameVault.Platform.Storage;
@@ -51,6 +53,15 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private int _diskSideRequested;
     private int _reportedDiskSide = -1;
     private volatile int _insertedDiskSide = -1;
+
+    // Netplay (SPEC §7.7, LAN-only). Set and cleared on the emulation thread.
+    private const int NetplayInputDelay = 1;
+    private static readonly TimeSpan NetplayTimeout = TimeSpan.FromSeconds(5);
+    private RollbackSession? _netplay;
+    private UdpNetplayLink? _netLink;
+    private volatile bool _netplayActive;
+    private NetplayStatus _netplayStatus;
+    private byte[]? _romData;
 
     // Codes (SPEC §7.8): the engine last reported, to notice when a load or rewind brought back other codes.
     private CheatEngine? _seenCheats;
@@ -157,6 +168,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     public void SetCheats(IReadOnlyList<CheatCode> codes)
     {
+        if (_netplayActive)
+        {
+            return; // both players must run the same game: no codes during netplay
+        }
+
         var copy = codes.ToList();
         _cheatsActive = copy.Count > 0;
         Post(() =>
@@ -167,6 +183,157 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 _seenCheats = console.Bus.Cheats;
             }
         });
+    }
+
+    public NetplayStatus NetplayStatus => _netplayStatus;
+
+    public string? NetplayInviteCode { get; private set; }
+
+    public event EventHandler? NetplayChanged;
+
+    public Task<string> HostNetplayAsync() => HostNetplayAsync(advertise: null);
+
+    /// <param name="advertise">The address to put in the invite code (tests use loopback); this PC's LAN address by default.</param>
+    internal Task<string> HostNetplayAsync(IPAddress? advertise)
+    {
+        EnsureNetplayPossible();
+        var address = advertise ?? InviteCode.LocalNetworkAddress()
+            ?? throw new NetplayException("This PC doesn't seem to be on a network. Connect to the same network as the other player and try again.");
+        var link = UdpNetplayLink.Listen();
+        var code = InviteCode.Encode(new IPEndPoint(address, link.LocalPort));
+        StartNetplay(link, localPlayer: 0, code);
+        return Task.FromResult(code);
+    }
+
+    public Task JoinNetplayAsync(string inviteCode)
+    {
+        EnsureNetplayPossible();
+        if (!InviteCode.TryDecode(inviteCode, out var host))
+        {
+            throw new NetplayException("That invite code isn't right. It has 10 letters and digits, like ABCDE-12345.");
+        }
+
+        StartNetplay(UdpNetplayLink.Connect(host), localPlayer: 1, code: null);
+        return Task.CompletedTask;
+    }
+
+    public void LeaveNetplay()
+    {
+        if (!_netplayActive)
+        {
+            return;
+        }
+
+        Post(EndNetplay);
+        RaiseNotice("Netplay ended. You can keep playing, but this session's progress isn't saved to the game's save file.");
+    }
+
+    private void EnsureNetplayPossible()
+    {
+        if (Status is not (EmulatorStatus.Running or EmulatorStatus.Paused) || _romData is null)
+        {
+            throw new NetplayException("Start the game first. Both players need the same game running.");
+        }
+
+        if (FdsImage.IsFdsImage(_romData))
+        {
+            throw new NetplayException("Netplay works with cartridge games for now, not Disk System games.");
+        }
+    }
+
+    /// <summary>
+    /// Both players start from power-on with no save file and no codes, so the two games are identical; the
+    /// player's own save file is left alone for the rest of the session.
+    /// </summary>
+    private void StartNetplay(UdpNetplayLink link, int localPlayer, string? code)
+    {
+        var data = _romData!;
+        var profile = Profile ?? new GameProfile { Sha1 = string.Empty };
+        var console = new NesConsole(ApplyProfile(INesRom.Parse(data), profile));
+        if (_audioActive && _audio is not null)
+        {
+            console.EnableAudio(_audio.SampleRate);
+        }
+
+        console.ConnectInput(InputSetup.Controllers);
+        console.Power();
+        _netplayActive = true;
+        Post(() =>
+        {
+            EndNetplay();
+            NetplayInviteCode = code;
+            FlushBattery();
+            _console = console;
+            _battery = null;
+            _diskOriginal = null;
+            _seenCheats = null;
+            _cheatsActive = false;
+            _rewind.Clear();
+            _rewinding = false;
+            _netLink = link;
+            _netplay = new RollbackSession(console, link, localPlayer, NetplayInputDelay);
+            _netplayActive = true;
+            _running = true;
+            SetNetplayStatus(localPlayer == 0 ? NetplayStatus.WaitingForPlayer : NetplayStatus.Connecting);
+        });
+        SetAudioPaused(false);
+        SetStatus(EmulatorStatus.Running);
+    }
+
+    /// <summary>Emulation thread: closes the session, if any.</summary>
+    private void EndNetplay()
+    {
+        _netLink?.Dispose();
+        _netLink = null;
+        _netplay = null;
+        _netplayActive = false;
+        NetplayInviteCode = null;
+        SetNetplayStatus(NetplayStatus.Off);
+    }
+
+    private void SetNetplayStatus(NetplayStatus status)
+    {
+        if (_netplayStatus == status)
+        {
+            return;
+        }
+
+        _netplayStatus = status;
+        Raise(() => NetplayChanged?.Invoke(this, EventArgs.Empty));
+    }
+
+    /// <summary>One netplay frame: exchange inputs, roll back if needed, run, show it. Emulation thread.</summary>
+    private void RunNetplayFrame(NesConsole console, RollbackSession session, UdpNetplayLink link)
+    {
+        var ran = session.AdvanceFrame(_input.Sample(0, session.Frame));
+        var status = session.State switch
+        {
+            NetplayState.Desynced => NetplayStatus.OutOfSync,
+            NetplayState.Mismatch => NetplayStatus.DifferentGame,
+            _ when link.LastReceived is { } last && DateTime.UtcNow - last > NetplayTimeout => NetplayStatus.ConnectionLost,
+            NetplayState.Connecting => _netplayStatus,
+            NetplayState.Waiting => NetplayStatus.Waiting,
+            _ => NetplayStatus.Playing,
+        };
+        SetNetplayStatus(status);
+        if (!ran)
+        {
+            return;
+        }
+
+        _present(console);
+        Interlocked.Increment(ref _frameCount);
+        if (console.Audio is { } resampler)
+        {
+            int count;
+            while ((count = resampler.Read(_samples)) > 0)
+            {
+                if (_audioActive)
+                {
+                    _audio!.Write(_samples.AsSpan(0, count));
+                }
+            }
+        }
     }
 
     /// <summary>A disk side was inserted or ejected (Famicom Disk System). Raised on the UI thread.</summary>
@@ -388,6 +555,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             }
         }
 
+        _romData = data;
         byte[][]? diskOriginal = null;
         byte[][]? diskSaved = null;
         if (console.Fds is { } disk)
@@ -420,6 +588,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         EnsureThread();
         Post(() =>
         {
+            EndNetplay();
             FlushBattery(); // the previous game's
             _console = console;
             _seenCheats = null;
@@ -466,7 +635,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     public void Pause()
     {
-        if (Status != EmulatorStatus.Running)
+        // The other player's game can't pause with ours, so netplay keeps running (and keeps exchanging inputs).
+        if (Status != EmulatorStatus.Running || _netplayActive)
         {
             return;
         }
@@ -504,6 +674,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
         Post(() =>
         {
+            EndNetplay();
             FlushBattery();
             ReportPlaytime();
             _console = null;
@@ -561,9 +732,9 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         var result = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         Post(() =>
         {
-            if (_console is null)
+            if (_console is null || _netplay is not null)
             {
-                result.SetResult(false);
+                result.SetResult(false); // loading a state would put the two netplay games out of step
                 return;
             }
 
@@ -667,6 +838,20 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             }
 
             var console = _console;
+            if (_netplay is { } session && _netLink is { } link)
+            {
+                // Netplay runs at the NTSC frame rate by the clock; rewind, fast-forward, slow motion and the
+                // state hotkeys are off because both games must stay identical.
+                RunNetplayFrame(console, session, link);
+                nextFrame += frameTicks;
+                if (!WaitUntil(clock, nextFrame))
+                {
+                    nextFrame = clock.ElapsedTicks;
+                }
+
+                continue;
+            }
+
             PollStateHotkeys();
             var rewinding = UpdateRewinding();
             var fastForward = !rewinding && _input.IsHotkeyHeld(VirtualKeys.Tab);

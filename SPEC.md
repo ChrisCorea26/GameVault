@@ -254,6 +254,7 @@ The **Passwords panel** lists saved passwords per game with a copy button. Ship 
 ### 7.7 Netplay (Phase 7, stretch)
 - Two-player online play with **rollback netcode**, built on the deterministic core and fast save states.
 - Connection by **invite code** through a lightweight relay/STUN service, with no manual port forwarding.
+- **First release: local network only** (owner decision, October 2026). The invite code carries the host's LAN address and port; internet play through a relay/STUN service can follow later.
 - Both players must have a ROM with the same hash. The app verifies hashes and never transfers ROM data.
 
 ### 7.8 Game Genie code library (Phase 8)

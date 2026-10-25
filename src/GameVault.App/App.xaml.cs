@@ -178,6 +178,7 @@ public partial class App : Application
         services.AddTransient<AssistViewModel>();
         services.AddTransient<PracticeViewModel>();
         services.AddTransient<CodesViewModel>();
+        services.AddTransient<NetplayViewModel>();
         services.AddTransient<DumpCartridgeViewModel>();
         services.AddTransient<PlayerViewModel>();
 

@@ -18,7 +18,8 @@ public sealed partial class PlayerViewModel(
     AssistViewModel assist,
     PracticeViewModel practice,
     CodesViewModel codes,
-    ICheatService cheats) : ObservableObject
+    ICheatService cheats,
+    NetplayViewModel netplay) : ObservableObject
 {
     private byte[]? _passwordScreenshot;
     private bool _updatingDisk;
@@ -89,6 +90,9 @@ public sealed partial class PlayerViewModel(
 
     /// <summary>Game Genie and RAM codes for the running game (SPEC §7.8).</summary>
     public CodesViewModel Codes => codes;
+
+    /// <summary>Two-player netplay on the local network (SPEC §7.7).</summary>
+    public NetplayViewModel Netplay => netplay;
 
     /// <summary>Practice mode: practice point, retry, splits (SPEC §7.6).</summary>
     public PracticeViewModel Practice => practice;
@@ -218,6 +222,7 @@ public sealed partial class PlayerViewModel(
             await timeline.ShowAsync(key);
             await cheats.ApplyAsync(key); // the codes the player left on for this game
             await codes.ShowAsync(key);
+            netplay.Attach();
             if (launch?.StateId is { } stateId)
             {
                 await timeline.Service.LoadAsync(key, stateId);
@@ -367,6 +372,7 @@ public sealed partial class PlayerViewModel(
         emulator.Stop();
         timeline.Detach();
         codes.Detach();
+        netplay.Detach();
         Detach();
     }
 

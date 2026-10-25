@@ -35,6 +35,7 @@
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
 
       <Button
@@ -83,6 +84,57 @@
         <Button.Flyout>
           <Flyout Closed="Flyout_Closed" Placement="BottomEdgeAlignedRight">
             <controls:CodesPanel Width="460" ViewModel="{x:Bind ViewModel.Codes}" />
+          </Flyout>
+        </Button.Flyout>
+      </Button>
+
+      <!-- SPEC §7.7: two-player netplay on the local network (LAN-only for now) -->
+      <Button Grid.Column="10" AccessKey="N" Content="Netplay">
+        <Button.Flyout>
+          <Flyout Closed="Flyout_Closed" Placement="BottomEdgeAlignedRight">
+            <StackPanel Width="340" Spacing="8">
+              <TextBlock Text="{x:Bind ViewModel.Netplay.StatusText, Mode=OneWay}" TextWrapping="Wrap" />
+              <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.Netplay.HasInviteCode, Mode=OneWay}">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    FontFamily="Consolas"
+                    FontSize="28"
+                    IsTextSelectionEnabled="True"
+                    Text="{x:Bind ViewModel.Netplay.InviteCode, Mode=OneWay}" />
+                <Button HorizontalAlignment="Center" Command="{x:Bind ViewModel.Netplay.CopyCodeCommand}" Content="Copy code" />
+              </StackPanel>
+              <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.Netplay.IsIdle, Mode=OneWay}">
+                <Button
+                    HorizontalAlignment="Stretch"
+                    Command="{x:Bind ViewModel.Netplay.HostCommand}"
+                    Content="Host a game on this network"
+                    Style="{StaticResource AccentButtonStyle}" />
+                <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="Or join with the other player's code:" />
+                <Grid ColumnSpacing="8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <TextBox
+                      AutomationProperties.Name="Invite code"
+                      FontFamily="Consolas"
+                      PlaceholderText="ABCDE-12345"
+                      Text="{x:Bind ViewModel.Netplay.JoinCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                  <Button Grid.Column="1" Command="{x:Bind ViewModel.Netplay.JoinCommand}" Content="Join" />
+                </Grid>
+              </StackPanel>
+              <Button
+                  HorizontalAlignment="Stretch"
+                  Command="{x:Bind ViewModel.Netplay.LeaveCommand}"
+                  Content="Leave netplay"
+                  Visibility="{x:Bind ViewModel.Netplay.IsActive, Mode=OneWay}" />
+              <TextBlock Foreground="{ThemeResource SystemFillColorCriticalBrush}" Text="{x:Bind ViewModel.Netplay.ErrorMessage, Mode=OneWay}" TextWrapping="Wrap" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Both games start over from the title screen, without save files or codes. Windows may ask to let GameVault use the network the first time."
+                  TextWrapping="Wrap" />
+            </StackPanel>
           </Flyout>
         </Button.Flyout>
       </Button>

@@ -65,6 +65,33 @@ public interface IEmulatorService
     /// <summary>The current screen as a PNG. Null when idle.</summary>
     Task<byte[]?> CaptureScreenshotAsync();
 
+    /// <summary>Two-player netplay on the local network (SPEC §7.7). Off for a normal game.</summary>
+    NetplayStatus NetplayStatus => NetplayStatus.Off;
+
+    /// <summary>The code the other player types to join, while hosting.</summary>
+    string? NetplayInviteCode => null;
+
+    /// <summary>Raised on the UI thread when <see cref="NetplayStatus"/> or the invite code changes.</summary>
+    event EventHandler? NetplayChanged
+    {
+        add { }
+        remove { }
+    }
+
+    /// <summary>
+    /// Hosts the running game for a second player on this network and returns the invite code. The game
+    /// restarts from power-on when they join. Throws <see cref="NetplayException"/> with a user-facing message.
+    /// </summary>
+    Task<string> HostNetplayAsync() => Task.FromException<string>(new NetplayException("Netplay isn't available here."));
+
+    /// <summary>Joins a game hosted on this network. The same game must be running here.</summary>
+    Task JoinNetplayAsync(string inviteCode) => Task.FromException(new NetplayException("Netplay isn't available here."));
+
+    /// <summary>Ends netplay; the game keeps running here without saving to the game's save file.</summary>
+    void LeaveNetplay()
+    {
+    }
+
     /// <summary>True while any Game Genie or RAM code is on (SPEC §7.8).</summary>
     bool CheatsActive => false;
 
@@ -118,6 +145,35 @@ public interface IEmulatorService
     /// <summary>Stops and unloads the game.</summary>
     void Stop();
 }
+
+/// <summary>Where a netplay session stands (SPEC §7.7).</summary>
+public enum NetplayStatus
+{
+    Off,
+
+    /// <summary>Hosting: the invite code is shown and nobody has joined yet.</summary>
+    WaitingForPlayer,
+
+    /// <summary>Joining: waiting for the host to answer.</summary>
+    Connecting,
+
+    Playing,
+
+    /// <summary>The other player has fallen behind; the game waits for them.</summary>
+    Waiting,
+
+    /// <summary>Nothing has arrived from the other player for a few seconds.</summary>
+    ConnectionLost,
+
+    /// <summary>The two games stopped matching; the session has stopped.</summary>
+    OutOfSync,
+
+    /// <summary>The other player is running a different game (or version of it).</summary>
+    DifferentGame,
+}
+
+/// <summary>A netplay action failed. <see cref="Exception.Message"/> is safe to show to the user.</summary>
+public sealed class NetplayException(string message, Exception? inner = null) : Exception(message, inner);
 
 /// <summary>A game file could not be loaded. <see cref="Exception.Message"/> is safe to show to the user.</summary>
 public sealed class GameLoadException(string message, Exception? inner = null) : Exception(message, inner);

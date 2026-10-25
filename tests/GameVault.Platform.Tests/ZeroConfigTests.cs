@@ -72,7 +72,8 @@ public sealed class ZeroConfigTests : IDisposable
         var player = new PlayerViewModel(
             host, navigation, new InMemorySettingsStore(), new SampleInputDevicesService(), new TimelineViewModel(timeline), library,
             new SamplePasswordService(), new SampleJournalService(), new AssistViewModel(host), new PracticeViewModel(host, new InMemoryPracticeRecords()),
-            new CodesViewModel(new SampleCheatService(), new SampleCodeFilePicker()), new SampleCheatService());
+            new CodesViewModel(new SampleCheatService(), new SampleCodeFilePicker()), new SampleCheatService(),
+            new NetplayViewModel(host, new InMemoryClipboard()));
         await player.StartCommand.ExecuteAsync(navigation.LastParameter);
         player.HasError.Should().BeFalse(player.ErrorMessage);
         host.Status.Should().Be(EmulatorStatus.Running);

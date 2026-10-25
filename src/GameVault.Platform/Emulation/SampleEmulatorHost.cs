@@ -135,8 +135,39 @@ public sealed class SampleEmulatorHost : IEmulatorService, IDisposable
 
     public void Reset() => Interlocked.Exchange(ref _tick, 0);
 
+    // --sample-data: netplay that answers like the real thing, without a network.
+    public NetplayStatus NetplayStatus { get; private set; }
+
+    public string? NetplayInviteCode { get; private set; }
+
+    public event EventHandler? NetplayChanged;
+
+    public Task<string> HostNetplayAsync()
+    {
+        NetplayInviteCode = "K7Q2M-9XD4P";
+        NetplayStatus = NetplayStatus.WaitingForPlayer;
+        NetplayChanged?.Invoke(this, EventArgs.Empty);
+        return Task.FromResult(NetplayInviteCode);
+    }
+
+    public Task JoinNetplayAsync(string inviteCode)
+    {
+        NetplayInviteCode = null;
+        NetplayStatus = NetplayStatus.Playing;
+        NetplayChanged?.Invoke(this, EventArgs.Empty);
+        return Task.CompletedTask;
+    }
+
+    public void LeaveNetplay()
+    {
+        NetplayInviteCode = null;
+        NetplayStatus = NetplayStatus.Off;
+        NetplayChanged?.Invoke(this, EventArgs.Empty);
+    }
+
     public void Stop()
     {
+        LeaveNetplay();
         _timer?.Dispose();
         _timer = null;
         GameTitle = null;

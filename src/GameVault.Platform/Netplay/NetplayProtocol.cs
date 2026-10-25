@@ -10,6 +10,9 @@ public sealed record NetplayPacket
     /// <summary>Sent until the other side answers: the game (ROM hash) and settings both must share.</summary>
     public HelloMessage? Hello { get; init; }
 
+    /// <summary>The sender has received our <see cref="Hello"/>, so we can stop repeating it.</summary>
+    public bool HelloSeen { get; init; }
+
     /// <summary>The frame of <see cref="Inputs"/>[0].</summary>
     public int FirstFrame { get; init; }
 

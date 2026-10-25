@@ -24,7 +24,8 @@ public class PlayerViewModelTests
         _vm = new PlayerViewModel(
             _emulator, _navigation, _settings, _devices, new TimelineViewModel(_timeline), _library, _passwords, _journal,
             new AssistViewModel(_emulator), new PracticeViewModel(_emulator, _records),
-            new CodesViewModel(_cheats, new SampleCodeFilePicker()), _cheats);
+            new CodesViewModel(_cheats, new SampleCodeFilePicker()), _cheats,
+            new NetplayViewModel(_emulator, new InMemoryClipboard()));
     }
 
     [Fact]
