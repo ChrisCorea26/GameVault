@@ -15,8 +15,9 @@ full feature specification and [CLAUDE.md](CLAUDE.md) for the contributor rules.
 |---|---|---|
 | 0 | Scaffold: solution, CI, WinUI 3 shell, `--sample-data`, test harness | ✅ |
 | 1 | 6502 CPU, bus, RAM | ✅ nestest and instr_test-v5 pass |
-| 2 | PPU, NROM rendering, keyboard input | Next |
-| 3–7 | APU, mappers, library, signature features, netplay | Planned |
+| 2 | PPU, NROM rendering, Win2D game view, keyboard input | ✅ PPU suites and golden images pass |
+| 3 | APU, audio, SDL controllers | Next |
+| 4–7 | Mappers, library, signature features, netplay | Planned |
 
 Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md).
 
@@ -32,9 +33,13 @@ Phase plans are in [`docs/plans/`](docs/plans).
 ```powershell
 dotnet build GameVault.sln -c Debug
 dotnet test GameVault.sln
-dotnet run --project src/GameVault.App                      # real (empty) library
+dotnet run --project src/GameVault.App                      # real (empty) library; "Open game file" plays a .nes
 dotnet run --project src/GameVault.App -- --sample-data     # fake library for UI previews
+dotnet run --project src/GameVault.App -- --sample-data --page=player   # Player with a test pattern
 ```
+
+Keyboard (Player 1): arrows, **Z** = B, **X** = A, **Enter** = Start, **Right Shift** = Select, **Esc** = pause.
+See [`docs/design/input.md`](docs/design/input.md) for the full input design.
 
 The app is **unpackaged** and builds for x64 by default. To build another architecture, add `-p:Platform=ARM64` or `-p:Platform=x86`.
 
