@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:vm="using:GameVault.ViewModels"
     mc:Ignorable="d">
 
   <ScrollViewer>
@@ -100,6 +101,108 @@
               Grid.Column="1"
               MinWidth="0"
               IsOn="{x:Bind ViewModel.PauseWhenInactive, Mode=TwoWay}"
+              OffContent=""
+              OnContent="" />
+        </Grid>
+      </Border>
+
+      <!-- Input (docs/design/input.md §9) -->
+      <Grid Margin="0,16,0,4">
+        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Controllers" />
+        <Button
+            HorizontalAlignment="Right"
+            Command="{x:Bind ViewModel.Input.SwapPlayersCommand}"
+            Content="Swap players" />
+      </Grid>
+      <ItemsRepeater ItemsSource="{x:Bind ViewModel.Input.Ports}">
+        <ItemsRepeater.Layout>
+          <UniformGridLayout MinColumnSpacing="8" MinItemWidth="300" MinRowSpacing="8" />
+        </ItemsRepeater.Layout>
+        <ItemsRepeater.ItemTemplate>
+          <DataTemplate x:DataType="vm:InputPortViewModel">
+            <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+              <StackPanel Spacing="8">
+                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind Title}" />
+                <ItemsRepeater ItemsSource="{x:Bind Sources}">
+                  <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="vm:InputSourceViewModel">
+                      <Grid Padding="0,4" ColumnSpacing="8">
+                        <Grid.ColumnDefinitions>
+                          <ColumnDefinition Width="Auto" />
+                          <ColumnDefinition Width="*" />
+                          <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <FontIcon FontSize="16" Glyph="{x:Bind Glyph}" />
+                        <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{x:Bind Name}" />
+                        <HyperlinkButton
+                            Grid.Column="2"
+                            Command="{x:Bind TogglePinCommand}"
+                            Content="{x:Bind PinLabel}"
+                            Visibility="{x:Bind CanPin}" />
+                      </Grid>
+                    </DataTemplate>
+                  </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+                <TextBlock
+                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="{x:Bind WaitingText}"
+                    Visibility="{x:Bind IsWaiting}" />
+                <TextBlock
+                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                    Style="{StaticResource CaptionTextBlockStyle}"
+                    Text="No controller. Connect one, or pick one below."
+                    Visibility="{x:Bind HasNoSources}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsRepeater.ItemTemplate>
+      </ItemsRepeater>
+
+      <Border
+          Padding="16"
+          Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+          CornerRadius="8"
+          Visibility="{x:Bind ViewModel.Input.HasUnassigned, Mode=OneWay}">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Other controllers" />
+          <ItemsRepeater ItemsSource="{x:Bind ViewModel.Input.Unassigned}">
+            <ItemsRepeater.ItemTemplate>
+              <DataTemplate x:DataType="vm:UnassignedControllerViewModel">
+                <Grid Padding="0,4" ColumnSpacing="8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <TextBlock VerticalAlignment="Center" Text="{x:Bind Name}" />
+                  <Button Grid.Column="1" Command="{x:Bind UseForPlayer1Command}" Content="Use for Player 1" />
+                  <Button Grid.Column="2" Command="{x:Bind UseForPlayer2Command}" Content="Use for Player 2" />
+                </Grid>
+              </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
+          </ItemsRepeater>
+        </StackPanel>
+      </Border>
+
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <Grid ColumnSpacing="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="Two players, one keyboard" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="Player 1 uses the arrows with comma and period; Player 2 uses W A S D with F and G. Some keyboards can't register many keys at once and may drop presses."
+                TextWrapping="Wrap" />
+          </StackPanel>
+          <ToggleSwitch
+              Grid.Column="1"
+              MinWidth="0"
+              IsOn="{x:Bind ViewModel.Input.TwoPlayerKeyboard, Mode=TwoWay}"
               OffContent=""
               OnContent="" />
         </Grid>

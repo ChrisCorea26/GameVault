@@ -1,5 +1,6 @@
 using System.Runtime.InteropServices;
 using GameVault.Platform.Input;
+using GameVault.Platform.Input.Controllers;
 using GameVault.Platform.Video;
 using Microsoft.Graphics.Canvas;
 using Microsoft.Graphics.Canvas.UI.Xaml;
@@ -71,8 +72,24 @@ public sealed partial class GameView : Control
         base.OnKeyUp(e);
     }
 
+    protected override void OnGotFocus(RoutedEventArgs e)
+    {
+        // Assigned pads drive the game only while it has focus; otherwise they navigate (input.md §7).
+        if (App.TryGetService<ControllerManager>() is { } controllers)
+        {
+            controllers.GameHasFocus = true;
+        }
+
+        base.OnGotFocus(e);
+    }
+
     protected override void OnLostFocus(RoutedEventArgs e)
     {
+        if (App.TryGetService<ControllerManager>() is { } controllers)
+        {
+            controllers.GameHasFocus = false;
+        }
+
         _input?.ReleaseAll(); // input.md §4.4: nothing stays held when focus leaves the game
         base.OnLostFocus(e);
     }

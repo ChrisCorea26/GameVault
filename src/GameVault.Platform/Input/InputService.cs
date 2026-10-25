@@ -13,19 +13,35 @@ public sealed class InputService
     public const int KeyboardSource = 0;
 
     private const int ButtonCount = 8;
+    /// <summary>Turbo presses for 2 frames and releases for 2: 15 presses per second at 60 Hz (input.md §6).</summary>
+    public const int TurboHalfPeriod = 2;
+
     private readonly Lock _gate = new();
-    private readonly KeyboardMapping _keyboard;
+    private KeyboardMapping _keyboard;
 
     // Per (source, port, button): how many keys/inputs hold it, and when it was last pressed.
     private readonly Dictionary<(int Source, int Port, int Button), int> _holdCount = [];
+    private readonly Dictionary<(int Source, int Port, int Button), int> _turboCount = [];
     private readonly long[,] _lastPressed = new long[PortCount, ButtonCount];
     private readonly HashSet<int> _heldKeys = [];
     private readonly HashSet<int> _heldHotkeys = [];
+    private readonly HashSet<(int Source, int Key)> _padHotkeys = [];
     private long _sequence;
 
     public InputService(KeyboardMapping keyboard)
     {
         _keyboard = keyboard;
+    }
+
+    /// <summary>Replaces the keyboard bindings (for example the two-player preset); releases held keys.</summary>
+    public void SetKeyboardMapping(KeyboardMapping mapping)
+    {
+        lock (_gate)
+        {
+            ReleaseSourceLocked(KeyboardSource);
+            _heldKeys.Clear();
+            _keyboard = mapping;
+        }
     }
 
     /// <summary>When false (default), the most recently pressed direction on each axis wins.</summary>
@@ -124,28 +140,98 @@ public sealed class InputService
         }
     }
 
+    /// <summary>Holds a turbo button: it toggles every <see cref="TurboHalfPeriod"/> frames while held.</summary>
+    public void PressTurbo(int source, int port, ControllerState button)
+    {
+        lock (_gate)
+        {
+            var key = (source, port, BitIndex(button));
+            _turboCount[key] = _turboCount.GetValueOrDefault(key) + 1;
+        }
+    }
+
+    public void ReleaseTurbo(int source, int port, ControllerState button)
+    {
+        lock (_gate)
+        {
+            var key = (source, port, BitIndex(button));
+            if (_turboCount.TryGetValue(key, out var count) && count > 1)
+            {
+                _turboCount[key] = count - 1;
+            }
+            else
+            {
+                _turboCount.Remove(key);
+            }
+        }
+    }
+
+    /// <summary>Releases everything one source holds (a pad that disconnected or moved to another port).</summary>
+    public void ReleaseSource(int source)
+    {
+        lock (_gate)
+        {
+            ReleaseSourceLocked(source);
+        }
+    }
+
+    private void ReleaseSourceLocked(int source)
+    {
+        _padHotkeys.RemoveWhere(h => h.Source == source);
+        foreach (var key in _holdCount.Keys.Where(k => k.Source == source).ToList())
+        {
+            _holdCount.Remove(key);
+        }
+
+        foreach (var key in _turboCount.Keys.Where(k => k.Source == source).ToList())
+        {
+            _turboCount.Remove(key);
+        }
+    }
+
     /// <summary>Releases everything, e.g. when the game view loses focus (input.md §4.4).</summary>
     public void ReleaseAll()
     {
         lock (_gate)
         {
             _holdCount.Clear();
+            _turboCount.Clear();
             _heldKeys.Clear();
             _heldHotkeys.Clear();
+            _padHotkeys.Clear();
         }
     }
 
-    /// <summary>True while a hotkey such as Tab (fast-forward) is held.</summary>
+    /// <summary>True while a hotkey such as Tab (fast-forward) is held on the keyboard or an assigned pad.</summary>
     public bool IsHotkeyHeld(int virtualKey)
     {
         lock (_gate)
         {
-            return _heldHotkeys.Contains(virtualKey);
+            return _heldHotkeys.Contains(virtualKey) || _padHotkeys.Any(h => h.Key == virtualKey);
         }
     }
 
-    /// <summary>The merged buttons for a port, as the game should see them this frame.</summary>
-    public ControllerState Sample(int port)
+    /// <summary>A pad's shoulder hotkey (input.md §8), expressed as the keyboard key it stands for.</summary>
+    public void SetPadHotkey(int source, int virtualKey, bool held)
+    {
+        lock (_gate)
+        {
+            if (held)
+            {
+                _padHotkeys.Add((source, virtualKey));
+            }
+            else
+            {
+                _padHotkeys.Remove((source, virtualKey));
+            }
+        }
+    }
+
+    /// <summary>
+    /// The merged buttons for a port, as the game should see them for frame <paramref name="frame"/>.
+    /// Turbo phase comes from the frame number, never from wall-clock time, so runs stay deterministic.
+    /// </summary>
+    public ControllerState Sample(int port, long frame = 0)
     {
         lock (_gate)
         {
@@ -155,6 +241,17 @@ public sealed class InputService
                 if (p == port)
                 {
                     state |= (ControllerState)(1 << bit);
+                }
+            }
+
+            if (frame / TurboHalfPeriod % 2 == 0)
+            {
+                foreach (var ((_, p, bit), _) in _turboCount)
+                {
+                    if (p == port)
+                    {
+                        state |= (ControllerState)(1 << bit);
+                    }
                 }
             }
 

@@ -1,6 +1,7 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using GameVault.ViewModels.Services;
+using GameVault.ViewModels.Services.Input;
 
 namespace GameVault.ViewModels;
 
@@ -8,7 +9,8 @@ namespace GameVault.ViewModels;
 public sealed partial class PlayerViewModel(
     IEmulatorService emulator,
     INavigationService navigation,
-    ISettingsStore settingsStore) : ObservableObject
+    ISettingsStore settingsStore,
+    IInputDevicesService devices) : ObservableObject
 {
     private bool _attached;
     private bool _pauseWhenInactive = true;
@@ -26,6 +28,20 @@ public sealed partial class PlayerViewModel(
 
     [ObservableProperty]
     public partial bool IsLoading { get; private set; }
+
+    /// <summary>"Player 1's controller was disconnected…" (docs/design/input.md §5); null when nothing waits.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasControllerMessage))]
+    public partial string? ControllerMessage { get; private set; }
+
+    public bool HasControllerMessage => ControllerMessage is not null;
+
+    /// <summary>Short notices such as "8BitDo SN30 Pro is now Player 2".</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasNotice))]
+    public partial string? Notice { get; private set; }
+
+    public bool HasNotice => Notice is not null;
 
     public bool IsRunning => Status == EmulatorStatus.Running;
 
@@ -122,6 +138,10 @@ public sealed partial class PlayerViewModel(
         if (!_attached)
         {
             emulator.StatusChanged += OnStatusChanged;
+            devices.ControllerDisconnected += OnControllerDisconnected;
+            devices.Changed += OnDevicesChanged;
+            devices.Notice += OnNotice;
+            devices.SetGameRunning(true);
             _attached = true;
         }
     }
@@ -131,9 +151,32 @@ public sealed partial class PlayerViewModel(
         if (_attached)
         {
             emulator.StatusChanged -= OnStatusChanged;
+            devices.ControllerDisconnected -= OnControllerDisconnected;
+            devices.Changed -= OnDevicesChanged;
+            devices.Notice -= OnNotice;
+            devices.SetGameRunning(false);
             _attached = false;
         }
     }
+
+    // input.md §5: pause, explain, and don't resume on our own after the pad comes back.
+    private void OnControllerDisconnected(object? sender, ControllerDisconnectedEventArgs e)
+    {
+        emulator.Pause();
+        ControllerMessage =
+            $"Player {e.Port + 1}'s controller was disconnected. Reconnect it, or press a button on another controller to take over.";
+        Refresh();
+    }
+
+    private void OnDevicesChanged(object? sender, EventArgs e)
+    {
+        if (ControllerMessage is not null && devices.Ports.All(p => p.WaitingFor is null))
+        {
+            ControllerMessage = null;
+        }
+    }
+
+    private void OnNotice(object? sender, string notice) => Notice = notice;
 
     private void OnStatusChanged(object? sender, EventArgs e) => Refresh();
 

@@ -31,3 +31,11 @@ All downloads are pinned to commit `95d8f621ae55cee0d09b91519a8989ae0e64753b` of
 | `blargg_ppu_tests_2005.09.15b/*.nes` (5) | blargg_ppu_tests | Shay Green (blargg) | No explicit redistribution license | Phase 2: palette, OAM, VRAM access |
 | `ppu_open_bus/ppu_open_bus.nes` | ppu_open_bus | Shay Green (blargg) | No explicit redistribution license | Phase 2: PPU I/O latch decay |
 | `oam_read/oam_read.nes` | oam_read | Shay Green (blargg) | No explicit redistribution license | Phase 2: OAM reads |
+| `instr_timing/*.nes` (2) | instr_timing | Shay Green (blargg) | No explicit redistribution license | Phase 3: instruction cycle counts |
+| `cpu_interrupts_v2/*.nes` (5) | cpu_interrupts_v2 | Shay Green (blargg) | No explicit redistribution license | Phase 3: IRQ/NMI latency |
+| `apu_test/*.nes` (8) | apu_test | Shay Green (blargg) | No explicit redistribution license | Phase 3: APU registers and frame counter |
+| `apu_reset/*.nes` (6) | apu_reset | Shay Green (blargg) | No explicit redistribution license | Phase 3: APU state after reset |
+| `blargg_apu_2005.07.30/*.nes` (11) | blargg_apu_2005 | Shay Green (blargg) | No explicit redistribution license | Phase 3: length counters, IRQ timing |
+| `dmc_tests/*.nes` (4) | dmc_tests | Shay Green (blargg) | No explicit redistribution license | Phase 3: DMC (run-to-completion only) |
+| `sprdma_and_dmc_dma/*.nes` (2) | sprdma_and_dmc_dma | Shay Green (blargg) | No explicit redistribution license | Phase 3: OAM/DMC DMA overlap (known gap) |
+| `dmc_dma_during_read4/*.nes` (5) | dmc_dma_during_read4 | Shay Green (blargg) | No explicit redistribution license | Phase 3: DMC DMA during reads (not yet asserted) |

@@ -6,10 +6,13 @@
     <RootNamespace>GameVault.Platform</RootNamespace>
     <!-- Lets the library build on Linux/macOS (CI and cloud sessions); it still only runs on Windows. -->
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <!-- SDL interop (Silk.NET) uses pointers. -->
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
 
   <ItemGroup>
     <PackageReference Include="NAudio.Wasapi" />
+    <PackageReference Include="Silk.NET.SDL" />
   </ItemGroup>
 
   <ItemGroup>

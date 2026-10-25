@@ -1,5 +1,7 @@
 using System.ComponentModel;
 using GameVault.App.Services;
+using GameVault.Platform.Input;
+using GameVault.Platform.Input.Controllers;
 using GameVault.ViewModels;
 using GameVault.ViewModels.Services;
 using Microsoft.UI.Xaml;
@@ -26,11 +28,38 @@ public sealed partial class MainWindow : Window
 
         _navigation.Initialize(ContentFrame);
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
+        Activated += OnActivated;
     }
 
     public ShellViewModel ViewModel { get; }
 
-    private void RootGrid_Loaded(object sender, RoutedEventArgs e) => ViewModel.StartCommand.Execute(null);
+    // Devices start once the window is up, never in a constructor (SPEC §9.1).
+    private async void RootGrid_Loaded(object sender, RoutedEventArgs e)
+    {
+        ViewModel.StartCommand.Execute(null);
+
+        if (App.TryGetService<ControllerManager>() is { } controllers)
+        {
+            var padNavigation = App.GetService<PadNavigation>();
+            controllers.Navigate += (_, action) => padNavigation.Handle(action);
+            await controllers.StartAsync();
+        }
+    }
+
+    // input.md §4.4 and §7: nothing stays held, and pads are ignored, while another window is active.
+    private void OnActivated(object sender, WindowActivatedEventArgs args)
+    {
+        var active = args.WindowActivationState != WindowActivationState.Deactivated;
+        if (App.TryGetService<ControllerManager>() is { } controllers)
+        {
+            controllers.AppActive = active;
+        }
+
+        if (!active)
+        {
+            App.GetService<InputService>().ReleaseAll();
+        }
+    }
 
     private void NavView_SelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
     {

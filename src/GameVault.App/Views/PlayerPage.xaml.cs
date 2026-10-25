@@ -1,3 +1,4 @@
+using GameVault.Platform.Input.Controllers;
 using GameVault.ViewModels;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
@@ -36,11 +37,25 @@ public sealed partial class PlayerPage : Page
     private void OnLoaded(object sender, RoutedEventArgs e)
     {
         App.MainWindow.Activated += OnWindowActivated;
+        if (App.TryGetService<ControllerManager>() is { } controllers)
+        {
+            controllers.PauseRequested += OnPauseRequested;
+        }
+
         ViewModel.StartCommand.Execute(_gamePath);
         Game.Focus(FocusState.Programmatic);
     }
 
-    private void OnUnloaded(object sender, RoutedEventArgs e) => App.MainWindow.Activated -= OnWindowActivated;
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        App.MainWindow.Activated -= OnWindowActivated;
+        if (App.TryGetService<ControllerManager>() is { } controllers)
+        {
+            controllers.PauseRequested -= OnPauseRequested;
+        }
+    }
+
+    private void OnPauseRequested(object? sender, EventArgs e) => ViewModel.TogglePauseCommand.Execute(null);
 
     private void OnWindowActivated(object sender, WindowActivatedEventArgs args)
     {

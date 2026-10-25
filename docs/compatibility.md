@@ -4,7 +4,7 @@ This page will be generated in CI from the test-ROM harness (SPEC §11.2). Until
 at the end of each phase. Run `tests/TestRoms/fetch-test-roms.sh` (or `.ps1`) and then `dotnet test` to
 reproduce it.
 
-_Last updated: Phase 2._
+_Last updated: Phase 3._
 
 ## CPU
 
@@ -28,7 +28,8 @@ _Last updated: Phase 2._
 | instr_test-v5 | 15-brk | ✅ Pass | |
 | instr_test-v5 | 16-special | ✅ Pass | |
 | instr_test-v5 | all_instrs / official_only | ⏳ Phase 4 | MMC1 board |
-| instr_timing | | ⏳ Phase 3 | Needs APU length-counter timing |
+| instr_timing | 1-instr_timing, 2-branch_timing | ✅ Pass | |
+| cpu_interrupts_v2 | 1-cli_latency … 5-branch_delays_irq (5) | ✅ Pass | |
 
 ## PPU
 
@@ -46,6 +47,21 @@ Each ROM is also checked against a golden image of its final screen (`tests/Game
 | nestest | Menu screen | ✅ Golden image | Normal (non-automation) mode |
 | ppu_vbl_nmi | Combined ROM | ⏳ Phase 4 | MMC1 board |
 | ppu_read_buffer | test_ppu_read_buffer | ⏳ Phase 4 | CNROM board |
+
+## APU
+
+| Suite | Tests | Status | Notes |
+|---|---|---|---|
+| apu_test | 1-len_ctr … 8-dmc_rates (8) | ✅ Pass | |
+| apu_reset | 4015_cleared … works_immediately (6) | ✅ Pass | |
+| blargg_apu_2005.07.30 | 01.len_ctr … 11.len_reload_timing (11) | ✅ Pass | Also checked against golden images |
+| dmc_tests | buffer_retained, latency, status, status_irq | ℹ️ Runs | Listening tests: they report by sound, so CI only checks that they run to completion |
+| sprdma_and_dmc_dma | sprdma_and_dmc_dma, _512 | ❌ Known gap | Exact cycle cost when OAM and DMC DMA overlap |
+| dmc_dma_during_read4 | 5 ROMs | ⏳ Not verified | Fetched but not yet asserted (DMC DMA side effects on `$2007` / `$4016` reads) |
+
+Audio output is checked by `AudioSoakTests`: 30 minutes of virtual time through the real APU, resampler, ring
+buffer and rate controller. The device clock is run at its exact rate and at ±0.3 %. The result is zero
+underruns, an average latency under 40 ms and a peak under 50 ms.
 
 ## Mappers
 

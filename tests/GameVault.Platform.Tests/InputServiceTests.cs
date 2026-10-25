@@ -129,3 +129,76 @@ public class InputServiceTests
         VirtualKeys.Normalize(key, scanCode).Should().Be(expected);
     }
 }
+
+public class TurboStickAndPresetTests
+{
+    private readonly InputService _input = new(KeyboardMapping.CreateDefault());
+
+    [Fact]
+    public void Turbo_is_on_for_two_frames_then_off_for_two_by_frame_number()
+    {
+        _input.PressTurbo(5, 0, ControllerState.A);
+
+        var pattern = Enumerable.Range(0, 8).Select(f => _input.Sample(0, f) == ControllerState.A).ToArray();
+
+        pattern.Should().Equal(true, true, false, false, true, true, false, false);
+    }
+
+    [Fact]
+    public void Turbo_and_a_held_button_combine()
+    {
+        _input.PressTurbo(5, 0, ControllerState.A);
+        _input.Press(5, 0, ControllerState.A);
+
+        _input.Sample(0, frame: 2).Should().Be(ControllerState.A, "the held press covers turbo's off frames");
+    }
+
+    [Fact]
+    public void Release_source_drops_only_that_sources_buttons()
+    {
+        _input.Press(5, 0, ControllerState.B);
+        _input.PressTurbo(5, 0, ControllerState.A);
+        _input.KeyDown(VirtualKeys.Enter);
+
+        _input.ReleaseSource(5);
+
+        _input.Sample(0, 0).Should().Be(ControllerState.Start);
+    }
+
+    [Theory]
+    [InlineData(32767, 0, ControllerState.Right)]
+    [InlineData(-32768, 0, ControllerState.Left)]
+    [InlineData(0, -32768, ControllerState.Up)]
+    [InlineData(0, 32767, ControllerState.Down)]
+    [InlineData(25000, -25000, ControllerState.Right | ControllerState.Up)]
+    [InlineData(-25000, 25000, ControllerState.Left | ControllerState.Down)]
+    [InlineData(10000, 10000, ControllerState.None)] // inside the 50 % dead zone
+    public void Stick_maps_to_eight_directions_with_a_dead_zone(short x, short y, ControllerState expected)
+    {
+        StickInput.ToDirections(x, y).Should().Be(expected);
+    }
+
+    [Fact]
+    public void Two_player_keyboard_preset_splits_the_keyboard()
+    {
+        _input.SetKeyboardMapping(KeyboardMapping.CreateTwoPlayer());
+
+        _input.KeyDown(VirtualKeys.Period);
+        _input.KeyDown(VirtualKeys.W);
+        _input.KeyDown(VirtualKeys.G);
+
+        _input.Sample(0).Should().Be(ControllerState.A);
+        _input.Sample(1).Should().Be(ControllerState.Up | ControllerState.A);
+        _input.KeyDown(VirtualKeys.X).Should().BeFalse("X is unbound in the preset");
+    }
+
+    [Fact]
+    public void Switching_mappings_releases_held_keys()
+    {
+        _input.KeyDown(VirtualKeys.X);
+
+        _input.SetKeyboardMapping(KeyboardMapping.CreateTwoPlayer());
+
+        _input.Sample(0).Should().Be(ControllerState.None);
+    }
+}

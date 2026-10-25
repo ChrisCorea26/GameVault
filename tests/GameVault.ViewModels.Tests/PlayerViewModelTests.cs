@@ -8,13 +8,14 @@ public class PlayerViewModelTests
     private readonly FakeEmulator _emulator = new();
     private readonly FakeNavigationService _navigation = new();
     private readonly InMemorySettingsStore _settings = new();
+    private readonly SampleInputDevicesService _devices = new();
     private readonly PlayerViewModel _vm;
 
     public PlayerViewModelTests()
     {
         _navigation.NavigateTo(AppPage.Library);
         _navigation.NavigateTo(AppPage.Player, "game.nes");
-        _vm = new PlayerViewModel(_emulator, _navigation, _settings);
+        _vm = new PlayerViewModel(_emulator, _navigation, _settings, _devices);
     }
 
     [Fact]
@@ -96,6 +97,42 @@ public class PlayerViewModelTests
         _vm.Stop();
 
         _emulator.HasListeners.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task A_controller_disconnect_pauses_and_explains()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+
+        _devices.SimulateDisconnect(2, "8BitDo SN30 Pro");
+
+        _vm.IsPaused.Should().BeTrue();
+        _vm.ControllerMessage.Should().Be(
+            "Player 2's controller was disconnected. Reconnect it, or press a button on another controller to take over.");
+    }
+
+    [Fact]
+    public async Task The_message_clears_when_another_controller_takes_over_but_the_game_stays_paused()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+        _devices.SimulateDisconnect(2, "8BitDo SN30 Pro");
+
+        _devices.AssignToPort("pad:3", 1); // the DualSense takes Player 2
+
+        _vm.HasControllerMessage.Should().BeFalse();
+        _vm.IsPaused.Should().BeTrue("the player resumes from the overlay (input.md §5)");
+        _vm.Notice.Should().Be("DualSense Wireless Controller is now Player 2");
+    }
+
+    [Fact]
+    public async Task Disconnects_outside_play_do_not_pause()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+        _vm.Stop();
+
+        _devices.SimulateDisconnect(1, "Xbox Wireless Controller");
+
+        _vm.HasControllerMessage.Should().BeFalse();
     }
 
     private sealed class FakeEmulator : IEmulatorService

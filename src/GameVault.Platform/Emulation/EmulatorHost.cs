@@ -332,7 +332,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         {
             for (var port = 0; port < InputService.PortCount; port++)
             {
-                console.SetControllerState(port, _input.Sample(port));
+                console.SetControllerState(port, _input.Sample(port, console.Ppu.FrameCount));
             }
 
             console.RunFrame();

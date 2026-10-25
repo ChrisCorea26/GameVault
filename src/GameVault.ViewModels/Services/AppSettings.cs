@@ -13,6 +13,12 @@ public sealed record AppSettings
 
     public bool PauseWhenInactive { get; init; } = true;
 
+    /// <summary>"Two players, one keyboard" preset (docs/design/input.md §4.3).</summary>
+    public bool TwoPlayerKeyboard { get; init; }
+
+    /// <summary>Pinned controllers as "key=port" entries separated by '|' (input.md §3.5).</summary>
+    public string ControllerPins { get; init; } = string.Empty;
+
     /// <summary>Game volume, 0–100 (0 mutes).</summary>
     public int Volume { get; init; } = 80;
 

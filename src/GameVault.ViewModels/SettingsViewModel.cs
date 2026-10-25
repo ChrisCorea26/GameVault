@@ -5,8 +5,11 @@ using GameVault.ViewModels.Services;
 namespace GameVault.ViewModels;
 
 /// <summary>The Settings screen. Every change is saved immediately; there is no Apply button.</summary>
-public sealed partial class SettingsViewModel(ISettingsStore settingsStore) : ObservableObject
+public sealed partial class SettingsViewModel(ISettingsStore settingsStore, InputSettingsViewModel input) : ObservableObject
 {
+    /// <summary>The Settings → Input section.</summary>
+    public InputSettingsViewModel Input { get; } = input;
+
     private bool _isLoaded;
 
     [ObservableProperty]
@@ -80,12 +83,17 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore) : Ob
         }
     }
 
-    private Task SaveAsync() => settingsStore.SaveAsync(new AppSettings
+    private async Task SaveAsync()
     {
-        CropOverscan = CropOverscan,
-        RunAheadFrames = Math.Clamp(RunAheadFrames, 0, AppSettings.MaxRunAheadFrames),
-        PauseWhenInactive = PauseWhenInactive,
-        AllowOppositeDirections = AllowOppositeDirections,
-        Volume = (int)Math.Round(Math.Clamp(Volume, 0, 100)),
-    });
+        // Keep fields this page doesn't edit (input preset, pins).
+        var current = await settingsStore.LoadAsync();
+        await settingsStore.SaveAsync(current with
+        {
+            CropOverscan = CropOverscan,
+            RunAheadFrames = Math.Clamp(RunAheadFrames, 0, AppSettings.MaxRunAheadFrames),
+            PauseWhenInactive = PauseWhenInactive,
+            AllowOppositeDirections = AllowOppositeDirections,
+            Volume = (int)Math.Round(Math.Clamp(Volume, 0, 100)),
+        });
+    }
 }

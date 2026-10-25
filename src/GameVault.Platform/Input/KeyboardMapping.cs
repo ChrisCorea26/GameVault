@@ -28,6 +28,33 @@ public sealed class KeyboardMapping
         return mapping;
     }
 
+    /// <summary>
+    /// "Two players, one keyboard" (input.md §4.3): Player 1 moves to the right half (arrows, comma = B,
+    /// period = A), and Player 2 gets the left half (WASD, F = B, G = A, Q = Select, E = Start).
+    /// </summary>
+    public static KeyboardMapping CreateTwoPlayer()
+    {
+        var mapping = new KeyboardMapping();
+        mapping.Bind(VirtualKeys.Up, 0, ControllerState.Up);
+        mapping.Bind(VirtualKeys.Down, 0, ControllerState.Down);
+        mapping.Bind(VirtualKeys.Left, 0, ControllerState.Left);
+        mapping.Bind(VirtualKeys.Right, 0, ControllerState.Right);
+        mapping.Bind(VirtualKeys.Comma, 0, ControllerState.B);
+        mapping.Bind(VirtualKeys.Period, 0, ControllerState.A);
+        mapping.Bind(VirtualKeys.RightShift, 0, ControllerState.Select);
+        mapping.Bind(VirtualKeys.Enter, 0, ControllerState.Start);
+
+        mapping.Bind(VirtualKeys.W, 1, ControllerState.Up);
+        mapping.Bind(VirtualKeys.S, 1, ControllerState.Down);
+        mapping.Bind(VirtualKeys.A, 1, ControllerState.Left);
+        mapping.Bind(VirtualKeys.D, 1, ControllerState.Right);
+        mapping.Bind(VirtualKeys.F, 1, ControllerState.B);
+        mapping.Bind(VirtualKeys.G, 1, ControllerState.A);
+        mapping.Bind(VirtualKeys.Q, 1, ControllerState.Select);
+        mapping.Bind(VirtualKeys.E, 1, ControllerState.Start);
+        return mapping;
+    }
+
     public void Bind(int virtualKey, int port, ControllerState button)
     {
         if (Hotkeys.Contains(virtualKey))

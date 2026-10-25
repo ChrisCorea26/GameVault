@@ -1,11 +1,13 @@
 using GameVault.Platform.Audio;
 using GameVault.Platform.Emulation;
 using GameVault.Platform.Input;
+using GameVault.Platform.Input.Controllers;
 using GameVault.Platform.Storage;
 using GameVault.Platform.Video;
 using GameVault.ViewModels;
 using GameVault.ViewModels.SampleData;
 using GameVault.ViewModels.Services;
+using GameVault.ViewModels.Services.Input;
 using GameVault.App.Services;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
@@ -43,6 +45,11 @@ public partial class App : Application
             ? services.GetRequiredService<T>()
             : throw new InvalidOperationException("Services are not configured yet.");
 
+    /// <summary>Resolves an optional service (for example the controller manager, absent under --sample-data).</summary>
+    public static T? TryGetService<T>()
+        where T : class =>
+        ((App)Current)._services?.GetService<T>();
+
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         // Unpackaged apps receive their arguments on the process command line.
@@ -65,6 +72,7 @@ public partial class App : Application
             services.AddSingleton<ISettingsStore>(_ => new InMemorySettingsStore());
             services.AddSingleton<IEmulatorService>(sp => new SampleEmulatorHost(sp.GetRequiredService<FrameSink>()));
             services.AddSingleton<IGameFilePicker, SampleGameFilePicker>();
+            services.AddSingleton<IInputDevicesService, SampleInputDevicesService>();
         }
         else
         {
@@ -77,6 +85,11 @@ public partial class App : Application
                 sp.GetRequiredService<ISettingsStore>(),
                 new WasapiAudioOutput()));
             services.AddSingleton<IGameFilePicker, WinUiGameFilePicker>();
+            services.AddSingleton(sp => new ControllerManager(
+                sp.GetRequiredService<InputService>(),
+                new SdlControllerBackend(),
+                sp.GetRequiredService<ISettingsStore>()));
+            services.AddSingleton<IInputDevicesService>(sp => sp.GetRequiredService<ControllerManager>());
         }
 
         // Video and input (SPEC §5): shared by the emulation thread and the GameView.
@@ -88,7 +101,9 @@ public partial class App : Application
 
         services.AddSingleton<ShellViewModel>();
         services.AddTransient<LibraryViewModel>();
+        services.AddTransient<InputSettingsViewModel>();
         services.AddTransient<SettingsViewModel>();
+        services.AddSingleton<PadNavigation>();
         services.AddTransient<PlayerViewModel>();
 
         services.AddSingleton<MainWindow>();

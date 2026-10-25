@@ -87,3 +87,17 @@
 ## Out of scope
 Mappers beyond NROM, save states, run-ahead and D3D11 presets (Phase 4). Rewind and the Zapper (Phase 5).
 Slow motion and other assist features (Phase 6).
+
+## Results
+- **APU suites:** apu_test 1–8, apu_reset (6), blargg_apu_2005 (11), cpu_interrupts_v2 1–5 and
+  instr_timing 1–2 all pass.
+- **dmc_tests:** these report by sound, so CI only checks that they run to completion.
+- **Known gaps** (tracked in `docs/compatibility.md`):
+  - `sprdma_and_dmc_dma` fails.
+  - `dmc_dma_during_read4` is fetched but not asserted yet.
+- **Audio soak:** 30 virtual minutes at the exact device rate and at ±0.3 % drift. Zero underruns, average
+  latency under 40 ms, peak under 50 ms, and frame count within ±0.5 % of nominal.
+- **Speed:** about 13× real time with the APU, PPU and audio resampling running (Release build, 2.1 GHz
+  cloud Xeon).
+- **Controller hardware:** SDL controller behavior on real hardware (hot-plug, disconnect pause, take-over)
+  is a manual check on Windows. The policy and manager logic is covered by unit tests with a fake backend.
