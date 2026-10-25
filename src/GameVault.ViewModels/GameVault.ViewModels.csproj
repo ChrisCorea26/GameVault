@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    MVVM ViewModels and the service interfaces they depend on.
+    Must not reference WinUI or any other UI framework, so everything here is unit-testable.
+  -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>GameVault.ViewModels</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GameVault.Core\GameVault.Core.csproj" />
+    <ProjectReference Include="..\GameVault.Library\GameVault.Library.csproj" />
+  </ItemGroup>
+
+</Project>
