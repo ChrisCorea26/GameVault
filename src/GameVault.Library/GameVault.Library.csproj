@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Catalog, scanner, hashing, collection, journal and passwords. Metadata only: never ROM data. -->
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>GameVault.Library</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GameVault.Core\GameVault.Core.csproj" />
+  </ItemGroup>
+
+</Project>
