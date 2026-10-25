@@ -1,7 +1,6 @@
 # Input — Ports, Assignment and Keyboard
 
-**Status:** Draft. Proposed expansion of SPEC §5.4, to be cited by `docs/plans/phase-2.md` and
-`docs/plans/phase-3.md`. Decisions marked **(open)** need sign-off before the phase that uses them.
+**Status:** Accepted. Expands SPEC §5.4; cited by `docs/plans/phase-2.md` and `docs/plans/phase-3.md`.
 
 SPEC §5.4 sets the zero-config goal and the player-1 keyboard defaults. It does not say how devices
 are given to the two NES ports, what player 2 uses on a keyboard, or what happens on hot-plug. This
@@ -66,7 +65,7 @@ Player 2"*.
 Player 2 has no keyboard binding out of the box. Two players on a single keyboard is uncommon, and a
 second default layout competes with the hotkeys (§8) and with key rollover limits on cheap keyboards.
 
-### 4.3 Two-player keyboard preset (opt-in) **(open)**
+### 4.3 Two-player keyboard preset (opt-in, Phase 3)
 
 Settings → Input offers a **Two players, one keyboard** preset. P1's default puts a hand on Z/X at the
 far left, so the preset moves both players to opposite halves of the keyboard:
@@ -96,7 +95,7 @@ many keys at once and may drop presses when both players hold several buttons.
   - Every button the pad was holding is released immediately.
   - If a game is running and the pad was assigned to a port, the game **pauses** and the overlay
     shows *"Player 1's controller was disconnected. Reconnect it, or press a button on another
-    controller to take over."* **(open: pause automatically, or keep running?)**
+    controller to take over."*
   - The port stays **reserved** for that physical pad until the game closes or the user reassigns
     the port, so a pad whose battery dies comes back to the same player instead of the lowest free port.
   - The game does not resume on its own after reconnecting; the player resumes from the overlay.
@@ -114,12 +113,14 @@ SDL's GameController API reports buttons by **position**, so the defaults are po
 | A | East | B | Circle |
 | Select | Back | View | Share / Create |
 | Start | Start | Menu | Options |
-| — | West, North | X, Y | Square, Triangle |
+| Turbo B | West | X | Square |
+| Turbo A | North | Y | Triangle |
 
 - South/east keeps the NES layout (B on the left, A on the right) on every pad. Set
   `SDL_HINT_GAMECONTROLLER_USE_BUTTON_LABELS=0` so Nintendo-layout pads are also positional.
-- **West and North are left unbound** by default. They are the natural turbo B / turbo A slots when the
-  user turns turbo on (SPEC §5.4, §7.6) **(open: bind them to plain B/A instead?)**.
+- **West and North are turbo B / turbo A** by default (SPEC §5.4, §7.6). While held, turbo presses
+  the button for 2 frames and releases it for 2 frames (15 presses per second at 60 Hz). The rate is
+  derived from the frame count, so it is deterministic and adjustable in *Settings → Input*.
 - **Left stick** drives the D-pad as 8-way input with a radial dead zone of 50%.
 - **Opposite directions.** A real NES pad can't press Left+Right or Up+Down at the same time, and some
   games misbehave when they see it (see the Standard controller page above). By default the most
@@ -136,7 +137,7 @@ SDL's GameController API reports buttons by **position**, so the defaults are po
   pads are ignored, except for the take-over press in §5.
 - **Opening the overlay:** the Guide/Home button on any assigned pad. Some pads don't expose Guide, or
   another app (for example Steam or Game Bar) captures it, so holding **Back + Start for 1 second**
-  also opens the overlay. On the keyboard, **Esc** opens it **(open)**.
+  also opens the overlay. On the keyboard, **Esc** opens it.
 - **Background:** pad input is ignored while the window is not in the foreground
   (`SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS=0`).
 
@@ -146,7 +147,7 @@ These keys never reach the game, so game bindings can't use them:
 
 | Action | Keyboard | Controller |
 |---|---|---|
-| Overlay / pause | Esc **(open)** | Guide, or hold Back + Start |
+| Overlay / pause | Esc | Guide, or hold Back + Start |
 | Rewind (hold) | Backspace | Left shoulder |
 | Fast-forward (hold) | Tab | Right shoulder |
 | Quick save / quick load | F5 / F8 | — |
@@ -191,10 +192,3 @@ Controller hotkeys work only from pads assigned to a port.
 - **Core:** a `$4016` strobe/read test checks the bit order in §2.
 - **ViewModels:** the Settings → Input ViewModel shows the sample devices and applies swaps through a
   fake input service.
-
-## Open questions
-
-1. Ship the two-player keyboard preset in Phase 3, and are the keys in §4.3 right?
-2. Pause automatically when an assigned controller disconnects?
-3. Esc for the overlay, or leave Esc to exit fullscreen only?
-4. West/North: unbound by default (turbo slots), or extra B/A?
