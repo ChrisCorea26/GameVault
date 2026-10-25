@@ -285,7 +285,7 @@ The **Passwords panel** lists saved passwords per game with a copy button. Ship 
 4. **Settings:** Video, Audio, Input (per player), Library folders, Assist, and Advanced (run-ahead, region, accuracy options).
 5. **Catalog Import** and **Dump Cartridge** wizards.
 
-Wireframes for these screens live in Balsamiq. Link them from `docs/ui/`. Tile layouts in the library and timeline should use Fluent controls (`GridView`, `ItemsRepeater`, `TeachingTip`, `InfoBar`) rather than custom-drawn equivalents.
+Screen notes and any reference images live in `docs/ui/`. Tile layouts in the library and timeline should use Fluent controls (`GridView`, `ItemsRepeater`, `TeachingTip`, `InfoBar`) rather than custom-drawn equivalents.
 
 ### 9.3 UX principles
 - **Zero-config:** a new user can launch, add a ROM folder, and be playing within 60 seconds without opening Settings.

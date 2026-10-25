@@ -1,12 +1,13 @@
-# UI wireframes
+# UI screens
 
-Wireframes for each screen live in Balsamiq (SPEC §9.2). Add links here as boards are created.
+Screen notes for SPEC §9.2. The XAML pages are the source of truth. Preview them with
+`dotnet run --project src/GameVault.App -- --sample-data`, XAML Hot Reload and the Live Visual Tree.
 
-| Screen | Wireframe | Implemented |
-|---|---|---|
-| Library (home) | _link pending_ | Phase 0 shell (grid/list, search, owned filter, summary) |
-| Game Details | _link pending_ | — |
-| Player | _link pending_ | — |
-| Settings | _link pending_ | Phase 0 shell (video, gameplay) |
-| Catalog Import wizard | _link pending_ | — |
-| Dump Cartridge wizard | _link pending_ | — |
+| Screen | Implemented |
+|---|---|
+| Library (home) | Phase 0 shell (grid/list, search, owned filter, summary) |
+| Game Details | — |
+| Player | — |
+| Settings | Phase 0 shell (video, gameplay) |
+| Catalog Import wizard | — |
+| Dump Cartridge wizard | — |
