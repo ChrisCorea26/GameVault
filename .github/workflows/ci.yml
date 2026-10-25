@@ -14,9 +14,9 @@ jobs:
     name: Build and test (Windows)
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
 
@@ -34,15 +34,23 @@ jobs:
         run: |
           $exe = Get-ChildItem src/GameVault.App/bin -Recurse -Filter GameVault.exe | Select-Object -First 1
           if (-not $exe) { throw "GameVault.exe was not built." }
+          Write-Host "Launching $($exe.FullName)"
           $p = Start-Process $exe.FullName -ArgumentList '--sample-data' -PassThru
           Start-Sleep -Seconds 15
-          if ($p.HasExited) { throw "GameVault exited early with code $($p.ExitCode)." }
+          if ($p.HasExited) {
+            $crashLog = Join-Path $env:LOCALAPPDATA 'GameVault\logs\crash.log'
+            if (Test-Path $crashLog) { Write-Host '--- crash.log ---'; Get-Content $crashLog }
+            Write-Host '--- Application event log (errors) ---'
+            Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Level = 2; StartTime = (Get-Date).AddMinutes(-5) } -ErrorAction SilentlyContinue |
+              Select-Object -First 5 | Format-List TimeCreated, ProviderName, Message
+            throw ("GameVault exited early with code 0x{0:X8}." -f $p.ExitCode)
+          }
           Stop-Process -Id $p.Id -Force
           Write-Host "GameVault stayed running for 15 seconds."
 
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v5
         with:
           name: test-results-windows
           path: TestResults
@@ -51,9 +59,9 @@ jobs:
     name: Core, Library and ViewModels (Linux)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-dotnet@v4
+      - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
 

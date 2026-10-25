@@ -13,7 +13,7 @@
     <DataTemplate x:Key="GameTileTemplate" x:DataType="vm:GameTileViewModel">
       <Grid Width="{StaticResource TileWidth}" RowSpacing="6" Padding="0,0,0,8">
         <Grid.RowDefinitions>
-          <RowDefinition Height="{StaticResource TileCoverHeight}" />
+          <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
@@ -21,6 +21,7 @@
 
         <Border
             Grid.Row="0"
+            Height="{StaticResource TileCoverHeight}"
             Background="{ThemeResource AccentFillColorSecondaryBrush}"
             CornerRadius="{StaticResource OverlayCornerRadius}">
           <Grid>

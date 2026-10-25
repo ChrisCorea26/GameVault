@@ -27,4 +27,6 @@ public sealed class AppPaths
     public string StatesDirectory => Path.Combine(Root, "States");
 
     public string LibraryDatabase => Path.Combine(Root, "library.db");
+
+    public string CrashLogFile => Path.Combine(Root, "logs", "crash.log");
 }

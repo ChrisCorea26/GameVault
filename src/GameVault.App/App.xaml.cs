@@ -15,6 +15,16 @@ public partial class App : Application
 
     public App()
     {
+        // Hook these first so failures while loading XAML are logged too.
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
+        {
+            if (e.ExceptionObject is Exception ex)
+            {
+                CrashLog.Write(new AppPaths(), ex, "AppDomain.UnhandledException");
+            }
+        };
+        UnhandledException += (_, e) => CrashLog.Write(new AppPaths(), e.Exception, "Application.UnhandledException");
+
         InitializeComponent();
     }
 
