@@ -14,8 +14,11 @@ full feature specification and [CLAUDE.md](CLAUDE.md) for the contributor rules.
 | Phase | Deliverable | State |
 |---|---|---|
 | 0 | Scaffold: solution, CI, WinUI 3 shell, `--sample-data`, test harness | ✅ |
-| 1 | 6502 CPU | Next |
-| 2–7 | PPU, APU, mappers, library, signature features, netplay | Planned |
+| 1 | 6502 CPU, bus, RAM | ✅ nestest and instr_test-v5 pass |
+| 2 | PPU, NROM rendering, keyboard input | Next |
+| 3–7 | APU, mappers, library, signature features, netplay | Planned |
+
+Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md).
 
 Phase plans are in [`docs/plans/`](docs/plans).
 
@@ -60,6 +63,17 @@ docs/                    Plans, compatibility dashboard, UI wireframe links
 
 ## Test ROMs
 
-Only freely redistributable test ROMs may be committed, and each one is recorded in
-[`tests/TestRoms/SOURCES.md`](tests/TestRoms/SOURCES.md). To run tests against your own dumps, set
-`GAMEVAULT_LOCAL_ROMS` to a local folder. Those tests are skipped otherwise.
+Accuracy suites such as nestest and blargg's tests are **downloaded at test time**, not committed, because
+their licenses don't explicitly allow redistribution. Fetch them once before running the tests:
+
+```bash
+./tests/TestRoms/fetch-test-roms.sh       # Linux/macOS
+./tests/TestRoms/fetch-test-roms.ps1      # Windows
+```
+
+Without them, ROM-based tests are skipped. CI sets `GAMEVAULT_REQUIRE_TEST_ROMS=1`, which turns a missing
+ROM into a failure. Sources, authors and hashes are listed in
+[`tests/TestRoms/SOURCES.md`](tests/TestRoms/SOURCES.md).
+
+To run tests against your own dumps, set `GAMEVAULT_LOCAL_ROMS` to a local folder. Those tests are skipped
+otherwise.

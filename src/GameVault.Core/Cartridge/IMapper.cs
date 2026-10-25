@@ -1,0 +1,31 @@
+using GameVault.Core.State;
+
+namespace GameVault.Core.Cartridge;
+
+/// <summary>Cartridge hardware: PRG/CHR banking, PRG-RAM, mirroring and IRQs (SPEC §4.5).</summary>
+public interface IMapper : IStateful
+{
+    Mirroring Mirroring { get; }
+
+    /// <summary>True while the mapper holds /IRQ low.</summary>
+    bool IrqPending { get; }
+
+    /// <summary>CPU read from $4020-$FFFF. Returns <paramref name="openBus"/> for unmapped addresses.</summary>
+    byte CpuRead(ushort address, byte openBus);
+
+    /// <summary>Side-effect-free read for debuggers and tracers.</summary>
+    byte CpuPeek(ushort address);
+
+    void CpuWrite(ushort address, byte value);
+
+    /// <summary>PPU read from pattern tables ($0000-$1FFF).</summary>
+    byte PpuRead(ushort address);
+
+    void PpuWrite(ushort address, byte value);
+
+    /// <summary>Called once per CPU cycle, for mappers with cycle-based IRQ counters.</summary>
+    void OnCpuCycle();
+
+    /// <summary>Called on each rising edge of PPU address line A12 (MMC3 scanline counter).</summary>
+    void OnA12Rise();
+}
