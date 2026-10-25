@@ -147,7 +147,19 @@
 
     <!-- Header and collection completion summary -->
     <StackPanel Grid.Row="0" Spacing="8">
-      <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Library" />
+      <Grid>
+        <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Library" />
+        <Button
+            HorizontalAlignment="Right"
+            AccessKey="O"
+            Command="{x:Bind ViewModel.OpenGameFileCommand}"
+            Style="{StaticResource AccentButtonStyle}">
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <FontIcon FontSize="14" Glyph="&#xE8E5;" />
+            <TextBlock Text="Open game file" />
+          </StackPanel>
+        </Button>
+      </Grid>
       <StackPanel Orientation="Horizontal" Spacing="12">
         <ProgressBar
             Width="200"
@@ -199,6 +211,7 @@
     <Grid Grid.Row="2">
       <GridView
           IsItemClickEnabled="True"
+          ItemClick="Games_ItemClick"
           ItemTemplate="{StaticResource GameTileTemplate}"
           ItemsSource="{x:Bind ViewModel.Games}"
           SelectionMode="None"
@@ -207,6 +220,7 @@
 
       <ListView
           IsItemClickEnabled="True"
+          ItemClick="Games_ItemClick"
           ItemTemplate="{StaticResource GameRowTemplate}"
           ItemsSource="{x:Bind ViewModel.Games}"
           SelectionMode="None"
@@ -232,7 +246,7 @@
         <TextBlock
             HorizontalTextAlignment="Center"
             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-            Text="GameVault plays games you supply yourself, such as dumps of cartridges you own. Adding game folders is coming in a later update."
+            Text="GameVault plays games you supply yourself, such as dumps of cartridges you own. Use Open game file to play one now; adding whole folders is coming in a later update."
             TextWrapping="Wrap" />
       </StackPanel>
 

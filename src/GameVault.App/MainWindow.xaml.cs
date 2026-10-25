@@ -56,10 +56,10 @@ public sealed partial class MainWindow : Window
         {
             AppPage.Library => LibraryItem,
             AppPage.Settings => NavView.SettingsItem,
-            _ => null,
+            _ => null, // the Player has no menu item
         };
 
-        if (selected is not null && !ReferenceEquals(NavView.SelectedItem, selected))
+        if (!ReferenceEquals(NavView.SelectedItem, selected))
         {
             NavView.SelectedItem = selected;
         }

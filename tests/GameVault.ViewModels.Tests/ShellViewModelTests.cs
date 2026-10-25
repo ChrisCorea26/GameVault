@@ -30,6 +30,28 @@ public class ShellViewModelTests
         vm.CurrentPage.Should().Be(AppPage.Settings);
     }
 
+    [Fact]
+    public void Page_argument_opens_the_player_over_the_library()
+    {
+        var nav = new FakeNavigationService();
+        var env = AppEnvironment.FromCommandLine(["--sample-data", "--page=player"]);
+        var vm = new ShellViewModel(nav, env);
+
+        vm.StartCommand.Execute(null);
+
+        nav.History.Should().Equal((AppPage.Library, null), (AppPage.Player, SampleData.SampleGameFilePicker.SamplePath));
+        nav.CanGoBack.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("--page=settings", AppPage.Settings)]
+    [InlineData("--page=PLAYER", AppPage.Player)]
+    [InlineData("--page=nonsense", AppPage.Library)]
+    public void Page_argument_is_parsed_case_insensitively(string arg, AppPage expected)
+    {
+        AppEnvironment.FromCommandLine([arg]).StartPage.Should().Be(expected);
+    }
+
     [Theory]
     [InlineData(new[] { "--sample-data" }, true)]
     [InlineData(new[] { "GameVault.exe", "--SAMPLE-DATA" }, true)]

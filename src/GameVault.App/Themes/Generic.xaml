@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:canvas="using:Microsoft.Graphics.Canvas.UI.Xaml"
+    xmlns:controls="using:GameVault.App.Controls">
+
+  <Style TargetType="controls:GameView">
+    <Setter Property="Background" Value="Black" />
+    <Setter Property="IsTabStop" Value="True" />
+    <Setter Property="UseSystemFocusVisuals" Value="False" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="controls:GameView">
+          <Grid Background="{TemplateBinding Background}">
+            <canvas:CanvasSwapChainPanel x:Name="PART_SwapChainPanel" />
+          </Grid>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
+</ResourceDictionary>

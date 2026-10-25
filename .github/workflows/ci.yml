@@ -35,24 +35,27 @@ jobs:
       - name: Test
         run: dotnet test GameVault.sln -c Debug --no-build --logger trx --results-directory TestResults
 
-      - name: Smoke test (app launches with --sample-data)
+      - name: Smoke test (app launches; Library and Player under --sample-data)
         shell: pwsh
         run: |
           $exe = Get-ChildItem src/GameVault.App/bin -Recurse -Filter GameVault.exe | Select-Object -First 1
           if (-not $exe) { throw "GameVault.exe was not built." }
-          Write-Host "Launching $($exe.FullName)"
-          $p = Start-Process $exe.FullName -ArgumentList '--sample-data' -PassThru
-          Start-Sleep -Seconds 15
-          if ($p.HasExited) {
-            $crashLog = Join-Path $env:LOCALAPPDATA 'GameVault\logs\crash.log'
-            if (Test-Path $crashLog) { Write-Host '--- crash.log ---'; Get-Content $crashLog }
-            Write-Host '--- Application event log (errors) ---'
-            Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Level = 2; StartTime = (Get-Date).AddMinutes(-5) } -ErrorAction SilentlyContinue |
-              Select-Object -First 5 | Format-List TimeCreated, ProviderName, Message
-            throw ("GameVault exited early with code 0x{0:X8}." -f $p.ExitCode)
+          $crashLog = Join-Path $env:LOCALAPPDATA 'GameVault\logs\crash.log'
+          foreach ($launch in @('--sample-data', '--sample-data --page=player')) {
+            Write-Host "Launching $($exe.FullName) $launch"
+            $p = Start-Process $exe.FullName -ArgumentList $launch -PassThru
+            Start-Sleep -Seconds 15
+            if ($p.HasExited) {
+              if (Test-Path $crashLog) { Write-Host '--- crash.log ---'; Get-Content $crashLog }
+              Write-Host '--- Application event log (errors) ---'
+              Get-WinEvent -FilterHashtable @{ LogName = 'Application'; Level = 2; StartTime = (Get-Date).AddMinutes(-5) } -ErrorAction SilentlyContinue |
+                Select-Object -First 5 | Format-List TimeCreated, ProviderName, Message
+              throw ("GameVault ($launch) exited early with code 0x{0:X8}." -f $p.ExitCode)
+            }
+            Stop-Process -Id $p.Id -Force
+            Write-Host "GameVault ($launch) stayed running for 15 seconds."
           }
-          Stop-Process -Id $p.Id -Force
-          Write-Host "GameVault stayed running for 15 seconds."
+          if (Test-Path $crashLog) { Write-Host '--- crash.log (handled exceptions) ---'; Get-Content $crashLog; throw "Exceptions were logged." }
 
       - name: Upload test results
         if: always()

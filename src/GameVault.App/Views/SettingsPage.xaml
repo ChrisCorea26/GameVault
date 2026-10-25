@@ -78,6 +78,31 @@
         </Grid>
       </Border>
 
+      <!-- Advanced -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Advanced" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <Grid ColumnSpacing="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="Allow opposite directions" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="Lets a game see Left and Right (or Up and Down) held at once. A real controller can't do this, and some games glitch. Takes effect the next time you start a game."
+                TextWrapping="Wrap" />
+          </StackPanel>
+          <ToggleSwitch
+              Grid.Column="1"
+              MinWidth="0"
+              IsOn="{x:Bind ViewModel.AllowOppositeDirections, Mode=TwoWay}"
+              OffContent=""
+              OnContent="" />
+        </Grid>
+      </Border>
+
       <Button
           Margin="0,16,0,0"
           Command="{x:Bind ViewModel.ResetToDefaultsCommand}"

@@ -24,6 +24,7 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.WindowsAppSDK" />
     <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+    <PackageReference Include="Microsoft.Graphics.Win2D" />
     <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
     <PackageReference Include="CommunityToolkit.Mvvm" />
   </ItemGroup>

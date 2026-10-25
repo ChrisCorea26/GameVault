@@ -1,4 +1,7 @@
+using GameVault.Platform.Emulation;
+using GameVault.Platform.Input;
 using GameVault.Platform.Storage;
+using GameVault.Platform.Video;
 using GameVault.ViewModels;
 using GameVault.ViewModels.SampleData;
 using GameVault.ViewModels.Services;
@@ -11,7 +14,7 @@ namespace GameVault.App;
 public partial class App : Application
 {
     private IServiceProvider? _services;
-    private Window? _window;
+    private MainWindow? _window;
 
     public App()
     {
@@ -27,6 +30,10 @@ public partial class App : Application
 
         InitializeComponent();
     }
+
+    /// <summary>The app's only window. Available from <see cref="OnLaunched"/> on.</summary>
+    public static MainWindow MainWindow =>
+        ((App)Current)._window ?? throw new InvalidOperationException("The main window has not been created yet.");
 
     /// <summary>Resolves a service from the app's container. For views that WinUI constructs (pages).</summary>
     public static T GetService<T>()
@@ -55,13 +62,24 @@ public partial class App : Application
             // Fake services: a realistic library with no ROMs and no writes to disk (SPEC §9.1).
             services.AddSingleton<ILibraryService, SampleLibraryService>();
             services.AddSingleton<ISettingsStore>(_ => new InMemorySettingsStore());
+            services.AddSingleton<IEmulatorService>(sp => new SampleEmulatorHost(sp.GetRequiredService<FrameSink>()));
+            services.AddSingleton<IGameFilePicker, SampleGameFilePicker>();
         }
         else
         {
             services.AddSingleton(_ => new AppPaths());
             services.AddSingleton<ILibraryService, EmptyLibraryService>();
             services.AddSingleton<ISettingsStore, JsonSettingsStore>();
+            services.AddSingleton<IEmulatorService>(sp => new EmulatorHost(
+                sp.GetRequiredService<FrameSink>(),
+                sp.GetRequiredService<InputService>(),
+                sp.GetRequiredService<ISettingsStore>()));
+            services.AddSingleton<IGameFilePicker, WinUiGameFilePicker>();
         }
+
+        // Video and input (SPEC §5): shared by the emulation thread and the GameView.
+        services.AddSingleton<FrameSink>();
+        services.AddSingleton(_ => new InputService(KeyboardMapping.CreateDefault()));
 
         services.AddSingleton<FrameNavigationService>();
         services.AddSingleton<INavigationService>(sp => sp.GetRequiredService<FrameNavigationService>());
@@ -69,6 +87,7 @@ public partial class App : Application
         services.AddSingleton<ShellViewModel>();
         services.AddTransient<LibraryViewModel>();
         services.AddTransient<SettingsViewModel>();
+        services.AddTransient<PlayerViewModel>();
 
         services.AddSingleton<MainWindow>();
 
