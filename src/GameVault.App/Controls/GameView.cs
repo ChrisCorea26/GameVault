@@ -145,7 +145,7 @@ public sealed partial class GameView : Control
         catch (Exception ex)
         {
             // Old drivers, remote sessions without D3D11, a missing d3dcompiler: fall back to Win2D.
-            CrashLog.Write(new Platform.Storage.AppPaths(), ex, "Direct3D 11 display unavailable; using Win2D");
+            Platform.Storage.CrashLog.Write(new Platform.Storage.AppPaths(), ex, "Direct3D 11 display unavailable; using Win2D");
             _d3dPanel!.Visibility = Visibility.Collapsed;
             return false;
         }
