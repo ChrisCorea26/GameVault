@@ -1,0 +1,61 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  windows:
+    name: Build and test (Windows)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Restore
+        run: dotnet restore GameVault.sln
+
+      - name: Build
+        run: dotnet build GameVault.sln -c Debug --no-restore
+
+      - name: Test
+        run: dotnet test GameVault.sln -c Debug --no-build --logger trx --results-directory TestResults
+
+      - name: Smoke test (app launches with --sample-data)
+        shell: pwsh
+        run: |
+          $exe = Get-ChildItem src/GameVault.App/bin -Recurse -Filter GameVault.exe | Select-Object -First 1
+          if (-not $exe) { throw "GameVault.exe was not built." }
+          $p = Start-Process $exe.FullName -ArgumentList '--sample-data' -PassThru
+          Start-Sleep -Seconds 15
+          if ($p.HasExited) { throw "GameVault exited early with code $($p.ExitCode)." }
+          Stop-Process -Id $p.Id -Force
+          Write-Host "GameVault stayed running for 15 seconds."
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-windows
+          path: TestResults
+
+  cross-platform:
+    name: Core, Library and ViewModels (Linux)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Build and test
+        run: dotnet test GameVault.CrossPlatform.slnf -c Debug

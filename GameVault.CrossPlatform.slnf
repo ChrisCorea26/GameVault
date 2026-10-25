@@ -1,0 +1,15 @@
+{
+  "solution": {
+    "path": "GameVault.sln",
+    "projects": [
+      "src\\GameVault.Core\\GameVault.Core.csproj",
+      "src\\GameVault.Library\\GameVault.Library.csproj",
+      "src\\GameVault.Platform\\GameVault.Platform.csproj",
+      "src\\GameVault.ViewModels\\GameVault.ViewModels.csproj",
+      "tests\\GameVault.Core.Tests\\GameVault.Core.Tests.csproj",
+      "tests\\GameVault.Library.Tests\\GameVault.Library.Tests.csproj",
+      "tests\\GameVault.Platform.Tests\\GameVault.Platform.Tests.csproj",
+      "tests\\GameVault.ViewModels.Tests\\GameVault.ViewModels.Tests.csproj"
+    ]
+  }
+}
