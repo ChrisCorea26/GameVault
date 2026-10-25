@@ -25,6 +25,9 @@ public sealed record AppSettings
     /// <summary>Pinned controllers as "key=port" entries separated by '|' (input.md §3.5).</summary>
     public string ControllerPins { get; init; } = string.Empty;
 
+    /// <summary>Memory for rewind history in MB (SPEC §7.2: 256 MB by default).</summary>
+    public int RewindMemoryMb { get; init; } = 256;
+
     /// <summary>Game volume, 0–100 (0 mutes).</summary>
     public int Volume { get; init; } = 80;
 

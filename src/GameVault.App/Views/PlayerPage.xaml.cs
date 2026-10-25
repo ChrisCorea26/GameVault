@@ -9,7 +9,7 @@ namespace GameVault.App.Views;
 
 public sealed partial class PlayerPage : Page
 {
-    private string? _gamePath;
+    private object? _launch;
 
     public PlayerPage()
     {
@@ -24,7 +24,7 @@ public sealed partial class PlayerPage : Page
     protected override void OnNavigatedTo(NavigationEventArgs e)
     {
         base.OnNavigatedTo(e);
-        _gamePath = e.Parameter as string;
+        _launch = e.Parameter;
     }
 
     protected override void OnNavigatedFrom(NavigationEventArgs e)
@@ -42,7 +42,7 @@ public sealed partial class PlayerPage : Page
             controllers.PauseRequested += OnPauseRequested;
         }
 
-        ViewModel.StartCommand.Execute(_gamePath);
+        ViewModel.StartCommand.Execute(_launch);
         Game.Focus(FocusState.Programmatic);
     }
 
@@ -54,8 +54,6 @@ public sealed partial class PlayerPage : Page
             controllers.PauseRequested -= OnPauseRequested;
         }
     }
-
-    private void SaveStates_Opening(object? sender, object e) => ViewModel.SaveStates.RefreshCommand.Execute(null);
 
     private void OnPauseRequested(object? sender, EventArgs e) => ViewModel.TogglePauseCommand.Execute(null);
 

@@ -1,0 +1,138 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="GameVault.App.Views.GameDetailsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:GameVault.App.Controls"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:helpers="using:GameVault.App.Helpers"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+  <ScrollViewer>
+    <Grid MaxWidth="1040" Padding="32,16,32,32" HorizontalAlignment="Left" ColumnSpacing="32" RowSpacing="24">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="240" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
+
+      <!-- Cover: the user's own picture (SPEC §6.5), or initials -->
+      <StackPanel Grid.Row="0" Grid.Column="0" Spacing="8">
+        <Grid Height="240" Background="{ThemeResource AccentFillColorSecondaryBrush}" CornerRadius="8">
+          <TextBlock
+              HorizontalAlignment="Center"
+              VerticalAlignment="Center"
+              FontSize="64"
+              FontWeight="SemiBold"
+              Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+              Text="{x:Bind ViewModel.Initials, Mode=OneWay}" />
+          <Image Stretch="UniformToFill" Visibility="{x:Bind ViewModel.HasCover, Mode=OneWay}">
+            <Image.Source>
+              <BitmapImage UriSource="{x:Bind ViewModel.CoverUri, Mode=OneWay}" />
+            </Image.Source>
+          </Image>
+        </Grid>
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <Button Command="{x:Bind ViewModel.ChooseCoverCommand}" Content="Choose a picture…" />
+          <Button
+              Command="{x:Bind ViewModel.RemoveCoverCommand}"
+              Content="Remove"
+              Visibility="{x:Bind ViewModel.HasCover, Mode=OneWay}" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Title, metadata, Play -->
+      <StackPanel Grid.Row="0" Grid.Column="1" Spacing="8">
+        <TextBox
+            AutomationProperties.Name="Title"
+            FontSize="28"
+            LostFocus="Text_LostFocus"
+            Text="{x:Bind ViewModel.Title, Mode=TwoWay}"
+            Visibility="{x:Bind ViewModel.CanEditTitle, Mode=OneWay}" />
+        <TextBlock
+            Style="{StaticResource TitleTextBlockStyle}"
+            Text="{x:Bind ViewModel.Title, Mode=OneWay}"
+            TextWrapping="Wrap"
+            Visibility="{x:Bind helpers:BindingHelpers.Not(ViewModel.CanEditTitle), Mode=OneWay}" />
+        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
+        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.Details, Mode=OneWay}" TextWrapping="Wrap" />
+        <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.PlaytimeText, Mode=OneWay}" />
+        <StackPanel Margin="0,8,0,0" Orientation="Horizontal" Spacing="12">
+          <Button
+              x:Name="PlayButton"
+              AccessKey="P"
+              Command="{x:Bind ViewModel.PlayCommand}"
+              Style="{StaticResource AccentButtonStyle}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <FontIcon FontSize="14" Glyph="&#xE768;" />
+              <TextBlock Text="Play" />
+            </StackPanel>
+          </Button>
+          <TextBlock VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.PlayHint, Mode=OneWay}" />
+        </StackPanel>
+      </StackPanel>
+
+      <!-- Collection -->
+      <StackPanel Grid.Row="1" Grid.Column="0" Spacing="8">
+        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="My collection" />
+        <CheckBox Content="Cartridge" IsChecked="{x:Bind ViewModel.OwnsCartridge, Mode=TwoWay}" />
+        <CheckBox Content="Box" IsChecked="{x:Bind ViewModel.OwnsBox, Mode=TwoWay}" />
+        <CheckBox Content="Manual" IsChecked="{x:Bind ViewModel.OwnsManual, Mode=TwoWay}" />
+        <CheckBox Content="Digital copy" IsChecked="{x:Bind ViewModel.OwnsDigitalDump, Mode=TwoWay}" />
+        <ComboBox
+            Header="Status"
+            HorizontalAlignment="Stretch"
+            ItemsSource="{x:Bind ViewModel.StatusOptions}"
+            SelectedIndex="{x:Bind ViewModel.StatusIndex, Mode=TwoWay}" />
+        <ToggleSwitch Header="Favorite" IsOn="{x:Bind ViewModel.IsFavorite, Mode=TwoWay}" />
+        <RatingControl HorizontalAlignment="Left" Caption="My rating" IsClearEnabled="True" Value="{x:Bind ViewModel.Rating, Mode=TwoWay}" />
+      </StackPanel>
+
+      <StackPanel Grid.Row="1" Grid.Column="1" Spacing="8">
+        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Notes" />
+        <TextBox
+            MinHeight="120"
+            AcceptsReturn="True"
+            AutomationProperties.Name="Notes"
+            LostFocus="Text_LostFocus"
+            PlaceholderText="Tips, codes, where you got the cartridge…"
+            Text="{x:Bind ViewModel.Notes, Mode=TwoWay}"
+            TextWrapping="Wrap" />
+
+        <TextBlock Margin="0,16,0,0" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Save states" />
+        <TextBlock
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Text="No save states yet. Press F5 while playing to save."
+            Visibility="{x:Bind ViewModel.Timeline.IsEmpty, Mode=OneWay}" />
+        <controls:TimelineStrip ItemTemplate="{StaticResource TimelineItemTemplate}" ItemsSource="{x:Bind ViewModel.Timeline.Items}" />
+        <InfoBar
+            IsClosable="True"
+            IsOpen="{x:Bind ViewModel.Timeline.HasUndo, Mode=OneWay}"
+            Message="{x:Bind ViewModel.Timeline.UndoText, Mode=OneWay}"
+            Severity="Informational">
+          <InfoBar.ActionButton>
+            <Button Command="{x:Bind ViewModel.Timeline.UndoCommand}" Content="Undo" />
+          </InfoBar.ActionButton>
+        </InfoBar>
+      </StackPanel>
+
+      <!-- Game Properties: overrides of the game database profile (SPEC §7.5) -->
+      <StackPanel Grid.Row="2" Grid.Column="1" Spacing="8">
+        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Properties" />
+        <TextBlock
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Style="{StaticResource CaptionTextBlockStyle}"
+            Text="Automatic uses what GameVault knows about this game. Changes apply the next time it starts."
+            TextWrapping="Wrap" />
+        <ComboBox Header="Controls" ItemsSource="{x:Bind ViewModel.InputOptions}" SelectedIndex="{x:Bind ViewModel.InputIndex, Mode=TwoWay}" />
+        <ComboBox Header="Reduce input lag" ItemsSource="{x:Bind ViewModel.AutoOnOffOptions}" SelectedIndex="{x:Bind ViewModel.RunAheadIndex, Mode=TwoWay}" />
+        <ComboBox Header="Reduce flicker (more sprites per line)" ItemsSource="{x:Bind ViewModel.AutoOnOffOptions}" SelectedIndex="{x:Bind ViewModel.SpriteLimitIndex, Mode=TwoWay}" />
+      </StackPanel>
+    </Grid>
+  </ScrollViewer>
+</Page>

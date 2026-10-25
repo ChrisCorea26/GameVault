@@ -35,15 +35,18 @@ jobs:
       - name: Test
         run: dotnet test GameVault.sln -c Debug --no-build --logger trx --results-directory TestResults
 
-      - name: Smoke test (app launches; Library and Player under --sample-data)
+      - name: Smoke test (app launches in real mode and every screen renders under --sample-data)
         shell: pwsh
         run: |
           $exe = Get-ChildItem src/GameVault.App/bin -Recurse -Filter GameVault.exe | Select-Object -First 1
           if (-not $exe) { throw "GameVault.exe was not built." }
           $crashLog = Join-Path $env:LOCALAPPDATA 'GameVault\logs\crash.log'
-          foreach ($launch in @('--sample-data', '--sample-data --page=player')) {
+          $launches = @('', '--sample-data', '--sample-data --page=player', '--sample-data --page=gamedetails',
+                        '--sample-data --page=catalogimport', '--sample-data --page=settings', '--sample-data=empty')
+          foreach ($launch in $launches) {
             Write-Host "Launching $($exe.FullName) $launch"
-            $p = Start-Process $exe.FullName -ArgumentList $launch -PassThru
+            # An empty argument list means a real launch: real library database, devices and settings.
+            $p = if ($launch) { Start-Process $exe.FullName -ArgumentList $launch -PassThru } else { Start-Process $exe.FullName -PassThru }
             Start-Sleep -Seconds 15
             if ($p.HasExited) {
               if (Test-Path $crashLog) { Write-Host '--- crash.log ---'; Get-Content $crashLog }

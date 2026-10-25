@@ -5,8 +5,20 @@ using GameVault.ViewModels.Services;
 namespace GameVault.ViewModels;
 
 /// <summary>The Settings screen. Every change is saved immediately; there is no Apply button.</summary>
-public sealed partial class SettingsViewModel(ISettingsStore settingsStore, InputSettingsViewModel input) : ObservableObject
+public sealed partial class SettingsViewModel(ISettingsStore settingsStore, InputSettingsViewModel input, LibrarySettingsViewModel library)
+    : ObservableObject
 {
+    /// <summary>The Settings → Library section.</summary>
+    public LibrarySettingsViewModel Library { get; } = library;
+
+    public IReadOnlyList<string> RewindMemoryOptions { get; } = ["64 MB", "128 MB", "256 MB", "512 MB", "1 GB"];
+
+    private static readonly int[] RewindMemoryValues = [64, 128, 256, 512, 1024];
+
+    /// <summary>Index into <see cref="RewindMemoryOptions"/>.</summary>
+    [ObservableProperty]
+    public partial int RewindMemoryIndex { get; set; } = 2;
+
     /// <summary>The Settings → Input section.</summary>
     public InputSettingsViewModel Input { get; } = input;
 
@@ -48,7 +60,9 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
         PauseWhenInactive = settings.PauseWhenInactive;
         AllowOppositeDirections = settings.AllowOppositeDirections;
         Volume = Math.Clamp(settings.Volume, 0, 100);
+        RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
         _isLoaded = true;
+        await Library.LoadCommand.ExecuteAsync(null);
     }
 
     [RelayCommand]
@@ -63,6 +77,7 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
         PauseWhenInactive = defaults.PauseWhenInactive;
         AllowOppositeDirections = defaults.AllowOppositeDirections;
         Volume = defaults.Volume;
+        RewindMemoryIndex = Array.IndexOf(RewindMemoryValues, defaults.RewindMemoryMb);
         _isLoaded = true;
         return SaveAsync();
     }
@@ -96,6 +111,14 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
 
     partial void OnVolumeChanged(double value) => SaveIfLoaded();
 
+    partial void OnRewindMemoryIndexChanged(int value)
+    {
+        if (value >= 0 && value < RewindMemoryValues.Length)
+        {
+            SaveIfLoaded();
+        }
+    }
+
     private void SaveIfLoaded()
     {
         if (_isLoaded)
@@ -117,6 +140,9 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
             PauseWhenInactive = PauseWhenInactive,
             AllowOppositeDirections = AllowOppositeDirections,
             Volume = (int)Math.Round(Math.Clamp(Volume, 0, 100)),
+            RewindMemoryMb = RewindMemoryIndex >= 0 && RewindMemoryIndex < RewindMemoryValues.Length
+                ? RewindMemoryValues[RewindMemoryIndex]
+                : current.RewindMemoryMb,
         });
     }
 }

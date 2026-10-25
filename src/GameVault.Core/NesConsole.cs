@@ -31,6 +31,7 @@ public sealed class NesConsole : IStateful
             _ => ClockRatio.Ntsc,
         };
         Bus = new NesBus(Ppu, Apu, Mapper, clock, Controller1, Controller2);
+        Zapper = new Zapper(Ppu);
         Cpu = new Cpu6502(Bus) { DmcSource = Apu };
         Bus.AttachCpu(Cpu);
         Apu.CpuCycle = () => Cpu.CycleCount;
@@ -67,6 +68,41 @@ public sealed class NesConsole : IStateful
 
     public StandardController Controller2 { get; } = new();
 
+    /// <summary>Player 3, used only with the Four Score.</summary>
+    public StandardController Controller3 { get; } = new();
+
+    /// <summary>Player 4, used only with the Four Score.</summary>
+    public StandardController Controller4 { get; } = new();
+
+    /// <summary>The light gun; active on port 2 after <see cref="ConnectInput"/> with <see cref="InputSetup.Zapper"/>.</summary>
+    public Zapper Zapper { get; }
+
+    public InputSetup InputSetup { get; private set; } = InputSetup.Controllers;
+
+    /// <summary>
+    /// Chooses what is plugged into the ports (SPEC §4.7): two controllers, a controller and a Zapper, or a
+    /// Four Score with four controllers. Call before running, or between frames.
+    /// </summary>
+    public void ConnectInput(InputSetup setup)
+    {
+        InputSetup = setup;
+        switch (setup)
+        {
+            case InputSetup.Zapper:
+                Bus.SetPort(0, Controller1);
+                Bus.SetPort(1, Zapper);
+                break;
+            case InputSetup.FourScore:
+                Bus.SetPort(0, new FourScorePort(Controller1, Controller3, 0));
+                Bus.SetPort(1, new FourScorePort(Controller2, Controller4, 1));
+                break;
+            default:
+                Bus.SetPort(0, Controller1);
+                Bus.SetPort(1, Controller2);
+                break;
+        }
+    }
+
     public static NesConsole FromBytes(ReadOnlySpan<byte> romData) => new(INesRom.Parse(romData));
 
     /// <summary>Starts producing audio samples at <paramref name="sampleRate"/>; read them from <see cref="Audio"/>.</summary>
@@ -96,22 +132,20 @@ public sealed class NesConsole : IStateful
     public void StepInstruction() => Cpu.Step();
 
     /// <summary>
-    /// Sets the buttons for port 0 (Player 1) or 1 (Player 2). The platform layer calls this between frames
-    /// with the merged state for each port (docs/design/input.md §2).
+    /// Sets the buttons for a player: 0 and 1 always, 2 and 3 for the Four Score's players 3 and 4. The
+    /// platform layer calls this between frames with the merged state for each port (docs/design/input.md §2).
     /// </summary>
     public void SetControllerState(int port, ControllerState state)
     {
-        switch (port)
+        var controller = port switch
         {
-            case 0:
-                Controller1.State = state;
-                break;
-            case 1:
-                Controller2.State = state;
-                break;
-            default:
-                throw new ArgumentOutOfRangeException(nameof(port), port, "Only ports 0 and 1 exist without a Four Score.");
-        }
+            0 => Controller1,
+            1 => Controller2,
+            2 => Controller3,
+            3 => Controller4,
+            _ => throw new ArgumentOutOfRangeException(nameof(port), port, "Ports 0-3 only."),
+        };
+        controller.State = state;
     }
 
     /// <summary>Runs until the PPU starts a new frame, then closes the frame's audio.</summary>
@@ -207,7 +241,7 @@ public sealed class NesConsole : IStateful
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 1);
+        writer.BeginChunk(Tag, 2);
         Cpu.SaveState(writer);
         Bus.SaveState(writer);
         Ppu.SaveState(writer);
@@ -215,12 +249,16 @@ public sealed class NesConsole : IStateful
         Mapper.SaveState(writer);
         Controller1.SaveState(writer);
         Controller2.SaveState(writer);
+        writer.WriteByte((byte)InputSetup);
+        Controller3.SaveState(writer);
+        Controller4.SaveState(writer);
+        Zapper.SaveState(writer);
         writer.EndChunk();
     }
 
     public void LoadState(StateReader reader)
     {
-        reader.BeginChunk(Tag);
+        var version = reader.BeginChunk(Tag);
         Cpu.LoadState(reader);
         Bus.LoadState(reader);
         Ppu.LoadState(reader);
@@ -228,6 +266,19 @@ public sealed class NesConsole : IStateful
         Mapper.LoadState(reader);
         Controller1.LoadState(reader);
         Controller2.LoadState(reader);
+        if (version >= 2)
+        {
+            var setup = (InputSetup)reader.ReadByte();
+            if (setup != InputSetup)
+            {
+                throw new StateFormatException("This save state was made with different controllers plugged in.");
+            }
+
+            Controller3.LoadState(reader);
+            Controller4.LoadState(reader);
+            Zapper.LoadState(reader);
+        }
+
         reader.EndChunk();
     }
 }

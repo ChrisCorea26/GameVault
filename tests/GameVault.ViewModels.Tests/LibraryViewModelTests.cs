@@ -15,6 +15,7 @@ public class LibraryViewModelTests
     {
         var vm = Create(new SampleLibraryService());
         await vm.LoadCommand.ExecuteAsync(null);
+        vm.ShowChecklist = true; // every sample game, owned or not
         return vm;
     }
 
@@ -34,7 +35,7 @@ public class LibraryViewModelTests
     {
         var vm = await LoadedSampleLibrary();
 
-        var expected = CollectionSummary.Compute(SampleLibraryService.Games);
+        var expected = CollectionSummary.Compute(SampleLibraryService.Games.Where(g => g.IsCataloged));
         vm.SummaryText.Should().Be(expected.ToString());
         vm.CompletionFraction.Should().Be(expected.Fraction);
     }
@@ -83,7 +84,7 @@ public class LibraryViewModelTests
     [Fact]
     public async Task Empty_library_reports_empty_state()
     {
-        var vm = Create(new EmptyLibraryService());
+        var vm = Create(new SampleLibraryService(empty: true));
 
         await vm.LoadCommand.ExecuteAsync(null);
 
@@ -95,7 +96,7 @@ public class LibraryViewModelTests
     [Fact]
     public void Toggle_view_switches_between_grid_and_list()
     {
-        var vm = Create(new EmptyLibraryService());
+        var vm = Create(new SampleLibraryService(empty: true));
         vm.IsGridView.Should().BeTrue();
 
         vm.ToggleViewCommand.Execute(null);
@@ -107,7 +108,7 @@ public class LibraryViewModelTests
     [Fact]
     public async Task Open_game_file_navigates_to_the_player_with_the_picked_path()
     {
-        var vm = Create(new EmptyLibraryService());
+        var vm = Create(new SampleLibraryService(empty: true));
 
         await vm.OpenGameFileCommand.ExecuteAsync(null);
 
@@ -117,7 +118,7 @@ public class LibraryViewModelTests
     [Fact]
     public async Task Cancelling_the_picker_stays_on_the_library()
     {
-        var vm = Create(new EmptyLibraryService(), new CancellingPicker());
+        var vm = Create(new SampleLibraryService(empty: true), new CancellingPicker());
 
         await vm.OpenGameFileCommand.ExecuteAsync(null);
 
@@ -134,12 +135,76 @@ public class LibraryViewModelTests
         vm.PlayCommand.Execute(catalogOnly);
         vm.PlayCommand.Execute(playable);
 
-        _navigation.History.Should().Equal((AppPage.Player, playable.Game.RomPath));
+        _navigation.History.Should().Equal((AppPage.Player, new GameLaunch(playable.Game.RomPath!, playable.Game.Key)));
     }
 
     private sealed class CancellingPicker : IGameFilePicker
     {
         public Task<string?> PickGameFileAsync() => Task.FromResult<string?>(null);
+
+        public Task<string?> PickFolderAsync() => Task.FromResult<string?>(null);
+
+        public Task<string?> PickCatalogFileAsync() => Task.FromResult<string?>(null);
+
+        public Task<string?> PickImageAsync() => Task.FromResult<string?>(null);
+    }
+
+    [Fact]
+    public async Task My_games_shows_only_owned_or_playable_games_and_the_checklist_shows_all()
+    {
+        var vm = Create(new SampleLibraryService());
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        vm.Games.Should().OnlyContain(g => g.IsOwned || g.IsPlayable);
+        vm.Games.Count.Should().BeLessThan(SampleLibraryService.Games.Count);
+
+        vm.ShowChecklist = true;
+        vm.Games.Should().HaveCount(SampleLibraryService.Games.Count);
+    }
+
+    [Fact]
+    public async Task Filters_by_region_genre_publisher_year_and_status()
+    {
+        var vm = await LoadedSampleLibrary();
+
+        vm.Regions.Should().StartWith(LibraryViewModel.Any).And.Contain("Japan");
+        vm.SelectedRegion = "Japan";
+        vm.Games.Select(g => g.Title).Should().BeEquivalentTo("Rocket Rally", "Dragon Lantern");
+
+        vm.SelectedRegion = LibraryViewModel.Any;
+        vm.SelectedGenre = "Shooter";
+        vm.SelectedPublisher = "Kitefox";
+        vm.Games.Select(g => g.Title).Should().Equal("Sky Duelist");
+
+        vm.SelectedGenre = vm.SelectedPublisher = LibraryViewModel.Any;
+        vm.SelectedYear = "1988";
+        vm.SelectedStatus = "Playing";
+        vm.Games.Select(g => g.Title).Should().Equal("Crystal Caverns");
+    }
+
+    [Fact]
+    public async Task Adding_a_folder_scans_and_fills_an_empty_library()
+    {
+        var vm = Create(new SampleLibraryService(empty: true));
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.IsEmptyLibrary.Should().BeTrue();
+
+        await vm.AddFolderCommand.ExecuteAsync(null);
+
+        vm.IsScanning.Should().BeFalse();
+        vm.ScanStatus.Should().Be($"Found {SampleLibraryService.Games.Count} games");
+        vm.IsEmptyLibrary.Should().BeFalse();
+        vm.Games.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public async Task Opening_details_navigates_with_the_game_key()
+    {
+        var vm = await LoadedSampleLibrary();
+
+        vm.OpenDetailsCommand.Execute(vm.Games[0]);
+
+        _navigation.History.Should().Equal((AppPage.GameDetails, vm.Games[0].Game.Key));
     }
 
     [Fact]

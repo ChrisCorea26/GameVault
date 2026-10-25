@@ -7,5 +7,15 @@ public sealed class SampleGameFilePicker : IGameFilePicker
 {
     public const string SamplePath = @"C:\Games\NES\Sample Game.nes";
 
+    public const string SampleFolder = @"C:\Games\NES";
+
+    public const string SampleCatalog = @"C:\Games\Catalogs\Sample Catalog.dat";
+
     public Task<string?> PickGameFileAsync() => Task.FromResult<string?>(SamplePath);
+
+    public Task<string?> PickFolderAsync() => Task.FromResult<string?>(SampleFolder);
+
+    public Task<string?> PickCatalogFileAsync() => Task.FromResult<string?>(SampleCatalog);
+
+    public Task<string?> PickImageAsync() => Task.FromResult<string?>(null);
 }

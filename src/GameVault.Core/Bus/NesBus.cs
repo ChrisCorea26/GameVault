@@ -32,8 +32,8 @@ public sealed class NesBus : ICpuBus, IStateful
     private long _ppuMasterClock;
     private int _ppuLag = DefaultPpuLag;
 
-    private readonly StandardController _port1;
-    private readonly StandardController _port2;
+    private IInputDevice _port1;
+    private IInputDevice _port2;
     private readonly Apu2A03 _apu;
     private readonly bool _mapperCycleHooks;
 
@@ -56,6 +56,19 @@ public sealed class NesBus : ICpuBus, IStateful
     }
 
     public void AttachCpu(Cpu6502 cpu) => _cpu = cpu;
+
+    /// <summary>Plugs a device into port 0 ($4016) or 1 ($4017).</summary>
+    public void SetPort(int port, IInputDevice device)
+    {
+        if (port == 0)
+        {
+            _port1 = device;
+        }
+        else
+        {
+            _port2 = device;
+        }
+    }
 
     /// <summary>
     /// Master clocks the PPU trails the CPU. The real CPU/PPU alignment varies per power-on; 1 is the
@@ -103,10 +116,10 @@ public sealed class NesBus : ICpuBus, IStateful
                     EndCycle(_readAfter);
                     return status;
                 case 0x4016:
-                    value = (byte)((_openBus & 0xE0) | _port1.Read());
+                    value = (byte)((_openBus & 0xE0) | (_port1.Read() & 0x1F));
                     break;
                 case 0x4017:
-                    value = (byte)((_openBus & 0xE0) | _port2.Read());
+                    value = (byte)((_openBus & 0xE0) | (_port2.Read() & 0x1F));
                     break;
                 default:
                     value = _openBus;

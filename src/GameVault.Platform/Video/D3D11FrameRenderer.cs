@@ -122,7 +122,7 @@ public sealed class D3D11FrameRenderer : IDisposable
 
         _width = width;
         _height = height;
-        _context.OMSetRenderTargets((ID3D11RenderTargetView?)null);
+        _context.ClearState(); // releases the back buffer before resizing; Draw sets everything again
         _target?.Dispose();
         _target = null;
         _swapChain.ResizeBuffers(0, (uint)width, (uint)height, Format.Unknown, SwapChainFlags.None).CheckError();

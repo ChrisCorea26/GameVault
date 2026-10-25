@@ -9,7 +9,7 @@ public class SettingsViewModelTests
     public async Task Load_copies_saved_settings_without_saving_them_back()
     {
         var store = new InMemorySettingsStore(new AppSettings { CropOverscan = false, RunAheadFrames = 3, PauseWhenInactive = false });
-        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store));
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
 
         await vm.LoadCommand.ExecuteAsync(null);
 
@@ -23,7 +23,7 @@ public class SettingsViewModelTests
     public async Task Changes_are_saved_immediately()
     {
         var store = new InMemorySettingsStore();
-        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store));
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
         await vm.LoadCommand.ExecuteAsync(null);
 
         vm.RunAheadFrames = 2;
@@ -39,7 +39,7 @@ public class SettingsViewModelTests
     public async Task Display_preset_and_pixel_shape_are_saved()
     {
         var store = new InMemorySettingsStore(new AppSettings { DisplayPreset = DisplayPreset.Smooth });
-        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store));
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
         await vm.LoadCommand.ExecuteAsync(null);
         vm.DisplayPresetIndex.Should().Be(1);
 
@@ -55,7 +55,7 @@ public class SettingsViewModelTests
     public async Task Out_of_range_run_ahead_from_disk_is_clamped()
     {
         var store = new InMemorySettingsStore(new AppSettings { RunAheadFrames = 99 });
-        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store));
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
 
         await vm.LoadCommand.ExecuteAsync(null);
 
@@ -66,7 +66,7 @@ public class SettingsViewModelTests
     public async Task Transient_negative_run_ahead_is_not_saved()
     {
         var store = new InMemorySettingsStore();
-        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store));
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
         await vm.LoadCommand.ExecuteAsync(null);
 
         vm.RunAheadFrames = -1;
@@ -78,7 +78,7 @@ public class SettingsViewModelTests
     public async Task Reset_restores_and_saves_defaults()
     {
         var store = new InMemorySettingsStore(new AppSettings { CropOverscan = false, RunAheadFrames = 0 });
-        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store));
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
         await vm.LoadCommand.ExecuteAsync(null);
 
         await vm.ResetToDefaultsCommand.ExecuteAsync(null);

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Page
+    x:Class="GameVault.App.Views.CatalogImportPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d">
+
+  <!-- SPEC §6.1: GameVault ships no catalog data; the user brings a DAT file (for example from No-Intro). -->
+  <StackPanel MaxWidth="640" Padding="32,16,32,32" HorizontalAlignment="Left" Spacing="16">
+    <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Import a catalog" />
+    <TextBlock
+        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+        Text="A catalog lists every NES release so GameVault can name your games and show a complete checklist of what you own. Choose a DAT file in the Logiqx XML format, such as a No-Intro NES DAT you downloaded."
+        TextWrapping="Wrap" />
+
+    <InfoBar IsClosable="False" IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}" Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}" Severity="Error" />
+
+    <!-- Step 1: choose -->
+    <Button
+        x:Name="ChooseButton"
+        Command="{x:Bind ViewModel.ChooseFileCommand}"
+        Content="Choose a DAT file…"
+        Style="{StaticResource AccentButtonStyle}"
+        Visibility="{x:Bind ViewModel.IsChoosing, Mode=OneWay}" />
+
+    <!-- Step 2: preview -->
+    <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsPreviewing, Mode=OneWay}">
+      <TextBlock Text="{x:Bind ViewModel.PreviewText, Mode=OneWay}" TextWrapping="Wrap" />
+      <StackPanel Orientation="Horizontal" Spacing="8">
+        <Button Command="{x:Bind ViewModel.ImportCommand}" Content="Import" Style="{StaticResource AccentButtonStyle}" />
+        <Button Command="{x:Bind ViewModel.StartOverCommand}" Content="Choose another file" />
+      </StackPanel>
+    </StackPanel>
+
+    <!-- Step 3: importing -->
+    <StackPanel Orientation="Horizontal" Spacing="12" Visibility="{x:Bind ViewModel.IsImporting, Mode=OneWay}">
+      <ProgressRing IsActive="{x:Bind ViewModel.IsImporting, Mode=OneWay}" />
+      <TextBlock VerticalAlignment="Center" Text="Importing…" />
+    </StackPanel>
+
+    <!-- Step 4: done -->
+    <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.IsDone, Mode=OneWay}">
+      <TextBlock Text="{x:Bind ViewModel.ResultText, Mode=OneWay}" TextWrapping="Wrap" />
+      <Button Command="{x:Bind ViewModel.FinishCommand}" Content="Back to the library" Style="{StaticResource AccentButtonStyle}" />
+    </StackPanel>
+  </StackPanel>
+</Page>

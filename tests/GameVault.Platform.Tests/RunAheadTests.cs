@@ -69,3 +69,28 @@ public class RunAheadTests
         return console.SaveSnapshot();
     }
 }
+
+public class ProfileApplicationTests
+{
+    [Fact]
+    public async Task Host_applies_header_corrections_input_type_and_run_ahead_safety()
+    {
+        using var host = new EmulatorHost(new GameVault.Platform.Video.FrameSink(), new GameVault.Platform.Input.InputService(GameVault.Platform.Input.KeyboardMapping.CreateDefault()));
+        host.ProfileResolver = sha1 => new GameVault.Library.Profiles.GameProfile
+        {
+            Sha1 = sha1,
+            Input = GameVault.Library.Profiles.InputType.Zapper,
+            RunAheadSafe = false,
+            RemoveSpriteLimit = true,
+            Header = new GameVault.Library.Profiles.HeaderCorrection { Mirroring = "vertical", Battery = true },
+        };
+
+        host.Load(BankedRom.Build(0, 4, 8), "Light gun game");
+
+        host.UsesZapper.Should().BeTrue();
+        host.GameKey.Should().StartWith("sha1:");
+        (await host.InspectAsync(c => c.InputSetup)).Should().Be(GameVault.Core.Input.InputSetup.Zapper);
+        (await host.InspectAsync(c => c.Mapper.Mirroring)).Should().Be(GameVault.Core.Cartridge.Mirroring.Vertical);
+        (await host.InspectAsync(c => c.Ppu.RemoveSpriteLimit)).Should().BeTrue();
+    }
+}

@@ -6,7 +6,7 @@ namespace GameVault.Core.Input;
 /// The standard NES controller: a 4021 shift register. While strobe is high it keeps reloading the
 /// buttons; after strobe goes low, each read shifts out one button, then 1s (NESdev Wiki: "Standard controller").
 /// </summary>
-public sealed class StandardController : IStateful
+public sealed class StandardController : IInputDevice
 {
     private static readonly StateTag Tag = StateTag.From("JOY ");
 

@@ -12,6 +12,45 @@
     <StackPanel MaxWidth="760" Padding="32,16,32,32" HorizontalAlignment="Left" Spacing="8">
       <TextBlock Margin="0,0,0,8" Style="{StaticResource TitleTextBlockStyle}" Text="Settings" />
 
+      <!-- Library (SPEC §6.2) -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Library" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Game folders" />
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="GameVault looks for .nes and .zip files in these folders and notices when you add or remove games."
+              TextWrapping="Wrap" />
+          <ItemsRepeater ItemsSource="{x:Bind ViewModel.Library.Folders}">
+            <ItemsRepeater.ItemTemplate>
+              <DataTemplate x:DataType="vm:LibraryFolderViewModel">
+                <Grid Padding="0,4" ColumnSpacing="8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <FontIcon FontSize="16" Glyph="&#xE8B7;" />
+                  <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{x:Bind Path}" TextTrimming="CharacterEllipsis" />
+                  <Button Grid.Column="2" Command="{x:Bind RemoveCommand}" Content="Remove" />
+                </Grid>
+              </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
+          </ItemsRepeater>
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Text="No folders yet."
+              Visibility="{x:Bind ViewModel.Library.HasNoFolders, Mode=OneWay}" />
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Command="{x:Bind ViewModel.Library.AddFolderCommand}" Content="Add a folder…" />
+            <Button Command="{x:Bind ViewModel.Library.RescanCommand}" Content="Look for new games" />
+            <ProgressRing Width="20" Height="20" IsActive="{x:Bind ViewModel.Library.IsScanning, Mode=OneWay}" />
+            <TextBlock VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.Library.Status, Mode=OneWay}" />
+          </StackPanel>
+        </StackPanel>
+      </Border>
+
       <!-- Video -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Video" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
@@ -143,6 +182,29 @@
               IsOn="{x:Bind ViewModel.PauseWhenInactive, Mode=TwoWay}"
               OffContent=""
               OnContent="" />
+        </Grid>
+      </Border>
+
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <Grid ColumnSpacing="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="Rewind memory" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="Hold Backspace or the left shoulder button to rewind. More memory keeps a longer history. Takes effect the next time you start a game."
+                TextWrapping="Wrap" />
+          </StackPanel>
+          <ComboBox
+              Grid.Column="1"
+              VerticalAlignment="Center"
+              AutomationProperties.Name="Rewind memory"
+              ItemsSource="{x:Bind ViewModel.RewindMemoryOptions}"
+              SelectedIndex="{x:Bind ViewModel.RewindMemoryIndex, Mode=TwoWay}" />
         </Grid>
       </Border>
 

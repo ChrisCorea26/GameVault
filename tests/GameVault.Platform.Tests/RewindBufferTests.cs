@@ -1,0 +1,109 @@
+using GameVault.Core;
+using GameVault.Core.Tests.Cartridge;
+using GameVault.Platform.Emulation;
+
+namespace GameVault.Platform.Tests;
+
+public class RewindBufferTests
+{
+    private static NesConsole NewConsole()
+    {
+        var console = NesConsole.FromBytes(BankedRom.Build(4, 16, 128));
+        console.Power();
+        return console;
+    }
+
+    [Fact]
+    public void Stepping_back_restores_the_exact_earlier_state()
+    {
+        var console = NewConsole();
+        var rewind = new RewindBuffer();
+        var snapshots = new List<byte[]>();
+        for (var frame = 0; frame < 200; frame++)
+        {
+            if (frame % RewindBuffer.Interval == 0)
+            {
+                snapshots.Add(console.SaveSnapshot());
+            }
+
+            rewind.OnFrame(console);
+            console.RunFrame();
+        }
+
+        // Walk all the way back; each step must equal the snapshot taken at that point.
+        for (var i = snapshots.Count - 1; i >= 0; i--)
+        {
+            rewind.StepBack(console).Should().BeTrue();
+            console.SaveSnapshot().Should().Equal(snapshots[i], $"entry {i}");
+        }
+
+        rewind.StepBack(console).Should().BeFalse();
+    }
+
+    [Fact]
+    public void Capturing_resumes_cleanly_after_rewinding()
+    {
+        var console = NewConsole();
+        var rewind = new RewindBuffer();
+        for (var frame = 0; frame < 150; frame++)
+        {
+            rewind.OnFrame(console);
+            console.RunFrame();
+        }
+
+        for (var i = 0; i < 40; i++)
+        {
+            rewind.StepBack(console);
+        }
+
+        var expected = new List<byte[]>();
+        for (var frame = 0; frame < 80; frame++)
+        {
+            var before = console.SaveSnapshot();
+            var count = rewind.Count;
+            rewind.OnFrame(console);
+            if (rewind.Count > count)
+            {
+                expected.Add(before);
+            }
+
+            console.RunFrame();
+        }
+
+        expected.Should().HaveCount(40);
+
+        for (var i = expected.Count - 1; i >= 0; i--)
+        {
+            rewind.StepBack(console);
+            console.SaveSnapshot().Should().Equal(expected[i]);
+        }
+    }
+
+    [Fact]
+    public void A_minute_fits_easily_in_the_default_cap_and_small_caps_are_respected()
+    {
+        var console = NewConsole();
+        var rewind = new RewindBuffer();
+        for (var frame = 0; frame < 600; frame++)
+        {
+            rewind.OnFrame(console);
+            console.RunFrame();
+        }
+
+        // SPEC §7.2: at least 60 s within 256 MB. Extrapolate from the measured size per entry.
+        var bytesPerEntry = (double)rewind.BytesUsed / rewind.Count;
+        var minuteBytes = bytesPerEntry * 60 * EmulatorHost.NtscFrameRate / RewindBuffer.Interval;
+        minuteBytes.Should().BeLessThan(RewindBuffer.DefaultCapacity / 16.0, $"{bytesPerEntry:F0} bytes per entry");
+        rewind.Duration.Should().BeCloseTo(TimeSpan.FromSeconds(300 / EmulatorHost.NtscFrameRate * 2), TimeSpan.FromMilliseconds(50));
+
+        rewind.CapacityBytes = 64 * 1024;
+        for (var frame = 0; frame < 400; frame++)
+        {
+            rewind.OnFrame(console);
+            console.RunFrame();
+        }
+
+        rewind.BytesUsed.Should().BeLessThanOrEqualTo(64 * 1024);
+        rewind.StepBack(console).Should().BeTrue();
+    }
+}

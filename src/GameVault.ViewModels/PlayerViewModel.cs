@@ -11,10 +11,29 @@ public sealed partial class PlayerViewModel(
     INavigationService navigation,
     ISettingsStore settingsStore,
     IInputDevicesService devices,
-    SaveStatesViewModel saveStates) : ObservableObject
+    TimelineViewModel timeline,
+    ILibraryService library) : ObservableObject
 {
-    /// <summary>The "Save states" flyout.</summary>
-    public SaveStatesViewModel SaveStates => saveStates;
+    /// <summary>The save-state timeline flyout (SPEC §7.1).</summary>
+    public TimelineViewModel Timeline => timeline;
+
+    /// <summary>"Resume where you left off" (SPEC §7.1): the automatic exit save of the last session.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasResumeOffer))]
+    public partial TimelineItem? ResumeOffer { get; private set; }
+
+    public bool HasResumeOffer => ResumeOffer is not null;
+
+    [ObservableProperty]
+    public partial bool IsRewinding { get; private set; }
+
+    /// <summary>The scrub bar: 0–1 of the available history, shown while rewinding.</summary>
+    [ObservableProperty]
+    public partial double RewindSeconds { get; private set; }
+
+    /// <summary>The game is set up for the Zapper, so the mouse aims (SPEC §7.5).</summary>
+    [ObservableProperty]
+    public partial bool UsesZapper { get; private set; }
 
     private bool _attached;
     private bool _pauseWhenInactive = true;
@@ -62,10 +81,19 @@ public sealed partial class PlayerViewModel(
         _ => string.Empty,
     };
 
-    /// <summary>Called when the Player page loads, with the game file chosen by the user.</summary>
+    /// <summary>
+    /// Called when the Player page loads, with a <see cref="GameLaunch"/> or a plain file path.
+    /// </summary>
     [RelayCommand]
-    private async Task StartAsync(string? path)
+    private async Task StartAsync(object? parameter)
     {
+        var launch = parameter switch
+        {
+            GameLaunch l => l,
+            string p => new GameLaunch(p),
+            _ => null,
+        };
+        var path = launch?.Path;
         Attach();
         ErrorMessage = null;
         if (string.IsNullOrEmpty(path))
@@ -89,7 +117,34 @@ public sealed partial class PlayerViewModel(
             IsLoading = false;
             Refresh();
         }
+
+        if (emulator.GameKey is { } key && emulator.Status == EmulatorStatus.Running)
+        {
+            timeline.CanSave = true;
+            await timeline.ShowAsync(key);
+            if (launch?.StateId is { } stateId)
+            {
+                await timeline.Service.LoadAsync(key, stateId);
+            }
+            else
+            {
+                ResumeOffer = await timeline.Service.GetResumePointAsync(key);
+            }
+        }
     }
+
+    [RelayCommand]
+    private async Task ResumeAsync()
+    {
+        if (ResumeOffer is { } offer && emulator.GameKey is { } key)
+        {
+            ResumeOffer = null;
+            await timeline.Service.LoadAsync(key, offer.Id);
+        }
+    }
+
+    [RelayCommand]
+    private void DismissResume() => ResumeOffer = null;
 
     [RelayCommand]
     private void TogglePause()
@@ -133,7 +188,14 @@ public sealed partial class PlayerViewModel(
     /// <summary>Called when the Player page is left: stops the game and detaches from the service.</summary>
     public void Stop()
     {
+        if (emulator.Status is EmulatorStatus.Running or EmulatorStatus.Paused && emulator.GameKey is not null)
+        {
+            // Queued before the stop, so the emulation thread captures the state first (SPEC §7.1).
+            _ = timeline.Service.SaveOnExitAsync();
+        }
+
         emulator.Stop();
+        timeline.Detach();
         Detach();
     }
 
@@ -143,7 +205,9 @@ public sealed partial class PlayerViewModel(
         {
             emulator.StatusChanged += OnStatusChanged;
             emulator.Notice += OnNotice;
-            saveStates.Service.Notice += OnNotice;
+            emulator.RewindChanged += OnRewindChanged;
+            emulator.PlaytimeElapsed += OnPlaytimeElapsed;
+            timeline.Service.Notice += OnNotice;
             devices.ControllerDisconnected += OnControllerDisconnected;
             devices.Changed += OnDevicesChanged;
             devices.Notice += OnNotice;
@@ -158,7 +222,9 @@ public sealed partial class PlayerViewModel(
         {
             emulator.StatusChanged -= OnStatusChanged;
             emulator.Notice -= OnNotice;
-            saveStates.Service.Notice -= OnNotice;
+            emulator.RewindChanged -= OnRewindChanged;
+            emulator.PlaytimeElapsed -= OnPlaytimeElapsed;
+            timeline.Service.Notice -= OnNotice;
             devices.ControllerDisconnected -= OnControllerDisconnected;
             devices.Changed -= OnDevicesChanged;
             devices.Notice -= OnNotice;
@@ -192,10 +258,29 @@ public sealed partial class PlayerViewModel(
 
     private void OnStatusChanged(object? sender, EventArgs e) => Refresh();
 
+    private void OnRewindChanged(object? sender, EventArgs e)
+    {
+        IsRewinding = emulator.IsRewinding;
+        RewindSeconds = emulator.RewindSeconds;
+        if (IsRewinding)
+        {
+            ResumeOffer = null; // the player has moved on
+        }
+    }
+
+    private async void OnPlaytimeElapsed(object? sender, TimeSpan played)
+    {
+        if (emulator.GameKey is { } key)
+        {
+            await library.AddPlaytimeAsync(key, played);
+        }
+    }
+
     private void Refresh()
     {
         Status = emulator.Status;
         Title = emulator.GameTitle ?? "Player";
+        UsesZapper = emulator.UsesZapper;
         if (emulator.Status == EmulatorStatus.Faulted)
         {
             ErrorMessage = emulator.FaultMessage;

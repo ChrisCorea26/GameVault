@@ -45,6 +45,12 @@ public sealed partial class ShellViewModel : ObservableObject
                 // Only sample data has a game to show without the user picking one.
                 _navigation.NavigateTo(AppPage.Player, _environment.IsSampleData ? SampleData.SampleGameFilePicker.SamplePath : null);
                 break;
+            case AppPage.GameDetails:
+                _navigation.NavigateTo(AppPage.GameDetails, _environment.IsSampleData ? "sample:2" : null);
+                break;
+            case AppPage.CatalogImport:
+                _navigation.NavigateTo(AppPage.CatalogImport);
+                break;
         }
     }
 

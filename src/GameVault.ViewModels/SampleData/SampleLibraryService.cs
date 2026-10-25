@@ -1,4 +1,7 @@
+using GameVault.Library.Catalog;
 using GameVault.Library.Models;
+using GameVault.Library.Profiles;
+using GameVault.Library.Scanning;
 using GameVault.ViewModels.Services;
 
 namespace GameVault.ViewModels.SampleData;
@@ -40,8 +43,117 @@ public sealed class SampleLibraryService : ILibraryService
             Ownership.DigitalDump, PlayStatus.Unplayed, licensed: false),
     ];
 
+    private readonly List<GameEntry> _games;
+    private readonly List<string> _folders = [SampleGameFilePicker.SampleFolder];
+    private readonly Dictionary<string, GameProfile> _overrides = [];
+
+    /// <param name="empty">Start with nothing, to preview the first-run screen.</param>
+    public SampleLibraryService(bool empty = false)
+    {
+        _games = empty ? [] : [.. Games];
+        if (empty)
+        {
+            _folders.Clear();
+        }
+    }
+
+    public event EventHandler? Changed;
+
     public Task<IReadOnlyList<GameEntry>> GetGamesAsync(CancellationToken cancellationToken = default) =>
-        Task.FromResult(Games);
+        Task.FromResult<IReadOnlyList<GameEntry>>(_games.ToList());
+
+    public Task<GameEntry?> GetGameAsync(string key, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_games.FirstOrDefault(g => g.Key == key));
+
+    public Task SaveGameAsync(GameEntry game)
+    {
+        var index = _games.FindIndex(g => g.Key == game.Key);
+        if (index >= 0)
+        {
+            _games[index] = game;
+            Changed?.Invoke(this, EventArgs.Empty);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task AddPlaytimeAsync(string key, TimeSpan time)
+    {
+        var index = _games.FindIndex(g => g.Key == key);
+        if (index >= 0)
+        {
+            _games[index] = _games[index] with { Playtime = _games[index].Playtime + time, LastPlayed = DateTimeOffset.Now };
+        }
+
+        return Task.CompletedTask;
+    }
+
+    public Task<IReadOnlyList<string>> GetFoldersAsync() => Task.FromResult<IReadOnlyList<string>>(_folders.ToList());
+
+    /// <summary>"Finds" the sample games in any folder, with a short simulated scan.</summary>
+    public async Task<ScanResult> AddFolderAsync(string path, IProgress<ScanProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        if (!_folders.Contains(path))
+        {
+            _folders.Add(path);
+        }
+
+        return await ScanAsync(progress, cancellationToken);
+    }
+
+    public Task RemoveFolderAsync(string path)
+    {
+        _folders.Remove(path);
+        Changed?.Invoke(this, EventArgs.Empty);
+        return Task.CompletedTask;
+    }
+
+    public async Task<ScanResult> ScanAsync(IProgress<ScanProgress>? progress = null, CancellationToken cancellationToken = default)
+    {
+        var added = 0;
+        for (var i = 0; i < Games.Count; i++)
+        {
+            progress?.Report(new ScanProgress(Games.Count, i, Games[i].RomPath));
+            await Task.Delay(15, cancellationToken);
+            if (_games.All(g => g.Key != Games[i].Key))
+            {
+                _games.Add(Games[i]);
+                added++;
+            }
+        }
+
+        progress?.Report(new ScanProgress(Games.Count, Games.Count, null));
+        Changed?.Invoke(this, EventArgs.Empty);
+        return new ScanResult(added, 0, 0, Games.Count - added, 0);
+    }
+
+    public Task<CatalogPreview> PreviewCatalogAsync(string path) =>
+        Task.FromResult(new CatalogPreview(Path.GetFileNameWithoutExtension(path.Replace('\\', '/')), 677, 652, 3));
+
+    public Task<CatalogImportResult> ImportCatalogAsync(string path)
+    {
+        Changed?.Invoke(this, EventArgs.Empty);
+        return Task.FromResult(new CatalogImportResult(Path.GetFileName(path.Replace('\\', '/')), 677, 3));
+    }
+
+    public Task<GameProfile> GetProfileAsync(string key) =>
+        Task.FromResult(new GameProfile { RunAheadSafe = true }.Merge(_overrides.GetValueOrDefault(key)));
+
+    public Task<GameProfile?> GetProfileOverridesAsync(string key) => Task.FromResult(_overrides.GetValueOrDefault(key));
+
+    public Task SaveProfileOverridesAsync(string key, GameProfile? overrides)
+    {
+        if (overrides is null)
+        {
+            _overrides.Remove(key);
+        }
+        else
+        {
+            _overrides[key] = overrides;
+        }
+
+        return Task.CompletedTask;
+    }
 
     private static GameEntry Game(
         int id,

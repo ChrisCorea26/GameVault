@@ -48,6 +48,11 @@ public sealed class GameTileViewModel(GameEntry game)
 
     public bool IsPlayable => Game.IsPlayable;
 
+    /// <summary>The user's own cover picture (SPEC §6.5), as a file URI.</summary>
+    public Uri? CoverUri => Game.CoverPath is { } path ? new Uri(path) : null;
+
+    public bool HasCover => Game.CoverPath is not null;
+
     /// <summary>Plain-language playtime, or an empty string if never played.</summary>
     public string PlaytimeText => Game.Playtime switch
     {

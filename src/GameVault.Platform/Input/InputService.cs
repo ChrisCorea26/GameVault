@@ -44,6 +44,31 @@ public sealed class InputService
         }
     }
 
+    private (int X, int Y)? _zapperAim;
+    private bool _zapperTrigger;
+
+    /// <summary>
+    /// The Zapper, driven by the mouse over the game (SPEC §4.7): the aim point in NES pixels (null when the
+    /// pointer is off the picture) and the left button as the trigger. Set on the UI thread.
+    /// </summary>
+    public void SetZapper((int X, int Y)? aim, bool trigger)
+    {
+        lock (_gate)
+        {
+            _zapperAim = aim;
+            _zapperTrigger = trigger;
+        }
+    }
+
+    /// <summary>The Zapper state for the next frame (emulation thread).</summary>
+    public ((int X, int Y)? Aim, bool Trigger) SampleZapper()
+    {
+        lock (_gate)
+        {
+            return (_zapperAim, _zapperTrigger);
+        }
+    }
+
     /// <summary>When false (default), the most recently pressed direction on each axis wins.</summary>
     public bool AllowOppositeDirections { get; set; }
 
@@ -199,6 +224,7 @@ public sealed class InputService
             _heldKeys.Clear();
             _heldHotkeys.Clear();
             _padHotkeys.Clear();
+            _zapperTrigger = false;
         }
     }
 

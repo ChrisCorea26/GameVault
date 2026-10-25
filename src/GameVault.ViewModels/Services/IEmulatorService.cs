@@ -19,6 +19,24 @@ public interface IEmulatorService
     /// <summary>File name of the loaded game, without its extension.</summary>
     string? GameTitle { get; }
 
+    /// <summary>The running game's library key ("sha1:…", headerless ROM hash); null when idle.</summary>
+    string? GameKey { get; }
+
+    /// <summary>True when the game is set up for the Zapper, so the mouse aims (SPEC §7.5).</summary>
+    bool UsesZapper { get; }
+
+    /// <summary>True while rewind is held (SPEC §7.2).</summary>
+    bool IsRewinding { get; }
+
+    /// <summary>How many seconds of rewind history are available.</summary>
+    double RewindSeconds { get; }
+
+    /// <summary>Raised on the UI thread when rewinding starts, moves, or stops.</summary>
+    event EventHandler? RewindChanged;
+
+    /// <summary>Time actually played (running, not paused), reported every minute and on pause or stop.</summary>
+    event EventHandler<TimeSpan>? PlaytimeElapsed;
+
     /// <summary>Plain-language reason for <see cref="EmulatorStatus.Faulted"/>.</summary>
     string? FaultMessage { get; }
 

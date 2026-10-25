@@ -25,6 +25,10 @@ public sealed partial class GameView : Control
     public static readonly DependencyProperty CropOverscanProperty = DependencyProperty.Register(
         nameof(CropOverscan), typeof(bool), typeof(GameView), new PropertyMetadata(true));
 
+    /// <summary>When true the mouse aims the Zapper and the left button pulls the trigger (SPEC §4.7, §7.5).</summary>
+    public static readonly DependencyProperty ZapperEnabledProperty = DependencyProperty.Register(
+        nameof(ZapperEnabled), typeof(bool), typeof(GameView), new PropertyMetadata(false, OnZapperEnabledChanged));
+
     private const int FrameWidth = 256;
     private const int FrameHeight = 240;
     private const int OverscanLines = 8;
@@ -50,6 +54,78 @@ public sealed partial class GameView : Control
     {
         get => (bool)GetValue(CropOverscanProperty);
         set => SetValue(CropOverscanProperty, value);
+    }
+
+    public bool ZapperEnabled
+    {
+        get => (bool)GetValue(ZapperEnabledProperty);
+        set => SetValue(ZapperEnabledProperty, value);
+    }
+
+    private static void OnZapperEnabledChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        var view = (GameView)d;
+        view.ProtectedCursor = (bool)e.NewValue
+            ? Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Cross)
+            : null;
+        if (!(bool)e.NewValue)
+        {
+            view._input?.SetZapper(null, trigger: false);
+        }
+    }
+
+    protected override void OnPointerMoved(PointerRoutedEventArgs e)
+    {
+        UpdateZapper(e);
+        base.OnPointerMoved(e);
+    }
+
+    protected override void OnPointerPressed(PointerRoutedEventArgs e)
+    {
+        Focus(FocusState.Pointer);
+        UpdateZapper(e);
+        base.OnPointerPressed(e);
+    }
+
+    protected override void OnPointerReleased(PointerRoutedEventArgs e)
+    {
+        UpdateZapper(e);
+        base.OnPointerReleased(e);
+    }
+
+    protected override void OnPointerExited(PointerRoutedEventArgs e)
+    {
+        if (ZapperEnabled)
+        {
+            _input?.SetZapper(null, trigger: false); // pointing away from the screen
+        }
+
+        base.OnPointerExited(e);
+    }
+
+    /// <summary>Maps the pointer to NES pixels through the same layout the renderer uses.</summary>
+    private void UpdateZapper(PointerRoutedEventArgs e)
+    {
+        if (!ZapperEnabled || _input is null)
+        {
+            return;
+        }
+
+        var point = e.GetCurrentPoint(this);
+        var scale = XamlRoot?.RasterizationScale ?? 1.0;
+        var rect = DisplayLayout.Compute(
+            (int)(ActualWidth * scale),
+            (int)(ActualHeight * scale),
+            _settings.DisplayPreset,
+            CropOverscan,
+            _settings.TvPixelShape);
+        var px = point.Position.X * scale - rect.X;
+        var py = point.Position.Y * scale - rect.Y;
+        (int X, int Y)? aim = px >= 0 && py >= 0 && px < rect.Width && py < rect.Height
+            ? ((int)(px * FrameWidth / rect.Width), rect.SourceTop + (int)(py * rect.SourceHeight / rect.Height))
+            : null;
+        _input.SetZapper(aim, point.Properties.IsLeftButtonPressed);
+        e.Handled = true;
     }
 
     protected override void OnApplyTemplate()

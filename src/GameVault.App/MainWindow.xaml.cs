@@ -2,6 +2,7 @@ using System.ComponentModel;
 using GameVault.App.Services;
 using GameVault.Platform.Input;
 using GameVault.Platform.Input.Controllers;
+using GameVault.Platform.Storage;
 using GameVault.ViewModels;
 using GameVault.ViewModels.Services;
 using Microsoft.UI.Xaml;
@@ -37,6 +38,11 @@ public sealed partial class MainWindow : Window
     private async void RootGrid_Loaded(object sender, RoutedEventArgs e)
     {
         ViewModel.StartCommand.Execute(null);
+
+        if (App.TryGetService<LibraryService>() is { } library)
+        {
+            await library.StartWatchingAsync(); // folder changes rescan the library (SPEC §6.2)
+        }
 
         if (App.TryGetService<ControllerManager>() is { } controllers)
         {

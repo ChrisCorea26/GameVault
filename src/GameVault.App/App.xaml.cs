@@ -1,3 +1,6 @@
+using GameVault.Library.Data;
+using GameVault.Library.Profiles;
+using GameVault.Library.Timeline;
 using GameVault.Platform.Audio;
 using GameVault.Platform.Emulation;
 using GameVault.Platform.Input;
@@ -58,6 +61,22 @@ public partial class App : Application
 
         _window = _services.GetRequiredService<MainWindow>();
         _window.Activate();
+
+        // Housekeeping off the UI thread: states deleted last session are removed for good (SPEC §7.1 undo).
+        if (_services.GetService<TimelineStore>() is { } timeline)
+        {
+            _ = Task.Run(() =>
+            {
+                try
+                {
+                    timeline.PurgeDeleted();
+                }
+                catch (IOException ex)
+                {
+                    CrashLog.Write(new AppPaths(), ex, "Purging deleted save states");
+                }
+            });
+        }
     }
 
     private static ServiceProvider ConfigureServices(AppEnvironment environment)
@@ -68,27 +87,37 @@ public partial class App : Application
         if (environment.IsSampleData)
         {
             // Fake services: a realistic library with no ROMs and no writes to disk (SPEC §9.1).
-            services.AddSingleton<ILibraryService, SampleLibraryService>();
+            services.AddSingleton<ILibraryService>(_ => new SampleLibraryService(environment.IsEmptySampleLibrary));
             services.AddSingleton<ISettingsStore>(_ => new InMemorySettingsStore());
             services.AddSingleton<IEmulatorService>(sp => new SampleEmulatorHost(sp.GetRequiredService<FrameSink>()));
             services.AddSingleton<IGameFilePicker, SampleGameFilePicker>();
             services.AddSingleton<IInputDevicesService, SampleInputDevicesService>();
-            services.AddSingleton<ISaveStateService, SampleSaveStateService>();
+            services.AddSingleton<ITimelineService, SampleTimelineService>();
         }
         else
         {
             services.AddSingleton(_ => new AppPaths());
-            services.AddSingleton<ILibraryService, EmptyLibraryService>();
+            services.AddSingleton(sp => new LibraryDatabase(sp.GetRequiredService<AppPaths>().LibraryDatabase));
+            services.AddSingleton(_ => new GameProfiles(Path.Combine(AppContext.BaseDirectory, "data", "gamedb")));
+            services.AddSingleton<LibraryService>();
+            services.AddSingleton<ILibraryService>(sp => sp.GetRequiredService<LibraryService>());
             services.AddSingleton<ISettingsStore, JsonSettingsStore>();
             services.AddSingleton(sp => new EmulatorHost(
                 sp.GetRequiredService<FrameSink>(),
                 sp.GetRequiredService<InputService>(),
                 sp.GetRequiredService<ISettingsStore>(),
                 new WasapiAudioOutput(),
-                sp.GetRequiredService<AppPaths>()));
+                sp.GetRequiredService<AppPaths>())
+            {
+                ProfileResolver = sp.GetRequiredService<LibraryService>().ResolveProfile,
+            });
             services.AddSingleton<IEmulatorService>(sp => sp.GetRequiredService<EmulatorHost>());
-            services.AddSingleton<SaveStateStore>();
-            services.AddSingleton<ISaveStateService, SaveStateService>();
+            services.AddSingleton(sp => new TimelineStore(sp.GetRequiredService<AppPaths>().StatesDirectory));
+            services.AddSingleton<ITimelineService>(sp => new TimelineService(
+                sp.GetRequiredService<EmulatorHost>(),
+                sp.GetRequiredService<TimelineStore>(),
+                new SaveStateStore(sp.GetRequiredService<AppPaths>()),
+                sp.GetRequiredService<LibraryService>().PlaytimeOf));
             services.AddSingleton<IGameFilePicker, WinUiGameFilePicker>();
             services.AddSingleton(sp => new ControllerManager(
                 sp.GetRequiredService<InputService>(),
@@ -109,7 +138,10 @@ public partial class App : Application
         services.AddTransient<InputSettingsViewModel>();
         services.AddTransient<SettingsViewModel>();
         services.AddSingleton<PadNavigation>();
-        services.AddTransient<SaveStatesViewModel>();
+        services.AddTransient<TimelineViewModel>();
+        services.AddTransient<GameDetailsViewModel>();
+        services.AddTransient<CatalogImportViewModel>();
+        services.AddTransient<LibrarySettingsViewModel>();
         services.AddTransient<PlayerViewModel>();
 
         services.AddSingleton<MainWindow>();

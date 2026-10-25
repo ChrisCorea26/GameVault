@@ -21,4 +21,25 @@
       </Setter.Value>
     </Setter>
   </Style>
+
+  <Style TargetType="controls:TimelineStrip">
+    <Setter Property="IsTabStop" Value="False" />
+    <Setter Property="Template">
+      <Setter.Value>
+        <ControlTemplate TargetType="controls:TimelineStrip">
+          <ScrollViewer
+              HorizontalScrollBarVisibility="Auto"
+              HorizontalScrollMode="Enabled"
+              VerticalScrollBarVisibility="Disabled"
+              VerticalScrollMode="Disabled">
+            <ItemsRepeater ItemTemplate="{TemplateBinding ItemTemplate}" ItemsSource="{TemplateBinding ItemsSource}">
+              <ItemsRepeater.Layout>
+                <StackLayout Orientation="Horizontal" Spacing="8" />
+              </ItemsRepeater.Layout>
+            </ItemsRepeater>
+          </ScrollViewer>
+        </ControlTemplate>
+      </Setter.Value>
+    </Setter>
+  </Style>
 </ResourceDictionary>

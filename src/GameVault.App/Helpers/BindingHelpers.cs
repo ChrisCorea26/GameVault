@@ -6,4 +6,6 @@ namespace GameVault.App.Helpers;
 public static class BindingHelpers
 {
     public static Thickness SelectionBorder(bool selected) => new(selected ? 2 : 0);
+
+    public static Visibility Not(bool value) => value ? Visibility.Collapsed : Visibility.Visible;
 }

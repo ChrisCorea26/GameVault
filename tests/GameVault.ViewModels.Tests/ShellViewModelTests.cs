@@ -64,4 +64,18 @@ public class ShellViewModelTests
         env.IsSampleData.Should().Be(expected);
         new ShellViewModel(new FakeNavigationService(), env).IsSampleData.Should().Be(expected);
     }
+
+    [Fact]
+    public void Empty_sample_data_and_new_pages_are_recognized()
+    {
+        var env = AppEnvironment.FromCommandLine(["--sample-data=empty", "--page=gamedetails"]);
+
+        env.IsSampleData.Should().BeTrue();
+        env.IsEmptySampleLibrary.Should().BeTrue();
+        env.StartPage.Should().Be(AppPage.GameDetails);
+
+        var nav = new FakeNavigationService();
+        new ShellViewModel(nav, env).StartCommand.Execute(null);
+        nav.History.Should().Equal((AppPage.Library, null), (AppPage.GameDetails, "sample:2"));
+    }
 }

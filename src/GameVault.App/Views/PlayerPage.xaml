@@ -61,50 +61,29 @@
           AccessKey="R"
           Command="{x:Bind ViewModel.ResetCommand}"
           Content="Reset" />
-      <!-- SPEC §4.6: ten slots; F5 / F8 use the selected one (docs/design/input.md §8). -->
+      <!-- SPEC §7.1: the save-state timeline; F5 saves, F8 loads the newest (docs/design/input.md §8). -->
       <Button Grid.Column="5" AccessKey="S" Content="Save states">
         <Button.Flyout>
-          <Flyout Opening="SaveStates_Opening" Placement="BottomEdgeAlignedRight">
-            <StackPanel Width="560" Spacing="8">
-              <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Save states" />
+          <Flyout Placement="BottomEdgeAlignedRight">
+            <StackPanel Width="620" Spacing="8">
+              <Grid>
+                <TextBlock VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Save states" />
+                <Button HorizontalAlignment="Right" Command="{x:Bind ViewModel.Timeline.SaveCommand}" Content="Save now" Style="{StaticResource AccentButtonStyle}" />
+              </Grid>
               <TextBlock
                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                   Style="{StaticResource CaptionTextBlockStyle}"
-                  Text="F5 saves and F8 loads the highlighted slot." />
-              <ItemsRepeater ItemsSource="{x:Bind ViewModel.SaveStates.Slots}">
-                <ItemsRepeater.Layout>
-                  <UniformGridLayout MinColumnSpacing="8" MinItemWidth="168" MinRowSpacing="8" />
-                </ItemsRepeater.Layout>
-                <ItemsRepeater.ItemTemplate>
-                  <DataTemplate x:DataType="vm:SaveSlotViewModel">
-                    <Border
-                        Padding="8"
-                        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-                        BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
-                        BorderThickness="{x:Bind helpers:BindingHelpers.SelectionBorder(IsSelected), Mode=OneWay}"
-                        CornerRadius="6">
-                      <StackPanel Spacing="4">
-                        <Grid Height="90" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4">
-                          <Image Stretch="Uniform" Visibility="{x:Bind HasThumbnail}">
-                            <Image.Source>
-                              <BitmapImage CreateOptions="IgnoreImageCache" UriSource="{x:Bind ThumbnailUri}" />
-                            </Image.Source>
-                          </Image>
-                        </Grid>
-                        <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind Title}" />
-                        <TextBlock
-                            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                            Style="{StaticResource CaptionTextBlockStyle}"
-                            Text="{x:Bind Subtitle}" />
-                        <StackPanel Orientation="Horizontal" Spacing="4">
-                          <Button Command="{x:Bind SaveCommand}" Content="Save" />
-                          <Button Command="{x:Bind LoadCommand}" Content="Load" />
-                        </StackPanel>
-                      </StackPanel>
-                    </Border>
-                  </DataTemplate>
-                </ItemsRepeater.ItemTemplate>
-              </ItemsRepeater>
+                  Text="F5 saves and F8 loads the newest. Right-click a state to pin or delete it." />
+              <controls:TimelineStrip ItemTemplate="{StaticResource TimelineItemTemplate}" ItemsSource="{x:Bind ViewModel.Timeline.Items}" />
+              <InfoBar
+                  IsClosable="True"
+                  IsOpen="{x:Bind ViewModel.Timeline.HasUndo, Mode=OneWay}"
+                  Message="{x:Bind ViewModel.Timeline.UndoText, Mode=OneWay}"
+                  Severity="Informational">
+                <InfoBar.ActionButton>
+                  <Button Command="{x:Bind ViewModel.Timeline.UndoCommand}" Content="Undo" />
+                </InfoBar.ActionButton>
+              </InfoBar>
             </StackPanel>
           </Flyout>
         </Button.Flyout>
@@ -130,9 +109,40 @@
           IsOpen="{x:Bind ViewModel.HasNotice, Mode=OneWay}"
           Message="{x:Bind ViewModel.Notice, Mode=OneWay}"
           Severity="Informational" />
+      <!-- SPEC §7.1: resume where you left off -->
+      <InfoBar
+          IsClosable="False"
+          IsOpen="{x:Bind ViewModel.HasResumeOffer, Mode=OneWay}"
+          Message="Pick up where you stopped last time?"
+          Severity="Informational"
+          Title="Resume">
+        <InfoBar.ActionButton>
+          <StackPanel Orientation="Horizontal" Spacing="8">
+            <Button Command="{x:Bind ViewModel.ResumeCommand}" Content="Resume" Style="{StaticResource AccentButtonStyle}" />
+            <Button Command="{x:Bind ViewModel.DismissResumeCommand}" Content="Start fresh" />
+          </StackPanel>
+        </InfoBar.ActionButton>
+      </InfoBar>
     </StackPanel>
 
-    <controls:GameView x:Name="Game" Grid.Row="2" />
+    <controls:GameView x:Name="Game" Grid.Row="2" ZapperEnabled="{x:Bind ViewModel.UsesZapper, Mode=OneWay}" />
+
+    <!-- SPEC §7.2: shown while rewinding -->
+    <Border
+        Grid.Row="2"
+        Margin="0,0,0,24"
+        Padding="16,8"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Bottom"
+        Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
+        CornerRadius="8"
+        Visibility="{x:Bind ViewModel.IsRewinding, Mode=OneWay}">
+      <StackPanel Orientation="Horizontal" Spacing="12">
+        <FontIcon Glyph="&#xED3C;" />
+        <ProgressBar Width="240" VerticalAlignment="Center" Maximum="60" Value="{x:Bind ViewModel.RewindSeconds, Mode=OneWay}" />
+        <TextBlock VerticalAlignment="Center" Text="Rewinding" />
+      </StackPanel>
+    </Border>
 
     <ProgressRing
         Grid.Row="2"

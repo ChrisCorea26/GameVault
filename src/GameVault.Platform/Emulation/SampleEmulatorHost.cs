@@ -36,9 +36,31 @@ public sealed class SampleEmulatorHost : IEmulatorService, IDisposable
         remove { }
     }
 
+    public event EventHandler? RewindChanged
+    {
+        add { }
+        remove { }
+    }
+
+    public event EventHandler<TimeSpan>? PlaytimeElapsed
+    {
+        add { }
+        remove { }
+    }
+
+    /// <summary>The sample library's "Crystal Caverns", so its timeline and details show real-looking data.</summary>
+    public string? GameKey { get; private set; }
+
+    public bool UsesZapper => false;
+
+    public bool IsRewinding => false;
+
+    public double RewindSeconds => 42;
+
     public Task LoadAsync(string path, CancellationToken cancellationToken = default)
     {
         GameTitle = "Sample Game";
+        GameKey = "sample:2";
         SetStatus(EmulatorStatus.Running);
 
         // The first frame is drawn right away, so a starved thread pool can't leave the screen empty.
@@ -70,6 +92,7 @@ public sealed class SampleEmulatorHost : IEmulatorService, IDisposable
         _timer?.Dispose();
         _timer = null;
         GameTitle = null;
+        GameKey = null;
         SetStatus(EmulatorStatus.Idle);
     }
 

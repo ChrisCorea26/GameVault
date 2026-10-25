@@ -81,27 +81,49 @@ public sealed class SaveStorageTests : IDisposable
     }
 
     [Fact]
-    public async Task Save_state_service_round_trips_through_the_host()
+    public async Task Timeline_service_round_trips_through_the_host()
     {
         var rom = BankedRom.Build(4, 16, 128);
         using var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()));
-        var service = new SaveStateService(host, new SaveStateStore(_paths));
+        var service = new TimelineService(host, new GameVault.Library.Timeline.TimelineStore(_paths.StatesDirectory));
         var notices = new List<string>();
         service.Notice += (_, n) => notices.Add(n);
         host.Load(rom, "Game");
         await Task.Delay(50);
+        var key = host.GameKey!;
 
-        await service.SaveAsync(2);
+        await service.SaveAsync("Before the boss");
         var savedFrame = await host.InspectAsync(c => c.Ppu.FrameCount);
         await Task.Delay(100);
-        (await service.LoadAsync(2)).Should().BeTrue();
-        var frameAfterLoad = await host.InspectAsync(c => c.Ppu.FrameCount);
+        var items = await service.GetAsync(key);
+        items.Should().ContainSingle().Which.Label.Should().Be("Before the boss");
+        File.Exists(items[0].ThumbnailPath).Should().BeTrue();
 
+        (await service.LoadAsync(key, items[0].Id)).Should().BeTrue();
+        var frameAfterLoad = await host.InspectAsync(c => c.Ppu.FrameCount);
         frameAfterLoad.Should().BeLessThan(savedFrame + 3, "loading went back in time");
-        (await service.LoadAsync(5)).Should().BeFalse();
-        notices.Should().Equal("Saved to slot 3", "Loaded slot 3", "Slot 6 is empty");
-        var slots = await service.GetSlotsAsync();
-        slots[2].IsEmpty.Should().BeFalse();
-        File.Exists(slots[2].ThumbnailPath).Should().BeTrue();
+        (await service.LoadAsync("sha1:other", items[0].Id)).Should().BeFalse("it isn't the running game");
+
+        await service.SaveOnExitAsync();
+        (await service.GetResumePointAsync(key)).Should().NotBeNull();
+        notices.Should().Equal("Saved", "Loaded");
+    }
+
+    [Fact]
+    public async Task Phase_4_slots_are_imported_into_the_timeline_once()
+    {
+        var rom = BankedRom.Build(0, 4, 8);
+        using var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()));
+        host.Load(rom, "Game");
+        await Task.Delay(50);
+        var slots = new SaveStateStore(_paths);
+        slots.Save(host.RomHash!.Value, 2, (await host.CaptureAsync())!.State, [0x89]);
+        var service = new TimelineService(host, new GameVault.Library.Timeline.TimelineStore(_paths.StatesDirectory), slots);
+
+        var items = await service.GetAsync(host.GameKey!);
+
+        items.Should().ContainSingle().Which.Label.Should().Be("Slot 3");
+        slots.Load(host.RomHash!.Value, 2).Should().BeNull("the slot file moved to the timeline");
+        (await service.GetAsync(host.GameKey!)).Should().ContainSingle();
     }
 }

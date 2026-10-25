@@ -3,7 +3,7 @@ using Microsoft.Windows.Storage.Pickers;
 
 namespace GameVault.App.Services;
 
-/// <summary>Windows App SDK file picker; works for unpackaged apps without window-handle setup.</summary>
+/// <summary>Windows App SDK pickers; they work for unpackaged apps without window-handle setup.</summary>
 public sealed class WinUiGameFilePicker : IGameFilePicker
 {
     public async Task<string?> PickGameFileAsync()
@@ -14,6 +14,47 @@ public sealed class WinUiGameFilePicker : IGameFilePicker
             CommitButtonText = "Play",
         };
         picker.FileTypeFilter.Add(".nes");
+
+        var result = await picker.PickSingleFileAsync();
+        return result?.Path;
+    }
+
+    public async Task<string?> PickFolderAsync()
+    {
+        var picker = new FolderPicker(App.MainWindow.AppWindow.Id)
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            CommitButtonText = "Add folder",
+        };
+
+        var result = await picker.PickSingleFolderAsync();
+        return result?.Path;
+    }
+
+    public async Task<string?> PickCatalogFileAsync()
+    {
+        var picker = new FileOpenPicker(App.MainWindow.AppWindow.Id)
+        {
+            SuggestedStartLocation = PickerLocationId.Downloads,
+            CommitButtonText = "Choose",
+        };
+        picker.FileTypeFilter.Add(".dat");
+        picker.FileTypeFilter.Add(".xml");
+
+        var result = await picker.PickSingleFileAsync();
+        return result?.Path;
+    }
+
+    public async Task<string?> PickImageAsync()
+    {
+        var picker = new FileOpenPicker(App.MainWindow.AppWindow.Id)
+        {
+            SuggestedStartLocation = PickerLocationId.PicturesLibrary,
+            CommitButtonText = "Use picture",
+        };
+        picker.FileTypeFilter.Add(".png");
+        picker.FileTypeFilter.Add(".jpg");
+        picker.FileTypeFilter.Add(".jpeg");
 
         var result = await picker.PickSingleFileAsync();
         return result?.Path;

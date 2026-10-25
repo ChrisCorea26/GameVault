@@ -4,7 +4,10 @@ using GameVault.Core;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Ppu;
 using GameVault.Platform.Audio;
+using GameVault.Core.Input;
 using GameVault.Core.State;
+using GameVault.Library.Hashing;
+using GameVault.Library.Profiles;
 using GameVault.Platform.Input;
 using GameVault.Platform.Storage;
 using GameVault.Platform.Video;
@@ -37,6 +40,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private readonly IAudioOutput? _audio;
     private readonly BatterySaveStore? _batteries;
     private readonly RunAhead _runAhead = new();
+    private readonly RewindBuffer _rewind = new();
     private readonly Action<NesConsole> _present;
     private readonly float[] _samples = new float[8192];
     private AudioPacing? _pacing;
@@ -60,6 +64,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private string _batteryTitle = string.Empty;
     private bool _quickSaveHeld;
     private bool _quickLoadHeld;
+    private bool _rewinding;
+    private long _playedFrames;
+
+    /// <summary>Report playtime about once a minute.</summary>
+    private const int PlaytimeReportFrames = 3600;
 
     /// <summary>Check battery RAM for changes about once a minute (60.1 frames per second).</summary>
     private const int BatteryCheckFrames = 3600;
@@ -99,6 +108,30 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     /// <summary>F8 was pressed in the game. Raised on the UI thread.</summary>
     public event EventHandler? QuickLoadRequested;
 
+    public event EventHandler? RewindChanged;
+
+    public event EventHandler<TimeSpan>? PlaytimeElapsed;
+
+    /// <summary>Looks up a game's profile by headerless SHA-1 (SPEC §7.5). Null: no profiles.</summary>
+    public Func<string, GameProfile>? ProfileResolver { get; set; }
+
+    public string? GameKey { get; private set; }
+
+    public bool UsesZapper { get; private set; }
+
+    public bool IsRewinding { get; private set; }
+
+    public double RewindSeconds { get; private set; }
+
+    /// <summary>The profile applied to the running game.</summary>
+    public GameProfile? Profile { get; private set; }
+
+    /// <summary>Rewind memory cap in bytes (SPEC §7.2; 256 MB by default).</summary>
+    public long RewindCapacity
+    {
+        set => Post(() => _rewind.CapacityBytes = Math.Max(1024 * 1024, value));
+    }
+
     /// <summary>Hash of the running game's ROM, which names its save files. Null when idle.</summary>
     public ulong? RomHash { get; private set; }
 
@@ -129,6 +162,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             var settings = await _settings.LoadAsync(cancellationToken).ConfigureAwait(false);
             _input.AllowOppositeDirections = settings.AllowOppositeDirections;
             RunAheadFrames = settings.RunAheadFrames;
+            RewindCapacity = Math.Clamp(settings.RewindMemoryMb, 16, 4096) * 1024L * 1024;
             if (_audio is not null)
             {
                 _audio.Volume = Math.Clamp(settings.Volume, 0, 100) / 100f;
@@ -141,10 +175,12 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     /// <summary>Loads a game from bytes already in memory.</summary>
     public void Load(byte[] data, string title)
     {
+        var hashes = RomHasher.Hash(data);
+        var profile = ProfileResolver?.Invoke(hashes.Sha1) ?? new GameProfile { Sha1 = hashes.Sha1 };
         NesConsole console;
         try
         {
-            console = NesConsole.FromBytes(data);
+            console = new NesConsole(ApplyProfile(INesRom.Parse(data), profile));
         }
         catch (RomFormatException ex)
         {
@@ -187,6 +223,13 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             }
         }
 
+        console.ConnectInput(profile.Input switch
+        {
+            InputType.Zapper => InputSetup.Zapper,
+            InputType.FourScore => InputSetup.FourScore,
+            _ => InputSetup.Controllers,
+        });
+        console.Ppu.RemoveSpriteLimit = profile.RemoveSpriteLimit == true;
         console.Power();
         EnsureThread();
         Post(() =>
@@ -198,9 +241,21 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             _batteryTitle = title;
             _running = true;
             _runAhead.ResetAutoDisable();
+            _rewind.Clear();
+            _rewinding = false;
+            _playedFrames = 0;
             Interlocked.Exchange(ref _frameCount, 0);
         });
+        if (profile.RunAheadSafe == false)
+        {
+            // The game database says run-ahead breaks this game; leave it off whatever the setting says.
+            RunAheadFrames = 0;
+        }
+
         RomHash = console.RomHash;
+        GameKey = hashes.Key;
+        Profile = profile;
+        UsesZapper = console.InputSetup == InputSetup.Zapper;
         SetAudioPaused(false);
 
         GameTitle = title;
@@ -219,6 +274,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         {
             _running = false;
             FlushBattery();
+            ReportPlaytime();
         });
         SetAudioPaused(true);
         SetStatus(EmulatorStatus.Paused);
@@ -248,13 +304,18 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         Post(() =>
         {
             FlushBattery();
+            ReportPlaytime();
             _console = null;
             _battery = null;
             _running = false;
+            _rewind.Clear();
         });
         SetAudioPaused(true);
         GameTitle = null;
         RomHash = null;
+        GameKey = null;
+        UsesZapper = false;
+        Profile = null;
         SetStatus(EmulatorStatus.Idle);
     }
 
@@ -396,14 +457,15 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
             var console = _console;
             PollStateHotkeys();
-            var fastForward = _input.IsHotkeyHeld(VirtualKeys.Tab);
+            var rewinding = UpdateRewinding();
+            var fastForward = !rewinding && _input.IsHotkeyHeld(VirtualKeys.Tab);
             if (wasFastForward && !fastForward)
             {
                 _audio?.Flush(); // resume from silence rather than a burst of stale sound
             }
 
             wasFastForward = fastForward;
-            var audioClocked = _audioActive && !fastForward && console.Audio is not null;
+            var audioClocked = _audioActive && !fastForward && !rewinding && console.Audio is not null;
 
             if (audioClocked && !_pacing!.ShouldRunFrame(_audio!.BufferedSamples))
             {
@@ -425,7 +487,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 _samplesWritten = 0;
             }
 
-            if (!TryRunFrame(console))
+            if (!(rewinding ? TryRewindFrame(console) : TryRunFrame(console)))
             {
                 continue;
             }
@@ -466,6 +528,15 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 console.SetControllerState(port, _input.Sample(port, console.Ppu.FrameCount));
             }
 
+            if (console.InputSetup == InputSetup.Zapper)
+            {
+                var (aim, trigger) = _input.SampleZapper();
+                console.Zapper.Aim = aim;
+                console.Zapper.Trigger = trigger;
+            }
+
+            _rewind.OnFrame(console);
+
             if (_runAhead.RunFrame(console, _present))
             {
                 RaiseNotice("Reduce input lag is off for now because this PC couldn't keep up. You can change it in Settings.");
@@ -474,6 +545,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             if (Interlocked.Increment(ref _frameCount) % BatteryCheckFrames == 0)
             {
                 FlushBattery(background: true);
+            }
+
+            if (++_playedFrames >= PlaytimeReportFrames)
+            {
+                ReportPlaytime();
             }
 
             return true;
@@ -485,6 +561,107 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             Fault(ex);
             return false;
         }
+    }
+
+    /// <summary>
+    /// Backspace or the left shoulder (input.md §8) held: walk back through the rewind history. Returns true
+    /// while rewinding; raises <see cref="RewindChanged"/> on start and stop.
+    /// </summary>
+    private bool UpdateRewinding()
+    {
+        var held = _input.IsHotkeyHeld(VirtualKeys.Backspace);
+        if (held != _rewinding)
+        {
+            _rewinding = held;
+            if (!held)
+            {
+                _audio?.Flush(); // resume from silence
+            }
+
+            PublishRewind();
+        }
+
+        return held;
+    }
+
+    /// <summary>One step of rewind: restore an older state and show the frame that follows it, silently.</summary>
+    private bool TryRewindFrame(NesConsole console)
+    {
+        try
+        {
+            if (_rewind.StepBack(console))
+            {
+                console.RunFrameSilently();
+                _present(console);
+            }
+
+            if (Interlocked.Increment(ref _frameCount) % 6 == 0 || _rewind.Count == 0)
+            {
+                PublishRewind();
+            }
+
+            return true;
+        }
+        catch (Exception ex) when (ex is StateFormatException or InvalidDataException)
+        {
+            _rewind.Clear();
+            RaiseNotice("Rewind stopped working for this game, so its history was cleared.");
+            return true;
+        }
+    }
+
+    private void PublishRewind()
+    {
+        var rewinding = _rewinding;
+        var seconds = _rewind.Duration.TotalSeconds;
+        Raise(() =>
+        {
+            IsRewinding = rewinding;
+            RewindSeconds = seconds;
+            RewindChanged?.Invoke(this, EventArgs.Empty);
+        });
+    }
+
+    private void ReportPlaytime()
+    {
+        if (_playedFrames == 0)
+        {
+            return;
+        }
+
+        var played = TimeSpan.FromSeconds(_playedFrames / NtscFrameRate);
+        _playedFrames = 0;
+        Raise(() => PlaytimeElapsed?.Invoke(this, played));
+    }
+
+    /// <summary>Header corrections and region from the game database (SPEC §4.5, §7.5).</summary>
+    private static INesRom ApplyProfile(INesRom rom, GameProfile profile)
+    {
+        if (profile.Header is { } header)
+        {
+            rom = rom with
+            {
+                Mapper = header.Mapper ?? rom.Mapper,
+                Submapper = header.Submapper ?? rom.Submapper,
+                HasBattery = header.Battery ?? rom.HasBattery,
+                PrgRamSize = header.PrgRamSize ?? rom.PrgRamSize,
+                Mirroring = header.Mirroring?.ToLowerInvariant() switch
+                {
+                    "horizontal" => Mirroring.Horizontal,
+                    "vertical" => Mirroring.Vertical,
+                    "four-screen" => Mirroring.FourScreen,
+                    _ => rom.Mirroring,
+                },
+            };
+        }
+
+        return profile.Region?.ToLowerInvariant() switch
+        {
+            "ntsc" => rom with { TvSystem = TvSystem.Ntsc },
+            "pal" => rom with { TvSystem = TvSystem.Pal },
+            "dendy" => rom with { TvSystem = TvSystem.Dendy },
+            _ => rom,
+        };
     }
 
     /// <summary>F5 / F8 act on the press, not while held.</summary>

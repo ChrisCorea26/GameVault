@@ -12,6 +12,11 @@
     <!-- Grid tile: placeholder cover (initials) until the user adds their own artwork, then title and badges. -->
     <DataTemplate x:Key="GameTileTemplate" x:DataType="vm:GameTileViewModel">
       <Grid Width="{StaticResource TileWidth}" RowSpacing="6" Padding="0,0,0,8">
+        <Grid.ContextFlyout>
+          <MenuFlyout>
+            <MenuFlyoutItem Click="PlayMenu_Click" IsEnabled="{x:Bind IsPlayable}" Tag="{x:Bind}" Text="Play" />
+          </MenuFlyout>
+        </Grid.ContextFlyout>
         <Grid.RowDefinitions>
           <RowDefinition Height="Auto" />
           <RowDefinition Height="Auto" />
@@ -25,6 +30,11 @@
             Background="{ThemeResource AccentFillColorSecondaryBrush}"
             CornerRadius="{StaticResource OverlayCornerRadius}">
           <Grid>
+            <Image Stretch="UniformToFill" Visibility="{x:Bind HasCover}">
+              <Image.Source>
+                <BitmapImage DecodePixelWidth="360" UriSource="{x:Bind CoverUri}" />
+              </Image.Source>
+            </Image>
             <TextBlock
                 HorizontalAlignment="Center"
                 VerticalAlignment="Center"
@@ -149,17 +159,26 @@
     <StackPanel Grid.Row="0" Spacing="8">
       <Grid>
         <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Library" />
-        <Button
-            HorizontalAlignment="Right"
-            AccessKey="O"
-            Command="{x:Bind ViewModel.OpenGameFileCommand}"
-            Style="{StaticResource AccentButtonStyle}">
-          <StackPanel Orientation="Horizontal" Spacing="8">
-            <FontIcon FontSize="14" Glyph="&#xE8E5;" />
-            <TextBlock Text="Open game file" />
-          </StackPanel>
-        </Button>
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+          <Button AccessKey="A" Command="{x:Bind ViewModel.AddFolderCommand}" Style="{StaticResource AccentButtonStyle}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <FontIcon FontSize="14" Glyph="&#xE8F4;" />
+              <TextBlock Text="Add a ROM folder" />
+            </StackPanel>
+          </Button>
+          <Button AccessKey="O" Command="{x:Bind ViewModel.OpenGameFileCommand}">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <FontIcon FontSize="14" Glyph="&#xE8E5;" />
+              <TextBlock Text="Open game file" />
+            </StackPanel>
+          </Button>
+          <Button AccessKey="I" Command="{x:Bind ViewModel.ImportCatalogCommand}" Content="Import catalog" />
+        </StackPanel>
       </Grid>
+      <StackPanel Orientation="Horizontal" Spacing="12" Visibility="{x:Bind ViewModel.IsScanning, Mode=OneWay}">
+        <ProgressBar Width="200" VerticalAlignment="Center" Maximum="1" Value="{x:Bind ViewModel.ScanFraction, Mode=OneWay}" />
+        <TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.ScanStatus, Mode=OneWay}" />
+      </StackPanel>
       <StackPanel Orientation="Horizontal" Spacing="12">
         <ProgressBar
             Width="200"
@@ -174,13 +193,17 @@
     </StackPanel>
 
     <!-- Search, filters and view toggle -->
-    <Grid Grid.Row="1" ColumnSpacing="16">
+    <Grid Grid.Row="1" ColumnSpacing="16" RowSpacing="8">
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="*" MaxWidth="420" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" />
         <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
+      <Grid.RowDefinitions>
+        <RowDefinition Height="Auto" />
+        <RowDefinition Height="Auto" />
+      </Grid.RowDefinitions>
 
       <AutoSuggestBox
           Grid.Column="0"
@@ -193,6 +216,19 @@
           IsOn="{x:Bind ViewModel.ShowOwnedOnly, Mode=TwoWay}"
           OffContent="All games"
           OnContent="Owned only" />
+      <ToggleSwitch
+          Grid.Column="2"
+          IsOn="{x:Bind ViewModel.ShowChecklist, Mode=TwoWay}"
+          OffContent="My games"
+          OnContent="Complete checklist" />
+
+      <StackPanel Grid.Row="1" Grid.ColumnSpan="4" Orientation="Horizontal" Spacing="8">
+        <ComboBox Header="Region" MinWidth="140" ItemsSource="{x:Bind ViewModel.Regions}" SelectedItem="{x:Bind ViewModel.RegionChoice, Mode=TwoWay}" />
+        <ComboBox Header="Genre" MinWidth="140" ItemsSource="{x:Bind ViewModel.Genres}" SelectedItem="{x:Bind ViewModel.GenreChoice, Mode=TwoWay}" />
+        <ComboBox Header="Publisher" MinWidth="140" ItemsSource="{x:Bind ViewModel.Publishers}" SelectedItem="{x:Bind ViewModel.PublisherChoice, Mode=TwoWay}" />
+        <ComboBox Header="Year" MinWidth="100" ItemsSource="{x:Bind ViewModel.Years}" SelectedItem="{x:Bind ViewModel.YearChoice, Mode=TwoWay}" />
+        <ComboBox Header="Status" MinWidth="120" ItemsSource="{x:Bind ViewModel.Statuses}" SelectedItem="{x:Bind ViewModel.StatusChoice, Mode=TwoWay}" />
+      </StackPanel>
       <AppBarToggleButton
           Grid.Column="3"
           AccessKey="V"
@@ -246,8 +282,27 @@
         <TextBlock
             HorizontalTextAlignment="Center"
             Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-            Text="GameVault plays games you supply yourself, such as dumps of cartridges you own. Use Open game file to play one now; adding whole folders is coming in a later update."
+            Text="GameVault plays games you supply yourself, such as dumps of cartridges you own. Add the folder where you keep them and GameVault finds every game inside."
             TextWrapping="Wrap" />
+        <Button
+            HorizontalAlignment="Center"
+            Command="{x:Bind ViewModel.AddFolderCommand}"
+            Content="Add a ROM folder"
+            Style="{StaticResource AccentButtonStyle}" />
+      </StackPanel>
+
+      <StackPanel
+          MaxWidth="480"
+          HorizontalAlignment="Center"
+          VerticalAlignment="Center"
+          Spacing="12"
+          Visibility="{x:Bind ViewModel.HasNoOwnGames, Mode=OneWay}">
+        <TextBlock
+            HorizontalTextAlignment="Center"
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Text="None of your games are in the library yet. Add a ROM folder, mark games you own in their details, or switch to the complete checklist."
+            TextWrapping="Wrap" />
+        <Button HorizontalAlignment="Center" Command="{x:Bind ViewModel.AddFolderCommand}" Content="Add a ROM folder" />
       </StackPanel>
 
       <TextBlock
