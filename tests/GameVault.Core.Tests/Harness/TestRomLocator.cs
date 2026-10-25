@@ -26,6 +26,9 @@ public static class TestRomLocator
 
     public static string GetPath(string relativePath) => Path.Combine(TestRomsDirectory, relativePath);
 
+    /// <summary>The repository root (the parent of <c>tests/</c>).</summary>
+    public static string RepoRoot => Path.GetFullPath(Path.Combine(TestRomsDirectory, "..", ".."));
+
     /// <summary>Where <c>fetch-test-roms</c> puts downloaded suites.</summary>
     public static string CacheDirectory => Path.Combine(TestRomsDirectory, ".cache");
 

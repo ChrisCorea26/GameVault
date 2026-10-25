@@ -25,3 +25,9 @@ All downloads are pinned to commit `95d8f621ae55cee0d09b91519a8989ae0e64753b` of
 |---|---|---|---|---|
 | `nestest/nestest.nes`, `nestest/nestest.log` | nestest | Kevin Horton (kevtris) | No explicit redistribution license | Phase 1: CPU trace comparison |
 | `instr_test-v5/*.nes` (16 single-test ROMs) | instr_test-v5 | Shay Green (blargg) | No explicit redistribution license | Phase 1: CPU instruction behavior |
+| `ppu_vbl_nmi/*.nes` (10 single-test ROMs) | ppu_vbl_nmi | Shay Green (blargg) | No explicit redistribution license | Phase 2: VBlank/NMI timing |
+| `sprite_hit_tests_2005.10.05/*.nes` (11) | sprite_hit_tests | Shay Green (blargg) | No explicit redistribution license | Phase 2: sprite 0 hit |
+| `sprite_overflow_tests/*.nes` (5) | sprite_overflow_tests | Shay Green (blargg) | No explicit redistribution license | Phase 2: sprite overflow flag |
+| `blargg_ppu_tests_2005.09.15b/*.nes` (5) | blargg_ppu_tests | Shay Green (blargg) | No explicit redistribution license | Phase 2: palette, OAM, VRAM access |
+| `ppu_open_bus/ppu_open_bus.nes` | ppu_open_bus | Shay Green (blargg) | No explicit redistribution license | Phase 2: PPU I/O latch decay |
+| `oam_read/oam_read.nes` | oam_read | Shay Green (blargg) | No explicit redistribution license | Phase 2: OAM reads |

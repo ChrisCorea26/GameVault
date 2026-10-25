@@ -4,7 +4,7 @@ This page will be generated in CI from the test-ROM harness (SPEC §11.2). Until
 at the end of each phase. Run `tests/TestRoms/fetch-test-roms.sh` (or `.ps1`) and then `dotnet test` to
 reproduce it.
 
-_Last updated: Phase 1._
+_Last updated: Phase 2._
 
 ## CPU
 
@@ -30,8 +30,25 @@ _Last updated: Phase 1._
 | instr_test-v5 | all_instrs / official_only | ⏳ Phase 4 | MMC1 board |
 | instr_timing | | ⏳ Phase 3 | Needs APU length-counter timing |
 
+## PPU
+
+Each ROM is also checked against a golden image of its final screen (`tests/GameVault.Core.Tests/Golden/golden.json`).
+
+| Suite | Tests | Status | Notes |
+|---|---|---|---|
+| ppu_vbl_nmi | 01-vbl_basics … 10-even_odd_timing (10) | ✅ Pass | All dot-exact NMI/`$2002` races |
+| sprite_hit_tests_2005.10.05 | 01.basics … 11.edge_timing (11) | ✅ Pass | |
+| sprite_overflow_tests | 1.Basics … 5.Emulator (5) | ✅ Pass | Includes the hardware evaluation bug |
+| blargg_ppu_tests_2005.09.15b | palette_ram, sprite_ram, vbl_clear_time, vram_access | ✅ Pass | |
+| blargg_ppu_tests_2005.09.15b | power_up_palette | ℹ️ Not run | Expects one particular console's power-up palette RAM |
+| ppu_open_bus | | ✅ Pass | I/O latch with per-bit decay |
+| oam_read | | ✅ Pass | |
+| nestest | Menu screen | ✅ Golden image | Normal (non-automation) mode |
+| ppu_vbl_nmi | Combined ROM | ⏳ Phase 4 | MMC1 board |
+| ppu_read_buffer | test_ppu_read_buffer | ⏳ Phase 4 | CNROM board |
+
 ## Mappers
 
 | Mapper | Board | Status |
 |---|---|---|
-| 0 | NROM | ✅ CPU side (PRG-ROM, PRG-RAM, CHR-ROM/RAM). PPU side is exercised from Phase 2 |
+| 0 | NROM | ✅ PRG-ROM, PRG-RAM, CHR-ROM/RAM, mirroring |

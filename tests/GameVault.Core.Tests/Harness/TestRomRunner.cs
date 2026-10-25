@@ -12,9 +12,11 @@ public static class TestRomRunner
     private const byte Running = 0x80;
     private const byte NeedsReset = 0x81;
 
-    public static TestRomResult Run(byte[] rom, int maxFrames = 60 * 60)
+    public static TestRomResult Run(byte[] rom, int maxFrames = 60 * 60) => Run(rom, out _, maxFrames);
+
+    public static TestRomResult Run(byte[] rom, out NesConsole console, int maxFrames = 60 * 60)
     {
-        var console = NesConsole.FromBytes(rom);
+        console = NesConsole.FromBytes(rom);
         console.Power();
 
         int? resetAtFrame = null;
@@ -53,6 +55,25 @@ public static class TestRomRunner
         }
 
         return new TestRomResult(TestRomStatus.TimedOut, -1, ReadMessage(console), maxFrames);
+    }
+
+    /// <summary>
+    /// Runs an older (2005) blargg ROM for a fixed number of frames. These store a result code in zero
+    /// page (1 = passed, 2+ = which check failed) and print it on screen. They also use that byte as scratch
+    /// while running, and they have no "done" flag, so the code is read after a fixed time. All of them
+    /// settle within 110 frames; the default allows more than twice that.
+    /// </summary>
+    public static TestRomResult RunWithZeroPageResult(byte[] rom, ushort resultAddress, out NesConsole console, int frames = 240)
+    {
+        console = NesConsole.FromBytes(rom);
+        console.Power();
+        for (var frame = 0; frame < frames; frame++)
+        {
+            console.RunFrame();
+        }
+
+        var code = console.Bus.Peek(resultAddress);
+        return new TestRomResult(code == 1 ? TestRomStatus.Passed : TestRomStatus.Failed, code, $"result code {code}", frames);
     }
 
     private static bool HasSignature(NesConsole console) =>
