@@ -19,8 +19,25 @@ jobs:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-dotnet@v5
+        id: setup-dotnet
+        continue-on-error: true
         with:
           global-json-file: global.json
+
+      # setup-dotnet resolves through aka.ms to a storage host that has started answering 409. When that
+      # happens, install the newest .NET 10 SDK straight from builds.dotnet.microsoft.com instead.
+      - name: Install .NET from builds.dotnet.microsoft.com (fallback)
+        if: steps.setup-dotnet.outcome == 'failure'
+        shell: pwsh
+        run: |
+          $feed = 'https://builds.dotnet.microsoft.com/dotnet'
+          $version = ((Invoke-WebRequest "$feed/Sdk/10.0/latest.version").Content -split "`n" | Where-Object { $_.Trim() } | Select-Object -Last 1).Trim()
+          Invoke-WebRequest 'https://dot.net/v1/dotnet-install.ps1' -OutFile dotnet-install.ps1
+          $dir = Join-Path $env:RUNNER_TEMP 'dotnet'
+          ./dotnet-install.ps1 -Version $version -AzureFeed $feed -InstallDir $dir
+          $dir | Out-File -FilePath $env:GITHUB_PATH -Append -Encoding utf8
+          "DOTNET_ROOT=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
+          "DOTNET_MULTILEVEL_LOOKUP=0" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Fetch test ROMs
         shell: pwsh
@@ -75,8 +92,22 @@ jobs:
       - uses: actions/checkout@v5
 
       - uses: actions/setup-dotnet@v5
+        id: setup-dotnet
+        continue-on-error: true
         with:
           global-json-file: global.json
+
+      # See the Windows job: fall back to builds.dotnet.microsoft.com when setup-dotnet's download fails.
+      - name: Install .NET from builds.dotnet.microsoft.com (fallback)
+        if: steps.setup-dotnet.outcome == 'failure'
+        run: |
+          feed=https://builds.dotnet.microsoft.com/dotnet
+          version=$(curl -fsSL "$feed/Sdk/10.0/latest.version" | tr -d '\r' | sed '/^$/d' | tail -1)
+          curl -fsSL https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh
+          dir="$RUNNER_TEMP/dotnet"
+          bash dotnet-install.sh --version "$version" --azure-feed "$feed" --install-dir "$dir"
+          echo "$dir" >> "$GITHUB_PATH"
+          echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
 
       - name: Fetch test ROMs
         run: ./tests/TestRoms/fetch-test-roms.sh
