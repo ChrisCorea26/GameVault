@@ -59,7 +59,8 @@ public sealed class SampleLibraryService : ILibraryService
         int players = 1,
         bool licensed = true) => new()
         {
-            Id = new Guid(id, 0, 0, new byte[8]),
+            Key = $"sample:{id}",
+            IsCataloged = true,
             Title = title,
             Region = region,
             Publisher = publisher,

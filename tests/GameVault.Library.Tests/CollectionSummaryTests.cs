@@ -6,7 +6,7 @@ public class CollectionSummaryTests
 {
     private static GameEntry Game(GameRegion region, Ownership owned = Ownership.None, bool licensed = true) => new()
     {
-        Id = Guid.NewGuid(),
+        Key = Guid.NewGuid().ToString(),
         Title = "Test Game",
         Region = region,
         Owned = owned,

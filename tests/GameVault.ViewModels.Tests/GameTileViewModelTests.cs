@@ -50,7 +50,7 @@ public class GameTileViewModelTests
 
     public sealed class GameEntryBuilder(string title)
     {
-        public GameEntry Entry { get; set; } = new() { Id = Guid.NewGuid(), Title = title };
+        public GameEntry Entry { get; set; } = new() { Key = Guid.NewGuid().ToString(), Title = title };
 
         public GameEntry Build() => Entry;
     }

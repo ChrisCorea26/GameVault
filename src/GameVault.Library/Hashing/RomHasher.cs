@@ -1,0 +1,37 @@
+using System.IO.Hashing;
+using System.Security.Cryptography;
+
+namespace GameVault.Library.Hashing;
+
+/// <summary>Headerless hashes of a ROM: what catalogs (No-Intro) list and what identifies a game.</summary>
+public readonly record struct RomHashes(string Crc32, string Sha1)
+{
+    /// <summary>The key a game is stored under: "sha1:…".</summary>
+    public string Key => "sha1:" + Sha1;
+}
+
+/// <summary>
+/// Hashes a ROM image without its 16-byte iNES header (and 512-byte trainer, when present), as SPEC §2
+/// requires. Files without an iNES header are hashed whole.
+/// </summary>
+public static class RomHasher
+{
+    public static RomHashes Hash(ReadOnlySpan<byte> image)
+    {
+        var body = StripHeader(image);
+        var crc = Crc32.HashToUInt32(body);
+        var sha1 = SHA1.HashData(body);
+        return new RomHashes(crc.ToString("x8"), Convert.ToHexStringLower(sha1));
+    }
+
+    public static ReadOnlySpan<byte> StripHeader(ReadOnlySpan<byte> image)
+    {
+        if (image.Length >= 16 && image[0] == 'N' && image[1] == 'E' && image[2] == 'S' && image[3] == 0x1A)
+        {
+            var skip = 16 + ((image[6] & 0x04) != 0 ? 512 : 0);
+            return image.Length > skip ? image[skip..] : [];
+        }
+
+        return image;
+    }
+}

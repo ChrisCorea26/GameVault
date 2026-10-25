@@ -1,0 +1,85 @@
+using System.Text.Json;
+using System.Text.Json.Serialization;
+
+namespace GameVault.Library.Profiles;
+
+/// <summary>How a game is played (SPEC §7.5).</summary>
+[JsonConverter(typeof(JsonStringEnumConverter<InputType>))]
+public enum InputType
+{
+    Controller,
+    Zapper,
+    FourScore,
+}
+
+/// <summary>Corrections for a wrong or missing iNES header. Null fields keep the header's value.</summary>
+public sealed record HeaderCorrection
+{
+    public int? Mapper { get; init; }
+
+    public int? Submapper { get; init; }
+
+    /// <summary>"horizontal", "vertical" or "four-screen".</summary>
+    public string? Mirroring { get; init; }
+
+    public bool? Battery { get; init; }
+
+    public int? PrgRamSize { get; init; }
+}
+
+/// <summary>
+/// A per-game profile from <c>data/gamedb/*.json</c>, keyed by headerless SHA-1, or the user's own
+/// overrides (Game Properties). Every field is optional; a null field means "no opinion".
+/// </summary>
+public sealed record GameProfile
+{
+    private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web)
+    {
+        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
+        WriteIndented = true,
+    };
+
+    public string? Sha1 { get; init; }
+
+    public string? Title { get; init; }
+
+    public HeaderCorrection? Header { get; init; }
+
+    public InputType? Input { get; init; }
+
+    /// <summary>True when run-ahead can't break the game (it uses no timing tricks run-ahead disturbs).</summary>
+    public bool? RunAheadSafe { get; init; }
+
+    /// <summary>True to recommend drawing more than 8 sprites per line (removes flicker).</summary>
+    public bool? RemoveSpriteLimit { get; init; }
+
+    /// <summary>"ntsc", "pal" or "dendy".</summary>
+    public string? Region { get; init; }
+
+    /// <summary>File name of the password definition in <c>data/gamedb/passwords/</c> (Phase 6).</summary>
+    public string? PasswordDefinition { get; init; }
+
+    /// <summary>Fields set in <paramref name="overrides"/> win over this profile's.</summary>
+    public GameProfile Merge(GameProfile? overrides) => overrides is null ? this : this with
+    {
+        Header = overrides.Header ?? Header,
+        Input = overrides.Input ?? Input,
+        RunAheadSafe = overrides.RunAheadSafe ?? RunAheadSafe,
+        RemoveSpriteLimit = overrides.RemoveSpriteLimit ?? RemoveSpriteLimit,
+        Region = overrides.Region ?? Region,
+        PasswordDefinition = overrides.PasswordDefinition ?? PasswordDefinition,
+    };
+
+    public string ToJson() => JsonSerializer.Serialize(this, Json);
+
+    public static GameProfile? FromJson(string? json) =>
+        string.IsNullOrWhiteSpace(json) ? null : JsonSerializer.Deserialize<GameProfile>(json, Json);
+
+    internal static IReadOnlyList<GameProfile> ReadFile(string json)
+    {
+        var trimmed = json.TrimStart();
+        return trimmed.StartsWith('[')
+            ? JsonSerializer.Deserialize<List<GameProfile>>(json, Json) ?? []
+            : [JsonSerializer.Deserialize<GameProfile>(json, Json)!];
+    }
+}
