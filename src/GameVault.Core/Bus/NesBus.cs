@@ -36,12 +36,14 @@ public sealed class NesBus : ICpuBus, IStateful
     private IInputDevice _port2;
     private readonly Apu2A03 _apu;
     private readonly bool _mapperCycleHooks;
+    private readonly bool _mapperSnoopsPpu;
 
     public NesBus(Ppu2C02 ppu, Apu2A03 apu, IMapper mapper, ClockRatio clock, StandardController port1, StandardController port2)
     {
         _ppu = ppu;
         _apu = apu;
         _mapperCycleHooks = mapper.HasCycleHooks;
+        _mapperSnoopsPpu = mapper.SnoopsPpuRegisters;
         _port1 = port1;
         _port2 = port2;
         _mapper = mapper;
@@ -147,6 +149,10 @@ public sealed class NesBus : ICpuBus, IStateful
         else if (address < 0x4000)
         {
             _ppu.WriteRegister(address, value);
+            if (_mapperSnoopsPpu)
+            {
+                _mapper.OnPpuRegisterWrite((ushort)(0x2000 | (address & 7)), value);
+            }
         }
         else if (address == 0x4014)
         {

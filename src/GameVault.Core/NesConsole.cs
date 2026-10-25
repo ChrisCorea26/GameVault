@@ -23,7 +23,7 @@ public sealed class NesConsole : IStateful
         Rom = rom;
         Mapper = MapperFactory.Create(rom);
         Ppu = new Ppu2C02(Mapper);
-        Apu = new Apu2A03(pal: rom.TvSystem is TvSystem.Pal or TvSystem.Dendy);
+        Apu = new Apu2A03(pal: rom.TvSystem is TvSystem.Pal or TvSystem.Dendy) { ExpansionAudio = Mapper.ExpansionAudio };
         var clock = rom.TvSystem switch
         {
             TvSystem.Pal => ClockRatio.Pal,

@@ -82,17 +82,27 @@ public sealed class Ppu2C02 : IStateful
 
     private bool _lastA12;
     private bool _skipOddDot;
-    private Mirroring _mirroring;
+    private readonly int[] _ntPages = new int[4];
+    private readonly bool _nametableHooks;
 
     public Ppu2C02(IMapper mapper)
     {
         _mapper = mapper;
         _ciram = new byte[mapper.Mirroring == Mirroring.FourScreen ? 0x1000 : 0x800];
-        _mirroring = mapper.Mirroring;
+        _nametableHooks = mapper.HasNametableHooks;
+        RefreshMirroring();
     }
 
     /// <summary>Re-reads the cartridge's mirroring. The bus calls this after every write to the cartridge.</summary>
-    public void RefreshMirroring() => _mirroring = _mapper.Mirroring;
+    /// <summary>Re-reads the cartridge's nametable routing; the bus calls this after every mapper write.</summary>
+    public void RefreshMirroring()
+    {
+        var pages = _ciram.Length >> 10;
+        for (var slot = 0; slot < 4; slot++)
+        {
+            _ntPages[slot] = _mapper.NametablePage(slot) % pages;
+        }
+    }
 
     public int Scanline { get; private set; }
 
@@ -382,7 +392,7 @@ public sealed class Ppu2C02 : IStateful
             return _mapper.PpuRead(address);
         }
 
-        return _ciram[NametableIndex(address)];
+        return _nametableHooks ? _mapper.ReadNametable(address, _ciram) : _ciram[NametableIndex(address)];
     }
 
     private void WriteVram(ushort address, byte value)
@@ -395,19 +405,20 @@ public sealed class Ppu2C02 : IStateful
         }
         else
         {
-            _ciram[NametableIndex(address)] = value;
+            if (_nametableHooks)
+            {
+                _mapper.WriteNametable(address, value, _ciram);
+            }
+            else
+            {
+                _ciram[NametableIndex(address)] = value;
+            }
         }
     }
 
-    /// <summary>Maps $2000-$3EFF onto CIRAM using the cartridge's mirroring (NESdev Wiki: "Mirroring").</summary>
-    private int NametableIndex(ushort address) => _mirroring switch
-    {
-        Mirroring.Vertical => address & 0x07FF,
-        Mirroring.Horizontal => ((address >> 1) & 0x0400) | (address & 0x03FF),
-        Mirroring.SingleScreenA => address & 0x03FF,
-        Mirroring.SingleScreenB => 0x0400 | (address & 0x03FF),
-        _ => address & (_ciram.Length - 1),
-    };
+    /// <summary>Maps $2000-$3EFF onto CIRAM through the cartridge's routing (NESdev Wiki: "Mirroring").</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int NametableIndex(ushort address) => (_ntPages[(address >> 10) & 3] << 10) | (address & 0x03FF);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int PaletteIndex(int address)

@@ -12,13 +12,32 @@ public abstract class MapperBase : IMapper, IBatteryBacked
     private readonly int[] _prgOffsets = new int[4];
     private readonly int[] _chrOffsets = new int[8];
     private readonly StateTag _tag;
+    private readonly int _chrRamStart = int.MaxValue;
 
-    protected MapperBase(INesRom rom, string stateTag)
+    /// <param name="extraChrRam">
+    /// CHR-RAM placed after the CHR-ROM in the same bank space, for boards with both (TQROM). Its 1 KB banks
+    /// are numbered after the ROM's (see <see cref="ChrRamFirstBank"/>).
+    /// </param>
+    protected MapperBase(INesRom rom, string stateTag, int extraChrRam = 0)
     {
         _tag = StateTag.From(stateTag);
         PrgRom = rom.PrgRom;
         ChrIsRam = rom.ChrRom.Length == 0;
-        Chr = ChrIsRam ? new byte[Math.Max(rom.ChrRamSize, 0x2000)] : rom.ChrRom;
+        if (ChrIsRam)
+        {
+            Chr = new byte[Math.Max(rom.ChrRamSize, 0x2000)];
+        }
+        else if (extraChrRam > 0)
+        {
+            Chr = new byte[rom.ChrRom.Length + extraChrRam];
+            rom.ChrRom.CopyTo(Chr, 0);
+            _chrRamStart = rom.ChrRom.Length;
+        }
+        else
+        {
+            Chr = rom.ChrRom;
+        }
+
         PrgRam = new byte[Math.Max(rom.PrgRamSize, 0x2000)];
         HasBattery = rom.HasBattery;
         Submapper = rom.Submapper;
@@ -33,6 +52,9 @@ public abstract class MapperBase : IMapper, IBatteryBacked
     protected byte[] Chr { get; }
 
     protected bool ChrIsRam { get; }
+
+    /// <summary>The first 1 KB bank number of the extra CHR-RAM (only with <c>extraChrRam</c>).</summary>
+    protected int ChrRamFirstBank => _chrRamStart == int.MaxValue ? 0 : _chrRamStart >> 10;
 
     protected byte[] PrgRam { get; }
 
@@ -56,6 +78,23 @@ public abstract class MapperBase : IMapper, IBatteryBacked
     public virtual bool IrqPending => false;
 
     public virtual bool HasCycleHooks => false;
+
+    public virtual Audio.IExpansionAudio? ExpansionAudio => null;
+
+    public virtual int NametablePage(int slot) => NametableRouting.Page(Mirroring, slot);
+
+    public virtual bool HasNametableHooks => false;
+
+    public virtual bool SnoopsPpuRegisters => false;
+
+    public virtual void OnPpuRegisterWrite(ushort register, byte value)
+    {
+    }
+
+    public virtual byte ReadNametable(ushort address, byte[] ciram) => ciram[(NametablePage((address >> 10) & 3) << 10 | (address & 0x3FF)) & 0x7FF];
+
+    public virtual void WriteNametable(ushort address, byte value, byte[] ciram) =>
+        ciram[(NametablePage((address >> 10) & 3) << 10 | (address & 0x3FF)) & 0x7FF] = value;
 
     protected int PrgBanks8K => PrgRom.Length >> 13;
 
@@ -147,13 +186,14 @@ public abstract class MapperBase : IMapper, IBatteryBacked
     /// </summary>
     protected byte WithBusConflict(ushort address, byte value) => (byte)(value & ReadPrgRom(address));
 
-    public byte PpuRead(ushort address) => Chr[_chrOffsets[(address >> 10) & 7] + (address & 0x03FF)];
+    public virtual byte PpuRead(ushort address) => Chr[_chrOffsets[(address >> 10) & 7] + (address & 0x03FF)];
 
     public void PpuWrite(ushort address, byte value)
     {
-        if (ChrIsRam)
+        var offset = _chrOffsets[(address >> 10) & 7] + (address & 0x03FF);
+        if (ChrIsRam || offset >= _chrRamStart)
         {
-            Chr[_chrOffsets[(address >> 10) & 7] + (address & 0x03FF)] = value;
+            Chr[offset] = value;
         }
     }
 
@@ -179,6 +219,10 @@ public abstract class MapperBase : IMapper, IBatteryBacked
         {
             writer.WriteBytes(Chr);
         }
+        else if (_chrRamStart != int.MaxValue)
+        {
+            writer.WriteBytes(Chr.AsSpan(_chrRamStart));
+        }
 
         SaveRegisters(writer);
         writer.EndChunk();
@@ -191,6 +235,10 @@ public abstract class MapperBase : IMapper, IBatteryBacked
         if (ChrIsRam)
         {
             reader.ReadBytes(Chr);
+        }
+        else if (_chrRamStart != int.MaxValue)
+        {
+            reader.ReadBytes(Chr.AsSpan(_chrRamStart));
         }
 
         LoadRegisters(reader);

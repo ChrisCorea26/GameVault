@@ -4,7 +4,9 @@ namespace GameVault.Core.Cartridge.Mappers;
 
 /// <summary>
 /// Mapper 4, MMC3 and MMC6 (NESdev Wiki: "MMC3", "MMC6"): 8 KB PRG and 1/2 KB CHR banking, and a scanline
-/// counter clocked by rising edges of PPU A12.
+/// counter clocked by rising edges of PPU A12. Also the MMC3 boards with extra wiring: mapper 118, TxSROM
+/// (CHR bank bit 7 drives CIRAM A10, so banks pick nametables), and mapper 119, TQROM (CHR bank bit 6
+/// selects 8 KB of CHR-RAM).
 /// </summary>
 public sealed class Mmc3 : MapperBase
 {
@@ -30,9 +32,13 @@ public sealed class Mmc3 : MapperBase
     private long _cycle;
     private long _a12LowSince;
 
+    private readonly int _board;
+    private readonly int[] _ntPages = [0, 0, 1, 1];
+
     public Mmc3(INesRom rom)
-        : base(rom, "MMC3")
+        : base(rom, "MMC3", extraChrRam: rom.Mapper == 119 ? 0x2000 : 0)
     {
+        _board = rom.Mapper;
         _isMmc6 = rom.Submapper == 1;
 
         // MMC6 and the NEC-made "MMC3A" use the old IRQ behavior; NES 2.0 submapper 4 selects it.
@@ -49,6 +55,8 @@ public sealed class Mmc3 : MapperBase
     public override Span<byte> BatteryRam => _isMmc6 ? _mmc6Ram : PrgRam;
 
     public override void OnCpuCycle() => _cycle++;
+
+    public override int NametablePage(int slot) => _board == 118 ? _ntPages[slot] : NametableRouting.Page(Mirroring, slot);
 
     public override void OnA12Fall() => _a12LowSince = _cycle;
 
@@ -196,14 +204,32 @@ public sealed class Mmc3 : MapperBase
 
         // CHR inversion swaps the 2 KB and 1 KB halves (A12 inversion).
         var flip = (_bankSelect & 0x80) != 0 ? 4 : 0;
-        SetChr1K(0 ^ flip, _registers[0] & 0xFE);
-        SetChr1K(1 ^ flip, _registers[0] | 1);
-        SetChr1K(2 ^ flip, _registers[1] & 0xFE);
-        SetChr1K(3 ^ flip, _registers[1] | 1);
-        SetChr1K(4 ^ flip, _registers[2]);
-        SetChr1K(5 ^ flip, _registers[3]);
-        SetChr1K(6 ^ flip, _registers[4]);
-        SetChr1K(7 ^ flip, _registers[5]);
+        SetChr1K(0 ^ flip, ChrBank(_registers[0] & 0xFE));
+        SetChr1K(1 ^ flip, ChrBank(_registers[0] | 1));
+        SetChr1K(2 ^ flip, ChrBank(_registers[1] & 0xFE));
+        SetChr1K(3 ^ flip, ChrBank(_registers[1] | 1));
+        SetChr1K(4 ^ flip, ChrBank(_registers[2]));
+        SetChr1K(5 ^ flip, ChrBank(_registers[3]));
+        SetChr1K(6 ^ flip, ChrBank(_registers[4]));
+        SetChr1K(7 ^ flip, ChrBank(_registers[5]));
+
+        if (_board == 118)
+        {
+            // TxSROM: bit 7 of the bank mapped at each 1 KB of $0000-$0FFF becomes CIRAM A10 for the
+            // matching nametable (NESdev Wiki: "INES Mapper 118").
+            if (flip == 0)
+            {
+                _ntPages[0] = _ntPages[1] = _registers[0] >> 7;
+                _ntPages[2] = _ntPages[3] = _registers[1] >> 7;
+            }
+            else
+            {
+                for (var i = 0; i < 4; i++)
+                {
+                    _ntPages[i] = _registers[2 + i] >> 7;
+                }
+            }
+        }
 
         if (!_isMmc6)
         {
@@ -212,6 +238,15 @@ public sealed class Mmc3 : MapperBase
             PrgRamWritable = (_ramProtect & 0xC0) == 0x80;
         }
     }
+
+    /// <summary>TQROM: bank bit 6 selects the board's 8 KB of CHR-RAM (NESdev Wiki: "INES Mapper 119").</summary>
+    private int ChrBank(int value) => _board switch
+    {
+        119 when (value & 0x40) != 0 => ChrRamFirstBank + (value & 0x07),
+        119 => value & 0x3F,
+        118 => value & 0x7F,
+        _ => value,
+    };
 
     protected override void SaveRegisters(StateWriter writer)
     {
