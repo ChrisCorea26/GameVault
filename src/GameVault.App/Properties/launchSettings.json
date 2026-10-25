@@ -1,0 +1,11 @@
+{
+  "profiles": {
+    "GameVault": {
+      "commandName": "Project"
+    },
+    "GameVault (sample data)": {
+      "commandName": "Project",
+      "commandLineArgs": "--sample-data"
+    }
+  }
+}

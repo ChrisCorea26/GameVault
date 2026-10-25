@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Window
+    x:Class="GameVault.App.MainWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Title="GameVault">
+
+  <Window.SystemBackdrop>
+    <MicaBackdrop />
+  </Window.SystemBackdrop>
+
+  <Grid x:Name="RootGrid" Loaded="RootGrid_Loaded">
+    <Grid.RowDefinitions>
+      <RowDefinition Height="48" />
+      <RowDefinition Height="*" />
+    </Grid.RowDefinitions>
+
+    <!-- Custom title bar: drag region with the app name and a sample-data badge. -->
+    <Grid x:Name="AppTitleBar" Grid.Row="0" Padding="16,0,0,0" ColumnSpacing="12">
+      <Grid.ColumnDefinitions>
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="*" />
+      </Grid.ColumnDefinitions>
+      <FontIcon
+          Grid.Column="0"
+          VerticalAlignment="Center"
+          FontSize="16"
+          Glyph="&#xE7FC;" />
+      <TextBlock
+          Grid.Column="1"
+          VerticalAlignment="Center"
+          Style="{StaticResource CaptionTextBlockStyle}"
+          Text="{x:Bind ViewModel.Title}" />
+      <Border
+          Grid.Column="2"
+          HorizontalAlignment="Left"
+          VerticalAlignment="Center"
+          Padding="8,2"
+          Background="{ThemeResource AccentFillColorDefaultBrush}"
+          CornerRadius="4"
+          Visibility="{x:Bind ViewModel.IsSampleData}">
+        <TextBlock
+            Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}"
+            Style="{StaticResource CaptionTextBlockStyle}"
+            Text="Sample data" />
+      </Border>
+    </Grid>
+
+    <NavigationView
+        x:Name="NavView"
+        Grid.Row="1"
+        IsBackButtonVisible="Collapsed"
+        IsSettingsVisible="True"
+        IsTabStop="False"
+        PaneDisplayMode="Left"
+        SelectionChanged="NavView_SelectionChanged">
+      <NavigationView.MenuItems>
+        <NavigationViewItem
+            x:Name="LibraryItem"
+            AccessKey="L"
+            Content="Library"
+            Tag="Library">
+          <NavigationViewItem.Icon>
+            <FontIcon Glyph="&#xE8F1;" />
+          </NavigationViewItem.Icon>
+        </NavigationViewItem>
+      </NavigationView.MenuItems>
+
+      <Frame x:Name="ContentFrame" />
+    </NavigationView>
+  </Grid>
+</Window>

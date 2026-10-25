@@ -1,0 +1,11 @@
+<Project>
+  <Import Project="$([MSBuild]::GetPathOfFileAbove('Directory.Build.props', '$(MSBuildThisFileDirectory)../'))" />
+
+  <!--
+    WinUI 3 apps need a concrete architecture. Default to x64 when no platform is given
+    (for example when running the app project directly). Must be set before the SDK defaults Platform to AnyCPU.
+  -->
+  <PropertyGroup>
+    <Platform Condition="'$(Platform)' == ''">x64</Platform>
+  </PropertyGroup>
+</Project>
