@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using GameVault.Core.Apu;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Cpu;
 using GameVault.Core.Input;
@@ -33,10 +34,14 @@ public sealed class NesBus : ICpuBus, IStateful
 
     private readonly StandardController _port1;
     private readonly StandardController _port2;
+    private readonly Apu2A03 _apu;
+    private readonly bool _mapperCycleHooks;
 
-    public NesBus(Ppu2C02 ppu, IMapper mapper, ClockRatio clock, StandardController port1, StandardController port2)
+    public NesBus(Ppu2C02 ppu, Apu2A03 apu, IMapper mapper, ClockRatio clock, StandardController port1, StandardController port2)
     {
         _ppu = ppu;
+        _apu = apu;
+        _mapperCycleHooks = mapper.HasCycleHooks;
         _port1 = port1;
         _port2 = port2;
         _mapper = mapper;
@@ -89,14 +94,24 @@ public sealed class NesBus : ICpuBus, IStateful
         }
         else if (address < 0x4020)
         {
-            // Controller data is bit 0; the undriven upper bits read as open bus. APU arrives in Phase 3.
-            value = address switch
+            // Controller data is bit 0; the undriven upper bits read as open bus.
+            switch (address)
             {
-                0x4015 => (byte)(_openBus & 0x20),
-                0x4016 => (byte)((_openBus & 0xE0) | _port1.Read()),
-                0x4017 => (byte)((_openBus & 0xE0) | _port2.Read()),
-                _ => _openBus,
-            };
+                case 0x4015:
+                    // $4015 is internal to the 2A03, so reading it doesn't change the external data bus.
+                    var status = _apu.ReadStatus(_openBus);
+                    EndCycle(_readAfter);
+                    return status;
+                case 0x4016:
+                    value = (byte)((_openBus & 0xE0) | _port1.Read());
+                    break;
+                case 0x4017:
+                    value = (byte)((_openBus & 0xE0) | _port2.Read());
+                    break;
+                default:
+                    value = _openBus;
+                    break;
+            }
         }
         else
         {
@@ -129,12 +144,24 @@ public sealed class NesBus : ICpuBus, IStateful
             _port1.Write(value);
             _port2.Write(value);
         }
+        else if (address < 0x4018)
+        {
+            _apu.WriteRegister(address, value);
+        }
         else if (address >= 0x4020)
         {
             _mapper.CpuWrite(address, value);
+            _ppu.RefreshMirroring(); // mappers can switch mirroring on any register write
         }
 
         EndCycle(_writeAfter);
+    }
+
+    /// <summary>A CPU cycle without a bus access (DMA skipping a dummy read).</summary>
+    public void Idle()
+    {
+        BeginCycle(_readBefore);
+        EndCycle(_readAfter);
     }
 
     /// <summary>Side-effect-free read for the tracer. I/O registers read as $FF, matching nestest.log.</summary>
@@ -147,7 +174,11 @@ public sealed class NesBus : ICpuBus, IStateful
 
     private void BeginCycle(int masterClocks)
     {
-        _mapper.OnCpuCycle();
+        if (_mapperCycleHooks)
+        {
+            _mapper.OnCpuCycle();
+        }
+
         RunPpu(masterClocks);
     }
 
@@ -159,14 +190,25 @@ public sealed class NesBus : ICpuBus, IStateful
         if (_cpu is { } cpu)
         {
             cpu.NmiLine = _ppu.NmiOutput;
-            if (_mapper.IrqPending)
+
+            // APU IRQs are sampled from before this cycle's APU tick: an IRQ the frame counter raises now
+            // reaches the CPU one cycle later (blargg cpu_interrupts_v2).
+            var irq = (_apu.FrameIrq ? IrqSource.FrameCounter : IrqSource.None)
+                | (_apu.DmcIrq ? IrqSource.Dmc : IrqSource.None)
+                | (_mapperCycleHooks && _mapper.IrqPending ? IrqSource.Mapper : IrqSource.None);
+            var external = cpu.IrqLines & IrqSource.External;
+            if ((irq | external) != cpu.IrqLines)
             {
-                cpu.SetIrq(IrqSource.Mapper);
+                cpu.ClearIrq(IrqSource.FrameCounter | IrqSource.Dmc | IrqSource.Mapper);
+                cpu.SetIrq(irq);
             }
-            else
-            {
-                cpu.ClearIrq(IrqSource.Mapper);
-            }
+        }
+
+        // The APU ticks after the access, so a register write lands before that cycle's frame-counter clock.
+        _apu.Tick();
+        if (_cpu is not null && _apu.TakeDmcDmaRequest())
+        {
+            _cpu.RequestDmcDma();
         }
     }
 

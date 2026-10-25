@@ -81,12 +81,17 @@ public sealed class Ppu2C02 : IStateful
 
     private bool _lastA12;
     private bool _skipOddDot;
+    private Mirroring _mirroring;
 
     public Ppu2C02(IMapper mapper)
     {
         _mapper = mapper;
         _ciram = new byte[mapper.Mirroring == Mirroring.FourScreen ? 0x1000 : 0x800];
+        _mirroring = mapper.Mirroring;
     }
+
+    /// <summary>Re-reads the cartridge's mirroring. The bus calls this after every write to the cartridge.</summary>
+    public void RefreshMirroring() => _mirroring = _mapper.Mirroring;
 
     public int Scanline { get; private set; }
 
@@ -374,7 +379,7 @@ public sealed class Ppu2C02 : IStateful
     }
 
     /// <summary>Maps $2000-$3EFF onto CIRAM using the cartridge's mirroring (NESdev Wiki: "Mirroring").</summary>
-    private int NametableIndex(ushort address) => _mapper.Mirroring switch
+    private int NametableIndex(ushort address) => _mirroring switch
     {
         Mirroring.Vertical => address & 0x07FF,
         Mirroring.Horizontal => ((address >> 1) & 0x0400) | (address & 0x03FF),
@@ -461,90 +466,90 @@ public sealed class Ppu2C02 : IStateful
         Dot = dot;
     }
 
+    /// <summary>One dot of a rendering line (visible lines 0-239, or the pre-render line 261).</summary>
     private void RenderLine(int scanline, int dot, bool visible)
     {
-        var rendering = RenderingEnabled;
-
-        if (visible && dot is >= 1 and <= 256)
+        if ((_mask & 0x18) == 0)
         {
-            // Pixel x = dot - 1. On dots 2..257 the shifters move first (see below), so draw after shifting.
-            if (dot >= 2 && rendering)
+            // Rendering off: no fetches, no scrolling, no sprite evaluation; only the backdrop is output.
+            if (visible && (uint)(dot - 1) < 256)
             {
-                ShiftBackground();
+                DrawPixel(scanline, dot - 1, rendering: false);
             }
 
-            if (rendering)
-            {
-                BackgroundFetch(dot);
-            }
-
-            DrawPixel(scanline, dot - 1);
-        }
-        else if (rendering)
-        {
-            if (dot == 257 || (dot is >= 322 and <= 337))
-            {
-                ShiftBackground();
-            }
-
-            if (dot == 257 || (dot is >= 321 and <= 337) || (!visible && dot is >= 1 and <= 256))
-            {
-                if (!visible && dot is >= 2 and <= 256)
-                {
-                    ShiftBackground();
-                }
-
-                BackgroundFetch(dot);
-            }
-            else if (dot is 338 or 340)
-            {
-                ReadVram((ushort)(0x2000 | (_v & 0x0FFF))); // unused nametable fetches
-            }
-        }
-
-        if (!rendering)
-        {
             return;
         }
 
-        if (dot == 256)
+        if (dot == 0)
         {
-            IncrementY();
-        }
-        else if (dot == 257)
-        {
-            // Copy horizontal scroll bits from t to v.
-            _v = (ushort)((_v & 0xFBE0) | (_t & 0x041F));
-        }
-        else if (!visible && dot is >= 280 and <= 304)
-        {
-            // Copy vertical scroll bits from t to v.
-            _v = (ushort)((_v & 0x841F) | (_t & 0x7BE0));
+            return; // idle dot
         }
 
-        // Sprites
-        if (visible)
+        if (dot <= 256)
         {
-            if (dot is >= 1 and <= 64)
+            // Background shifters move on dots 2-257 before the pixel is drawn (NESdev Wiki: "PPU rendering").
+            if (dot >= 2)
             {
-                if ((dot & 1) == 0)
+                ShiftBackground();
+            }
+
+            BackgroundFetch(dot);
+            if (visible)
+            {
+                DrawPixel(scanline, dot - 1, rendering: true);
+                if (dot <= 64)
                 {
-                    _secondaryOam[(dot >> 1) - 1] = 0xFF;
+                    if ((dot & 1) == 0)
+                    {
+                        _secondaryOam[(dot >> 1) - 1] = 0xFF;
+                    }
+                }
+                else
+                {
+                    EvaluateSprites(scanline, dot);
                 }
             }
-            else if (dot is >= 65 and <= 256)
+
+            if (dot == 256)
             {
-                EvaluateSprites(scanline, dot);
+                IncrementY();
             }
+
+            return;
         }
 
-        if (dot is >= 257 and <= 320)
+        if (dot <= 320)
         {
             _oamAddr = 0;
             if (dot == 257)
             {
+                ShiftBackground();
+                BackgroundFetch(dot);
+                _v = (ushort)((_v & 0xFBE0) | (_t & 0x041F)); // copy horizontal scroll from t
                 LoadSpritesForNextLine(scanline, visible);
             }
+            else if (!visible && dot >= 280 && dot <= 304)
+            {
+                _v = (ushort)((_v & 0x841F) | (_t & 0x7BE0)); // copy vertical scroll from t
+            }
+
+            return;
+        }
+
+        if (dot <= 337)
+        {
+            if (dot >= 322)
+            {
+                ShiftBackground();
+            }
+
+            BackgroundFetch(dot);
+            return;
+        }
+
+        if (dot is 338 or 340)
+        {
+            ReadVram((ushort)(0x2000 | (_v & 0x0FFF))); // unused nametable fetches
         }
     }
 
@@ -643,10 +648,10 @@ public sealed class Ppu2C02 : IStateful
         _v = (ushort)((_v & ~0x03E0) | (coarseY << 5));
     }
 
-    private void DrawPixel(int scanline, int x)
+    private void DrawPixel(int scanline, int x, bool rendering)
     {
         int color;
-        if (!RenderingEnabled)
+        if (!rendering)
         {
             // With rendering off, the backdrop shows, unless v points into palette RAM.
             color = (_v & 0x3F00) == 0x3F00 ? _palette[PaletteIndex(_v)] : _palette[0];
@@ -668,7 +673,8 @@ public sealed class Ppu2C02 : IStateful
             var isSprite0 = false;
             if ((_mask & 0x10) != 0 && (x >= 8 || (_mask & 0x04) != 0))
             {
-                for (var i = 0; i < _spriteCount; i++)
+                var count = _spriteCount;
+                for (var i = 0; i < count; i++)
                 {
                     var offset = x - _spriteX[i];
                     if ((uint)offset > 7)

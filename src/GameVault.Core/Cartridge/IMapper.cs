@@ -10,6 +10,12 @@ public interface IMapper : IStateful
     /// <summary>True while the mapper holds /IRQ low.</summary>
     bool IrqPending { get; }
 
+    /// <summary>
+    /// False for boards with no per-cycle logic or IRQ (NROM, UxROM, ...), so the bus can skip
+    /// <see cref="OnCpuCycle"/> and <see cref="IrqPending"/> on every cycle.
+    /// </summary>
+    bool HasCycleHooks => true;
+
     /// <summary>CPU read from $4020-$FFFF. Returns <paramref name="openBus"/> for unmapped addresses.</summary>
     byte CpuRead(ushort address, byte openBus);
 

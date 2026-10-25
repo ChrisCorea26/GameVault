@@ -1,3 +1,4 @@
+using GameVault.Core.Apu;
 using GameVault.Core.Bus;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Cpu;
@@ -20,15 +21,17 @@ public sealed class NesConsole : IStateful
         Rom = rom;
         Mapper = MapperFactory.Create(rom);
         Ppu = new Ppu2C02(Mapper);
+        Apu = new Apu2A03(pal: rom.TvSystem is TvSystem.Pal or TvSystem.Dendy);
         var clock = rom.TvSystem switch
         {
             TvSystem.Pal => ClockRatio.Pal,
             TvSystem.Dendy => ClockRatio.Dendy,
             _ => ClockRatio.Ntsc,
         };
-        Bus = new NesBus(Ppu, Mapper, clock, Controller1, Controller2);
-        Cpu = new Cpu6502(Bus);
+        Bus = new NesBus(Ppu, Apu, Mapper, clock, Controller1, Controller2);
+        Cpu = new Cpu6502(Bus) { DmcSource = Apu };
         Bus.AttachCpu(Cpu);
+        Apu.CpuCycle = () => Cpu.CycleCount;
     }
 
     public INesRom Rom { get; }
@@ -38,6 +41,8 @@ public sealed class NesConsole : IStateful
     public NesBus Bus { get; }
 
     public Ppu2C02 Ppu { get; }
+
+    public Apu2A03 Apu { get; }
 
     public IMapper Mapper { get; }
 
@@ -51,6 +56,7 @@ public sealed class NesConsole : IStateful
     {
         Bus.Power();
         Ppu.Power();
+        Apu.Power();
         Cpu.Power();
     }
 
@@ -58,6 +64,7 @@ public sealed class NesConsole : IStateful
     public void Reset()
     {
         Ppu.Reset();
+        Apu.Reset();
         Cpu.Reset();
     }
 
@@ -82,7 +89,7 @@ public sealed class NesConsole : IStateful
         }
     }
 
-    /// <summary>Runs until the PPU starts a new frame.</summary>
+    /// <summary>Runs until the PPU starts a new frame, then closes the frame's audio.</summary>
     public void RunFrame()
     {
         var frame = Ppu.FrameCount;
@@ -90,6 +97,8 @@ public sealed class NesConsole : IStateful
         {
             Cpu.Step();
         }
+
+        Apu.EndAudioFrame();
     }
 
     /// <summary>The next instruction in nestest.log format, with the PPU position as of the CPU's clock.</summary>
@@ -112,6 +121,7 @@ public sealed class NesConsole : IStateful
         Cpu.SaveState(writer);
         Bus.SaveState(writer);
         Ppu.SaveState(writer);
+        Apu.SaveState(writer);
         Mapper.SaveState(writer);
         Controller1.SaveState(writer);
         Controller2.SaveState(writer);
@@ -124,6 +134,7 @@ public sealed class NesConsole : IStateful
         Cpu.LoadState(reader);
         Bus.LoadState(reader);
         Ppu.LoadState(reader);
+        Apu.LoadState(reader);
         Mapper.LoadState(reader);
         Controller1.LoadState(reader);
         Controller2.LoadState(reader);

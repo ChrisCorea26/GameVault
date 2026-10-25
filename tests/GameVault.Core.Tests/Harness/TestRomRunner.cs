@@ -20,6 +20,10 @@ public static class TestRomRunner
         console.Power();
 
         int? resetAtFrame = null;
+
+        // After a reset, $6000 still reads $81 until the ROM's reset handler gets going. Ignore that stale
+        // request; otherwise a second reset lands while the ROM is in the middle of its next step.
+        var waitingForRestart = false;
         for (var frame = 0; frame < maxFrames; frame++)
         {
             console.RunFrame();
@@ -35,6 +39,16 @@ public static class TestRomRunner
             }
 
             var status = console.Bus.Peek(0x6000);
+            if (waitingForRestart)
+            {
+                if (status == NeedsReset)
+                {
+                    continue;
+                }
+
+                waitingForRestart = false;
+            }
+
             switch (status)
             {
                 case Running:
@@ -46,6 +60,7 @@ public static class TestRomRunner
                     {
                         console.Reset();
                         resetAtFrame = null;
+                        waitingForRestart = true;
                     }
 
                     continue;

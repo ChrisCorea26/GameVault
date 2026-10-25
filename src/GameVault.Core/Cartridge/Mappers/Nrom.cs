@@ -29,6 +29,8 @@ public sealed class Nrom : IMapper
 
     public bool IrqPending => false;
 
+    public bool HasCycleHooks => false;
+
     public byte CpuRead(ushort address, byte openBus) => address switch
     {
         >= 0x8000 => _prgRom[address & _prgMask],

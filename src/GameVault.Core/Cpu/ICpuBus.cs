@@ -9,4 +9,7 @@ public interface ICpuBus
     byte Read(ushort address);
 
     void Write(ushort address, byte value);
+
+    /// <summary>A cycle with no bus access (DMA skipping a read that would have side effects).</summary>
+    void Idle() => Read(0);
 }

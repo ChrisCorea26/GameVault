@@ -31,9 +31,12 @@ public sealed class Cpu6502 : IStateful
     private bool _prevRunIrq;
     private IrqSource _irqLines;
 
-    // OAM DMA ($4014): the CPU halts on its next read cycle.
+    // DMA (NESdev Wiki: "DMA"): OAM DMA ($4014) and DMC sample fetches halt the CPU on its next read cycle.
+    private bool _needHalt;
+    private bool _needDummyRead;
     private bool _oamDmaPending;
     private byte _oamDmaPage;
+    private bool _dmcDmaPending;
 
     public Cpu6502(ICpuBus bus)
     {
@@ -98,6 +101,23 @@ public sealed class Cpu6502 : IStateful
     {
         _oamDmaPage = page;
         _oamDmaPending = true;
+        _needHalt = true;
+    }
+
+    /// <summary>The DMC memory reader served by <see cref="RequestDmcDma"/> (the APU).</summary>
+    public IDmcDmaSource? DmcSource { get; set; }
+
+    /// <summary>Fetches one DMC sample byte by DMA. Called by the bus when the DMC buffer empties.</summary>
+    public void RequestDmcDma()
+    {
+        if (DmcSource is null)
+        {
+            return;
+        }
+
+        _dmcDmaPending = true;
+        _needHalt = true;
+        _needDummyRead = true;
     }
 
     /// <summary>Cold boot: clears registers, then runs the reset sequence (SP ends at $FD).</summary>
@@ -119,7 +139,7 @@ public sealed class Cpu6502 : IStateful
     public void Reset()
     {
         IsJammed = false;
-        _oamDmaPending = false;
+        _oamDmaPending = _dmcDmaPending = _needHalt = _needDummyRead = false;
         _needNmi = _prevNeedNmi = _runIrq = _prevRunIrq = false;
         _prevNmiLine = NmiLine;
 
@@ -155,9 +175,9 @@ public sealed class Cpu6502 : IStateful
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private byte Read(ushort address)
     {
-        if (_oamDmaPending)
+        if (_needHalt)
         {
-            RunOamDma(address);
+            RunDma(address);
         }
 
         CycleCount++;
@@ -190,34 +210,105 @@ public sealed class Cpu6502 : IStateful
     }
 
     /// <summary>
-    /// OAM DMA: one halt cycle, one alignment cycle if needed so reads land on "get" cycles, then
-    /// 256 read/write pairs to $2004 (513 or 514 cycles; NESdev Wiki: "DMA").
+    /// Runs pending DMA before a read cycle (NESdev Wiki: "DMA"). The CPU halts for one cycle, then DMA
+    /// alternates "get" (read) and "put" (write) cycles. OAM DMA reads on get cycles and writes $2004 on put
+    /// cycles (513 or 514 cycles in total). A DMC fetch needs a halt and a dummy cycle, then reads on a get
+    /// cycle; when both are active, OAM cycles stand in for the DMC's halt and dummy cycles.
     /// </summary>
-    private void RunOamDma(ushort haltAddress)
+    private void RunDma(ushort haltAddress)
     {
-        _oamDmaPending = false;
+        // Halt cycle: the CPU's pending read happens but is ignored.
+        DmaRead(haltAddress);
+        _needHalt = false;
 
-        CycleCount++;
-        _bus.Read(haltAddress);
-        EndCycle();
+        // Reading the controller ports twice would shift out extra bits, so DMA skips those dummy reads.
+        var skipDummyReads = haltAddress is 0x4016 or 0x4017;
+        var oamCount = 0;
+        byte oamIndex = 0;
+        byte value = 0;
 
-        if ((CycleCount & 1) == 1)
+        while (_dmcDmaPending || _oamDmaPending)
         {
+            var getCycle = (CycleCount & 1) == 0;
+            if (getCycle)
+            {
+                if (_dmcDmaPending && !_needHalt && !_needDummyRead)
+                {
+                    StandInForDmcCycle();
+                    var source = DmcSource!;
+                    source.OnDmcDmaRead(DmaRead(source.DmcDmaAddress));
+                    _dmcDmaPending = false;
+                }
+                else if (_oamDmaPending)
+                {
+                    StandInForDmcCycle();
+                    value = DmaRead((ushort)((_oamDmaPage << 8) | oamIndex++));
+                    oamCount++;
+                }
+                else
+                {
+                    StandInForDmcCycle();
+                    DummyDmaCycle(haltAddress, skipDummyReads);
+                }
+            }
+            else if (_oamDmaPending && (oamCount & 1) == 1)
+            {
+                StandInForDmcCycle();
+                DmaWrite(0x2004, value);
+                if (++oamCount == 512)
+                {
+                    _oamDmaPending = false;
+                }
+            }
+            else
+            {
+                // Alignment cycle (or a DMC halt/dummy cycle while waiting for a get cycle).
+                StandInForDmcCycle();
+                DummyDmaCycle(haltAddress, skipDummyReads);
+            }
+        }
+    }
+
+    /// <summary>Any DMA cycle counts toward a pending DMC fetch's halt, then dummy, cycle.</summary>
+    private void StandInForDmcCycle()
+    {
+        if (_needHalt)
+        {
+            _needHalt = false;
+        }
+        else if (_needDummyRead)
+        {
+            _needDummyRead = false;
+        }
+    }
+
+    private byte DmaRead(ushort address)
+    {
+        CycleCount++;
+        var value = _bus.Read(address);
+        EndCycle();
+        return value;
+    }
+
+    private void DmaWrite(ushort address, byte value)
+    {
+        CycleCount++;
+        _bus.Write(address, value);
+        EndCycle();
+    }
+
+    private void DummyDmaCycle(ushort address, bool skipRead)
+    {
+        if (skipRead)
+        {
+            // The cycle still passes; only the read side effect is skipped.
             CycleCount++;
-            _bus.Read(haltAddress);
+            _bus.Idle();
             EndCycle();
         }
-
-        var baseAddress = _oamDmaPage << 8;
-        for (var i = 0; i < 256; i++)
+        else
         {
-            CycleCount++;
-            var value = _bus.Read((ushort)(baseAddress | i));
-            EndCycle();
-
-            CycleCount++;
-            _bus.Write(0x2004, value);
-            EndCycle();
+            DmaRead(address);
         }
     }
 
@@ -737,7 +828,7 @@ public sealed class Cpu6502 : IStateful
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 1);
+        writer.BeginChunk(Tag, 2);
         writer.WriteByte(A);
         writer.WriteByte(X);
         writer.WriteByte(Y);
@@ -755,12 +846,20 @@ public sealed class Cpu6502 : IStateful
         writer.WriteByte((byte)_irqLines);
         writer.WriteBool(_oamDmaPending);
         writer.WriteByte(_oamDmaPage);
+        writer.WriteBool(_dmcDmaPending);
+        writer.WriteBool(_needHalt);
+        writer.WriteBool(_needDummyRead);
         writer.EndChunk();
     }
 
     public void LoadState(StateReader reader)
     {
-        reader.BeginChunk(Tag);
+        var version = reader.BeginChunk(Tag);
+        if (version != 2)
+        {
+            throw new StateFormatException($"Unsupported CPU state version {version}.");
+        }
+
         A = reader.ReadByte();
         X = reader.ReadByte();
         Y = reader.ReadByte();
@@ -778,6 +877,9 @@ public sealed class Cpu6502 : IStateful
         _irqLines = (IrqSource)reader.ReadByte();
         _oamDmaPending = reader.ReadBool();
         _oamDmaPage = reader.ReadByte();
+        _dmcDmaPending = reader.ReadBool();
+        _needHalt = reader.ReadBool();
+        _needDummyRead = reader.ReadBool();
         reader.EndChunk();
     }
 }
