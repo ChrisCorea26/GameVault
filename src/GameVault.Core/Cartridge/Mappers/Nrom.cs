@@ -6,7 +6,7 @@ namespace GameVault.Core.Cartridge.Mappers;
 /// Mapper 0 (NESdev Wiki: "NROM"): 16 or 32 KB PRG-ROM, 8 KB CHR-ROM or CHR-RAM, no banking.
 /// 8 KB of PRG-RAM at $6000 is always present; blargg's test ROMs report results there.
 /// </summary>
-public sealed class Nrom : IMapper
+public sealed class Nrom : IMapper, IBatteryBacked
 {
     private static readonly StateTag Tag = StateTag.From("NROM");
 
@@ -23,7 +23,12 @@ public sealed class Nrom : IMapper
         _chrIsRam = rom.ChrRom.Length == 0;
         _chr = _chrIsRam ? new byte[0x2000] : rom.ChrRom;
         Mirroring = rom.Mirroring;
+        HasBattery = rom.HasBattery;
     }
+
+    public bool HasBattery { get; }
+
+    public Span<byte> BatteryRam => _prgRam;
 
     public Mirroring Mirroring { get; }
 

@@ -14,6 +14,7 @@
   "blargg_ppu_tests/sprite_ram": "9351a03f1ebb9a8c",
   "blargg_ppu_tests/vbl_clear_time": "9351a03f1ebb9a8c",
   "blargg_ppu_tests/vram_access": "9351a03f1ebb9a8c",
+  "cpu_dummy_reads": "98e050f45ce41ae5",
   "nestest/menu": "7ec33df3f7ab4bd0",
   "oam_read": "5f14fd7fdd38ae4f",
   "ppu_vbl_nmi/01-vbl_basics": "222577d3f0456787",

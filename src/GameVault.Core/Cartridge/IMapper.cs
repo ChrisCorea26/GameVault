@@ -34,4 +34,9 @@ public interface IMapper : IStateful
 
     /// <summary>Called on each rising edge of PPU address line A12 (MMC3 scanline counter).</summary>
     void OnA12Rise();
+
+    /// <summary>Called on each falling edge of PPU A12 (lets MMC3 filter out short low periods).</summary>
+    void OnA12Fall()
+    {
+    }
 }

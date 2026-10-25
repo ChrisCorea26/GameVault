@@ -16,6 +16,7 @@ namespace GameVault.Core;
 public sealed class NesConsole : IStateful
 {
     private static readonly StateTag Tag = StateTag.From("NES ");
+    private static readonly StateTag SnapshotTag = StateTag.From("GVST");
 
     public NesConsole(INesRom rom)
     {
@@ -33,7 +34,11 @@ public sealed class NesConsole : IStateful
         Cpu = new Cpu6502(Bus) { DmcSource = Apu };
         Bus.AttachCpu(Cpu);
         Apu.CpuCycle = () => Cpu.CycleCount;
+        RomHash = HashRom(rom);
     }
+
+    /// <summary>FNV-1a over PRG and CHR. Identifies the game a snapshot belongs to (not a security hash).</summary>
+    public ulong RomHash { get; }
 
     public INesRom Rom { get; }
 
@@ -119,6 +124,71 @@ public sealed class NesConsole : IStateful
         }
 
         Apu.EndAudioFrame();
+    }
+
+    /// <summary>Runs a frame with audio output switched off (run-ahead's hidden frames, SPEC §5.5).</summary>
+    public void RunFrameSilently()
+    {
+        var sink = Apu.AudioSink;
+        Apu.AudioSink = null;
+        try
+        {
+            RunFrame();
+        }
+        finally
+        {
+            Apu.AudioSink = sink;
+        }
+    }
+
+    /// <summary>
+    /// Writes a complete save state: a header that names the game, then every component (SPEC §4.6).
+    /// Pass a reused <paramref name="writer"/> (after <see cref="StateWriter.Reset"/>) to avoid allocating.
+    /// </summary>
+    public void SaveSnapshot(StateWriter writer)
+    {
+        writer.BeginChunk(SnapshotTag, 1);
+        writer.WriteUInt64(RomHash);
+        SaveState(writer);
+        writer.EndChunk();
+    }
+
+    public byte[] SaveSnapshot()
+    {
+        var writer = new StateWriter();
+        SaveSnapshot(writer);
+        return writer.ToArray();
+    }
+
+    /// <summary>Restores a snapshot made by <see cref="SaveSnapshot(StateWriter)"/> for this same game.</summary>
+    /// <exception cref="StateFormatException">The data is corrupt or belongs to a different game.</exception>
+    public void LoadSnapshot(ReadOnlyMemory<byte> data)
+    {
+        var reader = new StateReader(data);
+        reader.BeginChunk(SnapshotTag);
+        if (reader.ReadUInt64() != RomHash)
+        {
+            throw new StateFormatException("This save state belongs to a different game.");
+        }
+
+        LoadState(reader);
+        reader.EndChunk();
+    }
+
+    private static ulong HashRom(INesRom rom)
+    {
+        var hash = 14695981039346656037UL;
+        foreach (var b in rom.PrgRom)
+        {
+            hash = (hash ^ b) * 1099511628211UL;
+        }
+
+        foreach (var b in rom.ChrRom)
+        {
+            hash = (hash ^ b) * 1099511628211UL;
+        }
+
+        return hash;
     }
 
     /// <summary>The next instruction in nestest.log format, with the PPU position as of the CPU's clock.</summary>

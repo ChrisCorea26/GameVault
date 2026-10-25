@@ -76,6 +76,7 @@ public sealed class Ppu2C02 : IStateful
     private readonly byte[] _spritePatternHi = new byte[64];
     private readonly byte[] _spriteAttr = new byte[64];
     private readonly byte[] _spriteX = new byte[64];
+    private readonly ushort[] _spriteFetchAddress = new ushort[8];
     private int _spriteCount;
     private bool _sprite0OnLine;
 
@@ -270,6 +271,7 @@ public sealed class Ppu2C02 : IStateful
                 {
                     _t = (ushort)((_t & 0xFF00) | value);
                     _v = _t;
+                    SetIdleBusAddress();
                 }
 
                 _w = !_w;
@@ -307,6 +309,19 @@ public sealed class Ppu2C02 : IStateful
         else
         {
             _v = (ushort)((_v + ((_ctrl & 0x04) != 0 ? 32 : 1)) & 0x7FFF);
+            SetIdleBusAddress();
+        }
+    }
+
+    /// <summary>
+    /// Outside rendering the PPU address bus holds v, so $2006 writes and $2007 increments move A12, which
+    /// MMC3 counts (NESdev Wiki: "MMC3", IRQ "A12" notes; blargg mmc3_test 3-A12_clocking).
+    /// </summary>
+    private void SetIdleBusAddress()
+    {
+        if (!(RenderingEnabled && (Scanline < 240 || Scanline == PreRenderScanline)))
+        {
+            TrackA12(_v);
         }
     }
 
@@ -344,12 +359,18 @@ public sealed class Ppu2C02 : IStateful
     private void TrackA12(ushort address)
     {
         var a12 = (address & 0x1000) != 0;
-        if (a12 && !_lastA12)
+        if (a12 != _lastA12)
         {
-            _mapper.OnA12Rise();
+            _lastA12 = a12;
+            if (a12)
+            {
+                _mapper.OnA12Rise();
+            }
+            else
+            {
+                _mapper.OnA12Fall();
+            }
         }
-
-        _lastA12 = a12;
     }
 
     private byte ReadVram(ushort address)
@@ -533,6 +554,7 @@ public sealed class Ppu2C02 : IStateful
                 _v = (ushort)((_v & 0x841F) | (_t & 0x7BE0)); // copy vertical scroll from t
             }
 
+            SpriteFetch(dot);
             return;
         }
 
@@ -805,52 +827,73 @@ public sealed class Ppu2C02 : IStateful
     }
 
     /// <summary>
-    /// Dots 257–320: fetch patterns for the sprites found for the next line. Empty slots fetch tile $FF,
-    /// which matters for mappers that watch A12.
+    /// Dot 257: latch the sprites found for the next line. Their pattern bytes are fetched on dots 257–320
+    /// by <see cref="SpriteFetch"/>. Empty slots fetch tile $FF, which matters for mappers that watch A12.
     /// </summary>
     private void LoadSpritesForNextLine(int scanline, bool visible)
     {
-        _spriteCount = 0;
-        _sprite0OnLine = false;
         var height = (_ctrl & 0x20) != 0 ? 16 : 8;
-
-        if (!visible)
-        {
-            // The pre-render line fetches, but nothing is drawn on line 0.
-            for (var i = 0; i < 8; i++)
-            {
-                FetchSpritePattern(0xFF, 0xFF, 0, height, out _, out _);
-            }
-
-            return;
-        }
-
-        var found = _spritesFound;
+        var found = visible ? _spritesFound : 0; // the pre-render line fetches, but nothing is drawn on line 0
         for (var i = 0; i < 8; i++)
         {
             if (i < found)
             {
                 var y = _secondaryOam[i * 4];
-                var tile = _secondaryOam[i * 4 + 1];
                 var attr = _secondaryOam[i * 4 + 2];
-                FetchSpritePattern(tile, attr, scanline - y, height, out var lo, out var hi);
-                _spritePatternLo[i] = lo;
-                _spritePatternHi[i] = hi;
+                _spriteFetchAddress[i] = SpritePatternAddress(_secondaryOam[i * 4 + 1], attr, scanline - y, height);
                 _spriteAttr[i] = attr;
                 _spriteX[i] = _secondaryOam[i * 4 + 3];
             }
             else
             {
-                FetchSpritePattern(0xFF, 0xFF, 0, height, out _, out _);
+                _spriteFetchAddress[i] = SpritePatternAddress(0xFF, 0xFF, 0, height);
             }
         }
 
         _spriteCount = found;
-        _sprite0OnLine = _sprite0Next;
+        _sprite0OnLine = visible && _sprite0Next;
 
-        if (RemoveSpriteLimit && found == 8)
+        if (visible && RemoveSpriteLimit && found == 8)
         {
             AddSpritesBeyondLimit(scanline, height);
+        }
+    }
+
+    /// <summary>
+    /// Dots 257–320, eight dots per slot: two garbage nametable reads, then the pattern low and high bytes
+    /// (NESdev Wiki: "PPU rendering", sprite fetches). Timed per dot so mappers see A12 at the right time.
+    /// </summary>
+    private void SpriteFetch(int dot)
+    {
+        var step = (dot - 257) & 7;
+        var slot = (dot - 257) >> 3;
+        switch (step)
+        {
+            case 0 when dot != 257: // dot 257's nametable read is the background fetch above
+            case 2:
+                ReadVram((ushort)(0x2000 | (_v & 0x0FFF)));
+                break;
+            case 4:
+            {
+                var lo = ReadVram(_spriteFetchAddress[slot]);
+                if (slot < _spriteCount)
+                {
+                    _spritePatternLo[slot] = Flip(lo, _spriteAttr[slot]);
+                }
+
+                break;
+            }
+
+            case 6:
+            {
+                var hi = ReadVram((ushort)(_spriteFetchAddress[slot] + 8));
+                if (slot < _spriteCount)
+                {
+                    _spritePatternHi[slot] = Flip(hi, _spriteAttr[slot]);
+                }
+
+                break;
+            }
         }
     }
 
@@ -881,13 +924,6 @@ public sealed class Ppu2C02 : IStateful
             _spriteAttr[i] = attr;
             _spriteX[i] = _oam[n * 4 + 3];
         }
-    }
-
-    private void FetchSpritePattern(byte tile, byte attr, int row, int height, out byte lo, out byte hi)
-    {
-        var address = SpritePatternAddress(tile, attr, row, height);
-        lo = Flip(ReadVram(address), attr);
-        hi = Flip(ReadVram((ushort)(address + 8)), attr);
     }
 
     private ushort SpritePatternAddress(byte tile, byte attr, int row, int height)
@@ -925,7 +961,7 @@ public sealed class Ppu2C02 : IStateful
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 1);
+        writer.BeginChunk(Tag, 2);
         writer.WriteInt32(Scanline);
         writer.WriteInt32(Dot);
         writer.WriteInt64(FrameCount);
@@ -973,13 +1009,17 @@ public sealed class Ppu2C02 : IStateful
         writer.WriteBytes(_spriteAttr);
         writer.WriteBytes(_spriteX);
         writer.WriteBool(_lastA12);
+        foreach (var address in _spriteFetchAddress)
+        {
+            writer.WriteUInt16(address);
+        }
         writer.WriteBool(_skipOddDot);
         writer.EndChunk();
     }
 
     public void LoadState(StateReader reader)
     {
-        reader.BeginChunk(Tag);
+        var version = reader.BeginChunk(Tag);
         Scanline = reader.ReadInt32();
         Dot = reader.ReadInt32();
         FrameCount = reader.ReadInt64();
@@ -1027,6 +1067,13 @@ public sealed class Ppu2C02 : IStateful
         reader.ReadBytes(_spriteAttr);
         reader.ReadBytes(_spriteX);
         _lastA12 = reader.ReadBool();
+        if (version >= 2)
+        {
+            for (var i = 0; i < _spriteFetchAddress.Length; i++)
+            {
+                _spriteFetchAddress[i] = reader.ReadUInt16();
+            }
+        }
         _skipOddDot = reader.ReadBool();
         reader.EndChunk();
         // The framebuffer is output, not state: it is fully redrawn by the next frame.
