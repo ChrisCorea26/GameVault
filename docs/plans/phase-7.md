@@ -74,3 +74,14 @@ The parts that need decisions:
   - The Player shows a disk side picker; F4 inserts the next side.
   - Disk writes are saved as `Title - hash.fdssave` patches, never into the image.
   - Tests use synthetic disks and a stub BIOS written for the test.
+- **Netplay engine** (`GameVault.Platform/Netplay`), tested over a simulated lossy link:
+  - Rollback with input prediction and an input delay of 0–2 frames. It predicts at most 8 frames
+    ahead, then waits.
+  - Each packet repeats the recent inputs, so a lost packet is covered by the next one.
+  - A handshake checks the ROM hash, the input delay and the protocol version; only the hash is sent,
+    never ROM data.
+  - Checksums of final frames detect desyncs.
+  - Tests cover up to 30% packet loss with jitter: both players end in the same state as an offline run
+    with the same inputs.
+  - **Still open (needs the owner):** the real transport, meaning the relay/STUN service and invite
+    codes, and the Player UI that goes with it.
