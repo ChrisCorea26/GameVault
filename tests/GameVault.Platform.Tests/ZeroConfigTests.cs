@@ -24,9 +24,18 @@ public sealed class ZeroConfigTests : IDisposable
 
     public void Dispose()
     {
-        if (Directory.Exists(_root))
+        // Stopping the player saves the "resume where you left off" state in the background, so a file may
+        // still be landing in the app folder for a moment.
+        for (var attempt = 0; Directory.Exists(_root); attempt++)
         {
-            Directory.Delete(_root, recursive: true);
+            try
+            {
+                Directory.Delete(_root, recursive: true);
+            }
+            catch (IOException) when (attempt < 50)
+            {
+                Thread.Sleep(100);
+            }
         }
     }
 
