@@ -1,3 +1,4 @@
+using GameVault.Platform.Audio;
 using GameVault.Platform.Emulation;
 using GameVault.Platform.Input;
 using GameVault.Platform.Storage;
@@ -73,7 +74,8 @@ public partial class App : Application
             services.AddSingleton<IEmulatorService>(sp => new EmulatorHost(
                 sp.GetRequiredService<FrameSink>(),
                 sp.GetRequiredService<InputService>(),
-                sp.GetRequiredService<ISettingsStore>()));
+                sp.GetRequiredService<ISettingsStore>(),
+                new WasapiAudioOutput()));
             services.AddSingleton<IGameFilePicker, WinUiGameFilePicker>();
         }
 

@@ -22,6 +22,10 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore) : Ob
     [ObservableProperty]
     public partial bool AllowOppositeDirections { get; set; }
 
+    /// <summary>0–100. Bound to a Slider (double), so it is a double here.</summary>
+    [ObservableProperty]
+    public partial double Volume { get; set; } = 80;
+
     [RelayCommand]
     private async Task LoadAsync(CancellationToken cancellationToken)
     {
@@ -31,6 +35,7 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore) : Ob
         RunAheadFrames = Math.Clamp(settings.RunAheadFrames, 0, AppSettings.MaxRunAheadFrames);
         PauseWhenInactive = settings.PauseWhenInactive;
         AllowOppositeDirections = settings.AllowOppositeDirections;
+        Volume = Math.Clamp(settings.Volume, 0, 100);
         _isLoaded = true;
     }
 
@@ -43,6 +48,7 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore) : Ob
         RunAheadFrames = defaults.RunAheadFrames;
         PauseWhenInactive = defaults.PauseWhenInactive;
         AllowOppositeDirections = defaults.AllowOppositeDirections;
+        Volume = defaults.Volume;
         _isLoaded = true;
         return SaveAsync();
     }
@@ -64,6 +70,8 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore) : Ob
 
     partial void OnAllowOppositeDirectionsChanged(bool value) => SaveIfLoaded();
 
+    partial void OnVolumeChanged(double value) => SaveIfLoaded();
+
     private void SaveIfLoaded()
     {
         if (_isLoaded)
@@ -78,5 +86,6 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore) : Ob
         RunAheadFrames = Math.Clamp(RunAheadFrames, 0, AppSettings.MaxRunAheadFrames),
         PauseWhenInactive = PauseWhenInactive,
         AllowOppositeDirections = AllowOppositeDirections,
+        Volume = (int)Math.Round(Math.Clamp(Volume, 0, 100)),
     });
 }

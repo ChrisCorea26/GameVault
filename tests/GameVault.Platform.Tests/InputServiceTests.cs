@@ -108,8 +108,13 @@ public class InputServiceTests
     [InlineData(VirtualKeys.F12)]
     public void Hotkeys_never_reach_the_game(int key)
     {
-        _input.KeyDown(key).Should().BeFalse();
+        var handled = _input.KeyDown(key);
+
+        handled.Should().Be(key != VirtualKeys.Escape, "Esc is left to the page's pause accelerator");
         _input.Sample(0).Should().Be(ControllerState.None);
+        _input.IsHotkeyHeld(key).Should().BeTrue();
+        _input.KeyUp(key);
+        _input.IsHotkeyHeld(key).Should().BeFalse();
 
         var bind = () => new KeyboardMapping().Bind(key, 0, ControllerState.A);
         bind.Should().Throw<ArgumentException>();

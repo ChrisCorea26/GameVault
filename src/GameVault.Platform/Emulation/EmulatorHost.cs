@@ -3,6 +3,7 @@ using System.Diagnostics;
 using GameVault.Core;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Ppu;
+using GameVault.Platform.Audio;
 using GameVault.Platform.Input;
 using GameVault.Platform.Video;
 using GameVault.ViewModels.Services;
@@ -12,16 +13,33 @@ namespace GameVault.Platform.Emulation;
 /// <summary>
 /// Owns the emulation thread (SPEC §5.1). The UI never touches the console directly: commands go through
 /// a queue and run between frames. Input is sampled as late as possible before each frame
-/// (docs/design/input.md §2). Frames are paced at the NTSC rate until audio becomes the master clock (Phase 3).
+/// (docs/design/input.md §2).
 /// </summary>
+/// <remarks>
+/// Timing (SPEC §5.6): when an audio device is available, audio is the master clock. A frame is emulated
+/// whenever the device buffer drops below target, and the resampling ratio is nudged so the buffer holds
+/// steady. Without audio, frames are paced by a high-resolution timer. Holding Tab fast-forwards at up to 8×
+/// with the sound muted.
+/// </remarks>
 public sealed class EmulatorHost : IEmulatorService, IDisposable
 {
     /// <summary>NTSC: 39375000 / 655171 ≈ 60.0988 frames per second (NESdev Wiki: "Cycle reference chart").</summary>
     public const double NtscFrameRate = 39375000.0 / 655171.0;
 
+    /// <summary>Fast-forward cap (SPEC §5.6).</summary>
+    public const int MaxFastForward = 8;
+
     private readonly IVideoSink _video;
     private readonly InputService _input;
     private readonly ISettingsStore? _settings;
+    private readonly IAudioOutput? _audio;
+    private readonly float[] _samples = new float[8192];
+    private AudioPacing? _pacing;
+    private bool _audioActive;
+
+    // Owned by the emulation thread: how much audio has been written since the rate measurement began.
+    private long _samplesWritten;
+    private Stopwatch? _rateClock;
     private readonly SynchronizationContext? _context;
     private readonly ConcurrentQueue<Action> _commands = new();
     private readonly AutoResetEvent _wake = new(false);
@@ -33,11 +51,12 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private bool _running;
     private long _frameCount;
 
-    public EmulatorHost(IVideoSink video, InputService input, ISettingsStore? settings = null)
+    public EmulatorHost(IVideoSink video, InputService input, ISettingsStore? settings = null, IAudioOutput? audio = null)
     {
         _video = video;
         _input = input;
         _settings = settings;
+        _audio = audio;
         _context = SynchronizationContext.Current;
     }
 
@@ -68,6 +87,10 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         {
             var settings = await _settings.LoadAsync(cancellationToken).ConfigureAwait(false);
             _input.AllowOppositeDirections = settings.AllowOppositeDirections;
+            if (_audio is not null)
+            {
+                _audio.Volume = Math.Clamp(settings.Volume, 0, 100) / 100f;
+            }
         }
 
         Load(data, Path.GetFileNameWithoutExtension(path));
@@ -91,6 +114,18 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 $"This game uses a cartridge type GameVault doesn't support yet (mapper {ex.Mapper}).", ex);
         }
 
+        if (_audio is not null)
+        {
+            // Devices start on first use, never in a constructor (SPEC §9.1).
+            _audioActive = _audioActive || _audio.TryStart();
+            if (_audioActive)
+            {
+                console.EnableAudio(_audio.SampleRate);
+                _pacing ??= new AudioPacing(_audio.SampleRate);
+                _audio.Flush();
+            }
+        }
+
         console.Power();
         EnsureThread();
         Post(() =>
@@ -99,6 +134,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             _running = true;
             Interlocked.Exchange(ref _frameCount, 0);
         });
+        SetAudioPaused(false);
 
         GameTitle = title;
         FaultMessage = null;
@@ -113,6 +149,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
 
         Post(() => _running = false);
+        SetAudioPaused(true);
         SetStatus(EmulatorStatus.Paused);
     }
 
@@ -124,6 +161,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
 
         Post(() => _running = _console is not null);
+        SetAudioPaused(false);
         SetStatus(EmulatorStatus.Running);
     }
 
@@ -141,6 +179,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             _console = null;
             _running = false;
         });
+        SetAudioPaused(true);
         GameTitle = null;
         SetStatus(EmulatorStatus.Idle);
     }
@@ -153,12 +192,31 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         return result.Task;
     }
 
+    /// <summary>Audio underruns since start (diagnostics; SPEC §10 soak target is zero).</summary>
+    public long AudioUnderruns => _audio?.Underruns ?? 0;
+
+    /// <summary>True when an audio device is the master clock.</summary>
+    public bool IsAudioClocked => _audioActive;
+
+    private void SetAudioPaused(bool paused)
+    {
+        if (_audio is not null)
+        {
+            _audio.Paused = paused;
+            if (!paused)
+            {
+                _audio.Flush();
+            }
+        }
+    }
+
     public void Dispose()
     {
         _shutdown = true;
         _wake.Set();
         _thread?.Join(TimeSpan.FromSeconds(2));
         _wake.Dispose();
+        _audio?.Dispose();
     }
 
     private void Post(Action command)
@@ -188,6 +246,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         var clock = Stopwatch.StartNew();
         var frameTicks = Stopwatch.Frequency / NtscFrameRate;
         var nextFrame = (double)clock.ElapsedTicks;
+        var wasFastForward = false;
 
         while (!_shutdown)
         {
@@ -198,37 +257,95 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
             if (!_running || _console is null)
             {
+                _rateClock = null;
+                _samplesWritten = 0;
                 _wake.WaitOne();
                 nextFrame = clock.ElapsedTicks;
                 continue;
             }
 
-            try
+            var console = _console;
+            var fastForward = _input.IsHotkeyHeld(VirtualKeys.Tab);
+            if (wasFastForward && !fastForward)
             {
-                var console = _console;
-                for (var port = 0; port < InputService.PortCount; port++)
-                {
-                    console.SetControllerState(port, _input.Sample(port));
-                }
-
-                console.RunFrame();
-                _video.Present(console.Ppu.FrameBuffer, NtscPalette.Argb);
-                Interlocked.Increment(ref _frameCount);
+                _audio?.Flush(); // resume from silence rather than a burst of stale sound
             }
-            catch (Exception ex)
+
+            wasFastForward = fastForward;
+            var audioClocked = _audioActive && !fastForward && console.Audio is not null;
+
+            if (audioClocked && !_pacing!.ShouldRunFrame(_audio!.BufferedSamples))
             {
-                _running = false;
-                _console = null;
-                Fault(ex);
+                _wake.WaitOne(1);
+                nextFrame = clock.ElapsedTicks;
                 continue;
             }
 
-            nextFrame += frameTicks;
+            if (audioClocked)
+            {
+                _rateClock ??= Stopwatch.StartNew();
+                var consumed = _samplesWritten - _audio!.BufferedSamples;
+                console.Audio!.ClockRate = console.CpuClockRate * _pacing!.ClockRateFactor(consumed, _rateClock.Elapsed.TotalSeconds);
+            }
+            else
+            {
+                // Paused, fast-forwarding or no device: restart the device-rate measurement afterwards.
+                _rateClock = null;
+                _samplesWritten = 0;
+            }
+
+            if (!TryRunFrame(console))
+            {
+                continue;
+            }
+
+            if (console.Audio is { } resampler)
+            {
+                int count;
+                while ((count = resampler.Read(_samples)) > 0)
+                {
+                    if (audioClocked)
+                    {
+                        _samplesWritten += _audio!.Write(_samples.AsSpan(0, count));
+                    }
+                }
+            }
+
+            if (audioClocked)
+            {
+                nextFrame = clock.ElapsedTicks;
+                continue;
+            }
+
+            nextFrame += fastForward ? frameTicks / MaxFastForward : frameTicks;
             if (!WaitUntil(clock, nextFrame))
             {
                 // Fell far behind (debugger, system sleep): re-anchor instead of bursting to catch up.
                 nextFrame = clock.ElapsedTicks;
             }
+        }
+    }
+
+    private bool TryRunFrame(NesConsole console)
+    {
+        try
+        {
+            for (var port = 0; port < InputService.PortCount; port++)
+            {
+                console.SetControllerState(port, _input.Sample(port));
+            }
+
+            console.RunFrame();
+            _video.Present(console.Ppu.FrameBuffer, NtscPalette.Argb);
+            Interlocked.Increment(ref _frameCount);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            _running = false;
+            _console = null;
+            Fault(ex);
+            return false;
         }
     }
 

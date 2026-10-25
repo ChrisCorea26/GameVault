@@ -20,6 +20,7 @@ public sealed class InputService
     private readonly Dictionary<(int Source, int Port, int Button), int> _holdCount = [];
     private readonly long[,] _lastPressed = new long[PortCount, ButtonCount];
     private readonly HashSet<int> _heldKeys = [];
+    private readonly HashSet<int> _heldHotkeys = [];
     private long _sequence;
 
     public InputService(KeyboardMapping keyboard)
@@ -30,9 +31,23 @@ public sealed class InputService
     /// <summary>When false (default), the most recently pressed direction on each axis wins.</summary>
     public bool AllowOppositeDirections { get; set; }
 
-    /// <summary>A key went down. Returns true if it is a game binding; hotkeys and unbound keys return false.</summary>
+    /// <summary>
+    /// A key went down. Returns true if the game view should mark it handled: game bindings and hotkeys the
+    /// emulator reads itself (Tab, Backspace, F5, F8, F12). Esc and unbound keys return false so page-level
+    /// accelerators still see them. Hotkeys never reach the game (docs/design/input.md §8).
+    /// </summary>
     public bool KeyDown(int virtualKey)
     {
+        if (KeyboardMapping.Hotkeys.Contains(virtualKey))
+        {
+            lock (_gate)
+            {
+                _heldHotkeys.Add(virtualKey);
+            }
+
+            return virtualKey != VirtualKeys.Escape;
+        }
+
         if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button))
         {
             return false;
@@ -52,6 +67,16 @@ public sealed class InputService
 
     public bool KeyUp(int virtualKey)
     {
+        if (KeyboardMapping.Hotkeys.Contains(virtualKey))
+        {
+            lock (_gate)
+            {
+                _heldHotkeys.Remove(virtualKey);
+            }
+
+            return virtualKey != VirtualKeys.Escape;
+        }
+
         if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button))
         {
             return false;
@@ -106,6 +131,16 @@ public sealed class InputService
         {
             _holdCount.Clear();
             _heldKeys.Clear();
+            _heldHotkeys.Clear();
+        }
+    }
+
+    /// <summary>True while a hotkey such as Tab (fast-forward) is held.</summary>
+    public bool IsHotkeyHeld(int virtualKey)
+    {
+        lock (_gate)
+        {
+            return _heldHotkeys.Contains(virtualKey);
         }
     }
 

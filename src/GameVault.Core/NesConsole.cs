@@ -1,4 +1,5 @@
 using GameVault.Core.Apu;
+using GameVault.Core.Audio;
 using GameVault.Core.Bus;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Cpu;
@@ -46,11 +47,30 @@ public sealed class NesConsole : IStateful
 
     public IMapper Mapper { get; }
 
+    /// <summary>Resampled audio, once <see cref="EnableAudio"/> has been called.</summary>
+    public BandLimitedResampler? Audio { get; private set; }
+
+    /// <summary>The CPU clock in Hz for this console's region (NESdev Wiki: "Cycle reference chart").</summary>
+    public double CpuClockRate => Rom.TvSystem switch
+    {
+        TvSystem.Pal => 26601712.0 / 16,
+        TvSystem.Dendy => 26601712.0 / 15,
+        _ => 236250000.0 / 11 / 12,
+    };
+
     public StandardController Controller1 { get; } = new();
 
     public StandardController Controller2 { get; } = new();
 
     public static NesConsole FromBytes(ReadOnlySpan<byte> romData) => new(INesRom.Parse(romData));
+
+    /// <summary>Starts producing audio samples at <paramref name="sampleRate"/>; read them from <see cref="Audio"/>.</summary>
+    public BandLimitedResampler EnableAudio(int sampleRate = 48000)
+    {
+        Audio ??= new BandLimitedResampler(CpuClockRate, sampleRate);
+        Apu.AudioSink = Audio;
+        return Audio;
+    }
 
     public void Power()
     {

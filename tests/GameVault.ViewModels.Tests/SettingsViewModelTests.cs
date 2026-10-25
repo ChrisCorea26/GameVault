@@ -29,9 +29,10 @@ public class SettingsViewModelTests
         vm.RunAheadFrames = 2;
         vm.CropOverscan = false;
         vm.AllowOppositeDirections = true;
+        vm.Volume = 55.4;
 
-        store.Current.Should().Be(new AppSettings { RunAheadFrames = 2, CropOverscan = false, AllowOppositeDirections = true });
-        store.SaveCount.Should().Be(3);
+        store.Current.Should().Be(new AppSettings { RunAheadFrames = 2, CropOverscan = false, AllowOppositeDirections = true, Volume = 55 });
+        store.SaveCount.Should().Be(4);
     }
 
     [Fact]

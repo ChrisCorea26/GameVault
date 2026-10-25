@@ -9,6 +9,10 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="NAudio.Wasapi" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="GameVault.Platform.Tests" />
   </ItemGroup>
 

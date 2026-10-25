@@ -36,6 +36,33 @@
         </Grid>
       </Border>
 
+      <!-- Audio -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Audio" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <Grid ColumnSpacing="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="240" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="Game volume" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="Takes effect the next time you start a game."
+                TextWrapping="Wrap" />
+          </StackPanel>
+          <Slider
+              Grid.Column="1"
+              VerticalAlignment="Center"
+              AutomationProperties.Name="Game volume"
+              Maximum="100"
+              Minimum="0"
+              StepFrequency="5"
+              Value="{x:Bind ViewModel.Volume, Mode=TwoWay}" />
+        </Grid>
+      </Border>
+
       <!-- Gameplay -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Gameplay" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">

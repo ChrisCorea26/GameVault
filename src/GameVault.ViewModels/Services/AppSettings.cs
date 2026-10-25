@@ -13,6 +13,9 @@ public sealed record AppSettings
 
     public bool PauseWhenInactive { get; init; } = true;
 
+    /// <summary>Game volume, 0–100 (0 mutes).</summary>
+    public int Volume { get; init; } = 80;
+
     /// <summary>
     /// Let the game see Left+Right or Up+Down at once. Off by default: the most recent direction on each
     /// axis wins, like a real pad (docs/design/input.md §6).
