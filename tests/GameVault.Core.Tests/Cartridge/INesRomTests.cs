@@ -100,10 +100,11 @@ public class INesRomTests
     public void Unsupported_mappers_are_reported_by_number()
     {
         var image = TestRoms.Nrom([0xEA]);
-        image[6] = 0xD0; // mapper 13 (CPROM), not supported yet
+        image[6] = 0xF0; // mapper 239: no board is assigned to it
+        image[7] = (byte)((image[7] & 0x0F) | 0xE0);
 
         var act = () => MapperFactory.Create(INesRom.Parse(image));
 
-        act.Should().Throw<UnsupportedMapperException>().Which.Mapper.Should().Be(13);
+        act.Should().Throw<UnsupportedMapperException>().Which.Mapper.Should().Be(239);
     }
 }

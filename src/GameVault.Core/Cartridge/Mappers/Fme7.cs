@@ -6,7 +6,7 @@ namespace GameVault.Core.Cartridge.Mappers;
 /// <summary>
 /// Mapper 69, Sunsoft FME-7 / 5A / 5B (NESdev Wiki: "Sunsoft FME-7"): a command/parameter register pair for
 /// 1 KB CHR and 8 KB PRG banking (including ROM or RAM at $6000), mirroring, and a 16-bit CPU-cycle IRQ
-/// counter. The 5B adds three square-wave channels (<see cref="Sunsoft5BAudio"/>).
+/// counter. The 5B adds its sound chip (<see cref="Sunsoft5BAudio"/>).
 /// </summary>
 public sealed class Fme7 : MapperBase
 {
@@ -177,9 +177,10 @@ public sealed class Fme7 : MapperBase
 }
 
 /// <summary>
-/// The Sunsoft 5B's three square-wave tone channels (a YM2149F core; NESdev Wiki: "Sunsoft 5B audio").
-/// Each tone toggles every 16 × period CPU cycles; volume is logarithmic in 3 dB steps. The noise generator
-/// and envelope are not emulated yet (no known licensed game relies on them).
+/// The Sunsoft 5B's sound, a YM2149F core (NESdev Wiki: "Sunsoft 5B audio"). It has three square-wave tone
+/// channels, a 17-bit LFSR noise generator and a 32-step envelope generator with the AY shapes. The chip
+/// runs at half the CPU clock with a /8 prescaler, so its tone, noise and envelope counters advance every 16
+/// CPU cycles. Volume is logarithmic in 1.5 dB steps (32 levels; fixed volumes use every other level).
 /// </summary>
 public sealed class Sunsoft5BAudio : IExpansionAudio, IStateful
 {
@@ -188,19 +189,36 @@ public sealed class Sunsoft5BAudio : IExpansionAudio, IStateful
     /// <summary>Loudest channel relative to the 2A03 mix; three channels together sit near the 2A03's own level.</summary>
     private const float ChannelScale = 0.08f;
 
-    private static readonly float[] Volume = BuildVolumeTable();
+    private static readonly float[] Levels = BuildLevels();
 
     private readonly byte[] _registers = new byte[16];
-    private readonly int[] _counters = new int[3];
-    private readonly bool[] _high = new bool[3];
+    private readonly int[] _toneCounters = new int[3];
+    private readonly bool[] _toneHigh = new bool[3];
     private int _prescaler;
     private byte _select;
+    private int _noiseCounter;
+    private int _noiseLfsr = 1;
+    private int _envelopeCounter;
+    private int _envelopeStep;
+    private bool _envelopeHolding;
+    private bool _envelopeAttack;
 
     public float Output { get; private set; }
 
     public void Select(byte value) => _select = (byte)(value & 0x0F);
 
-    public void Write(byte value) => _registers[_select] = value;
+    public void Write(byte value)
+    {
+        _registers[_select] = value;
+        if (_select == 13)
+        {
+            // Writing the shape restarts the envelope.
+            _envelopeStep = 0;
+            _envelopeCounter = 0;
+            _envelopeHolding = false;
+            _envelopeAttack = (value & 0x04) != 0;
+        }
+    }
 
     public void Clock()
     {
@@ -210,33 +228,104 @@ public sealed class Sunsoft5BAudio : IExpansionAudio, IStateful
         }
 
         _prescaler = 0;
+        ClockTones();
+        ClockNoise();
+        ClockEnvelope();
+
+        var envelopeLevel = _envelopeAttack ? _envelopeStep : 31 - _envelopeStep;
+        var noiseHigh = (_noiseLfsr & 1) != 0;
         var output = 0f;
         for (var ch = 0; ch < 3; ch++)
         {
-            var period = _registers[ch * 2] | ((_registers[ch * 2 + 1] & 0x0F) << 8);
-            if (++_counters[ch] >= Math.Max(1, period))
+            var toneOff = (_registers[7] & (1 << ch)) != 0;
+            var noiseOff = (_registers[7] & (8 << ch)) != 0;
+            if ((toneOff || _toneHigh[ch]) && (noiseOff || noiseHigh))
             {
-                _counters[ch] = 0;
-                _high[ch] = !_high[ch];
-            }
-
-            var toneOn = (_registers[7] & (1 << ch)) == 0;
-            var level = _registers[8 + ch] & 0x0F;
-            if (!toneOn || _high[ch])
-            {
-                output += Volume[level];
+                var volume = _registers[8 + ch];
+                var level = (volume & 0x10) != 0 ? envelopeLevel : (volume & 0x0F) == 0 ? 0 : ((volume & 0x0F) * 2) + 1;
+                output += Levels[level];
             }
         }
 
         Output = output * ChannelScale;
     }
 
-    private static float[] BuildVolumeTable()
+    private void ClockTones()
     {
-        var table = new float[16];
-        for (var i = 1; i < 16; i++)
+        for (var ch = 0; ch < 3; ch++)
         {
-            table[i] = MathF.Pow(10f, -3f * (15 - i) / 20f); // 3 dB per step
+            var period = _registers[ch * 2] | ((_registers[ch * 2 + 1] & 0x0F) << 8);
+            if (++_toneCounters[ch] >= Math.Max(1, period))
+            {
+                _toneCounters[ch] = 0;
+                _toneHigh[ch] = !_toneHigh[ch];
+            }
+        }
+    }
+
+    private void ClockNoise()
+    {
+        // The noise period counts at half the tone rate.
+        var period = Math.Max(1, _registers[6] & 0x1F) * 2;
+        if (++_noiseCounter >= period)
+        {
+            _noiseCounter = 0;
+            var feedback = (_noiseLfsr ^ (_noiseLfsr >> 3)) & 1;
+            _noiseLfsr = (_noiseLfsr >> 1) | (feedback << 16);
+        }
+    }
+
+    private void ClockEnvelope()
+    {
+        var period = Math.Max(1, _registers[11] | (_registers[12] << 8));
+        if (_envelopeHolding || ++_envelopeCounter < period)
+        {
+            return;
+        }
+
+        _envelopeCounter = 0;
+        if (++_envelopeStep < 32)
+        {
+            return;
+        }
+
+        // End of a ramp: the shape decides what happens (AY/YM "CONT, ATT, ALT, HOLD").
+        var shape = _registers[13];
+        var cont = (shape & 0x08) != 0;
+        var alternate = (shape & 0x02) != 0;
+        var hold = (shape & 0x01) != 0;
+        if (!cont)
+        {
+            _envelopeStep = 31;
+            _envelopeAttack = false; // 31 - 31 = 0: silent
+            _envelopeHolding = true;
+        }
+        else if (hold)
+        {
+            _envelopeStep = 31;
+            if (alternate)
+            {
+                _envelopeAttack = !_envelopeAttack;
+            }
+
+            _envelopeHolding = true;
+        }
+        else
+        {
+            _envelopeStep = 0;
+            if (alternate)
+            {
+                _envelopeAttack = !_envelopeAttack;
+            }
+        }
+    }
+
+    private static float[] BuildLevels()
+    {
+        var table = new float[32];
+        for (var i = 1; i < 32; i++)
+        {
+            table[i] = MathF.Pow(10f, -1.5f * (31 - i) / 20f);
         }
 
         return table;
@@ -244,20 +333,22 @@ public sealed class Sunsoft5BAudio : IExpansionAudio, IStateful
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 1);
+        writer.BeginChunk(Tag, 2);
         writer.WriteBytes(_registers);
-        foreach (var counter in _counters)
+        for (var i = 0; i < 3; i++)
         {
-            writer.WriteInt32(counter);
-        }
-
-        foreach (var high in _high)
-        {
-            writer.WriteBool(high);
+            writer.WriteInt32(_toneCounters[i]);
+            writer.WriteBool(_toneHigh[i]);
         }
 
         writer.WriteInt32(_prescaler);
         writer.WriteByte(_select);
+        writer.WriteInt32(_noiseCounter);
+        writer.WriteInt32(_noiseLfsr);
+        writer.WriteInt32(_envelopeCounter);
+        writer.WriteInt32(_envelopeStep);
+        writer.WriteBool(_envelopeHolding);
+        writer.WriteBool(_envelopeAttack);
         writer.EndChunk();
     }
 
@@ -267,16 +358,18 @@ public sealed class Sunsoft5BAudio : IExpansionAudio, IStateful
         reader.ReadBytes(_registers);
         for (var i = 0; i < 3; i++)
         {
-            _counters[i] = reader.ReadInt32();
-        }
-
-        for (var i = 0; i < 3; i++)
-        {
-            _high[i] = reader.ReadBool();
+            _toneCounters[i] = reader.ReadInt32();
+            _toneHigh[i] = reader.ReadBool();
         }
 
         _prescaler = reader.ReadInt32();
         _select = reader.ReadByte();
+        _noiseCounter = reader.ReadInt32();
+        _noiseLfsr = reader.ReadInt32();
+        _envelopeCounter = reader.ReadInt32();
+        _envelopeStep = reader.ReadInt32();
+        _envelopeHolding = reader.ReadBool();
+        _envelopeAttack = reader.ReadBool();
         reader.EndChunk();
     }
 }

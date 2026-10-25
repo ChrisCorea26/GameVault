@@ -6,7 +6,7 @@ namespace GameVault.Core.Cartridge.Mappers;
 /// Mapper 5, MMC5 (NESdev Wiki: "MMC5"): four PRG modes with ROM or RAM in each 8 KB slot, four CHR modes with
 /// separate sprite and background sets for 8×16 sprites, 1 KB of ExRAM (nametable, extended attributes,
 /// or plain RAM), fill mode, a scanline IRQ found by watching nametable fetches, and an 8×8 multiplier.
-/// Not emulated yet: the vertical split screen and the MMC5's own sound (SPEC §12 Phase 7).
+/// Its sound is <see cref="Mmc5Audio"/>. Not emulated yet: the vertical split screen.
 /// </summary>
 public sealed class Mmc5 : MapperBase
 {
@@ -18,6 +18,7 @@ public sealed class Mmc5 : MapperBase
     private readonly int[] _chrA = new int[8];       // $5120-$5127 (sprites, or everything in 8x8 mode)
     private readonly int[] _chrB = new int[4];       // $5128-$512B (background in 8x16 mode)
     private readonly int[] _prgOffsets = new int[4];
+    private readonly Mmc5Audio _audio = new();
     private readonly bool[] _prgIsRam = new bool[4];
     private int _prgMode = 3;
     private int _chrMode;
@@ -68,6 +69,8 @@ public sealed class Mmc5 : MapperBase
 
     public override Span<byte> BatteryRam => _prgRam;
 
+    public override Audio.IExpansionAudio ExpansionAudio => _audio;
+
     public override void OnCpuCycle()
     {
         // No PPU reads for a few cycles means rendering stopped (vblank or disabled): leave the frame.
@@ -109,6 +112,8 @@ public sealed class Mmc5 : MapperBase
                 return status;
             }
 
+            case 0x5015:
+                return _audio.ReadStatus();
             case 0x5205:
                 return (byte)(_multiplicand * _multiplier);
             case 0x5206:
@@ -133,6 +138,9 @@ public sealed class Mmc5 : MapperBase
     {
         switch (address)
         {
+            case >= 0x5000 and <= 0x5015:
+                _audio.Write(address, value);
+                return;
             case 0x5100:
                 _prgMode = value & 3;
                 UpdatePrg();
@@ -456,6 +464,7 @@ public sealed class Mmc5 : MapperBase
         writer.WriteInt32(_ntReadsThisLine);
         writer.WriteInt32(_cyclesSincePpuRead);
         writer.WriteByte(_exAttribute);
+        _audio.Save(writer);
     }
 
     protected override void LoadRegisters(StateReader reader)
@@ -497,6 +506,7 @@ public sealed class Mmc5 : MapperBase
         _ntReadsThisLine = reader.ReadInt32();
         _cyclesSincePpuRead = reader.ReadInt32();
         _exAttribute = reader.ReadByte();
+        _audio.Load(reader);
         UpdatePrg();
         UpdateChr();
     }

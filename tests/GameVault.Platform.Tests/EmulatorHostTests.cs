@@ -125,9 +125,10 @@ public sealed class EmulatorHostTests : IDisposable
         notNes.Should().Throw<GameLoadException>().WithMessage("*isn't an NES game*");
 
         var rom = ControllerEchoRom();
-        rom[6] = 0xD0; // mapper 13 (CPROM), not supported yet
-        var unsupported = () => _host.Load(rom, "cprom");
-        unsupported.Should().Throw<GameLoadException>().WithMessage("*doesn't support yet (mapper 13)*");
+        rom[6] = 0xF0; // mapper 239: no board is assigned to it
+        rom[7] = (byte)((rom[7] & 0x0F) | 0xE0);
+        var unsupported = () => _host.Load(rom, "unknown board");
+        unsupported.Should().Throw<GameLoadException>().WithMessage("*doesn't support yet (mapper 239)*");
 
         _host.Status.Should().Be(EmulatorStatus.Idle);
     }

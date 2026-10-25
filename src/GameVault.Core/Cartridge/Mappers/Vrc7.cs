@@ -5,13 +5,14 @@ namespace GameVault.Core.Cartridge.Mappers;
 /// <summary>
 /// Konami VRC7, mapper 85 (NESdev Wiki: "VRC7"): three 8 KB PRG banks, eight 1 KB CHR banks, mirroring,
 /// PRG-RAM enable and VRC IRQ. VRC7a uses A4 and VRC7b A3 as the sub-register line, so both are accepted.
-/// The YM2413-derived FM sound is not emulated yet (SPEC §12 Phase 7, expansion audio completion).
+/// Its FM sound is <see cref="Vrc7Audio"/>.
 /// </summary>
 public sealed class Vrc7 : MapperBase
 {
     private readonly byte[] _prg = new byte[3];
     private readonly byte[] _chr = new byte[8];
     private readonly VrcIrq _irq = new();
+    private readonly Vrc7Audio _audio = new();
     private byte _control;
 
     public Vrc7(INesRom rom)
@@ -20,6 +21,8 @@ public sealed class Vrc7 : MapperBase
     public override bool HasCycleHooks => true;
 
     public override bool IrqPending => _irq.Pending;
+
+    public override Audio.IExpansionAudio ExpansionAudio => _audio;
 
     public override void OnCpuCycle() => _irq.Clock();
 
@@ -35,7 +38,17 @@ public sealed class Vrc7 : MapperBase
                 _prg[2] = (byte)(value & 0x3F);
                 break;
             case 0x9000:
-                return; // FM sound registers ($9010/$9030)
+                // FM sound: $9010 selects a register, $9030 writes it.
+                if ((address & 0x20) != 0)
+                {
+                    _audio.WriteData(value);
+                }
+                else
+                {
+                    _audio.SelectRegister(value);
+                }
+
+                return;
             case 0xA000 or 0xB000 or 0xC000 or 0xD000:
                 _chr[(((address & 0xF000) - 0xA000) >> 11) | (odd ? 1 : 0)] = value;
                 break;
@@ -88,6 +101,7 @@ public sealed class Vrc7 : MapperBase
         writer.WriteByte(_control);
         writer.WriteByte((byte)Mirroring);
         _irq.Save(writer);
+        _audio.Save(writer);
     }
 
     protected override void LoadRegisters(StateReader reader)
@@ -98,6 +112,7 @@ public sealed class Vrc7 : MapperBase
         PrgRamReadable = PrgRamWritable = (_control & 0x80) != 0;
         Mirroring = (Mirroring)reader.ReadByte();
         _irq.Load(reader);
+        _audio.Load(reader);
         UpdateBanks();
     }
 }
