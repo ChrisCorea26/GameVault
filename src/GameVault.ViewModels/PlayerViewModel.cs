@@ -19,7 +19,8 @@ public sealed partial class PlayerViewModel(
     PracticeViewModel practice,
     CodesViewModel codes,
     ICheatService cheats,
-    NetplayViewModel netplay) : ObservableObject
+    NetplayViewModel netplay,
+    IWindowService window) : ObservableObject
 {
     private byte[]? _passwordScreenshot;
     private bool _updatingDisk;
@@ -93,6 +94,38 @@ public sealed partial class PlayerViewModel(
 
     /// <summary>Two-player netplay on the local network (SPEC §7.7).</summary>
     public NetplayViewModel Netplay => netplay;
+
+    /// <summary>Full-screen play: the toolbar and the app's frame are hidden.</summary>
+    public bool IsFullScreen => window.IsFullScreen;
+
+    public bool IsWindowed => !window.IsFullScreen;
+
+    public string FullScreenButtonLabel => window.IsFullScreen ? "Exit full screen" : "Full screen";
+
+    /// <summary>F11, Alt+Enter or the toolbar button.</summary>
+    [RelayCommand]
+    private void ToggleFullScreen() => window.SetFullScreen(!window.IsFullScreen);
+
+    /// <summary>
+    /// Esc: leaves full screen if it's on (returns true); otherwise the page treats it as pause.
+    /// </summary>
+    public bool ExitFullScreen()
+    {
+        if (!window.IsFullScreen)
+        {
+            return false;
+        }
+
+        window.SetFullScreen(false);
+        return true;
+    }
+
+    private void OnFullScreenChanged(object? sender, EventArgs e)
+    {
+        OnPropertyChanged(nameof(IsFullScreen));
+        OnPropertyChanged(nameof(IsWindowed));
+        OnPropertyChanged(nameof(FullScreenButtonLabel));
+    }
 
     /// <summary>Practice mode: practice point, retry, splits (SPEC §7.6).</summary>
     public PracticeViewModel Practice => practice;
@@ -200,8 +233,13 @@ public sealed partial class PlayerViewModel(
         IsLoading = true;
         try
         {
-            _pauseWhenInactive = (await settingsStore.LoadAsync()).PauseWhenInactive;
+            var settings = await settingsStore.LoadAsync();
+            _pauseWhenInactive = settings.PauseWhenInactive;
             await emulator.LoadAsync(path);
+            if (settings.PlayFullScreen)
+            {
+                window.SetFullScreen(true);
+            }
         }
         catch (GameLoadException ex)
         {
@@ -372,6 +410,7 @@ public sealed partial class PlayerViewModel(
         emulator.Stop();
         timeline.Detach();
         codes.Detach();
+        window.SetFullScreen(false); // leaving the Player always returns to the normal window
         netplay.Detach();
         Detach();
     }
@@ -384,6 +423,7 @@ public sealed partial class PlayerViewModel(
             emulator.Notice += OnNotice;
             emulator.RewindChanged += OnRewindChanged;
             emulator.DiskChanged += OnDiskChanged;
+            window.FullScreenChanged += OnFullScreenChanged;
             emulator.PlaytimeElapsed += OnPlaytimeElapsed;
             emulator.ManualPasswordRequested += OnManualPasswordRequested;
             emulator.ScreenshotRequested += OnScreenshotRequested;
@@ -407,6 +447,7 @@ public sealed partial class PlayerViewModel(
             emulator.Notice -= OnNotice;
             emulator.RewindChanged -= OnRewindChanged;
             emulator.DiskChanged -= OnDiskChanged;
+            window.FullScreenChanged -= OnFullScreenChanged;
             emulator.PlaytimeElapsed -= OnPlaytimeElapsed;
             emulator.ManualPasswordRequested -= OnManualPasswordRequested;
             emulator.ScreenshotRequested -= OnScreenshotRequested;

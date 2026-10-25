@@ -137,6 +137,15 @@ public sealed partial class GameView : Control
 
     protected override void OnKeyDown(KeyRoutedEventArgs e)
     {
+        // Alt+Enter is full screen (a page accelerator), not Start: let it through untouched.
+        var alt = Microsoft.UI.Input.InputKeyboardSource.GetKeyStateForCurrentThread(Windows.System.VirtualKey.Menu)
+            .HasFlag(Windows.UI.Core.CoreVirtualKeyStates.Down);
+        if (alt && e.Key == Windows.System.VirtualKey.Enter)
+        {
+            base.OnKeyDown(e);
+            return;
+        }
+
         if (_input?.KeyDown(VirtualKeys.Normalize((int)e.Key, e.KeyStatus.ScanCode)) == true)
         {
             e.Handled = true;

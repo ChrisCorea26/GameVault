@@ -31,6 +31,7 @@ public static class VirtualKeys
     public const int F7 = 0x76;
     public const int F8 = 0x77;
     public const int F9 = 0x78;
+    public const int F11 = 0x7A;
     public const int F12 = 0x7B;
     public const int LeftShift = 0xA0;
     public const int RightShift = 0xA1;

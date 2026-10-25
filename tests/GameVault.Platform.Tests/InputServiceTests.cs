@@ -191,6 +191,16 @@ public class TurboStickAndPresetTests
     }
 
     [Fact]
+    public void F11_is_left_for_the_page_and_cant_be_a_game_key()
+    {
+        _input.KeyDown(VirtualKeys.F11).Should().BeFalse("the Player page switches full screen");
+        _input.Sample(0, 0).Should().Be(ControllerState.None);
+
+        var bind = () => new KeyboardMapping().Bind(VirtualKeys.F11, 0, ControllerState.A);
+        bind.Should().Throw<ArgumentException>();
+    }
+
+    [Fact]
     public void Turbo_and_a_held_button_combine()
     {
         _input.PressTurbo(5, 0, ControllerState.A);

@@ -116,6 +116,30 @@
         </Grid>
       </Border>
 
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <Grid ColumnSpacing="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="Play in full screen" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="Games start filling the screen. While playing, F11 or Alt+Enter switches, and Esc leaves full screen."
+                TextWrapping="Wrap" />
+          </StackPanel>
+          <ToggleSwitch
+              Grid.Column="1"
+              MinWidth="0"
+              AutomationProperties.Name="Play in full screen"
+              IsOn="{x:Bind ViewModel.PlayFullScreen, Mode=TwoWay}"
+              OffContent=""
+              OnContent="" />
+        </Grid>
+      </Border>
+
       <!-- Audio -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Audio" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">

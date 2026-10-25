@@ -110,7 +110,18 @@ public sealed partial class PlayerPage : Page
 
     private void Pause_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        ViewModel.TogglePauseCommand.Execute(null);
+        if (!ViewModel.ExitFullScreen())
+        {
+            ViewModel.TogglePauseCommand.Execute(null);
+        }
+
+        args.Handled = true;
+    }
+
+    private void FullScreen_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
+    {
+        ViewModel.ToggleFullScreenCommand.Execute(null);
+        ReturnFocusToGame();
         args.Handled = true;
     }
 }

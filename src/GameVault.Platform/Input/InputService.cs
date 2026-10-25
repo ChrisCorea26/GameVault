@@ -92,7 +92,7 @@ public sealed class InputService
                 _heldHotkeys.Add(virtualKey);
             }
 
-            return virtualKey != VirtualKeys.Escape;
+            return virtualKey is not (VirtualKeys.Escape or VirtualKeys.F11); // the page handles these
         }
 
         if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button, out var turbo))
@@ -128,7 +128,7 @@ public sealed class InputService
                 _heldHotkeys.Remove(virtualKey);
             }
 
-            return virtualKey != VirtualKeys.Escape;
+            return virtualKey is not (VirtualKeys.Escape or VirtualKeys.F11); // the page handles these
         }
 
         if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button, out var turbo))

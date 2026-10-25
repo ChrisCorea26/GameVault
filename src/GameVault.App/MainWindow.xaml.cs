@@ -16,10 +16,11 @@ public sealed partial class MainWindow : Window
 {
     private readonly FrameNavigationService _navigation;
 
-    public MainWindow(ShellViewModel viewModel, FrameNavigationService navigation)
+    public MainWindow(ShellViewModel viewModel, FrameNavigationService navigation, IWindowService window)
     {
         ViewModel = viewModel;
         _navigation = navigation;
+        window.FullScreenChanged += (_, _) => ShowChrome(!window.IsFullScreen);
 
         InitializeComponent();
 
@@ -30,6 +31,14 @@ public sealed partial class MainWindow : Window
         _navigation.Initialize(ContentFrame);
         ViewModel.PropertyChanged += ViewModel_PropertyChanged;
         Activated += OnActivated;
+    }
+
+    /// <summary>Full-screen play hides the title bar and the navigation pane, leaving only the game.</summary>
+    private void ShowChrome(bool visible)
+    {
+        AppTitleBar.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
+        RootGrid.RowDefinitions[0].Height = visible ? new GridLength(48) : new GridLength(0);
+        NavView.IsPaneVisible = visible;
     }
 
     public ShellViewModel ViewModel { get; }

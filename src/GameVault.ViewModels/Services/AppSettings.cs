@@ -19,6 +19,9 @@ public sealed record AppSettings
 
     public bool PauseWhenInactive { get; init; } = true;
 
+    /// <summary>Start games in full screen (F11 or Alt+Enter switches while playing).</summary>
+    public bool PlayFullScreen { get; init; }
+
     /// <summary>"Two players, one keyboard" preset (docs/design/input.md §4.3).</summary>
     public bool TwoPlayerKeyboard { get; init; }
 

@@ -11,7 +11,7 @@ public sealed class KeyboardMapping
     public static IReadOnlySet<int> Hotkeys { get; } = new HashSet<int>
     {
         VirtualKeys.Escape, VirtualKeys.Backspace, VirtualKeys.Tab, VirtualKeys.F3, VirtualKeys.F4, VirtualKeys.F5, VirtualKeys.F6, VirtualKeys.F7,
-        VirtualKeys.F8, VirtualKeys.F9, VirtualKeys.F12,
+        VirtualKeys.F8, VirtualKeys.F9, VirtualKeys.F11, VirtualKeys.F12,
     };
 
     /// <summary>

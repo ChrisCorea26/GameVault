@@ -52,6 +52,10 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
     [ObservableProperty]
     public partial bool PauseWhenInactive { get; set; } = true;
 
+    /// <summary>Start games in full screen.</summary>
+    [ObservableProperty]
+    public partial bool PlayFullScreen { get; set; }
+
     [ObservableProperty]
     public partial bool AllowOppositeDirections { get; set; }
 
@@ -69,6 +73,7 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
         TvPixelShape = settings.TvPixelShape;
         RunAheadFrames = Math.Clamp(settings.RunAheadFrames, 0, AppSettings.MaxRunAheadFrames);
         PauseWhenInactive = settings.PauseWhenInactive;
+        PlayFullScreen = settings.PlayFullScreen;
         AllowOppositeDirections = settings.AllowOppositeDirections;
         Volume = Math.Clamp(settings.Volume, 0, 100);
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
@@ -88,6 +93,7 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
         TvPixelShape = defaults.TvPixelShape;
         RunAheadFrames = defaults.RunAheadFrames;
         PauseWhenInactive = defaults.PauseWhenInactive;
+        PlayFullScreen = defaults.PlayFullScreen;
         AllowOppositeDirections = defaults.AllowOppositeDirections;
         Volume = defaults.Volume;
         RewindMemoryIndex = Array.IndexOf(RewindMemoryValues, defaults.RewindMemoryMb);
@@ -119,6 +125,8 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
     }
 
     partial void OnPauseWhenInactiveChanged(bool value) => SaveIfLoaded();
+
+    partial void OnPlayFullScreenChanged(bool value) => SaveIfLoaded();
 
     partial void OnAllowOppositeDirectionsChanged(bool value) => SaveIfLoaded();
 
@@ -158,6 +166,7 @@ public sealed partial class SettingsViewModel(ISettingsStore settingsStore, Inpu
             TvPixelShape = TvPixelShape,
             RunAheadFrames = Math.Clamp(RunAheadFrames, 0, AppSettings.MaxRunAheadFrames),
             PauseWhenInactive = PauseWhenInactive,
+            PlayFullScreen = PlayFullScreen,
             AllowOppositeDirections = AllowOppositeDirections,
             Volume = (int)Math.Round(Math.Clamp(Volume, 0, 100)),
             DumperPath = DumperPath.Trim().Trim('"'),

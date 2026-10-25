@@ -164,6 +164,7 @@ public partial class App : Application
 
         // Video and input (SPEC §5): shared by the emulation thread and the GameView.
         services.AddSingleton<FrameSink>();
+        services.AddSingleton<IWindowService, WinUiWindowService>();
         services.AddSingleton(_ => new InputService(KeyboardMapping.CreateDefault()));
 
         services.AddSingleton<FrameNavigationService>();

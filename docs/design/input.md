@@ -158,7 +158,8 @@ These keys never reach the game, so game bindings can't use them:
 
 | Action | Keyboard | Controller |
 |---|---|---|
-| Overlay / pause | Esc | Guide, or hold Back + Start |
+| Overlay / pause (in full screen, Esc first leaves full screen) | Esc | Guide, or hold Back + Start |
+| Full screen on/off (added after Phase 8) | F11 or Alt+Enter | — |
 | Rewind (hold) | Backspace | Left shoulder |
 | Fast-forward (hold) | Tab | Right shoulder |
 | All codes off (SPEC §7.8, added in Phase 8) | F3 | — |

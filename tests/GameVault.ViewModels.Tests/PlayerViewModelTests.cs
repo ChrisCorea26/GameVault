@@ -15,6 +15,7 @@ public class PlayerViewModelTests
     private readonly SampleJournalService _journal = new();
     private readonly InMemoryPracticeRecords _records = new();
     private readonly SampleCheatService _cheats = new();
+    private readonly InMemoryWindowService _window = new();
     private readonly PlayerViewModel _vm;
 
     public PlayerViewModelTests()
@@ -25,7 +26,35 @@ public class PlayerViewModelTests
             _emulator, _navigation, _settings, _devices, new TimelineViewModel(_timeline), _library, _passwords, _journal,
             new AssistViewModel(_emulator), new PracticeViewModel(_emulator, _records),
             new CodesViewModel(_cheats, new SampleCodeFilePicker()), _cheats,
-            new NetplayViewModel(_emulator, new InMemoryClipboard()));
+            new NetplayViewModel(_emulator, new InMemoryClipboard()), _window);
+    }
+
+    [Fact]
+    public async Task Full_screen_toggles_and_esc_or_leaving_the_player_ends_it()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+        _vm.IsWindowed.Should().BeTrue();
+
+        _vm.ToggleFullScreenCommand.Execute(null);
+        _vm.IsFullScreen.Should().BeTrue();
+        _vm.FullScreenButtonLabel.Should().Be("Exit full screen");
+
+        _vm.ExitFullScreen().Should().BeTrue("Esc leaves full screen first");
+        _vm.ExitFullScreen().Should().BeFalse("then Esc pauses as usual");
+
+        _vm.ToggleFullScreenCommand.Execute(null);
+        _vm.BackCommand.Execute(null);
+        _window.IsFullScreen.Should().BeFalse("leaving the Player returns to the normal window");
+    }
+
+    [Fact]
+    public async Task Games_can_start_in_full_screen()
+    {
+        await _settings.SaveAsync(new AppSettings { PlayFullScreen = true });
+
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+
+        _window.IsFullScreen.Should().BeTrue();
     }
 
     [Fact]

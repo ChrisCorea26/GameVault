@@ -82,7 +82,7 @@ public sealed class ZeroConfigTests : IDisposable
             host, navigation, new InMemorySettingsStore(), new SampleInputDevicesService(), new TimelineViewModel(timeline), library,
             new SamplePasswordService(), new SampleJournalService(), new AssistViewModel(host), new PracticeViewModel(host, new InMemoryPracticeRecords()),
             new CodesViewModel(new SampleCheatService(), new SampleCodeFilePicker()), new SampleCheatService(),
-            new NetplayViewModel(host, new InMemoryClipboard()));
+            new NetplayViewModel(host, new InMemoryClipboard()), new InMemoryWindowService());
         await player.StartCommand.ExecuteAsync(navigation.LastParameter);
         player.HasError.Should().BeFalse(player.ErrorMessage);
         host.Status.Should().Be(EmulatorStatus.Running);
