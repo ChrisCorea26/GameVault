@@ -8,6 +8,9 @@ public static class TestRomLocator
 {
     public const string LocalRomsVariable = "GAMEVAULT_LOCAL_ROMS";
 
+    /// <summary>When set to 1 (CI does this), missing downloaded test ROMs fail tests instead of skipping them.</summary>
+    public const string RequireTestRomsVariable = "GAMEVAULT_REQUIRE_TEST_ROMS";
+
     /// <summary>The repository's <c>tests/TestRoms</c> folder.</summary>
     public static string TestRomsDirectory { get; } = FindTestRomsDirectory();
 
@@ -22,6 +25,26 @@ public static class TestRomLocator
     }
 
     public static string GetPath(string relativePath) => Path.Combine(TestRomsDirectory, relativePath);
+
+    /// <summary>Where <c>fetch-test-roms</c> puts downloaded suites.</summary>
+    public static string CacheDirectory => Path.Combine(TestRomsDirectory, ".cache");
+
+    public static bool RequireTestRoms => Environment.GetEnvironmentVariable(RequireTestRomsVariable) == "1";
+
+    public static bool IsCached(string cachePath) => File.Exists(Path.Combine(CacheDirectory, cachePath));
+
+    /// <summary>Reads a downloaded test file, with a helpful message if it hasn't been fetched.</summary>
+    public static byte[] ReadCached(string cachePath)
+    {
+        var path = Path.Combine(CacheDirectory, cachePath);
+        if (!File.Exists(path))
+        {
+            throw new FileNotFoundException(
+                $"Test ROM '{cachePath}' is missing. Run tests/TestRoms/fetch-test-roms.sh (or .ps1) first.", path);
+        }
+
+        return File.ReadAllBytes(path);
+    }
 
     private static string FindTestRomsDirectory()
     {
