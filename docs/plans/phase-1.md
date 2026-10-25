@@ -56,3 +56,16 @@ nestest (kevtris) and blargg's suites have no explicit redistribution license, s
 
 ## Out of scope
 The real PPU and rendering (Phase 2), APU (Phase 3), and MMC1 and other mappers (Phase 4).
+
+## Results
+
+- nestest: the full 8,991-line trace matches `nestest.log`, including the PPU and CYC columns. `$02`/`$03` are
+  zero.
+- instr_test-v5: all 16 single-test ROMs pass.
+- Harness self-check: deliberately breaking CMP's carry flag makes nestest fail at the first affected line, and
+  blargg's ROMs name the failing opcodes (for example `C9 CMP #n`).
+- Speed (Release build, 2.1 GHz cloud Xeon): whole console 45.8× real time, CPU alone 100× (5.6 ns per cycle).
+  SPEC §10 targets ≥ 10×. Re-measure once the real PPU lands in Phase 2.
+- Save + load of the whole console: well under 1 ms (asserted in `ConsoleTests`).
+- Unstable unofficial opcodes (`LXA`, `ANE`) use the common "magic constant = $FF" behaviour. instr_test-v5 doesn't
+  cover them.

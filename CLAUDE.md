@@ -16,6 +16,8 @@ Users supply their own ROMs. The app never ships, downloads or links to commerci
 - Build: `dotnet build GameVault.sln -c Debug`
 - Test: `dotnet test GameVault.sln`
 - Core tests only: `dotnet test tests/GameVault.Core.Tests`
+- Fetch downloaded test ROMs (nestest, blargg) before testing: `tests/TestRoms/fetch-test-roms.sh` (or `.ps1` on Windows)
+- Linux/macOS (no WinUI): `dotnet test GameVault.CrossPlatform.slnf`
 - Run app: `dotnet run --project src/GameVault.App`
 - Run with fake data (UI preview, no ROMs needed): `dotnet run --project src/GameVault.App -- --sample-data`
 

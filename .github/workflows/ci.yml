@@ -8,6 +8,8 @@ on:
 env:
   DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  # Missing test ROMs fail the build instead of silently skipping tests.
+  GAMEVAULT_REQUIRE_TEST_ROMS: 1
 
 jobs:
   windows:
@@ -19,6 +21,10 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+
+      - name: Fetch test ROMs
+        shell: pwsh
+        run: ./tests/TestRoms/fetch-test-roms.ps1
 
       - name: Restore
         run: dotnet restore GameVault.sln
@@ -64,6 +70,9 @@ jobs:
       - uses: actions/setup-dotnet@v5
         with:
           global-json-file: global.json
+
+      - name: Fetch test ROMs
+        run: ./tests/TestRoms/fetch-test-roms.sh
 
       - name: Build and test
         run: dotnet test GameVault.CrossPlatform.slnf -c Debug
