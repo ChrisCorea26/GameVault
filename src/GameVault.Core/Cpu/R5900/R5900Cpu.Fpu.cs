@@ -114,6 +114,15 @@ public sealed partial class R5900Cpu
             case 0x08: // BC1F, BC1T, BC1FL, BC1TL
             {
                 var condition = (_fcr31 & FlagC) != 0;
+                if (_inDelaySlot && (rt & 2) == 0)
+                {
+                    // BC1F/BC1T in another branch's delay slot cancel that branch: execution goes on with the
+                    // instruction after it as its own delay slot (ps2autotests cpu/ee_fpu/branchdelay, on hardware;
+                    // the likely forms behave as the integer branches do).
+                    _pc = _currentPc + 4;
+                    _nextPc = _pc + 4;
+                }
+
                 switch (rt & 3)
                 {
                     case 0:

@@ -99,14 +99,17 @@ int main(void)
     gif_xyz2(q++, VX(460), VY(300), 0);
     gif_xyz2(q++, VX(600), VY(400), 0);
 
-    /* 7. Eight points in REGLIST mode (RGBAQ, XYZ2 as 64-bit pairs) at (460 + 20i, 260). */
+    /* 7. Eight points in REGLIST mode (RGBAQ, XYZ2 as 64-bit pairs) at (460 + 20i, 260). The GIF honours a
+     * GIFtag's PRE only in PACKED mode (as Play! and PCSX2 do), so PRIM is set by A+D first. */
     {
         static const u8 cols[8][3] = {
             {255, 0, 0}, {0, 255, 0}, {0, 0, 255}, {255, 255, 0},
             {0, 255, 255}, {255, 0, 255}, {255, 255, 255}, {255, 128, 0},
         };
         u32 i;
-        gif_tag(q++, 8, 1, 1, PRIM_POINT, GIF_FLG_REGLIST, 2, (GIF_REG_XYZ2 << 4) | GIF_REG_RGBAQ, 0);
+        gif_tag(q++, 1, 0, 0, 0, GIF_FLG_PACKED, 1, GIF_REG_AD, 0);
+        gif_ad(q++, GS_PRIM, PRIM_POINT);
+        gif_tag(q++, 8, 1, 0, 0, GIF_FLG_REGLIST, 2, (GIF_REG_XYZ2 << 4) | GIF_REG_RGBAQ, 0);
         for (i = 0; i < 8; i++) {
             u64 c = GS_RGBAQ_V(cols[i][0], cols[i][1], cols[i][2], 0x80);
             u64 p = GS_XYZ2_V(VX(460 + 20 * i), VY(260), 0);

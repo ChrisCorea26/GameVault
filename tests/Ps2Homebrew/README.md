@@ -74,7 +74,7 @@ markers are written straight into the GIF FIFO (0x10006000) with `SQ`.
 | 5 Lines | white (240,260)–(400,260); Gouraud red→blue (240,280)–(400,280); green (420,240)–(420,400) | (320, 260) → white; (420, 320) → (0, 255, 0); (250, 280) ≈ red, (390, 280) ≈ blue |
 | Line strip | yellow zigzag (240,300) (280,380) (320,300) (360,380) (400,300) | (260, 340) → (255, 255, 0) (±1 px) |
 | 6 Sprite, PRIM as PACKED register | (460,300)–(600,400), grey | (530, 350) → (128, 128, 128) |
-| 7 Points (REGLIST) | (460 + 20i, 260), i = 0..7 | exactly those pixels: red, green, blue, yellow (255,255,0), cyan (0,255,255), magenta (255,0,255), white, orange (255,128,0) |
+| 7 Points (REGLIST; PRIM by A+D first) | (460 + 20i, 260), i = 0..7 | exactly those pixels: red, green, blue, yellow (255,255,0), cyan (0,255,255), magenta (255,0,255), white, orange (255,128,0) |
 
 ## 2. `gs-texture` — textures, CLUTs, filtering, blending, Z (PATH3)
 
@@ -162,5 +162,9 @@ block then reads `GVHB`, 4, 16, 0.
   comparing.
 - Nothing here depends on timing, interrupts or the BIOS. Each program finishes its drawing once; the frame
   then stays the same.
-- These programs haven't been run on hardware or an emulator yet; their golden images should be reviewed
-  against the probe tables above when first recorded.
+- They haven't been run on hardware. On GameVault (Phase 17) every probe above matches to the frame's 15-bit
+  precision and the frames are pinned as golden images (`ps2/<name>` in tests/GameVault.Core.Tests/Golden).
+  Two fixes came from that first run: gs-basic sets PRIM by A+D before its REGLIST points (a GIFtag's PRE
+  applies in PACKED mode only, as Play! and PCSX2 implement it), and gs-texture's D6 sends an RGBAQ after
+  each STQ (PACKED STQ's Q reaches the GS only with the next RGBAQ). D6's two triangles interpolate S, T and Q
+  each on its own plane, so its rows bend at the diagonal — what the GS does with these STQ values.

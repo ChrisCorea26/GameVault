@@ -109,17 +109,10 @@ public sealed class R5900AutotestTests
         AutotestPorts.LsuDelay().TrimEnd().Should().Be(Expected("ps2autotests/cpu/ee/lsudelay.expected").TrimEnd());
 
     /// <remarks>
-    /// Known difference: a chain of BC1Ts, each in the previous one's delay slot, ends at the last one's target on the
-    /// hardware (4), while this CPU treats them like the integer branches (whose chain the hardware ends at 2, as
-    /// here). The branch-likely chain matches.
+    /// A chain of BC1Ts, each in the previous one's delay slot, ends at the last one's target on the hardware (4): a
+    /// BC1F/BC1T in a delay slot cancels the outer branch. The branch-likely chain ends as the integer branches do (2).
     /// </remarks>
     [TestRomFact("ps2autotests/cpu/ee_fpu/branchdelay.expected")]
-    public void Fpu_branch_likelies_in_delay_slots_match_the_hardware()
-    {
-        var expected = IntegerAutotest.ReadExpected("ps2autotests/cpu/ee_fpu/branchdelay.expected");
-        expected.Should().Contain("bc1t: delay branch: 00000004");
-        var actual = AutotestPorts.FpuBranchDelay().Split('\n');
-        actual.Should().Contain(expected.Single(l => l.StartsWith("bc1tl:", StringComparison.Ordinal)));
-        actual.Should().Contain("bc1t: delay branch: 00000002");
-    }
+    public void Fpu_branches_in_delay_slots_match_the_hardware() =>
+        AutotestPorts.FpuBranchDelay().TrimEnd().Should().Be(Expected("ps2autotests/cpu/ee_fpu/branchdelay.expected").TrimEnd());
 }
