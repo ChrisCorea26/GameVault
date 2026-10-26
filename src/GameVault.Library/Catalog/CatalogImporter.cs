@@ -16,7 +16,8 @@ public sealed record CatalogGame(
     string? Developer = null,
     int? Year = null,
     string? Genre = null,
-    int Players = 1);
+    int Players = 1,
+    GameVault.Core.Systems.GameSystem System = GameVault.Core.Systems.GameSystem.Nes);
 
 public sealed record CatalogImportResult(string Source, int Games, int Skipped);
 
@@ -36,10 +37,10 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
         using var insert = connection.CreateCommand();
         insert.Transaction = transaction;
         insert.CommandText = """
-            INSERT OR REPLACE INTO catalog (key, title, region, publisher, developer, year, genre, players, crc32, sha1, licensed, source)
-            VALUES ($key, $title, $region, $publisher, $developer, $year, $genre, $players, $crc32, $sha1, $licensed, $source);
+            INSERT OR REPLACE INTO catalog (key, title, region, publisher, developer, year, genre, players, crc32, sha1, licensed, source, system)
+            VALUES ($key, $title, $region, $publisher, $developer, $year, $genre, $players, $crc32, $sha1, $licensed, $source, $system);
             """;
-        var parameters = new[] { "$key", "$title", "$region", "$publisher", "$developer", "$year", "$genre", "$players", "$crc32", "$sha1", "$licensed", "$source" }
+        var parameters = new[] { "$key", "$title", "$region", "$publisher", "$developer", "$year", "$genre", "$players", "$crc32", "$sha1", "$licensed", "$source", "$system" }
             .Select(name => insert.Parameters.Add(name, Microsoft.Data.Sqlite.SqliteType.Text))
             .ToArray();
         insert.Prepare();
@@ -49,7 +50,7 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
             object?[] values =
             [
                 KeyFor(game), game.Title, (int)game.Region, game.Publisher, game.Developer, game.Year, game.Genre,
-                game.Players, game.Crc32, game.Sha1, game.IsLicensed ? 1 : 0, sourceName,
+                game.Players, game.Crc32, game.Sha1, game.IsLicensed ? 1 : 0, sourceName, (int)game.System,
             ];
             for (var i = 0; i < values.Length; i++)
             {
@@ -62,6 +63,13 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
         transaction.Commit();
         return new CatalogImportResult(sourceName, games.Count, skipped);
     }
+
+    private static GameVault.Core.Systems.GameSystem SystemOfDat(string datName) =>
+        datName.Contains("Master System", StringComparison.OrdinalIgnoreCase) || datName.Contains("Mark III", StringComparison.OrdinalIgnoreCase)
+            ? GameVault.Core.Systems.GameSystem.MasterSystem
+            : datName.Contains("SG-1000", StringComparison.OrdinalIgnoreCase) || datName.Contains("SC-3000", StringComparison.OrdinalIgnoreCase)
+                ? GameVault.Core.Systems.GameSystem.Sg1000
+                : GameVault.Core.Systems.GameSystem.Nes;
 
     public static string KeyFor(CatalogGame game) => game.Sha1 is { } sha1 ? "sha1:" + sha1 : "crc:" + game.Crc32;
 
@@ -78,6 +86,8 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
         var players = 1;
         string? crc = null, sha1 = null;
         var depth = -1;
+        var datSystem = GameVault.Core.Systems.GameSystem.Nes;
+        GameVault.Core.Systems.GameSystem? romSystem = null;
 
         while (reader.Read())
         {
@@ -85,6 +95,7 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
             {
                 name = reader.GetAttribute("name");
                 publisher = developer = genre = crc = sha1 = null;
+                romSystem = null;
                 year = null;
                 players = 1;
                 depth = reader.Depth;
@@ -99,6 +110,12 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
 
             if (name is null)
             {
+                // The DAT header names the system ("Sega - Master System - Mark III", "Sega - SG-1000").
+                if (reader.NodeType == XmlNodeType.Element && reader.Name == "name" && reader.Depth == 2)
+                {
+                    datSystem = SystemOfDat(reader.ReadElementContentAsString());
+                }
+
                 continue;
             }
 
@@ -109,6 +126,7 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
                     case "rom" when crc is null:
                         crc = reader.GetAttribute("crc")?.ToLowerInvariant();
                         sha1 = reader.GetAttribute("sha1")?.ToLowerInvariant();
+                        romSystem = reader.GetAttribute("name") is { } romName ? GameVault.Library.Scanning.RomFiles.SystemOf(romName) : null;
                         break;
                     case "publisher" or "manufacturer":
                         publisher = reader.ReadElementContentAsString().Trim();
@@ -131,7 +149,8 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
             {
                 if (crc is { Length: 8 })
                 {
-                    games.Add(new CatalogGame(CleanTitle(name), RegionOf(name), IsLicensed(name), crc, sha1, publisher, developer, year, genre, players));
+                    games.Add(new CatalogGame(
+                        CleanTitle(name), RegionOf(name), IsLicensed(name), crc, sha1, publisher, developer, year, genre, players, romSystem ?? datSystem));
                 }
                 else
                 {

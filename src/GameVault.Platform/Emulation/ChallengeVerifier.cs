@@ -2,6 +2,7 @@ using System.Globalization;
 using GameVault.Core;
 using GameVault.Core.Input;
 using GameVault.Core.State;
+using GameVault.Core.Systems;
 using GameVault.Library.Challenges;
 using GameVault.Library.Hashing;
 using GameVault.ViewModels.Services;
@@ -15,14 +16,14 @@ namespace GameVault.Platform.Emulation;
 /// </summary>
 public static class ChallengeVerifier
 {
-    public static ChallengeCheck Verify(byte[] romImage, ChallengeFile challenge, ChallengeResult result)
+    public static ChallengeCheck Verify(byte[] romImage, ChallengeFile challenge, ChallengeResult result, GameSystem system = GameSystem.Nes)
     {
         if (result.ChallengeId != challenge.Id)
         {
             return new ChallengeCheck(false, "This result is for a different challenge.");
         }
 
-        if (!string.Equals(RomHasher.Hash(romImage).Sha1, challenge.RomSha1, StringComparison.OrdinalIgnoreCase)
+        if (!string.Equals(RomHasher.Hash(romImage, system).Sha1, challenge.RomSha1, StringComparison.OrdinalIgnoreCase)
             || !string.Equals(result.RomSha1, challenge.RomSha1, StringComparison.OrdinalIgnoreCase))
         {
             return new ChallengeCheck(false, "This result was played on a different game or version.");
@@ -48,7 +49,17 @@ public static class ChallengeVerifier
             return new ChallengeCheck(false, "This result took longer than the time limit.");
         }
 
-        var console = NesConsole.FromBytes(romImage);
+        IEmulatedConsole console;
+        try
+        {
+            console = ConsoleFactory.Create(romImage, system, new GameVault.Library.Profiles.GameProfile { Sha1 = challenge.RomSha1 }, fdsBios: null);
+        }
+        catch (GameLoadException)
+        {
+            return new ChallengeCheck(false, "This game can't be checked.");
+        }
+
+        console.Power();
         try
         {
             console.LoadSnapshot(Convert.FromBase64String(challenge.StartState));
@@ -58,8 +69,8 @@ public static class ChallengeVerifier
             return new ChallengeCheck(false, "The challenge's starting point doesn't work with this game.");
         }
 
-        console.SetCheats([]);
-        Func<int, byte> ram = address => console.Bus.Peek((ushort)address);
+        (console as NesConsole)?.SetCheats([]);
+        Func<int, byte> ram = console.PeekMemory;
         for (var frame = 0; frame < inputs.Count; frame++)
         {
             console.SetControllerState(0, (ControllerState)inputs[frame].Player1);

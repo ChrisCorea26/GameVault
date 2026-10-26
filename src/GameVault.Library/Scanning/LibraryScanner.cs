@@ -20,7 +20,6 @@ public sealed record ScanResult(int Added, int Updated, int Removed, int Unchang
 public sealed class LibraryScanner(LibraryDatabase database)
 {
     /// <summary>Largest file considered a ROM (the biggest NES 2.0 images are well under this).</summary>
-    private const long MaxRomBytes = 16 * 1024 * 1024;
 
     public ScanResult Scan(IEnumerable<string> folders, IProgress<ScanProgress>? progress = null, CancellationToken cancellationToken = default)
     {
@@ -44,7 +43,7 @@ public sealed class LibraryScanner(LibraryDatabase database)
         }
 
         // Hash in parallel; the database writes happen afterwards on this thread.
-        var changed = new System.Collections.Concurrent.ConcurrentBag<(string Path, long Size, long Mtime, RomHashes Hashes)>();
+        var changed = new System.Collections.Concurrent.ConcurrentBag<(string Path, long Size, long Mtime, RomHashes Hashes, GameVault.Core.Systems.GameSystem System)>();
         var unchanged = 0;
         var unreadable = 0;
         var hashed = 0;
@@ -61,9 +60,9 @@ public sealed class LibraryScanner(LibraryDatabase database)
                     {
                         Interlocked.Increment(ref unchanged);
                     }
-                    else if (ReadRom(path) is { } data)
+                    else if (RomFiles.Read(path) is { } rom)
                     {
-                        changed.Add((path, info.Length, mtime, RomHasher.Hash(data)));
+                        changed.Add((path, info.Length, mtime, RomHasher.Hash(rom.Data, rom.System), rom.System));
                     }
                     else
                     {
@@ -94,8 +93,9 @@ public sealed class LibraryScanner(LibraryDatabase database)
                 var gameKey = Match(connection, file.Hashes);
                 LibraryDatabase.Execute(
                     connection,
-                    "INSERT OR REPLACE INTO files (path, size, mtime, crc32, sha1, game_key) VALUES ($p, $s, $m, $c, $h, $g);",
-                    ("$p", file.Path), ("$s", file.Size), ("$m", file.Mtime), ("$c", file.Hashes.Crc32), ("$h", file.Hashes.Sha1), ("$g", gameKey));
+                    "INSERT OR REPLACE INTO files (path, size, mtime, crc32, sha1, game_key, system) VALUES ($p, $s, $m, $c, $h, $g, $y);",
+                    ("$p", file.Path), ("$s", file.Size), ("$m", file.Mtime), ("$c", file.Hashes.Crc32), ("$h", file.Hashes.Sha1), ("$g", gameKey),
+                    ("$y", (int)file.System));
                 if (known.ContainsKey(file.Path))
                 {
                     updated++;
@@ -142,30 +142,11 @@ public sealed class LibraryScanner(LibraryDatabase database)
         transaction.Commit();
     }
 
-    /// <summary>True for the file types GameVault plays: .nes and .fds.</summary>
-    public static bool IsGameFile(string path) =>
-        path.EndsWith(".nes", StringComparison.OrdinalIgnoreCase) || path.EndsWith(".fds", StringComparison.OrdinalIgnoreCase);
+    /// <summary>True for the file types GameVault plays (see <see cref="RomFiles"/>).</summary>
+    public static bool IsGameFile(string path) => RomFiles.IsGameFile(path);
 
-    /// <summary>Reads a .nes or .fds file, or the single one inside a .zip. Null when it isn't a usable ROM file.</summary>
-    public static byte[]? ReadRom(string path)
-    {
-        if (path.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
-        {
-            using var zip = ZipFile.OpenRead(path);
-            var entries = zip.Entries.Where(e => IsGameFile(e.FullName)).ToList();
-            if (entries.Count != 1 || entries[0].Length > MaxRomBytes)
-            {
-                return null;
-            }
-
-            using var stream = entries[0].Open();
-            using var buffer = new MemoryStream((int)entries[0].Length);
-            stream.CopyTo(buffer);
-            return buffer.ToArray();
-        }
-
-        return new FileInfo(path).Length <= MaxRomBytes ? File.ReadAllBytes(path) : null;
-    }
+    /// <summary>A game file's bytes, or the single game file inside a .zip. Null when it isn't a usable ROM file.</summary>
+    public static byte[]? ReadRom(string path) => RomFiles.Read(path)?.Data;
 
     private static string Match(Microsoft.Data.Sqlite.SqliteConnection connection, RomHashes hashes)
     {
@@ -179,9 +160,7 @@ public sealed class LibraryScanner(LibraryDatabase database)
     private static IEnumerable<string> EnumerateCandidates(string folder)
     {
         var options = new EnumerationOptions { RecurseSubdirectories = true, IgnoreInaccessible = true, MatchCasing = MatchCasing.CaseInsensitive };
-        return Directory.EnumerateFiles(folder, "*.nes", options)
-            .Concat(Directory.EnumerateFiles(folder, "*.fds", options))
-            .Concat(Directory.EnumerateFiles(folder, "*.zip", options));
+        return RomFiles.Extensions.Append(".zip").SelectMany(extension => Directory.EnumerateFiles(folder, "*" + extension, options));
     }
 
     private static bool IsUnder(string path, IEnumerable<string> folders) =>

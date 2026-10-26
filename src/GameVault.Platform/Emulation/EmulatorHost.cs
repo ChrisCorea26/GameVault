@@ -9,6 +9,7 @@ using GameVault.Core.Ppu;
 using GameVault.Platform.Achievements;
 using GameVault.Platform.Audio;
 using GameVault.Core.Input;
+using GameVault.Core.Sega;
 using GameVault.Core.State;
 using GameVault.Core.Systems;
 using GameVault.Library.Challenges;
@@ -148,6 +149,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     public EmulatorStatus Status { get; private set; }
 
+    private GameSystem _romSystem;
+
+    /// <summary>The system of the running game; null when idle.</summary>
+    public GameSystem? System { get; private set; }
+
     /// <summary>The running console when it's an NES (Game Genie, the Disk System, the Zapper and passwords are NES-only).</summary>
     private NesConsole? Nes => _console as NesConsole;
 
@@ -221,7 +227,9 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         var count = 0u;
         for (var i = 0; i < buffer.Length && address + i <= 0xFFFF; i++)
         {
-            buffer[i] = console.PeekMemory((int)(address + i));
+            buffer[i] = console is SegaConsole sega
+                ? sega.ReadAchievementMemory((int)(address + i))
+                : console.PeekMemory((int)(address + i));
             count++;
         }
 
@@ -352,13 +360,13 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     {
         var data = _romData!;
         var profile = Profile ?? new GameProfile { Sha1 = string.Empty };
-        var console = new NesConsole(ApplyProfile(INesRom.Parse(data), profile));
+        var console = ConsoleFactory.Create(data, _romSystem, profile, fdsBios: null);
         if (_audioActive && _audio is not null)
         {
             console.EnableAudio(_audio.SampleRate);
         }
 
-        console.ConnectInput(InputSetup.Controllers);
+        (console as NesConsole)?.ConnectInput(InputSetup.Controllers);
         console.Power();
         _netplayActive = true;
         Post(() =>
@@ -596,9 +604,10 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     public Task<ChallengeCheck> VerifyChallengeAsync(ChallengeFile challenge, ChallengeResult result)
     {
         var rom = _romData;
+        var system = _romSystem;
         return rom is null
             ? Task.FromResult(new ChallengeCheck(false, "Open the challenge's game first, to check results against it."))
-            : Task.Run(() => ChallengeVerifier.Verify(rom, challenge, result));
+            : Task.Run(() => ChallengeVerifier.Verify(rom, challenge, result, system));
     }
 
     /// <summary>Emulation thread: records this frame's buttons and checks the goal and the time limit.</summary>
@@ -767,12 +776,13 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     public async Task LoadAsync(string path, CancellationToken cancellationToken = default)
     {
-        byte[] data;
+        RomFile rom;
         try
         {
-            // Library games can be zipped (one .nes or .fds inside), so read them the way the scanner does.
-            data = await Task.Run(() => LibraryScanner.ReadRom(path), cancellationToken).ConfigureAwait(false)
-                ?? throw new GameLoadException("That file isn't an NES game GameVault can open. It plays .nes and .fds files, and .zip files with one of them inside.");
+            // Library games can be zipped (one game file inside), so read them the way the scanner does.
+            rom = await Task.Run(() => RomFiles.Read(path), cancellationToken).ConfigureAwait(false)
+                ?? throw new GameLoadException(
+                    "That file isn't a game GameVault can open. It plays NES (.nes, .fds), Master System (.sms) and SG-1000 (.sg, .sc) files, and .zip files with one of them inside.");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
@@ -791,6 +801,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             }
         }
 
+        var data = rom.Data;
         byte[]? bios = null;
         if (FdsImage.IsFdsImage(data) && _settings is not null)
         {
@@ -809,49 +820,19 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             }
         }
 
-        Load(data, Path.GetFileNameWithoutExtension(path), bios);
+        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System);
     }
 
     /// <summary>
     /// Loads a game from bytes already in memory. Famicom Disk System images also need the player's own
     /// 8 KB BIOS in <paramref name="fdsBios"/>.
     /// </summary>
-    public void Load(byte[] data, string title, byte[]? fdsBios = null)
+    public void Load(byte[] data, string title, byte[]? fdsBios = null, GameSystem system = GameSystem.Nes)
     {
-        var hashes = RomHasher.Hash(data);
+        var hashes = RomHasher.Hash(data, system);
         var profile = ProfileResolver?.Invoke(hashes.Sha1) ?? new GameProfile { Sha1 = hashes.Sha1 };
-        NesConsole console;
-        try
-        {
-            if (FdsImage.IsFdsImage(data))
-            {
-                if (fdsBios is null)
-                {
-                    throw new GameLoadException(
-                        "This is a Famicom Disk System game. To play it, choose your own Disk System BIOS " +
-                        "(disksys.rom) in Settings → Disk System. GameVault doesn't include it.");
-                }
-
-                console = NesConsole.FromFds(data, fdsBios);
-            }
-            else
-            {
-                console = new NesConsole(ApplyProfile(INesRom.Parse(data), profile));
-            }
-        }
-        catch (RomFormatException ex) when (FdsImage.IsFdsImage(data))
-        {
-            throw new GameLoadException(ex.Message, ex); // a damaged disk image or a BIOS of the wrong size
-        }
-        catch (RomFormatException ex)
-        {
-            throw new GameLoadException("That file isn't an NES game, or it's damaged. GameVault plays .nes and .fds files.", ex);
-        }
-        catch (UnsupportedMapperException ex)
-        {
-            throw new GameLoadException(
-                $"This game uses a cartridge type GameVault doesn't support yet (mapper {ex.Mapper}).", ex);
-        }
+        var console = ConsoleFactory.Create(data, system, profile, fdsBios);
+        var nes = console as NesConsole;
 
         if (_audio is not null)
         {
@@ -865,11 +846,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             }
         }
 
-        var battery = console.Mapper as IBatteryBacked;
-        if (battery is { HasBattery: false })
-        {
-            battery = null;
-        }
+        var battery = console.Battery;
 
         if (battery is not null && _batteries is not null)
         {
@@ -885,9 +862,10 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
 
         _romData = data;
+        _romSystem = system;
         byte[][]? diskOriginal = null;
         byte[][]? diskSaved = null;
-        if (console.Fds is { } disk)
+        if (nes?.Fds is { } disk)
         {
             diskOriginal = disk.Tracks.Select(t => t.ToArray()).ToArray();
             try
@@ -905,14 +883,18 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             diskSaved = disk.Tracks.Select(t => t.ToArray()).ToArray();
         }
 
-        console.ConnectInput(profile.Input switch
+        if (nes is not null)
         {
-            InputType.Zapper => InputSetup.Zapper,
-            InputType.FourScore => InputSetup.FourScore,
-            _ => InputSetup.Controllers,
-        });
-        console.Ppu.RemoveSpriteLimit = profile.RemoveSpriteLimit == true || _assist.RemoveFlicker;
-        var passwordDefinition = PasswordDefinitionResolver?.Invoke(hashes.Sha1);
+            nes.ConnectInput(profile.Input switch
+            {
+                InputType.Zapper => InputSetup.Zapper,
+                InputType.FourScore => InputSetup.FourScore,
+                _ => InputSetup.Controllers,
+            });
+            nes.Ppu.RemoveSpriteLimit = profile.RemoveSpriteLimit == true || _assist.RemoveFlicker;
+        }
+
+        var passwordDefinition = nes is null ? null : PasswordDefinitionResolver?.Invoke(hashes.Sha1);
         var memoryMap = MemoryMapResolver?.Invoke(hashes.Sha1);
         console.Power();
         EnsureThread();
@@ -929,10 +911,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             _diskSaved = diskSaved;
             _diskSideRequested = 0;
             _reportedDiskSide = -1;
-            if (console.Fds is { } fds)
+            if (nes?.Fds is { } fds)
             {
                 UpdateDiskSide(fds);
             }
+
             _battery = battery;
             _batterySaved = battery?.BatteryRam.ToArray() ?? [];
             _batteryTitle = title;
@@ -954,14 +937,15 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
 
         RomHash = console.RomHash;
-        AchievementsHash = AchievementsHashing.Nes(data);
+        AchievementsHash = AchievementsHashing.ForSystem(data, system);
+        System = system;
         GameKey = hashes.Key;
         Profile = profile;
-        UsesZapper = console.InputSetup == InputSetup.Zapper;
-        UsesFourScore = console.InputSetup == InputSetup.FourScore;
-        DiskSideCount = console.Fds?.SideCount ?? 0;
+        UsesZapper = nes?.InputSetup == InputSetup.Zapper;
+        UsesFourScore = nes?.InputSetup == InputSetup.FourScore;
+        DiskSideCount = nes?.Fds?.SideCount ?? 0;
         MemoryMap = memoryMap;
-        _insertedDiskSide = console.Fds is null ? -1 : 0;
+        _insertedDiskSide = nes?.Fds is null ? -1 : 0;
         SetAudioPaused(false);
 
         GameTitle = title;
@@ -1032,6 +1016,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         DiskSideCount = 0;
         _insertedDiskSide = -1;
         Profile = null;
+        System = null;
         SetStatus(EmulatorStatus.Idle);
     }
 
@@ -1430,35 +1415,6 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         Raise(() => PlaytimeElapsed?.Invoke(this, played));
     }
 
-    /// <summary>Header corrections and region from the game database (SPEC §4.5, §7.5).</summary>
-    private static INesRom ApplyProfile(INesRom rom, GameProfile profile)
-    {
-        if (profile.Header is { } header)
-        {
-            rom = rom with
-            {
-                Mapper = header.Mapper ?? rom.Mapper,
-                Submapper = header.Submapper ?? rom.Submapper,
-                HasBattery = header.Battery ?? rom.HasBattery,
-                PrgRamSize = header.PrgRamSize ?? rom.PrgRamSize,
-                Mirroring = header.Mirroring?.ToLowerInvariant() switch
-                {
-                    "horizontal" => Mirroring.Horizontal,
-                    "vertical" => Mirroring.Vertical,
-                    "four-screen" => Mirroring.FourScreen,
-                    _ => rom.Mirroring,
-                },
-            };
-        }
-
-        return profile.Region?.ToLowerInvariant() switch
-        {
-            "ntsc" => rom with { TvSystem = TvSystem.Ntsc },
-            "pal" => rom with { TvSystem = TvSystem.Pal },
-            "dendy" => rom with { TvSystem = TvSystem.Dendy },
-            _ => rom,
-        };
-    }
 
     /// <summary>F5 / F8 act on the press, not while held.</summary>
     private void PollStateHotkeys()

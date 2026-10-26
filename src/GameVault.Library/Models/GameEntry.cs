@@ -11,6 +11,9 @@ public sealed record GameEntry
 
     public required string Title { get; init; }
 
+    /// <summary>The console the game is for (SPEC §7.11).</summary>
+    public GameVault.Core.Systems.GameSystem System { get; init; }
+
     public GameRegion Region { get; init; }
 
     public string? Publisher { get; init; }

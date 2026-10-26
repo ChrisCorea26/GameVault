@@ -109,6 +109,49 @@ public sealed class LibraryDataTests : IDisposable
     }
 
     [Fact]
+    public void Master_system_and_sg1000_games_are_found_with_their_system()
+    {
+        var sms = new byte[0x8000];
+        sms[0x7FF0] = 0x54; // "TMR SEGA" header area
+        sms[123] = 7;
+        var sg = new byte[0x4000];
+        sg[5] = 9;
+        File.WriteAllBytes(Path.Combine(_fx.Root, "Sega Quest.sms"), sms);
+        File.WriteAllBytes(Path.Combine(_fx.Root, "Old Times.SG"), sg);
+        using (var zip = System.IO.Compression.ZipFile.Open(Path.Combine(_fx.Root, "zipped.zip"), System.IO.Compression.ZipArchiveMode.Create))
+        {
+            using var stream = zip.CreateEntry("Zipped.sc").Open();
+            stream.Write(new byte[0x2000]);
+        }
+
+        new LibraryScanner(_fx.Database).Scan([_fx.Root]).Added.Should().Be(3);
+
+        var games = _fx.Repository.GetGames().ToDictionary(g => g.Title);
+        games["Sega Quest"].System.Should().Be(GameVault.Core.Systems.GameSystem.MasterSystem);
+        games["Old Times"].System.Should().Be(GameVault.Core.Systems.GameSystem.Sg1000);
+        games["zipped"].System.Should().Be(GameVault.Core.Systems.GameSystem.Sg1000);
+        games["Sega Quest"].Key.Should().Be("sha1:" + Convert.ToHexStringLower(System.Security.Cryptography.SHA1.HashData(sms)));
+
+        // A 512-byte copier header doesn't change the game's identity.
+        byte[] copier = [.. new byte[512], .. sms];
+        RomHasher.Hash(copier, GameVault.Core.Systems.GameSystem.MasterSystem).Should().Be(RomHasher.Hash(sms, GameVault.Core.Systems.GameSystem.MasterSystem));
+    }
+
+    [Fact]
+    public void Dats_name_their_system()
+    {
+        const string dat = """
+            <?xml version="1.0"?>
+            <datafile>
+              <header><name>Sega - Master System - Mark III</name></header>
+              <game name="Sega Quest (USA)"><rom name="Sega Quest (USA).sms" size="32768" crc="01234567" sha1="0123456789abcdef0123456789abcdef01234567"/></game>
+            </datafile>
+            """;
+        var (games, _) = CatalogImporter.Parse(new MemoryStream(System.Text.Encoding.UTF8.GetBytes(dat)));
+        games.Should().ContainSingle().Which.System.Should().Be(GameVault.Core.Systems.GameSystem.MasterSystem);
+    }
+
+    [Fact]
     public void Rescan_skips_unchanged_files_and_drops_removed_ones()
     {
         var scanner = new LibraryScanner(_fx.Database);

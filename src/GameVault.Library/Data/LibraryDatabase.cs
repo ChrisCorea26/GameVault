@@ -8,7 +8,7 @@ namespace GameVault.Library.Data;
 /// </summary>
 public sealed class LibraryDatabase : IDisposable
 {
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
 
     private readonly string _connectionString;
     private readonly SqliteConnection? _keepAlive;
@@ -112,6 +112,16 @@ public sealed class LibraryDatabase : IDisposable
                     overrides TEXT
                 );
                 PRAGMA user_version = 1;
+                """);
+        }
+
+        if (version < 2)
+        {
+            // Phase 11: games for more systems. Existing rows are NES (0).
+            Execute(connection, """
+                ALTER TABLE files ADD COLUMN system INTEGER NOT NULL DEFAULT 0;
+                ALTER TABLE catalog ADD COLUMN system INTEGER NOT NULL DEFAULT 0;
+                PRAGMA user_version = 2;
                 """);
         }
     }

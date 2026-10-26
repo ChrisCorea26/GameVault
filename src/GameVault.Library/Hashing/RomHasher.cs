@@ -1,5 +1,6 @@
 using System.IO.Hashing;
 using System.Security.Cryptography;
+using GameVault.Core.Systems;
 
 namespace GameVault.Library.Hashing;
 
@@ -17,9 +18,16 @@ public readonly record struct RomHashes(string Crc32, string Sha1)
 /// </summary>
 public static class RomHasher
 {
-    public static RomHashes Hash(ReadOnlySpan<byte> image)
+    public static RomHashes Hash(ReadOnlySpan<byte> image) => Hash(image, GameSystem.Nes);
+
+    /// <summary>
+    /// Hashes for <paramref name="system"/>. Sega cartridges have no header, but copier dumps can carry a 512-byte
+    /// one, which No-Intro leaves out too.
+    /// </summary>
+    public static RomHashes Hash(ReadOnlySpan<byte> image, GameSystem system)
     {
-        var body = StripHeader(image);
+        var body = system == GameSystem.Nes ? StripHeader(image)
+            : image.Length % 0x4000 == 512 ? image[512..] : image;
         var crc = Crc32.HashToUInt32(body);
         var sha1 = SHA1.HashData(body);
         return new RomHashes(crc.ToString("x8"), Convert.ToHexStringLower(sha1));

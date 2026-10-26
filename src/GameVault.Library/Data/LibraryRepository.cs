@@ -19,7 +19,8 @@ public sealed class LibraryRepository(LibraryDatabase database)
                    (SELECT f.path FROM files f WHERE f.game_key = g.key ORDER BY f.path LIMIT 1) AS path,
                    (SELECT f.sha1 FROM files f WHERE f.game_key = g.key ORDER BY f.path LIMIT 1) AS sha1,
                    col.owned, col.status, col.favorite, col.rating, col.notes, col.cover_path, col.custom_title,
-                   col.playtime_seconds, col.last_played, c.key IS NOT NULL AS cataloged
+                   col.playtime_seconds, col.last_played, c.key IS NOT NULL AS cataloged,
+                   COALESCE(c.system, (SELECT f.system FROM files f WHERE f.game_key = g.key ORDER BY f.path LIMIT 1), 0) AS system
             FROM (SELECT key FROM catalog UNION SELECT game_key AS key FROM files) g
             LEFT JOIN catalog c ON c.key = g.key
             LEFT JOIN collection col ON col.game_key = g.key;
@@ -154,6 +155,7 @@ public sealed class LibraryRepository(LibraryDatabase database)
             Playtime = r.IsDBNull(18) ? TimeSpan.Zero : TimeSpan.FromSeconds(r.GetDouble(18)),
             LastPlayed = r.IsDBNull(19) ? null : DateTimeOffset.FromUnixTimeSeconds(r.GetInt64(19)),
             IsCataloged = cataloged,
+            System = (GameVault.Core.Systems.GameSystem)r.GetInt64(21),
         };
     }
 }

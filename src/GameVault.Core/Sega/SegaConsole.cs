@@ -218,6 +218,31 @@ public sealed class SegaConsole : IEmulatedConsole, IZ80Bus
 
     public byte PeekMemory(int address) => Read((ushort)address);
 
+    /// <summary>
+    /// Memory in RetroAchievements' layout (rcheevos consoleinfo.c). Master System: $0000–$1FFF system RAM, then
+    /// $2000–$9FFF cartridge RAM. SG-1000: $0000–$03FF RAM, then the expansion RAM some boards have.
+    /// </summary>
+    public byte ReadAchievementMemory(int address)
+    {
+        if (System == GameSystem.MasterSystem)
+        {
+            return address switch
+            {
+                < 0x2000 => _ram[address],
+                < 0xA000 => Cartridge.BatteryRam[address - 0x2000],
+                _ => 0,
+            };
+        }
+
+        return address switch
+        {
+            < 0x0400 => _ram[address],
+            >= 0x2000 and < 0x4000 when Cartridge.ExpansionRamAt == 0x2000 => Cartridge.Read((ushort)address),
+            >= 0x4000 and < 0x6000 when Cartridge.ExpansionRamAt == 0x8000 => Cartridge.Read((ushort)(address + 0x4000)),
+            _ => 0,
+        };
+    }
+
     public byte In(ushort port)
     {
         var low = (byte)port;
