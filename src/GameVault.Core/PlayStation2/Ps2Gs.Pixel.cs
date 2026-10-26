@@ -62,6 +62,7 @@ public sealed partial class Ps2Gs
     private bool _fba;
     private bool _colclamp;
     private bool _dthe;
+    private int _scanmskSkip = -1;
 
     // Texture state.
     private int _tbp;
@@ -164,6 +165,9 @@ public sealed partial class Ps2Gs
         _fba = (_regs[RegFba1 + ctxt] & 1) != 0;
         _colclamp = (_regs[RegColClamp] & 1) != 0;
         _dthe = (_regs[RegDthe] & 1) != 0;
+
+        // SCANMSK 2 skips odd rows, 3 even rows; 0 and 1 draw every row.
+        _scanmskSkip = (_regs[RegScanMsk] & 3) switch { 2 => 1, 3 => 0, _ => -1 };
         var dimx = _regs[RegDimx];
         for (var i = 0; i < 16; i++)
         {
@@ -615,6 +619,11 @@ public sealed partial class Ps2Gs
     /// <summary>The tests, the blend and the writes for one coloured fragment.</summary>
     private void WriteFragment(int x, int y, uint z, int r, int g, int b, int a)
     {
+        if ((y & 1) == _scanmskSkip)
+        {
+            return;
+        }
+
         var fbWrite = true;
         var zWrite = _zte && !_zmsk;
         var mask = _fbmsk;
@@ -754,6 +763,11 @@ public sealed partial class Ps2Gs
         var z = Math.Min(v.Z, _zMax);
         for (var y = ys; y <= ye; y++)
         {
+            if ((y & 1) == _scanmskSkip)
+            {
+                continue;
+            }
+
             for (var x = xs; x <= xe; x++)
             {
                 WriteFrameColor(FrameAddress(x, y), color, _fbmsk);

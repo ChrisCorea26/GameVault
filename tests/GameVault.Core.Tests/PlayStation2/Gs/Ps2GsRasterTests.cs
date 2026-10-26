@@ -230,6 +230,18 @@ public sealed class Ps2GsRasterTests
     }
 
     [Fact]
+    public void Scanmsk_skips_odd_or_even_rows()
+    {
+        var f = new GsFixture();
+        f.W(Ps2Gs.RegScanMsk, 2);
+        f.Sprite(0, 0, 2, 4, 0xFF, 0, 0);
+        f.W(Ps2Gs.RegScanMsk, 3);
+        f.Sprite(2, 0, 4, 4, 0xFF, 0, 0, abe: true);
+        Enumerable.Range(0, 4).Select(y => f.Pixel(0, y) != 0).Should().Equal(true, false, true, false);
+        Enumerable.Range(0, 4).Select(y => f.Pixel(2, y) != 0).Should().Equal(false, true, false, true);
+    }
+
+    [Fact]
     public void Context_2_uses_its_own_frame_and_scissor()
     {
         var f = new GsFixture();
