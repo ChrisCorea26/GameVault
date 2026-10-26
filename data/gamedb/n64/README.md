@@ -11,8 +11,8 @@ middle of the four-character game code in the ROM header: `SM` in `NSME`) to its
 | `flash` | 128 KB FlashRAM |
 | `none` | No save memory |
 
-GameVault picks the save type in this order: the game's profile (`"save"` in a `data/gamedb` profile, or the
-player's own override), then libdragon's homebrew header, then this list, and otherwise a 4 Kbit EEPROM.
+GameVault picks the save type in this order: the `"save"` field of the game's `data/gamedb` profile, then libdragon's
+homebrew header, then this list, and otherwise a 4 Kbit EEPROM. Players can't choose it in Game Details yet.
 
 The entries are metadata only and are **still to be checked by the owner** against their own cartridges (see the
 owner checklist in `docs/plans/phase-16.md`). The loader is `src/GameVault.Library/Profiles/N64SaveTypes.cs`.

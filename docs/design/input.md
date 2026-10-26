@@ -10,8 +10,10 @@ document fills those gaps.
 
 - **Ports.** The console has two controller ports, **Player 1** and **Player 2**. The Four Score
   (Phase 5) adds Player 3 and Player 4 in the core; everything below extends to four ports unchanged.
-  *Current state:* the assignment policy and Settings → Input handle only Players 1 and 2, so players 3 and
-  4 can't be given a device yet (`docs/bugs.md`).
+  *Current state:* while a Four Score game runs the assignment policy uses four ports
+  (`PortAssignmentPolicy.MaxPorts`, `PlayerViewModel` calls `SetPlayerCount(4)`), so the third and fourth pads
+  join Players 3 and 4 in connection order. Settings → Input still offers only **Use for Player 1 / 2**, so pads
+  can't be moved to Players 3–4 by hand (`docs/bugs.md`).
 - **Sources.** An input source is either **the keyboard** or **one SDL game controller**.
 - **Many-to-one.** A port can have several sources. Their buttons are OR-ed together, so a player can
   switch between keyboard and pad at any time without changing settings.
@@ -279,7 +281,7 @@ Controller hotkeys work only from pads assigned to a port.
 |---|---|
 | 2 | `ControllerState` and port merging; keyboard on Player 1 (§4.1); focus release (§4.4); opposite-direction rule (§6) |
 | 3 | SDL controllers, default mapping, assignment policy and hot-plug (§3, §5); UI navigation (§7); Settings → Input with sample data (§9); two-player keyboard preset (§4.3) |
-| 5 | Four Score (Players 3–4); per-game overrides; Zapper input type from game profiles. *Built:* the Four Score in the core and the Zapper/Four Score input type from profiles and Game Details → Properties. *Not built:* devices for Players 3–4 and per-game remaps (`docs/bugs.md`) |
+| 5 | Four Score (Players 3–4); per-game overrides; Zapper input type from game profiles. *Built:* the Four Score (four ports while a Four Score game runs) and the Zapper/Four Score input type from profiles and Game Details → Properties. *Not built:* assigning pads to Players 3–4 by hand and per-game remaps (`docs/bugs.md`) |
 
 ## 12. Tests
 

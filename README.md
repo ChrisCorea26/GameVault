@@ -37,7 +37,8 @@ system, the BIOS and ROM files you must supply, controls, settings and troublesh
 | 16 | Nintendo 64 | ✅ VR4300, FPU and RSP pass PeterLemon's test programs; a software RDP draws PeterLemon's 115 RDP programs; audio, controllers with the analog stick, Controller Pak, EEPROM, SRAM and FlashRAM; .z64, .v64 and .n64. the RDP is software-only, so heavy 3D scenes may run below full speed until the GPU renderer (left for later); real-game checks are the owner's ([plan](docs/plans/phase-16.md)) |
 | 16–19 | More systems | Planned (SPEC §7.11) |
 
-Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md).
+Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md). Known bugs and missing features are
+tracked in [`docs/bugs.md`](docs/bugs.md).
 
 Phase plans are in [`docs/plans/`](docs/plans).
 

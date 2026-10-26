@@ -24,7 +24,8 @@ where saves go, and what isn't supported yet.
 | **Saves** | Battery saves as `.sav` |
 
 **Controls:** the standard layout in [Controls](#controls), with turbo A and B. Zapper light-gun games use the mouse.
-The Four Score adds players 3 and 4; choose it in Game Details → Properties → Controls if a game isn't recognised.
+The Four Score adds players 3 and 4: choose it in Game Details → Properties → Controls if a game isn't recognised,
+and the third and fourth controllers you connect join as Players 3 and 4 while the game runs.
 
 **NES-only features:** Game Genie and RAM codes, password capture, the Zapper, and cartridge dumping.
 

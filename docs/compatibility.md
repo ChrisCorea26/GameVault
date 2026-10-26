@@ -4,7 +4,7 @@ This page will be generated in CI from the test-ROM harness (SPEC §11.2). Until
 at the end of each phase. Run `tests/TestRoms/fetch-test-roms.sh` (or `.ps1`) and then `dotnet test` to
 reproduce it.
 
-_Last updated: Phase 7 (in progress)._
+_Last updated: Phase 16._
 
 ## CPU
 
@@ -125,7 +125,7 @@ Save and load take about 0.005–0.008 ms each (budget: 1 ms).
 |---|---|---|
 | Standard controller | ✅ | Two ports; turbo and pads in the platform layer |
 | Zapper | ✅ | Port 2. Light sense needs a bright pixel the beam drew within the last 20 scanlines (NESdev Wiki: "Zapper"). The mouse aims and the left button fires. |
-| Four Score | ✅ Core | Players 3–4 and the signature bits; the settings UI for four ports is deferred to Phase 6 |
+| Four Score | ✅ | Players 3–4 and the signature bits. While a Four Score game runs, the third and fourth pads join Players 3 and 4 (choose Four Score in Game Details → Properties or through the game database). Settings can't move a pad to Players 3–4 by hand yet (`docs/bugs.md`) |
 
 ## Sega SG-1000 / SC-3000 and Master System (Phase 11)
 

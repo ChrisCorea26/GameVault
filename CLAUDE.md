@@ -36,6 +36,8 @@ Users supply their own ROMs. The app never ships, downloads or links to commerci
 - **Keep the user manual current.** Every phase that adds a system (and any change to user-visible features,
   settings, keys or required files) updates the chapters in `docs/manual/` and rebuilds
   `docs/manual/GameVault-User-Manual.pdf` in the same change. Steps: `docs/manual/README.md`.
+- **Known gaps** between the app and the spec are tracked in `docs/bugs.md`. File new ones there, and mark entries
+  Fixed (with the commit) when you fix them.
 
 ## Conventions
 - C#: nullable enabled, file-scoped namespaces, `TreatWarningsAsErrors` in Core.
