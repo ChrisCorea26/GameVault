@@ -50,7 +50,9 @@ jobs:
         run: dotnet build GameVault.sln -c Debug --no-restore
 
       - name: Test
-        run: dotnet test GameVault.sln -c Debug --no-build --logger trx --results-directory TestResults
+        # One test project at a time (-m:1): the Core tests' PS2 programs keep every core busy for minutes, which starved
+        # the Platform tests that wait on the real-time frame loop (netplay, zero-config start, challenges).
+        run: dotnet test GameVault.sln -c Debug --no-build -m:1 --logger trx --results-directory TestResults
 
       - name: Smoke test (app launches in real mode and every screen renders under --sample-data)
         shell: pwsh
