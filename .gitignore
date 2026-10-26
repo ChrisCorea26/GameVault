@@ -483,3 +483,7 @@ $RECYCLE.BIN/
 
 # Test output (golden-image mismatches, TRX logs)
 TestResults/
+
+# rcheevos native builds (Phase 10)
+native/build/
+native/out/

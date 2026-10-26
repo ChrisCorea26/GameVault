@@ -23,6 +23,36 @@
     <EmbeddedResource Include="Video\Shaders\Display.hlsl" LogicalName="GameVault.Display.hlsl" />
   </ItemGroup>
 
+  <!--
+    RetroAchievements (Phase 10): the vendored rcheevos C library in native/ is built with CMake when the
+    library for this machine is missing, then copied next to the assemblies (and to every project that
+    references this one). Without CMake or a C compiler the build carries on; achievements are then off.
+  -->
+  <PropertyGroup>
+    <RcheevosRoot>$([MSBuild]::NormalizeDirectory('$(MSBuildThisFileDirectory)', '..', '..', 'native'))</RcheevosRoot>
+    <RcheevosArch>$([System.Runtime.InteropServices.RuntimeInformation]::OSArchitecture.ToString().ToLowerInvariant())</RcheevosArch>
+    <RcheevosRid Condition="$([MSBuild]::IsOSPlatform('Windows'))">win-$(RcheevosArch)</RcheevosRid>
+    <RcheevosRid Condition="$([MSBuild]::IsOSPlatform('OSX'))">osx-$(RcheevosArch)</RcheevosRid>
+    <RcheevosRid Condition="'$(RcheevosRid)' == ''">linux-$(RcheevosArch)</RcheevosRid>
+    <RcheevosFileName Condition="$([MSBuild]::IsOSPlatform('Windows'))">rcheevos.dll</RcheevosFileName>
+    <RcheevosFileName Condition="$([MSBuild]::IsOSPlatform('OSX'))">librcheevos.dylib</RcheevosFileName>
+    <RcheevosFileName Condition="'$(RcheevosFileName)' == ''">librcheevos.so</RcheevosFileName>
+    <RcheevosOut>$(RcheevosRoot)out$([System.IO.Path]::DirectorySeparatorChar)$(RcheevosRid)</RcheevosOut>
+    <RcheevosLibrary>$(RcheevosOut)$([System.IO.Path]::DirectorySeparatorChar)$(RcheevosFileName)</RcheevosLibrary>
+  </PropertyGroup>
+
+  <Target Name="BuildRcheevos" Condition="!Exists('$(RcheevosLibrary)')">
+    <Exec Command="cmake -S &quot;$(RcheevosRoot).&quot; -B &quot;$(RcheevosRoot)build$([System.IO.Path]::DirectorySeparatorChar)$(RcheevosRid)&quot; -DCMAKE_BUILD_TYPE=Release -DGV_OUT=&quot;$(RcheevosOut)&quot;" ContinueOnError="true" StandardOutputImportance="low" />
+    <Exec Command="cmake --build &quot;$(RcheevosRoot)build$([System.IO.Path]::DirectorySeparatorChar)$(RcheevosRid)&quot; --config Release" ContinueOnError="true" StandardOutputImportance="low" />
+    <Warning Condition="!Exists('$(RcheevosLibrary)')" Text="rcheevos could not be built (CMake and a C compiler are needed); RetroAchievements will be unavailable. See docs/plans/phase-10.md." />
+  </Target>
+
+  <Target Name="AddRcheevosToOutput" BeforeTargets="AssignTargetPaths" DependsOnTargets="BuildRcheevos">
+    <ItemGroup>
+      <None Include="$(RcheevosLibrary)" Condition="Exists('$(RcheevosLibrary)')" Link="$(RcheevosFileName)" CopyToOutputDirectory="PreserveNewest" />
+    </ItemGroup>
+  </Target>
+
   <ItemGroup>
     <InternalsVisibleTo Include="GameVault.Platform.Tests" />
   </ItemGroup>
