@@ -12,6 +12,7 @@ public enum GameSystem
     Sg1000,
     MasterSystem,
     AppleII,
+    Genesis,
 }
 
 /// <summary>
