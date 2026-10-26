@@ -227,7 +227,7 @@ internal static class ConsoleFactory
 
     /// <summary>
     /// A PlayStation 2 with a formatted memory card in slot 1 (the host loads the game's saved card over it): an ELF
-    /// runs on GameVault's own kernel, with or without a BIOS; a disc (for an .m3u, the first in the list) boots
+    /// boots through the player's BIOS when one is set (fast boot at EELOAD) and on GameVault's own kernel otherwise; a disc (for an .m3u, the first in the list) boots
     /// through the player's BIOS, which it needs.
     /// </summary>
     private static Ps2Console CreatePlayStation2(byte[] data, PlayStation2Setup? setup)
