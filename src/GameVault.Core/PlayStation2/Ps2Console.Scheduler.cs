@@ -231,7 +231,7 @@ public sealed partial class Ps2Console
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 1);
+        writer.BeginChunk(Tag, 2);
         writer.WriteBytes(_rdram);
         writer.WriteBytes(MemoryMarshal.AsBytes(_frame.AsSpan()));
         writer.WriteInt64(FrameCount);
@@ -251,6 +251,7 @@ public sealed partial class Ps2Console
         writer.WriteInt64(_nextVideoEvent);
         writer.WriteBool(_inHBlank);
         SaveIo(writer);
+        writer.WriteBool(_bootHookArmed);
         writer.EndChunk();
         Cpu.SaveState(writer);
         Vu0.SaveState(writer);
@@ -273,7 +274,8 @@ public sealed partial class Ps2Console
     /// <remarks>The disc isn't part of the state: the caller keeps the same disc in the drive.</remarks>
     public void LoadState(StateReader reader)
     {
-        if (reader.BeginChunk(Tag) != 1)
+        var version = reader.BeginChunk(Tag);
+        if (version is not (1 or 2))
         {
             throw new StateFormatException("Unsupported PlayStation 2 state version.");
         }
@@ -297,6 +299,7 @@ public sealed partial class Ps2Console
         _nextVideoEvent = reader.ReadInt64();
         _inHBlank = reader.ReadBool();
         LoadIo(reader);
+        _bootHookArmed = version >= 2 && reader.ReadBool();
         reader.EndChunk();
         Cpu.LoadState(reader);
         Vu0.LoadState(reader);
@@ -319,6 +322,15 @@ public sealed partial class Ps2Console
 
         Kernel?.LoadState(reader);
         IopServices?.LoadState(reader);
+        if (_bootHookArmed)
+        {
+            Cpu.SetBreakpoint(EeLoaderEntry);
+        }
+        else
+        {
+            Cpu.ClearBreakpoint();
+        }
+
         UpdateInterruptLines();
     }
 }

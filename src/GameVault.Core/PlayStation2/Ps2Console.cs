@@ -12,8 +12,9 @@ namespace GameVault.Core.PlayStation2;
 /// What a PlayStation 2 boots: an ELF (homebrew, test programs) or a disc in the drive.
 /// </summary>
 /// <remarks>
-/// An ELF runs on GameVault's own EE kernel (<see cref="Ps2Kernel"/>) with the IOP's services answered in C#
-/// (<see cref="Ps2IopServices"/>), so it needs no BIOS. A disc needs the player's BIOS: the EE and IOP both run it.
+/// Without a BIOS an ELF runs on GameVault's own EE kernel (<see cref="Ps2Kernel"/>) with the IOP's services answered in
+/// C# (<see cref="Ps2IopServices"/>). With the player's BIOS it boots through the BIOS
+/// (<see cref="Ps2ConsoleOptions.ElfThroughBios"/>). A disc needs the player's BIOS: the EE and IOP both run it.
 /// </remarks>
 public sealed class Ps2Boot
 {
@@ -37,7 +38,7 @@ public sealed class Ps2Boot
     /// <summary>The disc in the drive (also given to an ELF boot, if any).</summary>
     public IPs2Disc? Disc { get; }
 
-    /// <summary>Boots an ELF on GameVault's kernel; <paramref name="path"/> becomes argv[0].</summary>
+    /// <summary>Boots an ELF (on GameVault's kernel, or through the BIOS when one is given); <paramref name="path"/> becomes argv[0].</summary>
     public static Ps2Boot FromElf(byte[] elf, string path = "host:program.elf", params string[] arguments)
     {
         ArgumentNullException.ThrowIfNull(elf);
@@ -50,6 +51,31 @@ public sealed class Ps2Boot
         ArgumentNullException.ThrowIfNull(disc);
         return new Ps2Boot(null, "cdrom0:", [], disc);
     }
+}
+
+/// <summary>
+/// How a <see cref="Ps2Console"/> boots (Phase 17 plan, "Two ways to boot"). The platform sets it from Settings →
+/// PlayStation 2.
+/// </summary>
+public sealed record Ps2ConsoleOptions
+{
+    /// <summary>ELFs through the BIOS when there is one; discs through the BIOS's start-up screens.</summary>
+    public static Ps2ConsoleOptions Default { get; } = new();
+
+    /// <summary>
+    /// With the player's BIOS, an ELF boots through it (the default): the EE and the IOP run the BIOS until it starts its
+    /// EE loader (EELOAD, at $82000), and the ELF is loaded and started in its place with ExecPS2, as PCSX2's fast boot
+    /// does — so IOP modules the program loads run on the BIOS's IOP kernel. False runs ELFs on GameVault's kernel even
+    /// when a BIOS is given. Without a BIOS, ELFs always run on GameVault's kernel.
+    /// </summary>
+    public bool ElfThroughBios { get; init; } = true;
+
+    /// <summary>
+    /// "Skip the startup screens" for discs: when the BIOS starts its EE loader, the disc's boot executable (SYSTEM.CNF's
+    /// <c>BOOT2</c>) is read from the disc and started at once, instead of the BIOS's start-up screens running first. A
+    /// disc without SYSTEM.CNF or BOOT2 boots normally. (An ELF booted through the BIOS is always started this way.)
+    /// </summary>
+    public bool FastBoot { get; init; }
 }
 
 /// <summary>
@@ -73,8 +99,9 @@ public sealed class Ps2Boot
 /// </para>
 /// <para>
 /// Without a BIOS, ELFs run on GameVault's kernel (<see cref="Kernel"/>) and the IOP's side of the SIF is answered by
-/// <see cref="IopServices"/>; the IOP's CPU doesn't run. With a BIOS the EE starts at its reset vector and both
-/// processors run it (a disc boot); fast-booting an ELF through the BIOS is left for later.
+/// <see cref="IopServices"/>; the IOP's CPU doesn't run. With a BIOS both processors start at its reset vector and run
+/// it; an ELF (and a disc with <see cref="Ps2ConsoleOptions.FastBoot"/>) is started when the BIOS reaches its EE loader
+/// (see <see cref="Ps2ConsoleOptions"/>).
 /// </para>
 /// </remarks>
 public sealed partial class Ps2Console : IEmulatedConsole, IStateful
@@ -108,8 +135,20 @@ public sealed partial class Ps2Console : IEmulatedConsole, IStateful
     /// <exception cref="ArgumentException">A disc boot without a BIOS, or a BIOS of the wrong size.</exception>
     /// <exception cref="InvalidDataException">The ELF isn't a MIPS executable.</exception>
     public Ps2Console(Ps2Boot boot, byte[]? bios = null, Ps2MemoryCard? card = null)
+        : this(boot, bios, card, Ps2ConsoleOptions.Default)
+    {
+    }
+
+    /// <param name="boot">The ELF or disc to boot.</param>
+    /// <param name="bios">The player's 4 MB BIOS, or null: ELFs then run on GameVault's kernel (discs need one).</param>
+    /// <param name="card">The memory card in slot 1; a new formatted card when null.</param>
+    /// <param name="options">How to boot: an ELF through the BIOS or on GameVault's kernel, a disc's fast boot.</param>
+    /// <exception cref="ArgumentException">A disc boot without a BIOS, or a BIOS of the wrong size.</exception>
+    /// <exception cref="InvalidDataException">The ELF isn't a MIPS executable.</exception>
+    public Ps2Console(Ps2Boot boot, byte[]? bios, Ps2MemoryCard? card, Ps2ConsoleOptions options)
     {
         ArgumentNullException.ThrowIfNull(boot);
+        ArgumentNullException.ThrowIfNull(options);
         if (bios is not null && bios.Length != BiosSize)
         {
             throw new ArgumentException("The PlayStation 2 BIOS is 4 MB.", nameof(bios));
@@ -121,7 +160,8 @@ public sealed partial class Ps2Console : IEmulatedConsole, IStateful
         }
 
         _boot = boot;
-        _bios = boot.Elf is null ? bios : null;
+        Options = options;
+        _bios = boot.Elf is null || options.ElfThroughBios ? bios : null;
         Elf = boot.Elf is { } elf ? Ps2Elf.Parse(elf) : null;
 
         Intc = new Ps2Intc();
@@ -145,7 +185,7 @@ public sealed partial class Ps2Console : IEmulatedConsole, IStateful
             DebugOutput = c => DebugOutput?.Invoke(c),
         };
 
-        if (Elf is not null)
+        if (Elf is not null && _bios is null)
         {
             Kernel = new Ps2Kernel(this);
             IopServices = new Ps2IopServices(this);
@@ -156,6 +196,12 @@ public sealed partial class Ps2Console : IEmulatedConsole, IStateful
     }
 
     public GameSystem System => GameSystem.PlayStation2;
+
+    /// <summary>How this machine boots.</summary>
+    public Ps2ConsoleOptions Options { get; }
+
+    /// <summary>The BIOS runs (a disc, or an ELF booted through it): both processors started at its reset vector.</summary>
+    public bool BootsThroughBios => _bios is not null;
 
     public R5900Cpu Cpu { get; }
 
@@ -284,11 +330,13 @@ public sealed partial class Ps2Console : IEmulatedConsole, IStateful
         ResetIo();
         ResetScheduler();
 
-        if (Elf is not null)
+        if (Kernel is not null)
         {
             IopServices!.Reset();
-            Kernel!.Boot(Elf, _boot.Path, _boot.Arguments);
+            Kernel.Boot(Elf!, _boot.Path, _boot.Arguments);
         }
+
+        ArmBootHook();
 
         UpdateInterruptLines();
     }
@@ -349,6 +397,10 @@ public sealed partial class Ps2Console : IEmulatedConsole, IStateful
         else
         {
             Cpu.Run(target);
+            if (Cpu.AtBreakpoint)
+            {
+                EeLoaderReached();
+            }
         }
 
         Sync();

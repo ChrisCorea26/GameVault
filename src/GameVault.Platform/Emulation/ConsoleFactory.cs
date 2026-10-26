@@ -273,7 +273,7 @@ internal static class ConsoleFactory
 
         try
         {
-            return new Ps2Console(Ps2Boot.FromDisc(disc), bios, Ps2MemoryCard.CreateFormatted());
+            return new Ps2Console(Ps2Boot.FromDisc(disc), bios, Ps2MemoryCard.CreateFormatted(), new Ps2ConsoleOptions { FastBoot = setup!.FastBoot });
         }
         catch
         {
