@@ -78,7 +78,8 @@ public sealed class AppleHostTests : IDisposable
         using (var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), settings, paths: paths))
         {
             await host.LoadAsync(game);
-            host.AppleDriveNames.Should().Equal("Game", null);
+            await WaitFor(() => Task.FromResult(host.AppleDriveNames[0] == "Game"));
+            host.AppleDriveNames[1].Should().BeNull();
 
             await host.InsertAppleDiskAsync(1, second);
             await WaitFor(() => Task.FromResult(host.AppleDriveNames[1] == "Side 2"));

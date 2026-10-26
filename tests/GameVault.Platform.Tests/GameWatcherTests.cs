@@ -166,14 +166,23 @@ public sealed class GameWatcherTests : IDisposable
         await WaitFor(() => stats.Contains("2"), 30);
 
         host.Pause();
-        var notices = new List<string>();
-        timeline.Notice += (_, n) => notices.Add(n);
+        // On a slow machine more lives can be lost before F2; the newest before-death state has one more life
+        // than the game has now. Pausing in the notice handler stops the game from losing another one after it.
+        var livesNow = await host.InspectNesAsync(c => c.Bus.Peek(0x10));
+        var loaded = 0;
+        timeline.Notice += (_, n) =>
+        {
+            if (n == "Loaded")
+            {
+                host.Pause();
+                Interlocked.Exchange(ref loaded, 1);
+            }
+        };
         input.KeyDown(VirtualKeys.F2);
         host.Resume();
-        await WaitFor(() => notices.Contains("Loaded"), 30);
+        await WaitFor(() => Volatile.Read(ref loaded) == 1, 30);
         input.KeyUp(VirtualKeys.F2);
-        host.Pause();
-        (await host.InspectNesAsync(c => c.Bus.Peek(0x10))).Should().Be(3, "back to before the life was lost");
+        (await host.InspectNesAsync(c => c.Bus.Peek(0x10))).Should().Be((byte)(livesNow + 1), "back to before the life was lost");
     }
 
     private static async Task WaitFor(Func<bool> condition, int seconds)
