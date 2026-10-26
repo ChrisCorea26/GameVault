@@ -24,6 +24,8 @@ document fills those gaps.
 - Bit order matches the order the standard controller shifts bits out through `$4016`/`$4017`:
   A, B, Select, Start, Up, Down, Left, Right
   ([NESdev Wiki: Standard controller](https://www.nesdev.org/wiki/Standard_controller)).
+- Since Phase 16 the state is 32 bits: the top 16 hold an analog stick (X in bits 16–23, Y in 24–31, each a
+  signed byte, up positive) for the N64. Recordings and netplay carry all 32 bits.
 - The core only ever sees these bytes. Device identity, turbo, remapping and the opposite-direction
   rule (§6) all live in the platform layer. That keeps the core deterministic and makes the per-frame
   input stream recordable for rewind, run-ahead and netplay.
@@ -63,6 +65,7 @@ Player 2"*.
 | Turbo A | S |
 | L, R (SNES; PlayStation L1, R1; added in Phase 15) | 1, 2 |
 | PlayStation L2, R2 (Phase 15) | 3, 4 |
+| N64 keys (Phase 16, only while an N64 game runs): C buttons; D-pad | I/J/K/L; T/F/G/H |
 
 The turbo keys sit beside Z/X in the same order (B on the left). They repeat at the turbo speed set in
 Settings → Input (§6). The two-player preset (§4.3) uses A and S for Player 2's D-pad, so it has no turbo keys.
@@ -191,6 +194,26 @@ The digital pad (SCPH-1080) maps onto the controller state by position, like the
 
 A trigger counts as pressed past half way and released below a quarter, so a resting trigger never flickers.
 The DualShock's sticks and vibration are left for later.
+
+### 6.5 Nintendo 64 (Phase 16)
+The N64 pad maps onto the controller state by position, like the PlayStation pad. Its analog stick is the state's
+top 16 bits (§2), in the real stick's range of about ±80.
+
+| N64 | Controller state | Pad | Xbox label | Keyboard |
+|---|---|---|---|---|
+| Analog stick | Stick bits | Left stick (small round dead zone) | Left stick | Arrow keys (all the way) |
+| A, B | B, Y | South, West | A, X | Z, A |
+| C-down, C-left | A, X | East, North, or the right stick | B, Y | X or K, S or J |
+| C-up, C-right | C, Z | The right stick | Right stick | I, L |
+| Z | L2 or R2 | Either trigger | LT, RT | 3 or 4 |
+| L, R | L, R | Left shoulder, right shoulder | LB, RB | 1, 2 |
+| Start | Start | Start | Menu | Enter |
+| D-pad | Up/Down/Left/Right | D-pad | D-pad | T, G, F, H |
+
+While an N64 game runs, the arrow keys push the stick instead of pressing the D-pad, and I/J/K/L and T/F/G/H take
+on the C buttons and the D-pad; other systems never see those keys. A pad's left stick drives the analog stick and
+stops pressing the D-pad; the strongest of the keyboard and the pads wins. The right stick is the C buttons, pushed
+past half way. Turbo is off, as for the SNES. The Rumble Pak and the Transfer Pak are left for later.
 
 ## 7. Game input vs. UI navigation
 

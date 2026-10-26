@@ -100,3 +100,20 @@ listed in `manifest.tsv` (about 3 MB), so every test run fetches them.
 | `psx-peterlemon/Demo/printgpu/PRINTGPU.exe` | A bare-metal demo: Gouraud background and text sent by DMA and by the CPU | Peter Lemon (krom) | No licence file in the repository | Phase 15: the whole machine through the frame loop (golden image) |
 | `psx-peterlemon/GPU/**/*.exe` (25 PS-EXE programs) | Bare-metal drawing demos: polygons, lines, rectangles, textures at each depth, texture windows, clipping, dithering and VRAM transfers | Peter Lemon (krom) | No licence file in the repository | Phase 15: GPU golden images (regression hashes, reviewed against the repository's PNGs) |
 | `ps1-tests/gpu/{triangle,quad,lines,uv-interpolation}/vram.png` | VRAM dumps from a real console after each test program | Jakub Czekański (ps1-tests) | MIT: redistributable, but kept with the other downloads | Phase 15: the rasterizer, pixel for pixel (coverage, seams, interpolation, dithering, lines) |
+
+### Nintendo 64 (Phase 16)
+
+Pinned to commit `7085543e4a19d8c539fc9e0a4d2869e788b4ed4b` of [PeterLemon/N64](https://github.com/PeterLemon/N64), listed in
+`manifest-n64.tsv` (about 270 MB: each program is a 1 MB ROM) and fetched with `fetch-test-roms.sh manifest-n64.tsv`
+(`-Manifest manifest-n64.tsv` on Windows). Only the Nintendo 64 CI job fetches them, and it caches them; elsewhere the
+tests run when the files are cached, or with `GAMEVAULT_RUN_N64=1`. The programs boot with krom's own boot code, not
+Nintendo's, and the repository is public domain; they are downloaded like the other suites to keep the repository
+small.
+
+| Cache path | Suite | Author | Why it isn't committed | Used by |
+|---|---|---|---|---|
+| `n64-peterlemon/CPUTest/**/*.N64` (CPU, CP0, CP1, LL/SC and PI DMA programs) | Bare-metal tests that print PASS (green font) or FAIL (red font) for each check | Peter Lemon (krom) | Public domain (Unlicense), but 1 MB each | Phase 16: VR4300 integer, COP0, FPU and PI DMA alignment (`PeterLemonN64Tests`) |
+| `n64-peterlemon/CPUTest/CPU/ADD/Font{Green,Red}8x8.bin` | The fonts those programs print with | Peter Lemon (krom) | As above | Phase 16: reading PASS and FAIL back from the framebuffer |
+| `n64-peterlemon/RSPTest/**/*.N64` | The RSP's scalar and vector instructions, its memories and SP DMA alignment, as PASS/FAIL programs | Peter Lemon (krom) | As above | Phase 16: the RSP (`PeterLemonN64Tests`) |
+| `n64-peterlemon/RDPTest/**/*.N64`, `n64-peterlemon/RDP/**/*.{N64,png}` (115 programs, 105 reference pictures) | The RDP's registers (PASS/FAIL), and drawing demos: fill, copy, one-cycle and two-cycle modes, triangles, rectangles, lines, every texture format, TLUTs, mask/clamp/mirror, the combiner, blender, alpha compare and Z buffer | Peter Lemon (krom) | As above | Phase 16: the RDP through the whole console, held to each reference picture and pinned as golden images (`PeterLemonN64RdpTests`) |
+

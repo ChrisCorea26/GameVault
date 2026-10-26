@@ -228,3 +228,25 @@ Real games are the owner's to try; see `docs/plans/phase-14.md`.
 
 Real discs need the owner's BIOS (Settings → PlayStation); real games are the owner's to try. See
 `docs/plans/phase-15.md`.
+
+## Nintendo 64 (Phase 16)
+
+| Part | State |
+|---|---|
+| VR4300: PeterLemon `CPUTest/CPU` (43 programs: arithmetic, 64-bit shifts and multiply/divide, loads and stores, LL/SC) | ✅ All pass |
+| VR4300: COP0 registers and Cause after a cold boot (`CPUTest/CP0`, recorded on hardware) | ✅ Pass |
+| VR4300: TLB, exceptions, branch-likely, Count/Compare | ✅ Unit tests |
+| FPU: PeterLemon `CPUTest/CP1` (28 programs: arithmetic, conversions, rounding, all 16 compares) | ✅ All pass, plus 573 unit tests of the rounding modes, exceptions and FR modes |
+| CPU timing (`CPUTIMINGNTSC`, `CP1TIMINGNTSC`: exact loop counts against the VI) | Not yet: one cycle per instruction plus approximate memory and I/O costs |
+| RSP: PeterLemon `RSPTest` (scalar unit, every vector instruction including the reserved opcodes, transposes, IMEM, SP DMA alignment) | ✅ All pass |
+| RDP: PeterLemon's 115 drawing programs through the whole console (CPU, RSP over XBUS, RDP, VI) | ✅ Golden images; 105 are also held to their reference pictures (89–100% of pixels identical; the references are an emulator's captures, some a row off) |
+| RDP: coverage anti-aliasing, the VI's filters (anti-aliasing, divot, gamma) | 🟡 Coverage is computed per pixel but the hidden RDRAM bits aren't kept; the VI shows the framebuffer without its filters |
+| PI DMA, including unaligned addresses and odd lengths (`DMAAlignment-PI`, recorded on hardware) | ✅ All pass |
+| SI and the joybus: controllers, Controller Pak, EEPROM | ✅ Unit tests |
+| SRAM and FlashRAM | ✅ Unit tests (FlashRAM follows Mupen64Plus's command set) |
+| AI: audio buffers and the DAC rate | ✅ Unit tests and PeterLemon's PCM demos (not committed: their samples' origin isn't stated) |
+| Boot: simulated PIF, the cartridge's own IPL3; CIC seeds 6101–6106 | 🟡 PeterLemon's programs boot through krom's IPL3; Nintendo's IPL3s are the owner's to try with their cartridges |
+| 64DD, Rumble Pak, Transfer Pak, mouse, VRU | Not yet |
+
+Real cartridges are the owner's to try; see `docs/plans/phase-16.md`.
+

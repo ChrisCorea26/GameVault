@@ -223,3 +223,43 @@ jobs:
           GAMEVAULT_RUN_65816: 1
           GAMEVAULT_RUN_SPC700: 1
         run: dotnet test tests/GameVault.Core.Tests -c Release --filter "FullyQualifiedName~W65816SingleStepTests|FullyQualifiedName~Spc700SingleStepTests" --logger "console;verbosity=detailed"
+
+  n64-tests:
+    name: Nintendo 64 test programs (Linux, Release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        id: setup-dotnet
+        continue-on-error: true
+        with:
+          global-json-file: global.json
+
+      # See the Windows job: fall back to builds.dotnet.microsoft.com when setup-dotnet's download fails.
+      - name: Install .NET from builds.dotnet.microsoft.com (fallback)
+        if: steps.setup-dotnet.outcome == 'failure'
+        run: |
+          feed=https://builds.dotnet.microsoft.com/dotnet
+          version=$(curl -fsSL "$feed/Sdk/10.0/latest.version" | tr -d '\r' | sed '/^$/d' | tail -1)
+          curl -fsSL https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh
+          dir="$RUNNER_TEMP/dotnet"
+          bash dotnet-install.sh --version "$version" --azure-feed "$feed" --install-dir "$dir"
+          echo "$dir" >> "$GITHUB_PATH"
+          echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+
+      # PeterLemon's N64 programs are 1 MB ROMs, about 270 MB in all; keep them between runs.
+      - name: Cache the N64 test programs
+        uses: actions/cache@v4
+        with:
+          path: tests/TestRoms/.cache/n64-peterlemon
+          key: n64-peterlemon-${{ hashFiles('tests/TestRoms/manifest-n64.tsv') }}
+
+      - name: Fetch the N64 test programs
+        run: ./tests/TestRoms/fetch-test-roms.sh manifest-n64.tsv
+
+      # The CPU, FPU, RSP and DMA programs (PASS/FAIL) and the RDP programs (references and golden images).
+      - name: Run PeterLemon's N64 programs
+        env:
+          GAMEVAULT_RUN_N64: 1
+        run: dotnet test tests/GameVault.Core.Tests -c Release --filter "FullyQualifiedName~PeterLemonN64" --logger "console;verbosity=detailed"

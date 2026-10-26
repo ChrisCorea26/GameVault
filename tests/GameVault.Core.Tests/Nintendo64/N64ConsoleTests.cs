@@ -474,6 +474,44 @@ public sealed class N64ConsoleTests
     }
 
     [Fact]
+    public void The_ai_plays_queued_buffers_and_asks_for_the_next_one()
+    {
+        var console = new N64Console(new N64Cartridge(Rom([Mips.BranchSelf, Mips.Nop])));
+        console.Power();
+        var audio = console.EnableAudio(48000);
+
+        // 4,000 stereo samples of a square wave at $00300000, at about 32 kHz (VI clock / (1520 + 1)).
+        for (var i = 0; i < 4000; i++)
+        {
+            var level = (short)(i / 50 % 2 == 0 ? 8000 : -8000);
+            BinaryPrimitives.WriteInt16BigEndian(console.Rdram.AsSpan(0x30_0000 + i * 4), level);
+            BinaryPrimitives.WriteInt16BigEndian(console.Rdram.AsSpan(0x30_0000 + i * 4 + 2), level);
+        }
+
+        console.Write32(0x0450_0010, 1520); // AI_DACRATE
+        console.Write32(0x0450_0008, 1); // DMA on
+        console.Write32(0x0450_0000, 0x30_0000);
+        console.Write32(0x0450_0004, 8000); // the first half: starts at once
+        (console.Read32(0x0430_0008) & (uint)N64Interrupt.Ai).Should().NotBe(0u, "the AI asks for the next buffer as one starts");
+        console.Write32(0x0450_000C, 0); // acknowledge
+        console.Write32(0x0450_0000, 0x30_0000 + 8000);
+        console.Write32(0x0450_0004, 8000); // queued behind it
+        (console.Read32(0x0450_000C) & 0xC000_0000).Should().Be(0xC000_0000u, "busy and full");
+
+        console.RunFrame();
+        console.RunFrame();
+        console.RunFrame();
+        console.RunFrame();
+        (console.Read32(0x0450_000C) & 0x8000_0000).Should().Be(0u, "the first buffer has finished and the second is playing");
+        (console.Read32(0x0430_0008) & (uint)N64Interrupt.Ai).Should().NotBe(0u);
+
+        var samples = new float[48000];
+        var count = audio.Read(samples);
+        count.Should().BeGreaterThan(2000);
+        samples.Take(count).Max().Should().BeGreaterThan(0.15f, "the square wave reached the output");
+    }
+
+    [Fact]
     public void A_save_state_resumes_exactly()
     {
         // A loop that counts and stores, with the VI running.
