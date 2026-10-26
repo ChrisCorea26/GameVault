@@ -5,6 +5,9 @@ public enum TimelineItemKind
     Manual,
     Quick,
     AutoExit,
+
+    /// <summary>Saved automatically a few seconds before a life was lost (SPEC §7.9).</summary>
+    BeforeDeath,
 }
 
 /// <summary>One save state on a game's timeline (SPEC §7.1).</summary>

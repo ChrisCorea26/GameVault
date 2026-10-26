@@ -92,6 +92,19 @@ public interface IEmulatorService
     {
     }
 
+    /// <summary>True when the running game has a memory map, so stat overlays, maps and death markers work (SPEC §7.9).</summary>
+    bool HasMemoryMap => false;
+
+    /// <summary>The stat overlay's values for the running game ("Health", "3 of 16").</summary>
+    IReadOnlyList<StatValue> StatValues => [];
+
+    /// <summary>Raised on the UI thread when <see cref="StatValues"/> change (a few times a second at most).</summary>
+    event EventHandler? StatValuesChanged
+    {
+        add { }
+        remove { }
+    }
+
     /// <summary>True while any Game Genie or RAM code is on (SPEC §7.8).</summary>
     bool CheatsActive => false;
 
@@ -145,6 +158,9 @@ public interface IEmulatorService
     /// <summary>Stops and unloads the game.</summary>
     void Stop();
 }
+
+/// <summary>One value of the stat overlay (SPEC §7.9): "Health" and "3 of 16".</summary>
+public sealed record StatValue(string Label, string Text);
 
 /// <summary>Where a netplay session stands (SPEC §7.7).</summary>
 public enum NetplayStatus

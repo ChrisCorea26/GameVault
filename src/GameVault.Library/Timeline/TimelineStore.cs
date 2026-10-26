@@ -14,6 +14,9 @@ public enum TimelineKind
 
     /// <summary>Saved automatically when the game was closed; only the newest is kept.</summary>
     AutoExit,
+
+    /// <summary>A few seconds before a life was lost (SPEC §7.9); the newest five are kept.</summary>
+    BeforeDeath,
 }
 
 /// <summary>One save state on a game's timeline (SPEC §7.1).</summary>
@@ -33,6 +36,9 @@ public sealed record TimelineEntry(
 /// </summary>
 public sealed class TimelineStore(string root)
 {
+    /// <summary>"Before you lost a life" states kept per game (pinned ones aren't counted).</summary>
+    public const int MaxBeforeDeath = 5;
+
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web) { WriteIndented = true };
 
     public IReadOnlyList<TimelineEntry> List(string gameKey) =>
@@ -55,6 +61,16 @@ public sealed class TimelineStore(string root)
         if (kind == TimelineKind.AutoExit)
         {
             foreach (var old in entries.Where(e => e.Kind == TimelineKind.AutoExit).ToList())
+            {
+                entries.Remove(old);
+                DeleteFiles(gameKey, old.Id);
+            }
+        }
+
+        if (kind == TimelineKind.BeforeDeath)
+        {
+            var older = entries.Where(e => e.Kind == TimelineKind.BeforeDeath && !e.Pinned).ToList();
+            foreach (var old in older.Take(Math.Max(0, older.Count - (MaxBeforeDeath - 1))))
             {
                 entries.Remove(old);
                 DeleteFiles(gameKey, old.Id);

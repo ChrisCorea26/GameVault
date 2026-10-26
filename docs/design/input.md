@@ -162,6 +162,7 @@ These keys never reach the game, so game bindings can't use them:
 | Full screen on/off (added after Phase 8) | F11 or Alt+Enter | — |
 | Rewind (hold) | Backspace | Left shoulder |
 | Fast-forward (hold) | Tab | Right shoulder |
+| Back to before the last life lost (SPEC §7.9, Phase 9) | F2 | — |
 | All codes off (SPEC §7.8, added in Phase 8) | F3 | — |
 | Next disk side (Famicom Disk System, added in Phase 7) | F4 | — |
 | Quick save / quick load | F5 / F8 | — |

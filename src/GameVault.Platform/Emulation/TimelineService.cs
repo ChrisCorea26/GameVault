@@ -26,6 +26,8 @@ public sealed class TimelineService : ITimelineService
         _playtime = playtime;
         _host.QuickSaveRequested += async (_, _) => await AddAsync(TimelineKind.Quick, null, "Saved");
         _host.QuickLoadRequested += async (_, _) => await LoadLatestAsync();
+        _host.LifeLost += async (_, capture) => await AddCaptureAsync(capture, TimelineKind.BeforeDeath, "Before you lost a life", "Lost a life. Press F2 to go back to a few seconds before.");
+        _host.BeforeDeathRequested += async (_, _) => await LoadBeforeDeathAsync();
     }
 
     public event EventHandler<string>? Notice;
@@ -89,11 +91,39 @@ public sealed class TimelineService : ITimelineService
         await LoadAsync(key, latest.Id);
     }
 
+    /// <summary>F2: the newest "before you lost a life" state (SPEC §7.9).</summary>
+    private async Task LoadBeforeDeathAsync()
+    {
+        if (_host.GameKey is not { } key)
+        {
+            return;
+        }
+
+        var latest = await Locked(() => _store.Latest(key, TimelineKind.BeforeDeath));
+        if (latest is null)
+        {
+            Raise(() => Notice?.Invoke(this, _host.HasMemoryMap
+                ? "No lives lost yet."
+                : "GameVault doesn't know where this game keeps its lives yet, so it can't go back to before you lost one."));
+            return;
+        }
+
+        await LoadAsync(key, latest.Id);
+    }
+
     private async Task AddAsync(TimelineKind kind, string? label, string? notice)
     {
-        var key = _host.GameKey;
         var capture = await _host.CaptureAsync();
-        if (key is null || capture is null)
+        if (capture is not null)
+        {
+            await AddCaptureAsync(capture, kind, label, notice);
+        }
+    }
+
+    private async Task AddCaptureAsync(StateCapture capture, TimelineKind kind, string? label, string? notice)
+    {
+        var key = _host.GameKey;
+        if (key is null || capture.RomHash != _host.RomHash)
         {
             return;
         }

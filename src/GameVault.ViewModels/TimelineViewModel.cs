@@ -139,6 +139,7 @@ public sealed partial class TimelineItemViewModel(TimelineViewModel owner, Timel
     {
         TimelineItemKind.AutoExit => "Where you left off",
         TimelineItemKind.Quick => "Quick save",
+        TimelineItemKind.BeforeDeath => "Before you lost a life",
         _ => "Saved game",
     };
 

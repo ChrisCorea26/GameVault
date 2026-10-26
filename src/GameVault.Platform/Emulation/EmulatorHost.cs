@@ -10,6 +10,7 @@ using GameVault.Platform.Audio;
 using GameVault.Core.Input;
 using GameVault.Core.State;
 using GameVault.Library.Hashing;
+using GameVault.Library.Memory;
 using GameVault.Library.Scanning;
 using GameVault.Platform.Netplay;
 using GameVault.Library.Profiles;
@@ -62,6 +63,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private volatile bool _netplayActive;
     private NetplayStatus _netplayStatus;
     private byte[]? _romData;
+
+    // Game-aware features (SPEC §7.9): the memory-map watcher and its latest overlay values.
+    private readonly GameWatcher _watcher = new();
+    private volatile IReadOnlyList<StatValue> _statValues = [];
+    private bool _livesKeyHeld;
 
     // Codes (SPEC §7.8): the engine last reported, to notice when a load or rewind brought back other codes.
     private CheatEngine? _seenCheats;
@@ -336,6 +342,55 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
     }
 
+    /// <summary>Finds a game's memory map (SPEC §7.9) by headerless SHA-1.</summary>
+    public Func<string, MemoryMap?>? MemoryMapResolver { get; set; }
+
+    public bool HasMemoryMap { get; private set; }
+
+    public IReadOnlyList<StatValue> StatValues => _statValues;
+
+    public event EventHandler? StatValuesChanged;
+
+    /// <summary>A life was lost: the state from a few seconds earlier, for the timeline. Raised on the UI thread.</summary>
+    public event EventHandler<StateCapture>? LifeLost;
+
+    /// <summary>The player entered a room or screen (automatic maps). Raised on the UI thread with a thumbnail.</summary>
+    public event EventHandler<RoomEnteredEventArgs>? RoomEntered;
+
+    /// <summary>F2: go back to before the last life lost. Raised on the UI thread.</summary>
+    public event EventHandler? BeforeDeathRequested;
+
+    /// <summary>Emulation thread: reports what the memory-map watcher saw this frame.</summary>
+    private void HandleWatch(NesConsole console, WatchResult watch)
+    {
+        if (watch.BeforeDeathState is { } state && watch.BeforeDeathFrame is { } screen)
+        {
+            var hash = console.RomHash;
+            _ = Task.Run(() =>
+            {
+                var capture = new StateCapture(hash, state, PngEncoder.Thumbnail(screen, NtscPalette.Argb));
+                Raise(() => LifeLost?.Invoke(this, capture));
+            });
+        }
+
+        if (watch.NewRoom is { } room)
+        {
+            var frame = console.Ppu.FrameBuffer.ToArray();
+            var key = GameKey;
+            _ = Task.Run(() =>
+            {
+                var args = new RoomEnteredEventArgs(key, room.Area, room.Room, PngEncoder.Thumbnail(frame, NtscPalette.Argb));
+                Raise(() => RoomEntered?.Invoke(this, args));
+            });
+        }
+
+        if (watch.Overlay is { } values)
+        {
+            _statValues = values;
+            Raise(() => StatValuesChanged?.Invoke(this, EventArgs.Empty));
+        }
+    }
+
     /// <summary>A disk side was inserted or ejected (Famicom Disk System). Raised on the UI thread.</summary>
     public event EventHandler? DiskChanged;
 
@@ -584,6 +639,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         });
         console.Ppu.RemoveSpriteLimit = profile.RemoveSpriteLimit == true || _assist.RemoveFlicker;
         var passwordDefinition = PasswordDefinitionResolver?.Invoke(hashes.Sha1);
+        var memoryMap = MemoryMapResolver?.Invoke(hashes.Sha1);
         console.Power();
         EnsureThread();
         Post(() =>
@@ -610,6 +666,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             _rewinding = false;
             _playedFrames = 0;
             _passwords.Definition = passwordDefinition;
+            _watcher.Map = memoryMap;
+            _statValues = [];
             _profileRemovesSpriteLimit = profile.RemoveSpriteLimit == true;
             Interlocked.Exchange(ref _frameCount, 0);
         });
@@ -625,6 +683,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         UsesZapper = console.InputSetup == InputSetup.Zapper;
         UsesFourScore = console.InputSetup == InputSetup.FourScore;
         DiskSideCount = console.Fds?.SideCount ?? 0;
+        HasMemoryMap = memoryMap is not null;
         _insertedDiskSide = console.Fds is null ? -1 : 0;
         SetAudioPaused(false);
 
@@ -742,6 +801,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             try
             {
                 _console.LoadSnapshot(state);
+                _watcher.Resync(); // a jump in time isn't a death
                 _present(_console);
                 result.SetResult(true);
             }
@@ -954,6 +1014,12 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 Raise(() => PasswordCaptured?.Invoke(this, new PasswordCapturedEventArgs(password, png)));
             }
 
+            var watch = _watcher.OnFrame(console);
+            if (!watch.IsEmpty)
+            {
+                HandleWatch(console, watch);
+            }
+
             if (runAheadOff)
             {
                 RaiseNotice("Reduce input lag is off for now because this PC couldn't keep up. You can change it in Settings.");
@@ -993,6 +1059,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             if (!held)
             {
                 _audio?.Flush(); // resume from silence
+                _watcher.Resync(); // rewinding isn't dying
             }
 
             PublishRewind();
@@ -1110,6 +1177,15 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
 
         _diskKeyHeld = diskKey;
+
+        // F2: back to before the last life lost (SPEC §7.9).
+        var livesKey = _input.IsHotkeyHeld(VirtualKeys.F2);
+        if (livesKey && !_livesKeyHeld)
+        {
+            Raise(() => BeforeDeathRequested?.Invoke(this, EventArgs.Empty));
+        }
+
+        _livesKeyHeld = livesKey;
 
         // F3: every code off at once (SPEC §7.8; input.md §8).
         var codesOff = _input.IsHotkeyHeld(VirtualKeys.F3);
@@ -1311,3 +1387,6 @@ public sealed class PasswordCapturedEventArgs(string password, byte[] screenshot
 
     public byte[] ScreenshotPng { get; } = screenshotPng;
 }
+
+/// <summary>A room or screen the player entered, for automatic maps (SPEC §7.9).</summary>
+public sealed record RoomEnteredEventArgs(string? GameKey, int Area, int Room, byte[] ThumbnailPng);
