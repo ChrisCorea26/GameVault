@@ -169,8 +169,10 @@ public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHos
         Cpu.SetRegister(11, 0xFFFF_FFFF_A400_0040); // t3
         Cpu.SetRegister(29, 0xFFFF_FFFF_A400_1FF0); // sp
         Cpu.SetRegister(31, 0xFFFF_FFFF_A400_1550); // ra
-        Cpu.WriteCop0Register(12, 0x3400_0000); // Status: CU0, CU1, FR
-        Cpu.WriteCop0Register(16, 0x0006_E463); // Config
+        // COP0 as a cold boot leaves it (PeterLemon's COP0Register, recorded on hardware): CU1, FR, SR, KX, SX, UX.
+        Cpu.WriteCop0Register(12, 0x2410_00E0);
+        Cpu.WriteCop0Register(14, 0xFFFF_FFFF_FFFF_FFFF); // EPC
+        Cpu.WriteCop0Register(16, 0x7006_E463); // Config
         Cpu.Jump(0xFFFF_FFFF_A400_0040);
         ScheduleVi();
         UpdateNextEvent();

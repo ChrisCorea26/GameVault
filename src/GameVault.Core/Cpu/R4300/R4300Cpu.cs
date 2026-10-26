@@ -14,6 +14,7 @@ public interface IR4300Bus
     /// <summary>RDRAM, big-endian. Physical addresses below its length go straight to it.</summary>
     byte[] Rdram { get; }
 
+    /// <summary>A 32-bit read. Narrow loads pass a halfword-aligned address, which only the cartridge bus honours.</summary>
     uint Read32(uint address);
 
     ulong Read64(uint address);
@@ -385,7 +386,9 @@ public sealed partial class R4300Cpu : IStateful
             return true;
         }
 
-        var word = _bus.Read32(physical & ~3u);
+        // Narrow reads off RDRAM fetch the word at the halfword's address and keep the byte lane, which on the
+        // cartridge bus gives what PeterLemon's DMAAlignment-PI program records.
+        var word = _bus.Read32(physical & ~1u);
         value = (byte)(word >> (int)(24 - ((physical & 3) << 3)));
         return true;
     }
@@ -410,7 +413,7 @@ public sealed partial class R4300Cpu : IStateful
             return true;
         }
 
-        var word = _bus.Read32(physical & ~3u);
+        var word = _bus.Read32(physical);
         value = (ushort)(word >> (int)(16 - ((physical & 2) << 3)));
         return true;
     }

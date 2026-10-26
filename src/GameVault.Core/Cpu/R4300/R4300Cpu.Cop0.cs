@@ -95,10 +95,12 @@ public sealed partial class R4300Cpu
     private void ResetCop0()
     {
         Array.Clear(Tlb);
-        _index = _entryLo0 = _entryLo1 = _pageMask = _wired = _compare = _cause = 0;
-        _llAddr = _watchLo = _watchHi = _tagLo = _tagHi = 0;
-        _context = _badVAddr = _entryHi = _epc = _xContext = _latch = 0;
-        _errorEpc = 0xFFFF_FFFF_FFFF_FFFF;
+        _index = _entryLo0 = _entryLo1 = _pageMask = _wired = _compare = 0;
+        _watchLo = _watchHi = _tagLo = _tagHi = 0;
+        _cause = 0xB000_007C; // what the boot leaves, as PeterLemon's COP0Cause records it on hardware
+        _llAddr = 0xFFFF_FFFF;
+        _context = _entryHi = _xContext = _latch = 0;
+        _errorEpc = _epc = _badVAddr = 0xFFFF_FFFF_FFFF_FFFF;
         _config = 0x7006_E463;
         _status = 0x3440_0004; // CU0, CU1, BEV and ERL, as after a cold reset
         Fpu.Fr = false;

@@ -126,6 +126,11 @@ public sealed partial class N64Console
     public uint Read32(uint address)
     {
         Cpu.Cycles += RcpReadCycles;
+        if ((address & 3) != 0 && address is < 0x1000_0000 or >= 0x1FC0_0000)
+        {
+            address &= ~3u; // only the cartridge bus reads from a halfword address
+        }
+
         if (address < 0x0400_0000)
         {
             if (address is >= 0x03F0_0000)
@@ -182,6 +187,7 @@ public sealed partial class N64Console
                 return address == 0x13FF_0000 ? 0x4953_3634u : ReadIsViewer(address); // "IS64"
             }
 
+            _piCartAddress = address + 4; // the PI's address register follows the CPU's reads (PeterLemon's DMAAlignment-PI)
             return ReadRom(address - 0x1000_0000);
         }
 
@@ -591,6 +597,8 @@ public sealed partial class N64Console
                 return _piDramAddress;
             case 0x04:
                 return _piCartAddress;
+            case 0x08 or 0x0C: // the length registers read back as $7F (n64brew: "Peripheral Interface")
+                return 0x7F;
             case 0x10:
                 return (_piBusy ? 1u : 0u) | (_piError ? 4u : 0u) | ((_miInterrupts & (uint)N64Interrupt.Pi) != 0 ? 8u : 0u);
             case >= 0x14 and < 0x34:
@@ -651,31 +659,49 @@ public sealed partial class N64Console
         var cart = _piCartAddress;
         var dram = _piDramAddress;
         var rdram = _rdram;
-        if (toRdram && Cartridge.SaveType == N64SaveType.FlashRam && _flashMode == FlashMode.Read
-            && cart is >= 0x0800_0000 and < 0x1000_0000)
+        if (toRdram)
         {
-            // FlashRAM's read mode addresses halfwords: the data starts at twice the offset.
-            var save = Cartridge.Save;
-            var start = (cart - 0x0800_0000) * 2;
-            for (uint i = 0; i < length; i++)
+            // The PI moves blocks of up to 128 bytes, each ending on an 8-byte boundary in RDRAM, reading the
+            // cartridge a halfword at a time. When RDRAM isn't 8-byte aligned, the first block drops as many bytes from
+            // its end as the misalignment (n64brew: "Peripheral Interface", unaligned DMA; PeterLemon's
+            // DMAAlignment-PI programs, recorded on hardware).
+            var flashRead = Cartridge.SaveType == N64SaveType.FlashRam && _flashMode == FlashMode.Read
+                && cart is >= 0x0800_0000 and < 0x1000_0000;
+            var remaining = (int)length;
+            var source = cart;
+            var first = true;
+            while (remaining > 0)
             {
-                var target = (dram + i) & 0x00FF_FFFF;
-                if (target < (uint)rdram.Length)
+                var misalign = (int)(dram & 7);
+                var blockLength = 128 - misalign;
+                var count = Math.Min(remaining, blockLength);
+                remaining -= count;
+                var written = count;
+                if (first)
                 {
-                    rdram[target] = save[(start + i) % (uint)save.Length];
+                    if (count == blockLength - 1)
+                    {
+                        written++;
+                    }
+
+                    written = Math.Max(written - misalign, 0);
                 }
-            }
-        }
-        else if (toRdram)
-        {
-            for (uint i = 0; i < length; i++)
-            {
-                var target = (dram + i) & 0x00FF_FFFF;
-                if (target < (uint)rdram.Length)
+
+                for (uint i = 0; i < written; i++)
                 {
-                    rdram[target] = ReadCartByte(cart + i);
+                    var target = (dram + i) & 0x00FF_FFFF;
+                    if (target < (uint)rdram.Length)
+                    {
+                        rdram[target] = flashRead ? ReadFlashArray(cart, source - cart + i) : ReadCartByte(source + i);
+                    }
                 }
+
+                source += (uint)(count + 1) & ~1u; // the cartridge is read a halfword at a time
+                dram = (dram + (uint)written + 7) & 0x00FF_FFF8;
+                first = false;
             }
+
+            _piDramAddress = dram;
         }
         else
         {
@@ -696,7 +722,11 @@ public sealed partial class N64Console
             }
         }
 
-        _piDramAddress = (dram + length + 7) & 0x00FF_FFF8;
+        if (!toRdram)
+        {
+            _piDramAddress = (dram + length + 7) & 0x00FF_FFF8;
+        }
+
         _piCartAddress = (cart + length + 1) & 0xFFFF_FFFE;
 
         var domain2 = cart is >= 0x0500_0000 and < 0x0600_0000 or >= 0x0800_0000 and < 0x1000_0000;
@@ -725,7 +755,7 @@ public sealed partial class N64Console
         var rom = Cartridge.Rom;
         if (offset + 4 <= (uint)rom.Length)
         {
-            return BinaryPrimitives.ReadUInt32BigEndian(rom.AsSpan((int)offset));
+            return BinaryPrimitives.ReadUInt32BigEndian(rom.AsSpan((int)offset)); // offset may be a halfword's
         }
 
         // Past the end of the ROM, the bus reads back the address's low halfword (n64brew: "Peripheral Interface").
@@ -864,6 +894,13 @@ public sealed partial class N64Console
         // In read mode the cartridge address counts halfwords (libultra's osFlashReadArray), handled in PiDma.
         var save = Cartridge.Save;
         return save[offset % (uint)save.Length];
+    }
+
+    /// <summary>FlashRAM in read mode: the cartridge address counts halfwords (libultra's osFlashReadArray).</summary>
+    private byte ReadFlashArray(uint start, uint index)
+    {
+        var save = Cartridge.Save;
+        return save[((start - 0x0800_0000) * 2 + index) % (uint)save.Length];
     }
 
     // ---- The IS-Viewer ----

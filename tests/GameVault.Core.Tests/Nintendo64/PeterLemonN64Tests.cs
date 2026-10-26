@@ -79,7 +79,22 @@ public sealed class PeterLemonN64Tests
     [InlineData("CPUTest/CPU/SUB/CPUSUB.N64", 7)]
     [InlineData("CPUTest/CPU/SUBU/CPUSUBU.N64", 7)]
     [InlineData("CPUTest/CPU/XOR/CPUXOR.N64", 14)]
+    [InlineData("CPUTest/CPU/LOADSTORE/LL_LLD_SC_SCD/LL_LLD_SC_SCD.N64", 9)]
     public void Cpu_programs_pass(string program, int checks) => AssertAllPass(program, checks, 640);
+
+    /// <summary>COP0's registers and Cause as a cold boot leaves them, recorded on hardware.</summary>
+    [N64TestRomTheory]
+    [InlineData("CPUTest/CP0/COP0Cause/COP0Cause.N64", 5)]
+    [InlineData("CPUTest/CP0/COP0Register/COP0Register.N64", 13)]
+    public void Cop0_programs_pass(string program, int checks) => AssertAllPass(program, checks, 320);
+
+    /// <summary>PI DMA from the cartridge with unaligned addresses and odd lengths, and the CPU's narrow ROM reads.</summary>
+    [N64TestRomTheory]
+    [InlineData("CPUTest/DMAAlignment-PI-cart/DMAAlignment-PI-ROM-FROM.N64", 28)]
+    [InlineData("CPUTest/DMAAlignment-PI-cart/DMAAlignment-PI-ROM-FROM_large_2.N64", 17)]
+    [InlineData("CPUTest/DMAAlignment-PI-cart/DMAAlignment-PI-ROM-FROM_large_4.N64", 17)]
+    [InlineData("CPUTest/DMAAlignment-PI-cart/DMAAlignment-PI-ROM-FROM_large_6.N64", 17)]
+    public void Pi_dma_programs_pass(string program, int checks) => AssertAllPass(program, checks, 640);
 
     [N64TestRomTheory]
     [InlineData("CPUTest/CP1/ABS/CP1ABS.N64", 14)]
@@ -205,7 +220,7 @@ public sealed class PeterLemonN64Tests
         var height = width * 3 / 4;
         for (var y = 0; y + 8 <= height; y++)
         {
-            for (var x = 0; x + 32 <= width; x += 8)
+            for (var x = 0; x + 32 <= width; x++)
             {
                 if (Word(rdram, width, x, y, green, "PASS"))
                 {
