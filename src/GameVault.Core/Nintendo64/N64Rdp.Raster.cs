@@ -1,3 +1,6 @@
+using System.Buffers.Binary;
+using System.Runtime.InteropServices;
+
 namespace GameVault.Core.Nintendo64;
 
 /// <summary>
@@ -437,77 +440,6 @@ public sealed partial class N64Rdp
         }
     }
 
-    /// <summary>One- and two-cycle spans: from the major edge towards the minor edges, every pixel through the pipeline.</summary>
-    private void DrawSpans(int start, int end)
-    {
-        var flip = _flip;
-        var xStep = flip ? 1 : -1;
-        var sign = flip ? 1 : -1;
-        int incR = _step[AttrR] * sign, incG = _step[AttrG] * sign, incB = _step[AttrB] * sign, incA = _step[AttrA] * sign;
-        int incS = _step[AttrS] * sign, incT = _step[AttrT] * sign, incW = _step[AttrW] * sign;
-        var incZ = _zSourcePrim ? 0 : _step[AttrZ] * sign;
-        var dzPix = _zSourcePrim ? _primDeltaZ : _dzPix;
-        var dzPixEncoded = CompressDz(dzPix & 0xFFFF);
-        var rdram = _host.Rdram;
-        for (var line = Math.Max(start, 0); line <= end; line++)
-        {
-            if (!_lineValid[line])
-            {
-                continue;
-            }
-
-            var spanStart = _lineLx[line];
-            var spanEnd = _lineRx[line];
-            var majorX = _lineMajorX[line];
-            int length, clipped;
-            if (flip)
-            {
-                length = spanStart - spanEnd;
-                clipped = spanEnd - majorX;
-                ComputeCoverage(line, spanEnd, spanStart);
-            }
-            else
-            {
-                length = spanEnd - spanStart;
-                clipped = majorX - spanEnd;
-                ComputeCoverage(line, spanStart, spanEnd);
-            }
-
-            var at = line * 8;
-            int r = _lineAttr[at + AttrR], g = _lineAttr[at + AttrG], b = _lineAttr[at + AttrB], a = _lineAttr[at + AttrA];
-            int s = _lineAttr[at + AttrS], t = _lineAttr[at + AttrT], w = _lineAttr[at + AttrW];
-            var z = _zSourcePrim ? _primZ << 16 : _lineAttr[at + AttrZ];
-            if (clipped != 0)
-            {
-                clipped &= 0xFFF;
-                r += incR * clipped;
-                g += incG * clipped;
-                b += incB * clipped;
-                a += incA * clipped;
-                s += incS * clipped;
-                t += incT * clipped;
-                w += incW * clipped;
-                z += incZ * clipped;
-            }
-
-            _clock += (uint)Math.Max(0, length + 1);
-            var x = spanEnd;
-            for (var j = 0; j <= length; j++)
-            {
-                ShadePixel(rdram, x, line, _coverage[x & 0xFFF], r, g, b, a, s, t, w, z, incS, incT, incW, dzPix, dzPixEncoded);
-                r += incR;
-                g += incG;
-                b += incB;
-                a += incA;
-                s += incS;
-                t += incT;
-                w += incW;
-                z += incZ;
-                x += xStep;
-            }
-        }
-    }
-
     /// <summary>Fill-mode spans: every pixel from the major edge to the minor edges takes the fill colour.</summary>
     private void DrawFillSpans(int start, int end)
     {
@@ -521,6 +453,11 @@ public sealed partial class N64Rdp
 
             var length = _flip ? _lineLx[line] - _lineRx[line] : _lineRx[line] - _lineLx[line];
             _clock += (uint)Math.Max(0, (length + 4) >> 2); // fill mode writes four pixels per clock
+            if (length >= 0 && FillRun(line, _flip ? _lineRx[line] : _lineLx[line], length + 1))
+            {
+                continue;
+            }
+
             var x = _lineRx[line];
             for (var j = 0; j <= length; j++)
             {
@@ -528,6 +465,63 @@ public sealed partial class N64Rdp
                 x += xStep;
             }
         }
+    }
+
+    /// <summary>
+    /// Fills <paramref name="count"/> pixels of a 16- or 32-bit image from <paramref name="first"/> in one go, when they
+    /// lie in RDRAM without wrapping; the same values <see cref="FillPixel"/> writes one by one. Returns false otherwise.
+    /// </summary>
+    private bool FillRun(int line, int first, int count)
+    {
+        var image = _colorImage;
+        if (image.Size is not (Size16 or Size32))
+        {
+            return false;
+        }
+
+        var shift = image.Size == Size16 ? 1 : 2;
+        var start = image.Address + ((long)(uint)(line * image.Width + first) << shift);
+        var end = start + ((long)count << shift);
+        var rdram = _host.Rdram;
+        if ((start & ((1 << shift) - 1)) != 0 || end > 0x1000000 || end > rdram.Length)
+        {
+            return false;
+        }
+
+        if (image.Size == Size32)
+        {
+            MemoryMarshal.Cast<byte, uint>(rdram.Slice((int)start, count * 4))
+                .Fill(BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(_fillColor) : _fillColor);
+            return true;
+        }
+
+        // Even pixels take the fill colour's high half, odd ones its low half.
+        var pixels = MemoryMarshal.Cast<byte, ushort>(rdram.Slice((int)start, count * 2));
+        var high = (ushort)(_fillColor >> 16);
+        var low = (ushort)_fillColor;
+        if (BitConverter.IsLittleEndian)
+        {
+            high = BinaryPrimitives.ReverseEndianness(high);
+            low = BinaryPrimitives.ReverseEndianness(low);
+        }
+
+        var i = 0;
+        if ((first & 1) != 0)
+        {
+            pixels[i++] = low;
+        }
+
+        // From an even pixel on, each pair of pixels is the fill colour's two halves in memory order.
+        var pairs = (pixels.Length - i) >> 1;
+        MemoryMarshal.Cast<ushort, uint>(pixels.Slice(i, pairs * 2))
+            .Fill(BitConverter.IsLittleEndian ? (uint)low << 16 | high : (uint)high << 16 | low);
+        i += pairs * 2;
+        if (i < pixels.Length)
+        {
+            pixels[i] = high;
+        }
+
+        return true;
     }
 
     /// <summary>

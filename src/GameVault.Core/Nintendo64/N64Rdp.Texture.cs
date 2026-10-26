@@ -1,4 +1,6 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 
 namespace GameVault.Core.Nintendo64;
 
@@ -8,27 +10,16 @@ namespace GameVault.Core.Nintendo64;
 /// (n64brew: "Reality Display Processor/Pipeline", "TMEM").
 /// </summary>
 /// <remarks>
-/// Texel channels are 9-bit values: the YUV formats deliver U and V as signed numbers in red and green, and the
-/// conversion with Set Convert's K0–K3 can leave results outside 0–255, which the combiner then sees.
+/// Texels are <see cref="Vector128{T}"/> lanes R, G, B and A, each a 9-bit value: the YUV formats deliver U and V as
+/// signed numbers in red and green, and the conversion with Set Convert's K0–K3 can leave results outside 0–255, which
+/// the combiner then sees.
 /// </remarks>
 public sealed partial class N64Rdp
 {
-    /// <summary>A colour inside the pipeline, with 9-bit (or wider) channels.</summary>
-    private struct Rgba
-    {
-        public int R;
-        public int G;
-        public int B;
-        public int A;
+    private static readonly Vector128<int> Low9 = Vector128.Create(0x1FF);
+    private static readonly Vector128<int> Low9RedGreen = Vector128.Create(0x1FF, 0x1FF, -1, -1);
+    private static readonly Vector128<int> ColorLanes = Vector128.Create(-1, -1, -1, 0);
 
-        public Rgba(int r, int g, int b, int a)
-        {
-            R = r;
-            G = g;
-            B = b;
-            A = a;
-        }
-    }
 
     /// <summary>
     /// The perspective divide: S and T (integer parts, s10.5) over W (0x7FFF ≈ 1.0), giving coordinates with a 17-bit
@@ -181,7 +172,7 @@ public sealed partial class N64Rdp
     /// or a YUV conversion. <paramref name="previous"/> is the first cycle's texel, which the second cycle can convert
     /// instead of fetching (Set Other Modes' convert_one).
     /// </summary>
-    private Rgba TextureCycle(int ss, int st, int tileIndex, int cycle, in Rgba previous)
+    private Vector128<int> TextureCycle(int ss, int st, int tileIndex, int cycle, Vector128<int> previous)
     {
         ref var tile = ref _tiles[tileIndex & 7];
         var bilerp = cycle == 0 ? _biLerp0 : _biLerp1;
@@ -194,109 +185,98 @@ public sealed partial class N64Rdp
         var maxT = (t >> 3) >= tile.Th;
         s -= tile.Sl << 3;
         t -= tile.Tl << 3;
-        var clampDiffS = tile.ClampDiffS;
-        var clampDiffT = tile.ClampDiffT;
-        var clampS = tile.ClampEnabledS;
-        var clampT = tile.ClampEnabledT;
 
-        Rgba result;
         if (_bilinear || _tlut)
         {
             int sFrac = s & 0x1F, tFrac = t & 0x1F;
-            var si = Clamp(s, clampS, maxS, clampDiffS, ref sFrac);
-            var ti = Clamp(t, clampT, maxT, clampDiffT, ref tFrac);
+            var si = Clamp(s, tile.ClampEnabledS, maxS, tile.ClampDiffS, ref sFrac);
+            var ti = Clamp(t, tile.ClampEnabledT, maxT, tile.ClampDiffT, ref tFrac);
             var s1 = MaskCoupled(ref si, tile.MaskS, tile.MirrorS);
             var t1 = MaskCoupled(ref ti, tile.MaskT, tile.MirrorT);
             var upper = ((sFrac + tFrac) & 0x20) != 0;
 
-            Rgba c0, c1, c2, c3;
+            // Only the texels the filter reads are fetched (fetching has no side effects).
+            Vector128<int> result;
             if (convert)
             {
-                c0 = c1 = c2 = c3 = Signed9(previous);
+                result = Convert(Signed9(previous));
             }
             else if (!_bilinear)
             {
-                // Point sampling through the TLUT: every corner is the same texel.
-                c0 = FetchTexel(ref tile, si, ti);
-                c1 = c2 = c3 = c0;
+                // Point sampling through the TLUT: every corner is the same texel, so the filter returns it.
+                var c0 = FetchTexel(ref tile, si, ti);
+                result = !bilerp ? Convert(c0) : _midTexel && sFrac == 0x10 && tFrac == 0x10 ? Center(c0, c0, c0, c0) : c0;
+            }
+            else if (!bilerp)
+            {
+                result = Convert(upper ? FetchTexel(ref tile, si + s1, ti + t1) : FetchTexel(ref tile, si, ti));
             }
             else
             {
-                c0 = FetchTexel(ref tile, si, ti);
-                c1 = FetchTexel(ref tile, si + s1, ti);
-                c2 = FetchTexel(ref tile, si, ti + t1);
-                c3 = FetchTexel(ref tile, si + s1, ti + t1);
+                int row0 = RowBase(ref tile, ti), swap0 = (ti & 1) << 2;
+                int row1 = RowBase(ref tile, ti + t1), swap1 = ((ti + t1) & 1) << 2;
+                if (_midTexel && sFrac == 0x10 && tFrac == 0x10)
+                {
+                    result = Center(FetchTexel(ref tile, row0, swap0, si), FetchTexel(ref tile, row0, swap0, si + s1),
+                        FetchTexel(ref tile, row1, swap1, si), FetchTexel(ref tile, row1, swap1, si + s1));
+                }
+                else if (upper)
+                {
+                    result = Lerp(FetchTexel(ref tile, row1, swap1, si + s1), FetchTexel(ref tile, row1, swap1, si),
+                        FetchTexel(ref tile, row0, swap0, si + s1), 0x20 - sFrac, 0x20 - tFrac);
+                }
+                else
+                {
+                    result = Lerp(FetchTexel(ref tile, row0, swap0, si), FetchTexel(ref tile, row0, swap0, si + s1),
+                        FetchTexel(ref tile, row1, swap1, si), sFrac, tFrac);
+                }
             }
 
-            if (bilerp && !convert)
-            {
-                var center = _midTexel && sFrac == 0x10 && tFrac == 0x10;
-                result = center ? Center(c0, c1, c2, c3) : upper
-                    ? Lerp(c3, c2, c1, 0x20 - sFrac, 0x20 - tFrac)
-                    : Lerp(c0, c1, c2, sFrac, tFrac);
-            }
-            else
-            {
-                result = Convert(upper ? c3 : c0);
-            }
-
-            result.R &= 0x1FF;
-            result.G &= 0x1FF;
-            result.B &= 0x1FF;
-            result.A &= 0x1FF;
-            return result;
+            return result & Low9;
         }
 
-        s = ClampLight(s, clampS, maxS, clampDiffS);
-        t = ClampLight(t, clampT, maxT, clampDiffT);
+        s = ClampLight(s, tile.ClampEnabledS, maxS, tile.ClampDiffS);
+        t = ClampLight(t, tile.ClampEnabledT, maxT, tile.ClampDiffT);
         s = Mask(s, tile.MaskS, tile.MirrorS);
         t = Mask(t, tile.MaskT, tile.MirrorT);
         if (bilerp)
         {
             if (convert)
             {
-                return new Rgba(previous.B, previous.B, previous.B, previous.B);
+                return Vector128.Create(previous.GetElement(2));
             }
 
-            result = FetchTexel(ref tile, s, t);
-            result.R &= 0x1FF;
-            result.G &= 0x1FF;
-            return result;
+            return FetchTexel(ref tile, s, t) & Low9RedGreen;
         }
 
-        result = Convert(convert ? Signed9(previous) : FetchTexel(ref tile, s, t));
-        result.R &= 0x1FF;
-        result.G &= 0x1FF;
-        result.B &= 0x1FF;
-        result.A &= 0x1FF;
-        return result;
+        return Convert(convert ? Signed9(previous) : FetchTexel(ref tile, s, t)) & Low9;
     }
 
-    private static Rgba Signed9(in Rgba c) => new(SignExtend(c.R, 9), SignExtend(c.G, 9), SignExtend(c.B, 9), c.A);
+    /// <summary>Sign-extends red, green and blue from 9 bits; alpha passes through.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Vector128<int> Signed9(Vector128<int> c) =>
+        Vector128.ConditionalSelect(ColorLanes, Vector128.ShiftRightArithmetic(Vector128.ShiftLeft(c, 23), 23), c);
 
     /// <summary>Three-point filtering from corner <paramref name="o"/> towards <paramref name="sNeighbour"/> and <paramref name="tNeighbour"/>.</summary>
-    private static Rgba Lerp(in Rgba o, in Rgba sNeighbour, in Rgba tNeighbour, int fs, int ft) => new(
-        o.R + ((fs * (sNeighbour.R - o.R) + ft * (tNeighbour.R - o.R) + 0x10) >> 5),
-        o.G + ((fs * (sNeighbour.G - o.G) + ft * (tNeighbour.G - o.G) + 0x10) >> 5),
-        o.B + ((fs * (sNeighbour.B - o.B) + ft * (tNeighbour.B - o.B) + 0x10) >> 5),
-        o.A + ((fs * (sNeighbour.A - o.A) + ft * (tNeighbour.A - o.A) + 0x10) >> 5));
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Vector128<int> Lerp(Vector128<int> o, Vector128<int> sNeighbour, Vector128<int> tNeighbour, int fs, int ft) =>
+        o + Vector128.ShiftRightArithmetic((sNeighbour - o) * fs + (tNeighbour - o) * ft + Vector128.Create(0x10), 5);
 
     /// <summary>The mid-texel case: exactly between four texels, the filter averages all of them.</summary>
-    private static Rgba Center(in Rgba c0, in Rgba c1, in Rgba c2, in Rgba c3) => new(
-        CenterChannel(c0.R, c1.R, c2.R, c3.R),
-        CenterChannel(c0.G, c1.G, c2.G, c3.G),
-        CenterChannel(c0.B, c1.B, c2.B, c3.B),
-        CenterChannel(c0.A, c1.A, c2.A, c3.A));
-
-    private static int CenterChannel(int c0, int c1, int c2, int c3) =>
-        c3 + ((((c1 + c2) << 6) - (c3 << 7) + ((~c3 + c0) << 6) + 0xC0) >> 8);
+    private static Vector128<int> Center(Vector128<int> c0, Vector128<int> c1, Vector128<int> c2, Vector128<int> c3) =>
+        c3 + Vector128.ShiftRightArithmetic(
+            Vector128.ShiftLeft(c1 + c2, 6) - Vector128.ShiftLeft(c3, 7) + Vector128.ShiftLeft(~c3 + c0, 6) + Vector128.Create(0xC0), 8);
 
     /// <summary>YUV to RGB with K0–K3 (stored as 2K + 1, divided by 256): Y is in blue, U in red and V in green.</summary>
-    private Rgba Convert(in Rgba c) => new(
-        c.B + ((_k0Filter * c.G + 0x80) >> 8),
-        c.B + ((_k1Filter * c.R + _k2Filter * c.G + 0x80) >> 8),
-        c.B + ((_k3Filter * c.R + 0x80) >> 8),
-        c.B);
+    private Vector128<int> Convert(Vector128<int> c)
+    {
+        int u = c.GetElement(0), v = c.GetElement(1), y = c.GetElement(2);
+        return Vector128.Create(
+            y + ((_k0Filter * v + 0x80) >> 8),
+            y + ((_k1Filter * u + _k2Filter * v + 0x80) >> 8),
+            y + ((_k3Filter * u + 0x80) >> 8),
+            y);
+    }
 
     /// <summary>
     /// The clamp with fractions: past the tile's right edge (SH) the coordinate stops at the tile's width and the
@@ -387,20 +367,39 @@ public sealed partial class N64Rdp
         return c == bits ? -c : 1;
     }
 
+    /// <summary>A byte of TMEM; the index wraps at 4 KB.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private byte TmemByte(int index) => Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_tmem), index & 0xFFF);
+
+    /// <summary>A big-endian 16-bit word of TMEM at an even index below 4 KB.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private int TmemWord(int index)
+    {
+        ref var at = ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_tmem), index & 0xFFE);
+        return (at << 8) | Unsafe.Add(ref at, 1);
+    }
+
     /// <summary>
     /// Reads one texel of a tile from TMEM. Rows are <c>line</c> 64-bit words apart (row index taken to 8 bits), and the
     /// 32-bit words of odd rows are swapped. With the TLUT on, 4- and 8-bit texels (and the high byte of 16-bit ones)
     /// index the palette in the high half of TMEM.
     /// </summary>
-    private Rgba FetchTexel(ref Tile tile, int s, int t)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Vector128<int> FetchTexel(ref Tile tile, int s, int t) => FetchTexel(ref tile, RowBase(ref tile, t), (t & 1) << 2, s);
+
+    /// <summary>The TMEM byte address of a tile's row <paramref name="t"/>.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int RowBase(ref Tile tile, int t) => ((tile.Line * (t & 0xFF) + tile.Tmem) << 3) & 0xFFF;
+
+    /// <summary>A texel of a row whose base and word swap (4 on odd rows) are already worked out.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Vector128<int> FetchTexel(ref Tile tile, int rowBase, int swap, int s)
     {
-        var rowBase = ((tile.Line * (t & 0xFF) + tile.Tmem) << 3) & 0xFFF;
-        var swap = (t & 1) != 0 ? 4 : 0;
         switch (tile.Size)
         {
             case Size4:
             {
-                var b = _tmem[((rowBase + (s >> 1)) ^ swap) & 0xFFF];
+                var b = TmemByte((rowBase + (s >> 1)) ^ swap);
                 var n = (s & 1) != 0 ? b & 0xF : b >> 4;
                 if (_tlut)
                 {
@@ -413,29 +412,25 @@ public sealed partial class N64Rdp
                     {
                         var i = n & 0xE;
                         i = (i << 4) | (i << 1) | (i >> 2);
-                        return new Rgba(i, i, i, (n & 1) != 0 ? 0xFF : 0);
+                        return Vector128.Create(i, i, i, (n & 1) != 0 ? 0xFF : 0);
                     }
 
                     case FormatCi:
-                    {
-                        var index = (tile.Palette << 4) | n;
-                        return new Rgba(index, index, index, index);
-                    }
-
+                        return Vector128.Create((tile.Palette << 4) | n);
                     case FormatYuv:
                     {
                         var y = (n << 4) | n;
-                        return new Rgba(y - 0x80, y - 0x80, y, y);
+                        return Vector128.Create(y - 0x80, y - 0x80, y, y);
                     }
 
                     default:
-                        return new Rgba(n * 17, n * 17, n * 17, n * 17);
+                        return Vector128.Create(n * 17);
                 }
             }
 
             case Size8:
             {
-                int b = _tmem[((rowBase + s) ^ swap) & (tile.Format == FormatYuv ? 0x7FF : 0xFFF)];
+                int b = TmemByte(((rowBase + s) ^ swap) & (tile.Format == FormatYuv ? 0x7FF : 0xFFF));
                 if (_tlut)
                 {
                     return Palette(b);
@@ -446,13 +441,13 @@ public sealed partial class N64Rdp
                     case FormatIa:
                     {
                         var i = (b & 0xF0) | (b >> 4);
-                        return new Rgba(i, i, i, ((b & 0xF) << 4) | (b & 0xF));
+                        return Vector128.Create(i, i, i, ((b & 0xF) << 4) | (b & 0xF));
                     }
 
                     case FormatYuv:
-                        return new Rgba(b - 0x80, b - 0x80, b, b);
+                        return Vector128.Create(b - 0x80, b - 0x80, b, b);
                     default:
-                        return new Rgba(b, b, b, b);
+                        return Vector128.Create(b);
                 }
             }
 
@@ -463,8 +458,7 @@ public sealed partial class N64Rdp
                     return ReadYuv16(rowBase, s, swap);
                 }
 
-                var at = ((rowBase + s * 2) ^ swap) & 0xFFE;
-                var c = (_tmem[at] << 8) | _tmem[at + 1];
+                var c = TmemWord(((rowBase + s * 2) ^ swap) & 0xFFE);
                 if (_tlut)
                 {
                     return Palette(c >> 8);
@@ -473,8 +467,8 @@ public sealed partial class N64Rdp
                 return tile.Format switch
                 {
                     FormatRgba => Rgba5551(c),
-                    FormatIa => new Rgba(c >> 8, c >> 8, c >> 8, c & 0xFF),
-                    _ => new Rgba(c >> 8, c & 0xFF, c >> 8, c & 0xFF),
+                    FormatIa => Vector128.Create(c >> 8, c >> 8, c >> 8, c & 0xFF),
+                    _ => Vector128.Create(c >> 8, c & 0xFF, c >> 8, c & 0xFF),
                 };
             }
 
@@ -483,45 +477,42 @@ public sealed partial class N64Rdp
                 var at = ((rowBase + s * 2) ^ swap) & 0x7FE;
                 if (_tlut)
                 {
-                    return Palette(_tmem[at]);
+                    return Palette(TmemByte(at));
                 }
 
                 if (tile.Format != FormatRgba)
                 {
-                    var c = (_tmem[at] << 8) | _tmem[at + 1];
-                    return new Rgba(c >> 8, c & 0xFF, c >> 8, c & 0xFF);
+                    var c = TmemWord(at);
+                    return Vector128.Create(c >> 8, c & 0xFF, c >> 8, c & 0xFF);
                 }
 
-                return new Rgba(_tmem[at], _tmem[at + 1], _tmem[at | 0x800], _tmem[(at | 0x800) + 1]);
+                return Vector128.Create(TmemByte(at), TmemByte(at + 1), TmemByte(at | 0x800), TmemByte((at | 0x800) + 1));
             }
         }
     }
 
     /// <summary>A TLUT entry from the high half of TMEM (entry <c>n</c> at 0x800 + n × 8), as RGBA5551 or IA88.</summary>
-    private Rgba Palette(int index)
+    private Vector128<int> Palette(int index)
     {
-        var at = 0x800 + ((index & 0xFF) << 3);
-        var c = (_tmem[at] << 8) | _tmem[at + 1];
-        return _tlutIa ? new Rgba(c >> 8, c >> 8, c >> 8, c & 0xFF) : Rgba5551(c);
+        var c = TmemWord(0x800 + ((index & 0xFF) << 3));
+        return _tlutIa ? Vector128.Create(c >> 8, c >> 8, c >> 8, c & 0xFF) : Rgba5551(c);
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int Expand5(int v) => (v << 3) | (v >> 2);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private static Rgba Rgba5551(int c) =>
-        new(Expand5((c >> 11) & 31), Expand5((c >> 6) & 31), Expand5((c >> 1) & 31), (c & 1) != 0 ? 0xFF : 0);
+    private static Vector128<int> Rgba5551(int c) =>
+        Vector128.Create(Expand5((c >> 11) & 31), Expand5((c >> 6) & 31), Expand5((c >> 1) & 31), (c & 1) != 0 ? 0xFF : 0);
 
     /// <summary>
     /// A YUV16 texel. Loading splits the pairs: each pair's U and V sit in the low half of TMEM (one 16-bit word per
     /// pair), the Y bytes in the high half. U and V come back signed in red and green, Y in blue and alpha.
     /// </summary>
-    private Rgba ReadYuv16(int rowBase, int s, int swap)
+    private Vector128<int> ReadYuv16(int rowBase, int s, int swap)
     {
-        var y = _tmem[(((rowBase + s) ^ swap) & 0x7FF) | 0x800];
+        int y = TmemByte((((rowBase + s) ^ swap) & 0x7FF) | 0x800);
         var uv = ((rowBase + (s & ~1)) ^ swap) & 0x7FE;
-        var u = _tmem[uv] - 0x80;
-        var v = _tmem[uv + 1] - 0x80;
-        return new Rgba(u, v, y, y);
+        return Vector128.Create(TmemByte(uv) - 0x80, TmemByte(uv + 1) - 0x80, y, y);
     }
 }
