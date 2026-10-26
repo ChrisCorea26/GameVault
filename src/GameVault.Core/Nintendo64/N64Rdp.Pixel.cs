@@ -1,6 +1,7 @@
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 
 namespace GameVault.Core.Nintendo64;
 
@@ -185,18 +186,18 @@ public sealed partial class N64Rdp
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void SetChannels(int slot, int r, int g, int b, int a)
+    private void SetChannels(int slot, int r, int g, int b, int a) => SetVector(slot, Vector128.Create(r, g, b, a));
+
+    /// <summary>Stores a slot's four channels, as the A/B/D inputs and as the C input read them.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void SetVector(int slot, Vector128<int> v)
     {
-        ref var ext = ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_ext), slot << 2);
-        ref var mul = ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_mul), slot << 2);
-        ext = Ext9(r);
-        Unsafe.Add(ref ext, 1) = Ext9(g);
-        Unsafe.Add(ref ext, 2) = Ext9(b);
-        Unsafe.Add(ref ext, 3) = Ext9(a);
-        mul = Sign9(r);
-        Unsafe.Add(ref mul, 1) = Sign9(g);
-        Unsafe.Add(ref mul, 2) = Sign9(b);
-        Unsafe.Add(ref mul, 3) = Sign9(a);
+        var low = v & Low9;
+        var negative = Vector128.Equals(v & Vector128.Create(0x180), Vector128.Create(0x180));
+        Vector128.ConditionalSelect(negative, v | Vector128.Create(~0x1FF), low)
+            .StoreUnsafe(ref MemoryMarshal.GetArrayDataReference(_ext), (nuint)(slot << 2));
+        (low | (Vector128<int>.Zero - (v & Vector128.Create(0x100))))
+            .StoreUnsafe(ref MemoryMarshal.GetArrayDataReference(_mul), (nuint)(slot << 2));
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -204,23 +205,30 @@ public sealed partial class N64Rdp
         SetChannels(slot, (int)(rgba >> 24), (int)(rgba >> 16) & 0xFF, (int)(rgba >> 8) & 0xFF, (int)rgba & 0xFF);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void SetSlot(int slot, int alphaSlot, in Rgba c)
+    private void SetSlot(int slot, int alphaSlot, Vector128<int> c)
     {
-        SetChannels(slot, c.R, c.G, c.B, c.A);
+        SetVector(slot, c);
         if (_alphaAsColorUsed)
         {
-            SetGraySlot(alphaSlot, c.A);
+            SetGraySlot(alphaSlot, c.GetElement(3));
         }
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void SetGraySlot(int slot, int value) => SetChannels(slot, value, value, value, value);
+    private void SetGraySlot(int slot, int value)
+    {
+        Vector128.Create(Ext9(value)).StoreUnsafe(ref MemoryMarshal.GetArrayDataReference(_ext), (nuint)(slot << 2));
+        Vector128.Create(Sign9(value)).StoreUnsafe(ref MemoryMarshal.GetArrayDataReference(_mul), (nuint)(slot << 2));
+    }
 
     /// <summary>Copies one slot's channels to another.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void CopySlot(int from, int to)
     {
-        Array.Copy(_ext, from << 2, _ext, to << 2, 4);
-        Array.Copy(_mul, from << 2, _mul, to << 2, 4);
+        ref var ext = ref MemoryMarshal.GetArrayDataReference(_ext);
+        ref var mul = ref MemoryMarshal.GetArrayDataReference(_mul);
+        Vector128.LoadUnsafe(ref ext, (nuint)(from << 2)).StoreUnsafe(ref ext, (nuint)(to << 2));
+        Vector128.LoadUnsafe(ref mul, (nuint)(from << 2)).StoreUnsafe(ref mul, (nuint)(to << 2));
     }
 
     /// <summary>A slot's channel as the A/B/D inputs read it.</summary>
@@ -235,14 +243,20 @@ public sealed partial class N64Rdp
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static int Sign9(int v) => (v & 0x1FF) | -(v & 0x100);
 
-    /// <summary>One combiner equation on one channel, before the shift: 17 bits whose top 9 are the result.</summary>
+    /// <summary>
+    /// One combiner equation on all four channels of the selected slots, before the shift: each lane holds 17 bits whose
+    /// top 9 are the result.
+    /// </summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private int Combine(int channel, int a, int b, int m, int d)
+    private Vector128<int> Combine(int a, int b, int m, int d)
     {
         ref var ext = ref MemoryMarshal.GetArrayDataReference(_ext);
         ref var mul = ref MemoryMarshal.GetArrayDataReference(_mul);
-        return ((Unsafe.Add(ref ext, (a << 2) + channel) - Unsafe.Add(ref ext, (b << 2) + channel)) * Unsafe.Add(ref mul, (m << 2) + channel) +
-                (Unsafe.Add(ref ext, (d << 2) + channel) << 8) + 0x80) & 0x1FFFF;
+        var va = Vector128.LoadUnsafe(ref ext, (nuint)(a << 2));
+        var vb = Vector128.LoadUnsafe(ref ext, (nuint)(b << 2));
+        var vm = Vector128.LoadUnsafe(ref mul, (nuint)(m << 2));
+        var vd = Vector128.LoadUnsafe(ref ext, (nuint)(d << 2));
+        return ((va - vb) * vm + Vector128.ShiftLeft(vd, 8) + Vector128.Create(0x80)) & Vector128.Create(0x1FFFF);
     }
 
     /// <summary>The combiner's output clamp: 0x100–0x17F saturate, 0x180–0x1FF are negative and become 0.</summary>
@@ -298,309 +312,7 @@ public sealed partial class N64Rdp
         };
     }
 
-    /// <summary>
-    /// Draws one pixel in one- or two-cycle mode. <paramref name="mask"/> is its coverage: two samples per quarter
-    /// scanline, top quarter in bits 7 and 5, then 6 and 4, 3 and 1, 2 and 0. The attributes are the edge walker's
-    /// fixed-point values; <paramref name="dsInc"/>, <paramref name="dtInc"/> and <paramref name="dwInc"/> step to the next
-    /// pixel, for the LOD and for one-cycle mode's TEXEL1.
-    /// </summary>
-    private void ShadePixel(Span<byte> rdram, int x, int y, int mask, int r, int g, int b, int a, int s, int t, int w, int z,
-        int dsInc, int dtInc, int dwInc, int dzPix, int dzPixEncoded)
-    {
-        var twoCycle = _cycleType == CycleTwo;
-        var coverage = BitOperations.PopCount((uint)mask);
-        var centerBit = (mask >> 7) & 1;
-        int offX = 0, offY = 0;
-
-        // Shade, with the coverage centroid correction for partly covered pixels.
-        if (coverage == 8)
-        {
-            r >>= 16;
-            g >>= 16;
-            b >>= 16;
-            a >>= 16;
-        }
-        else
-        {
-            CoverageOffset(mask, out offX, out offY);
-            r = (((r >> 14) << 2) + offX * _correctR + offY * _dyR) >> 4;
-            g = (((g >> 14) << 2) + offX * _correctG + offY * _dyG) >> 4;
-            b = (((b >> 14) << 2) + offX * _correctB + offY * _dyB) >> 4;
-            a = (((a >> 14) << 2) + offX * _correctA + offY * _dyA) >> 4;
-        }
-
-        var shadeA = Clamp9(a);
-        if (_shadeUsed)
-        {
-            SetChannels(SlotShade, Clamp9(r), Clamp9(g), Clamp9(b), shadeA);
-            if (_alphaAsColorUsed)
-            {
-                SetGraySlot(SlotShadeAlpha, shadeA);
-            }
-        }
-
-        // Depth, corrected the same way.
-        var sz = (z >> 10) & 0x3FFFFF;
-        sz = coverage == 8 ? sz >> 3 : ((sz << 2) + offX * _correctZ + offY * _dyZ) >> 5;
-        sz = ((sz & 0x60000) >> 17) switch
-        {
-            2 => 0x3FFFF,
-            3 => 0,
-            _ => sz & 0x3FFFF,
-        };
-
-        // Texturing and the level of detail.
-        if (_needTex0 || _needTex1 || _lodFractionUsed)
-        {
-            Divide(s >> 16, t >> 16, w >> 16, out var ss, out var st);
-            int tile0 = _primTile, tile1 = (_primTile + 1) & 7, lodFraction = 0;
-            if (_textureLod || _lodFractionUsed)
-            {
-                Divide((s + dsInc) >> 16, (t + dtInc) >> 16, (w + dwInc) >> 16, out var nextS, out var nextT);
-                int farS, farT;
-                if (twoCycle)
-                {
-                    Divide((s + _dsdy) >> 16, (t + _dtdy) >> 16, (w + _dwdy) >> 16, out farS, out farT);
-                }
-                else
-                {
-                    Divide((s + (dsInc << 1)) >> 16, (t + (dtInc << 1)) >> 16, (w + (dwInc << 1)) >> 16, out farS, out farT);
-                }
-
-                var clamped = ((ss | st | nextS | nextT | farS | farT) & 0x60000) != 0;
-                var lod = 0;
-                if (!clamped)
-                {
-                    lod = twoCycle
-                        ? LodDistance(ss, farS, st, farT, LodDistance(ss, nextS, st, nextT, 0))
-                        : LodDistance(nextS, farS, nextT, farT, 0);
-                }
-
-                LodSignals(clamped, lod, out var level, out var magnify, out var distant, out lodFraction);
-                if (_textureLod)
-                {
-                    tile0 = LodTile(level, magnify, distant);
-                    if (!_detailTexture)
-                    {
-                        tile1 = distant || (!_sharpenTexture && magnify) ? tile0 : (tile0 + 1) & 7;
-                    }
-                    else
-                    {
-                        tile1 = (_primTile + (distant ? _maxLevel : level) + (!distant && !magnify ? 2 : 1)) & 7;
-                    }
-                }
-            }
-
-            ss = ClampCoordinate(ss);
-            st = ClampCoordinate(st);
-            SetGraySlot(SlotLodFraction, lodFraction);
-            var texel0 = default(Rgba);
-            if (_needTex0)
-            {
-                texel0 = TextureCycle(ss, st, tile0, 0, texel0);
-            }
-
-            if (twoCycle)
-            {
-                SetSlot(SlotTex0, SlotTex0Alpha, texel0);
-                if (_needTex1)
-                {
-                    SetSlot(SlotTex1, SlotTex1Alpha, TextureCycle(ss, st, tile1, 1, texel0));
-                }
-            }
-            else
-            {
-                SetSlot(SlotTex0, SlotTex0Alpha, texel0);
-            }
-
-            if (_needNextTex1)
-            {
-                Divide((s + dsInc) >> 16, (t + dtInc) >> 16, (w + dwInc) >> 16, out var ns, out var nt);
-                var next = TextureCycle(ClampCoordinate(ns), ClampCoordinate(nt), tile0, 0, texel0);
-                if (!twoCycle)
-                {
-                    SetSlot(SlotTex1, SlotTex1Alpha, next);
-                }
-                else
-                {
-                    _nextTexel = next;
-                }
-            }
-        }
-
-        // Noise and dither.
-        var noise = 0;
-        if (_noiseUsed || _alphaDither == 2)
-        {
-            noise = (int)((NextRandom() & 7) << 6) | 0x20;
-            SetGraySlot(SlotNoise, noise);
-        }
-
-        int colorDither = 7, alphaDither = 0;
-        if (_rgbDither != 3 || _alphaDither != 3)
-        {
-            DitherValues(x, y, noise, out colorDither, out alphaDither);
-        }
-
-        // The combiner.
-        int pixelR, pixelG, pixelB, pixelA, alphaCompareValue;
-        if (twoCycle)
-        {
-            var c0r = Combine(0, _ccA[0], _ccB[0], _ccM[0], _ccD[0]);
-            var c0g = Combine(1, _ccA[0], _ccB[0], _ccM[0], _ccD[0]);
-            var c0b = Combine(2, _ccA[0], _ccB[0], _ccM[0], _ccD[0]);
-            var c0a = (Combine(3, _acA[0], _acB[0], _acM[0], _acD[0]) >> 8) & 0x1FF;
-            alphaCompareValue = FinalAlpha(c0a, alphaDither, ref coverage, updateCoverage: false);
-            SetChannels(SlotCombined, c0r >> 8, c0g >> 8, c0b >> 8, c0a);
-            SetGraySlot(SlotCombinedAlpha, c0a);
-
-            // The second cycle sees the second texel as TEXEL0 and the next pixel's first texel as TEXEL1.
-            if (_needTex1 || _needNextTex1)
-            {
-                CopySlot(SlotTex1, SlotTex0);
-                CopySlot(SlotTex1Alpha, SlotTex0Alpha);
-                if (_needNextTex1)
-                {
-                    SetSlot(SlotTex1, SlotTex1Alpha, _nextTexel);
-                }
-            }
-        }
-        else
-        {
-            alphaCompareValue = 0;
-        }
-
-        var keySource = _keyEnable ? _ccA[1] : 0;
-        var fullR = Combine(0, _ccA[1], _ccB[1], _ccM[1], _ccD[1]);
-        var fullG = Combine(1, _ccA[1], _ccB[1], _ccM[1], _ccD[1]);
-        var fullB = Combine(2, _ccA[1], _ccB[1], _ccM[1], _ccD[1]);
-        var alpha = (Combine(3, _acA[1], _acB[1], _acM[1], _acD[1]) >> 8) & 0x1FF;
-        if (_keyEnable)
-        {
-            pixelR = Clamp9(Input(keySource, 0));
-            pixelG = Clamp9(Input(keySource, 1));
-            pixelB = Clamp9(Input(keySource, 2));
-        }
-        else
-        {
-            pixelR = Clamp9(fullR >> 8);
-            pixelG = Clamp9(fullG >> 8);
-            pixelB = Clamp9(fullB >> 8);
-        }
-
-        pixelA = _keyEnable ? KeyAlpha(fullR, fullG, fullB) : FinalAlpha(alpha, alphaDither, ref coverage, updateCoverage: true);
-        if (!twoCycle)
-        {
-            alphaCompareValue = pixelA;
-
-            // One-cycle mode's COMBINED input is the previous pixel's result.
-            if (_combinedUsed)
-            {
-                SetChannels(SlotCombined, fullR >> 8, fullG >> 8, fullB >> 8, alpha);
-                SetGraySlot(SlotCombinedAlpha, alpha);
-            }
-        }
-
-        var blenderShadeA = shadeA + alphaDither;
-        if ((blenderShadeA & 0x100) != 0)
-        {
-            blenderShadeA = 0xFF;
-        }
-
-        // Memory: the colour already in the framebuffer, and its coverage.
-        var image = _colorImage;
-        var index = (uint)(y * image.Width + x);
-        int memR = 0, memG = 0, memB = 0, memCvg = 7;
-        if (_imageRead)
-        {
-            ReadFramebuffer(rdram, image, index, out memR, out memG, out memB, out memCvg);
-        }
-
-        // The Z test, which also decides whether anti-aliased edges blend.
-        var zAddress = _zImageAddress + index * 2;
-        bool blendEnable, prewrap;
-        if (_zCompare)
-        {
-            if (!ZCompare(rdram, zAddress, sz, dzPix, dzPixEncoded, ref coverage, memCvg, out blendEnable, out prewrap))
-            {
-                return;
-            }
-        }
-        else
-        {
-            prewrap = ((memCvg + coverage) & 8) != 0;
-            blendEnable = _forceBlend || (!prewrap && _antialias);
-            if (_blendUsesMemoryCoverage)
-            {
-                _blendShiftA = 0;
-                _blendShiftB = dzPixEncoded < 0xB ? 4 : 0xF - dzPixEncoded;
-            }
-        }
-
-        var memA = memCvg << 5;
-        int outR, outG, outB;
-        if (twoCycle)
-        {
-            if ((_antialias ? coverage : centerBit) == 0)
-            {
-                return;
-            }
-
-            BlendCycle(0, pixelR, pixelG, pixelB, pixelA, blenderShadeA, memR, memG, memB, memA, 0, 0, 0, true, out var r0, out var g0, out var b0);
-            if (_alphaCompare && !AlphaCompare(alphaCompareValue))
-            {
-                return;
-            }
-
-            BlendOutput(1, pixelR, pixelG, pixelB, pixelA, blenderShadeA, memR, memG, memB, memA, r0, g0, b0, blendEnable, prewrap, out outR, out outG, out outB);
-        }
-        else
-        {
-            if (_alphaCompare && !AlphaCompare(alphaCompareValue))
-            {
-                return;
-            }
-
-            if ((_antialias ? coverage : centerBit) == 0)
-            {
-                return;
-            }
-
-            if (!blendEnable && !_colorOnCvg && _blendP[0] == 0)
-            {
-                // The common case: no blending, the pixel passes through.
-                (outR, outG, outB) = (pixelR, pixelG, pixelB);
-            }
-            else
-            {
-                BlendOutput(0, pixelR, pixelG, pixelB, pixelA, blenderShadeA, memR, memG, memB, memA, 0, 0, 0, blendEnable, prewrap, out outR, out outG, out outB);
-            }
-        }
-
-        if (_rgbDither != 3)
-        {
-            outR = Dither(outR, colorDither, 0);
-            outG = Dither(outG, colorDither, 3);
-            outB = Dither(outB, colorDither, 6);
-        }
-
-        if (image.Size == Size16 && image.Format == FormatRgba && _cvgDest == 0)
-        {
-            var clamped = blendEnable ? coverage + memCvg : coverage - 1;
-            var finalCvg = (clamped & 8) != 0 ? 7 : clamped & 7;
-            Write16(rdram, image.Address + index * 2, (ushort)(((outR & ~7) << 8) | ((outG & ~7) << 3) | ((outB & ~7) >> 2) | (finalCvg >> 2)));
-        }
-        else
-        {
-            WriteFramebuffer(rdram, image, index, outR, outG, outB, blendEnable, coverage, memCvg);
-        }
-        if (_zUpdate)
-        {
-            Write16(rdram, zAddress, (ushort)(CompressZ(sz) << 2 | (dzPixEncoded >> 2)));
-        }
-    }
-
-    private Rgba _nextTexel;
+    private Vector128<int> _nextTexel;
 
     // Coverage correction steps, set by the edge walker: per pixel and per scanline.
     private int _correctR, _correctG, _correctB, _correctA, _correctZ;

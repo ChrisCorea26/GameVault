@@ -1,4 +1,6 @@
 using System.Buffers.Binary;
+using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using GameVault.Core.State;
 
 namespace GameVault.Core.Nintendo64;
@@ -353,48 +355,70 @@ public sealed partial class N64Rdp : IStateful, IN64DpRegisters
         }
     }
 
+    // RDRAM access for the pixel pipeline: bounds-checked once per access, then read and written big-endian without
+    // further checks (the span is never empty when these run).
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static byte Read8(Span<byte> rdram, uint address)
     {
         var a = (int)(address & 0xFFFFFF);
-        return a < rdram.Length ? rdram[a] : (byte)0;
+        return a < rdram.Length ? Unsafe.Add(ref MemoryMarshal.GetReference(rdram), a) : (byte)0;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static ushort Read16(Span<byte> rdram, uint address)
     {
         var a = (int)(address & 0xFFFFFE);
-        return a + 2 <= rdram.Length ? BinaryPrimitives.ReadUInt16BigEndian(rdram[a..]) : (ushort)0;
+        if (a + 2 > rdram.Length)
+        {
+            return 0;
+        }
+
+        var value = Unsafe.ReadUnaligned<ushort>(ref Unsafe.Add(ref MemoryMarshal.GetReference(rdram), a));
+        return BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(value) : value;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static uint Read32(Span<byte> rdram, uint address)
     {
         var a = (int)(address & 0xFFFFFC);
-        return a + 4 <= rdram.Length ? BinaryPrimitives.ReadUInt32BigEndian(rdram[a..]) : 0;
+        if (a + 4 > rdram.Length)
+        {
+            return 0;
+        }
+
+        var value = Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref MemoryMarshal.GetReference(rdram), a));
+        return BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(value) : value;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Write8(Span<byte> rdram, uint address, byte value)
     {
         var a = (int)(address & 0xFFFFFF);
         if (a < rdram.Length)
         {
-            rdram[a] = value;
+            Unsafe.Add(ref MemoryMarshal.GetReference(rdram), a) = value;
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Write16(Span<byte> rdram, uint address, ushort value)
     {
         var a = (int)(address & 0xFFFFFE);
         if (a + 2 <= rdram.Length)
         {
-            BinaryPrimitives.WriteUInt16BigEndian(rdram[a..], value);
+            Unsafe.WriteUnaligned(ref Unsafe.Add(ref MemoryMarshal.GetReference(rdram), a),
+                BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(value) : value);
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static void Write32(Span<byte> rdram, uint address, uint value)
     {
         var a = (int)(address & 0xFFFFFC);
         if (a + 4 <= rdram.Length)
         {
-            BinaryPrimitives.WriteUInt32BigEndian(rdram[a..], value);
+            Unsafe.WriteUnaligned(ref Unsafe.Add(ref MemoryMarshal.GetReference(rdram), a),
+                BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(value) : value);
         }
     }
 
