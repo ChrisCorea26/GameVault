@@ -51,9 +51,18 @@ public sealed class PeterLemonCpuTests
     [InlineData("GTE/NCLIP/GTENCLIP.exe", 2)]
     public void Every_check_passes(string program, int checks)
     {
+        var console = RunToFinalLoop(CacheFolder + program);
+        var (passes, failures) = CountResults(console.Gpu);
+        failures.Should().Be(0, $"{program} drew FAIL");
+        passes.Should().Be(checks);
+    }
+
+    /// <summary>Runs a downloaded PeterLemon program until it reaches the <c>b .</c> every one of them ends with.</summary>
+    internal static PlayStationConsole RunToFinalLoop(string cachePath)
+    {
         var console = new PlayStationConsole();
         console.Power();
-        console.LoadExe(PsExe.Parse(TestRomLocator.ReadCached(CacheFolder + program)));
+        console.LoadExe(PsExe.Parse(TestRomLocator.ReadCached(cachePath)));
 
         const long budget = 200_000_000;
         while (console.Cpu.Cycles < budget && !InFinalLoop(console))
@@ -62,9 +71,7 @@ public sealed class PeterLemonCpuTests
         }
 
         console.Cpu.Cycles.Should().BeLessThan(budget, "the program should reach its final loop");
-        var (passes, failures) = CountResults(console.Gpu);
-        failures.Should().Be(0, $"{program} drew FAIL");
-        passes.Should().Be(checks);
+        return console;
     }
 
     /// <summary>At the final <c>b .</c> or in its delay slot.</summary>

@@ -29,7 +29,8 @@ public static class GoldenImages
         return Convert.ToHexString(SHA256.HashData(bytes))[..16].ToLowerInvariant();
     }
 
-    public static void AssertMatches(string name, ReadOnlySpan<ushort> frame)
+    public static void AssertMatches(
+        string name, ReadOnlySpan<ushort> frame, int width = 256, int height = 240, ReadOnlySpan<uint> palette = default)
     {
         var actual = Hash(frame);
         string? expected;
@@ -41,7 +42,7 @@ public static class GoldenImages
             {
                 hashes[name] = actual;
                 File.WriteAllText(GoldenFile, JsonSerializer.Serialize(hashes, JsonOptions) + Environment.NewLine);
-                SavePng(name, frame);
+                SavePng(name, frame, width, height, palette);
                 return;
             }
         }
@@ -51,7 +52,7 @@ public static class GoldenImages
             return;
         }
 
-        var png = SavePng(name, frame);
+        var png = SavePng(name, frame, width, height, palette);
         Assert.Fail(expected is null
             ? $"No golden hash for '{name}'. Review {png}, then run with {UpdateVariable}=1 to record {actual}."
             : $"Frame for '{name}' changed: expected {expected}, got {actual}. Actual frame saved to {png}.");
@@ -69,11 +70,11 @@ public static class GoldenImages
         return _hashes;
     }
 
-    private static string SavePng(string name, ReadOnlySpan<ushort> frame)
+    private static string SavePng(string name, ReadOnlySpan<ushort> frame, int width, int height, ReadOnlySpan<uint> palette)
     {
         Directory.CreateDirectory(ActualDirectory);
         var path = Path.Combine(ActualDirectory, name.Replace('/', '_') + ".png");
-        File.WriteAllBytes(path, PngWriter.Encode(PngWriter.ToArgb(frame), 256, 240));
+        File.WriteAllBytes(path, PngWriter.Encode(PngWriter.ToArgb(frame, palette), width, height));
         return path;
     }
 }

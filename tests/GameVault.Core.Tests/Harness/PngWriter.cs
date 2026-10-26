@@ -43,13 +43,21 @@ public static class PngWriter
     }
 
     /// <summary>Converts a PPU framebuffer (palette index | emphasis) to ARGB with the default palette.</summary>
-    public static uint[] ToArgb(ReadOnlySpan<ushort> frame)
+    public static uint[] ToArgb(ReadOnlySpan<ushort> frame) => ToArgb(frame, GameVault.Core.Ppu.NtscPalette.Argb);
+
+    /// <summary>Frame indices through another system's palette (the NES's when <paramref name="palette"/> is empty).</summary>
+    public static uint[] ToArgb(ReadOnlySpan<ushort> frame, ReadOnlySpan<uint> palette)
     {
-        var palette = GameVault.Core.Ppu.NtscPalette.Argb;
+        if (palette.IsEmpty)
+        {
+            palette = GameVault.Core.Ppu.NtscPalette.Argb;
+        }
+
+        var mask = palette.Length - 1;
         var argb = new uint[frame.Length];
         for (var i = 0; i < frame.Length; i++)
         {
-            argb[i] = palette[frame[i] & 0x1FF];
+            argb[i] = palette[frame[i] & mask];
         }
 
         return argb;
