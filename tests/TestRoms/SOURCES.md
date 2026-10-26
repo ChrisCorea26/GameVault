@@ -75,3 +75,15 @@ the 68000 CI job downloads it.
 | Cache path | Suite | Author | Why it isn't committed | Used by |
 |---|---|---|---|---|
 | `680x0/68000/v1/*.json.gz` (124 files, 8,065 tests each) | One instruction per test, with the processor and memory state before and after | Thomas Harte (SingleStepTests) | No licence file in the repository; too large to commit anyway | Phase 13: 68000 instructions, flags, exceptions and address-error frames (`GAMEVAULT_RUN_68K=1`) |
+
+### 65816 and SPC700 (Phase 14)
+
+Pinned to commit `307c63f5673c8c6b861c52f71ddb89212a227480` of
+[SingleStepTests/65816](https://github.com/SingleStepTests/65816) (`manifest-65816.tsv`, about 2.6 GB) and commit
+`67d15f492b2740964abd4efd1229e0ec9c342228` of [SingleStepTests/spc700](https://github.com/SingleStepTests/spc700)
+(`manifest-spc700.tsv`, about 84 MB). Only the SNES CPU CI job fetches them, and it caches the 65816 files.
+
+| Cache path | Suite | Author | Why it isn't committed | Used by |
+|---|---|---|---|---|
+| `65816/v1/*.json` (512 files: each opcode in native and emulation mode, 10,000 tests each; 100 for MVN/MVP) | One instruction per test, with the state before and after and every bus cycle | Thomas Harte and contributors (SingleStepTests) | MIT: redistributable, but far too large to commit | Phase 14: 65C816 instructions, flags, emulation-mode wrapping and cycles (`GAMEVAULT_RUN_65816=1`) |
+| `spc700/v1/*.json` (256 files, 1,000 tests each) | One instruction per test, with every bus cycle | SingleStepTests | MIT, as above | Phase 14: SPC700 instructions, flags and cycles (`GAMEVAULT_RUN_SPC700=1`) |
