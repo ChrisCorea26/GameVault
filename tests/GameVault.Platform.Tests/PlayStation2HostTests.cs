@@ -24,6 +24,11 @@ namespace GameVault.Platform.Tests;
 /// discs and the BIOS, the memory card, save states, input, and the rewind, run-ahead and netplay budgets
 /// (docs/design/host-budgets.md).
 /// </summary>
+/// <remarks>
+/// Each test emulates a PS2 flat out on every core it can get, which starved the other host tests' real-time waits in
+/// CI, so these run on their own, after the parallel tests.
+/// </remarks>
+[Collection(PlayStation2HostCollection.Name)]
 public sealed class PlayStation2HostTests(ITestOutputHelper output) : IDisposable
 {
     private readonly DirectoryInfo _root = Directory.CreateTempSubdirectory("gv-ps2-");
@@ -381,4 +386,11 @@ public sealed class PlayStation2HostTests(ITestOutputHelper output) : IDisposabl
             await Task.Delay(10);
         }
     }
+}
+
+/// <summary>Runs <see cref="PlayStation2HostTests"/> alone, after the tests that run in parallel.</summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class PlayStation2HostCollection
+{
+    public const string Name = "PlayStation 2 host";
 }
