@@ -12,13 +12,13 @@ public sealed record RomFile(byte[] Data, GameSystem System, string Extension = 
 /// <summary>The game file types GameVault plays, by system (SPEC §7.11).</summary>
 public static class RomFiles
 {
-    /// <summary>Largest file read into memory.</summary>
-    public const long MaxRomBytes = 16 * 1024 * 1024;
+    /// <summary>Largest file read into memory: the biggest N64 cartridges are 64 MB.</summary>
+    public const long MaxRomBytes = 64 * 1024 * 1024;
 
     /// <summary>Every extension GameVault opens directly (besides .zip).</summary>
     public static IReadOnlyList<string> Extensions { get; } =
         [".nes", ".fds", ".sms", ".sg", ".sc", ".dsk", ".do", ".po", ".nib", ".woz", ".md", ".gen", ".smd", ".bin", ".sfc", ".smc",
-            ".cue", ".chd", ".m3u", ".exe"];
+            ".cue", ".chd", ".m3u", ".exe", ".z64", ".v64", ".n64"];
 
     /// <summary>The system a file is for, from its extension; null for other files (and .zip, whose content decides).</summary>
     public static GameSystem? SystemOf(string path) => Path.GetExtension(path).ToLowerInvariant() switch
@@ -30,6 +30,7 @@ public static class RomFiles
         ".md" or ".gen" or ".smd" or ".bin" => GameSystem.Genesis, // a .bin counts only with a Genesis header (see Read)
         ".sfc" or ".smc" => GameSystem.Snes,
         ".cue" or ".chd" or ".m3u" or ".exe" => GameSystem.PlayStation, // an .exe counts only as a PS-EXE (see Read)
+        ".z64" or ".v64" or ".n64" => GameSystem.Nintendo64,
         _ => null,
     };
 
@@ -76,6 +77,7 @@ public static class RomFiles
     {
         ".bin" when !GameVault.Core.Genesis.GenesisCartridge.LooksLikeGenesis(file.Data) => null,
         ".exe" when !GameVault.Core.PlayStation.PsExe.IsPsExe(file.Data) => null,
+        ".z64" or ".v64" or ".n64" when !GameVault.Core.Nintendo64.N64Cartridge.IsN64Rom(file.Data) => null,
         _ => file,
     };
 }

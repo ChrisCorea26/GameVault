@@ -17,7 +17,8 @@ namespace GameVault.Platform.Emulation;
 public static class ChallengeVerifier
 {
     public static ChallengeCheck Verify(
-        byte[] romImage, ChallengeFile challenge, ChallengeResult result, GameSystem system = GameSystem.Nes, PlayStationSetup? playStation = null)
+        byte[] romImage, ChallengeFile challenge, ChallengeResult result, GameSystem system = GameSystem.Nes, PlayStationSetup? playStation = null,
+        N64Setup? n64 = null)
     {
         if (result.ChallengeId != challenge.Id)
         {
@@ -30,7 +31,7 @@ public static class ChallengeVerifier
             return new ChallengeCheck(false, "This result was played on a different game or version.");
         }
 
-        List<(ushort Player1, ushort Player2)> inputs;
+        List<(uint Player1, uint Player2)> inputs;
         try
         {
             inputs = InputRecording.Decode(Convert.FromBase64String(result.Inputs), result.Version);
@@ -54,7 +55,7 @@ public static class ChallengeVerifier
         try
         {
             console = ConsoleFactory.Create(
-                romImage, system, new GameVault.Library.Profiles.GameProfile { Sha1 = challenge.RomSha1 }, fdsBios: null, playStation: playStation);
+                romImage, system, new GameVault.Library.Profiles.GameProfile { Sha1 = challenge.RomSha1 }, fdsBios: null, playStation: playStation, n64: n64);
         }
         catch (GameLoadException)
         {
@@ -73,7 +74,7 @@ public static class ChallengeVerifier
     }
 
     private static ChallengeCheck Replay(
-        IEmulatedConsole console, ChallengeFile challenge, ChallengeResult result, List<(ushort Player1, ushort Player2)> inputs)
+        IEmulatedConsole console, ChallengeFile challenge, ChallengeResult result, List<(uint Player1, uint Player2)> inputs)
     {
         console.Power();
         try

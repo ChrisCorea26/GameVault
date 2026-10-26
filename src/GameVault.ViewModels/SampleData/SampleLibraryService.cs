@@ -57,6 +57,8 @@ public sealed class SampleLibraryService : ILibraryService
             Ownership.Cartridge | Ownership.Box | Ownership.DigitalDump, PlayStatus.Playing, rating: 5, hours: 22, lastPlayedDaysAgo: 1, system: GameSystem.Snes),
         Game(20, "Neon Drift Zero", GameRegion.NorthAmerica, "Polyline Works", 1997, "Racing",
             Ownership.Box | Ownership.DigitalDump, PlayStatus.Playing, hours: 3, lastPlayedDaysAgo: 12, system: GameSystem.PlayStation),
+        Game(21, "Cloudbreak Rally", GameRegion.Europe, "Polyline Works", 1998, "Racing",
+            Ownership.Cartridge | Ownership.DigitalDump, PlayStatus.Unplayed, system: GameSystem.Nintendo64),
     ];
 
     private readonly List<GameEntry> _games;
@@ -213,6 +215,7 @@ public sealed class SampleLibraryService : ILibraryService
                     GameSystem.Genesis => $@"C:\Games\Genesis\{title}.md",
                     GameSystem.Snes => $@"C:\Games\Super Nintendo\{title}.sfc",
                     GameSystem.PlayStation => $@"C:\Games\PlayStation\{title}.cue",
+                    GameSystem.Nintendo64 => $@"C:\Games\Nintendo 64\{title}.z64",
                     _ => $@"C:\Games\NES\{title}.nes",
                 }
                 : null,

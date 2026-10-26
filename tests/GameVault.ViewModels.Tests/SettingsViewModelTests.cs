@@ -51,6 +51,19 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task The_n64_expansion_pak_is_on_by_default_and_saved()
+    {
+        var store = new InMemorySettingsStore();
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.N64ExpansionPak.Should().BeTrue();
+
+        vm.N64ExpansionPak = false;
+
+        store.Current.N64ExpansionPak.Should().BeFalse();
+    }
+
+    [Fact]
     public async Task Display_preset_and_pixel_shape_are_saved()
     {
         var store = new InMemorySettingsStore(new AppSettings { DisplayPreset = DisplayPreset.Smooth });

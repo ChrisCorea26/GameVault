@@ -65,6 +65,9 @@ public sealed record GameProfile
     /// <summary>File name of the password definition in <c>data/gamedb/passwords/</c> (Phase 6).</summary>
     public string? PasswordDefinition { get; init; }
 
+    /// <summary>N64 games: what the cartridge saves to, "eeprom4k", "eeprom16k", "sram", "flash" or "none" (Phase 16).</summary>
+    public string? Save { get; init; }
+
     /// <summary>Fields set in <paramref name="overrides"/> win over this profile's.</summary>
     public GameProfile Merge(GameProfile? overrides) => overrides is null ? this : this with
     {
@@ -76,6 +79,7 @@ public sealed record GameProfile
         Model = overrides.Model ?? Model,
         Pad = overrides.Pad ?? Pad,
         PasswordDefinition = overrides.PasswordDefinition ?? PasswordDefinition,
+        Save = overrides.Save ?? Save,
     };
 
     public string ToJson() => JsonSerializer.Serialize(this, Json);

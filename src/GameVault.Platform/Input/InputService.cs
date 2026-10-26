@@ -200,6 +200,19 @@ public sealed class InputService
             return virtualKey is not (VirtualKeys.Escape or VirtualKeys.F11); // the page handles these
         }
 
+        if (Layout == PadLayout.Nintendo64 && N64Keys.TryGetValue(virtualKey, out var extra))
+        {
+            lock (_gate)
+            {
+                if (_heldKeys.Add(virtualKey))
+                {
+                    Press(extra.Source, 0, extra.Button);
+                }
+            }
+
+            return true;
+        }
+
         if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button, out var turbo))
         {
             return typed;
@@ -242,6 +255,19 @@ public sealed class InputService
             }
 
             return virtualKey is not (VirtualKeys.Escape or VirtualKeys.F11); // the page handles these
+        }
+
+        if (Layout == PadLayout.Nintendo64 && N64Keys.TryGetValue(virtualKey, out var extra))
+        {
+            lock (_gate)
+            {
+                if (_heldKeys.Remove(virtualKey))
+                {
+                    Release(extra.Source, 0, extra.Button);
+                }
+            }
+
+            return true;
         }
 
         if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button, out var turbo))
@@ -346,6 +372,16 @@ public sealed class InputService
     private void ReleaseSourceLocked(int source)
     {
         _padHotkeys.RemoveWhere(h => h.Source == source);
+        foreach (var key in _sticks.Keys.Where(k => k.Source == source).ToList())
+        {
+            _sticks.Remove(key);
+        }
+
+        if (source == KeyboardSource)
+        {
+            ReleaseSourceLocked(KeyboardDpadSource);
+        }
+
         foreach (var key in _holdCount.Keys.Where(k => k.Source == source).ToList())
         {
             _holdCount.Remove(key);
@@ -367,6 +403,7 @@ public sealed class InputService
             _heldKeys.Clear();
             _heldHotkeys.Clear();
             _padHotkeys.Clear();
+            _sticks.Clear();
             _zapperTrigger = false;
         }
     }
@@ -414,7 +451,7 @@ public sealed class InputService
             }
 
             var period = _turboPeriod;
-            if (Layout is PadLayout.Snes or PadLayout.PlayStation)
+            if (Layout is PadLayout.Snes or PadLayout.PlayStation or PadLayout.Nintendo64)
             {
                 // No turbo on SNES or PlayStation pads: those keys are Y (turbo B's key) and X (turbo A's key), the
                 // PlayStation's Square and Triangle.
@@ -438,6 +475,11 @@ public sealed class InputService
                 }
             }
 
+            if (Layout == PadLayout.Nintendo64)
+            {
+                return WithStick(state, port);
+            }
+
             if (!AllowOppositeDirections)
             {
                 state = ResolveAxis(state, port, ControllerState.Left, ControllerState.Right);
@@ -446,6 +488,98 @@ public sealed class InputService
 
             return state;
         }
+    }
+
+    // ---------------------------------------------------------------- the N64's analog stick (Phase 16)
+
+    /// <summary>The keyboard's D-pad keys while an N64 game runs, kept apart from the arrows, which push the stick.</summary>
+    private const int KeyboardDpadSource = -1;
+
+    /// <summary>A real N64 stick reaches about ±80 at full tilt (n64brew: "Joybus Controller").</summary>
+    public const int StickRange = 80;
+
+    private readonly Dictionary<(int Source, int Port), (sbyte X, sbyte Y)> _sticks = [];
+
+    /// <summary>Keys that only mean something on the N64 pad: I/J/K/L the C buttons and T/F/G/H the D-pad.</summary>
+    private static readonly Dictionary<int, (int Source, ControllerState Button)> N64Keys = new()
+    {
+        [VirtualKeys.I] = (KeyboardSource, ControllerState.C), // C-up
+        [VirtualKeys.K] = (KeyboardSource, ControllerState.A), // C-down
+        [VirtualKeys.J] = (KeyboardSource, ControllerState.X), // C-left
+        [VirtualKeys.L] = (KeyboardSource, ControllerState.Z), // C-right
+        [VirtualKeys.T] = (KeyboardDpadSource, ControllerState.Up),
+        [VirtualKeys.G] = (KeyboardDpadSource, ControllerState.Down),
+        [VirtualKeys.F] = (KeyboardDpadSource, ControllerState.Left),
+        [VirtualKeys.H] = (KeyboardDpadSource, ControllerState.Right),
+    };
+
+    /// <summary>
+    /// A game controller's analog stick (SDL's -32768..32767, +Y down), scaled to the N64's range with a small round
+    /// dead zone. Pads call this whatever the layout; only N64 games read it.
+    /// </summary>
+    public void SetStick(int source, int port, short x, short y, double deadZone = 0.15)
+    {
+        var fx = x / 32768.0;
+        var fy = -y / 32768.0;
+        var length = Math.Sqrt(fx * fx + fy * fy);
+        (sbyte X, sbyte Y) value = (0, 0);
+        if (length > deadZone)
+        {
+            var scale = Math.Min(1.0, (length - deadZone) / (1 - deadZone)) / length;
+            value = ((sbyte)Math.Round(fx * scale * StickRange), (sbyte)Math.Round(fy * scale * StickRange));
+        }
+
+        lock (_gate)
+        {
+            if (value == (0, 0))
+            {
+                _sticks.Remove((source, port));
+            }
+            else
+            {
+                _sticks[(source, port)] = value;
+            }
+        }
+    }
+
+    /// <summary>
+    /// The N64's stick for a port: the keyboard's arrows push it all the way (their direction bits leave the D-pad),
+    /// and the strongest pad stick wins over them. Called with the lock held.
+    /// </summary>
+    private ControllerState WithStick(ControllerState state, int port)
+    {
+        var keyboard = ControllerState.None;
+        foreach (var ((source, p, bit), _) in _holdCount)
+        {
+            if (p == port && source == KeyboardSource && bit is >= 4 and <= 7)
+            {
+                keyboard |= (ControllerState)(1 << bit);
+            }
+        }
+
+        // The D-pad is what pads and the keyboard's D-pad keys hold, not the arrows.
+        state &= ~(ControllerState.Up | ControllerState.Down | ControllerState.Left | ControllerState.Right);
+        foreach (var ((source, p, bit), _) in _holdCount)
+        {
+            if (p == port && source != KeyboardSource && bit is >= 4 and <= 7)
+            {
+                state |= (ControllerState)(1 << bit);
+            }
+        }
+
+        var x = ((keyboard & ControllerState.Right) != 0 ? StickRange : 0) - ((keyboard & ControllerState.Left) != 0 ? StickRange : 0);
+        var y = ((keyboard & ControllerState.Up) != 0 ? StickRange : 0) - ((keyboard & ControllerState.Down) != 0 ? StickRange : 0);
+        var strongest = x * x + y * y;
+        foreach (var ((_, p), stick) in _sticks)
+        {
+            var magnitude = stick.X * stick.X + stick.Y * stick.Y;
+            if (p == port && magnitude > strongest)
+            {
+                (x, y, strongest) = (stick.X, stick.Y, magnitude);
+            }
+        }
+
+        return state.WithStick((sbyte)x, (sbyte)y);
     }
 
     private ControllerState ResolveAxis(ControllerState state, int port, ControllerState a, ControllerState b)
@@ -471,4 +605,11 @@ public enum PadLayout
 
     /// <summary>The SNES's positions (Cross south, Circle east, Square west, Triangle north) plus the triggers as L2 and R2.</summary>
     PlayStation,
+
+    /// <summary>
+    /// The N64 pad (Phase 16): the PlayStation's buttons (South A, West B, East and North C-down and C-left, either
+    /// trigger Z), the left stick as the analog stick, the right stick as the C buttons; on the keyboard the arrows
+    /// push the stick, I/J/K/L are the C buttons and T/F/G/H the D-pad.
+    /// </summary>
+    Nintendo64,
 }

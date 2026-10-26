@@ -22,7 +22,8 @@ public static class RomHasher
 
     /// <summary>
     /// Hashes for <paramref name="system"/>. Sega cartridges have no header, but copier dumps can carry a 512-byte
-    /// one, which No-Intro leaves out too. A PlayStation disc reference hashes the disc's first track.
+    /// one, which No-Intro leaves out too. A PlayStation disc reference hashes the disc's first track. N64 ROMs are
+    /// hashed big-endian (.z64), as No-Intro lists them, whatever byte order the file uses.
     /// </summary>
     public static RomHashes Hash(ReadOnlySpan<byte> image, GameSystem system)
     {
@@ -40,6 +41,7 @@ public static class RomHasher
             GameSystem.Genesis when GameVault.Core.Genesis.GenesisCartridge.IsInterleaved(image) =>
                 GameVault.Core.Genesis.GenesisCartridge.Deinterleave(image), // .smd: No-Intro hashes the plain ROM
             GameSystem.Snes when image.Length % 1024 == 512 => image[512..], // a copier header
+            GameSystem.Nintendo64 => GameVault.Core.Nintendo64.N64Cartridge.ToBigEndian(image),
             _ => image,
         };
         var crc = Crc32.HashToUInt32(body);

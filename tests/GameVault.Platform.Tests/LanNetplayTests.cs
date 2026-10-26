@@ -58,7 +58,7 @@ public sealed class LanNetplayTests : IDisposable
             Hello = new HelloMessage(0x0123456789ABCDEF, 1, RollbackSession.ProtocolVersion),
             HelloSeen = true,
             FirstFrame = 1234,
-            Inputs = [1, 2, 3, 0xFF],
+            Inputs = [1, 2, 3, 0xFF, 0xB050_0880], // the last with an N64 stick in the top 16 bits
             AckFrame = 1200,
             Checksum = new FrameChecksum(1170, 0xDEADBEEF),
         };

@@ -53,6 +53,10 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial bool PlayStationFastBoot { get; set; }
 
+    /// <summary>N64 games get the Expansion Pak (takes effect the next time a game starts).</summary>
+    [ObservableProperty]
+    public partial bool N64ExpansionPak { get; set; } = true;
+
     /// <summary>Index into <see cref="RewindMemoryOptions"/>.</summary>
     [ObservableProperty]
     public partial int RewindMemoryIndex { get; set; } = 2;
@@ -110,6 +114,7 @@ public sealed partial class SettingsViewModel(
         AppleIIDiskRomPath = settings.AppleIIDiskRomPath;
         PlayStationBiosPath = settings.PlayStationBiosPath;
         PlayStationFastBoot = settings.PlayStationFastBoot;
+        N64ExpansionPak = settings.N64ExpansionPak;
         _isLoaded = true;
         await Library.LoadCommand.ExecuteAsync(null);
     }
@@ -178,6 +183,8 @@ public sealed partial class SettingsViewModel(
 
     partial void OnPlayStationFastBootChanged(bool value) => SaveIfLoaded();
 
+    partial void OnN64ExpansionPakChanged(bool value) => SaveIfLoaded();
+
     partial void OnRewindMemoryIndexChanged(int value)
     {
         if (value >= 0 && value < RewindMemoryValues.Length)
@@ -214,6 +221,7 @@ public sealed partial class SettingsViewModel(
             AppleIIDiskRomPath = AppleIIDiskRomPath.Trim().Trim('"'),
             PlayStationBiosPath = PlayStationBiosPath.Trim().Trim('"'),
             PlayStationFastBoot = PlayStationFastBoot,
+            N64ExpansionPak = N64ExpansionPak,
             RewindMemoryMb = RewindMemoryIndex >= 0 && RewindMemoryIndex < RewindMemoryValues.Length
                 ? RewindMemoryValues[RewindMemoryIndex]
                 : current.RewindMemoryMb,

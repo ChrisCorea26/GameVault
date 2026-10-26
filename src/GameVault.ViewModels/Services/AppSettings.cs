@@ -67,6 +67,12 @@ public sealed record AppSettings
     /// <summary>Skip the PlayStation BIOS's intro and start the disc's game directly. Off by default.</summary>
     public bool PlayStationFastBoot { get; init; }
 
+    /// <summary>
+    /// Give N64 games the Expansion Pak's extra 4 MB (8 MB in all). On by default, as most homebrew and many games
+    /// use it; a few older games expect 4 MB.
+    /// </summary>
+    public bool N64ExpansionPak { get; init; } = true;
+
     /// <summary>Game volume, 0–100 (0 mutes).</summary>
     public int Volume { get; init; } = 80;
 

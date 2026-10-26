@@ -639,6 +639,39 @@
         </StackPanel>
       </Border>
 
+      <!-- Nintendo 64 (SPEC §7.11, Phase 16) -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Nintendo 64" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Expansion Pak" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Gives games the extra memory of the Expansion Pak. Most games and homebrew are happy with it on; turn it off for the rare game that won't start with it. Takes effect the next time a game starts."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch
+                Grid.Column="1"
+                MinWidth="0"
+                AutomationProperties.Name="Nintendo 64 Expansion Pak"
+                IsOn="{x:Bind ViewModel.N64ExpansionPak, Mode=TwoWay}"
+                OffContent=""
+                OnContent="" />
+          </Grid>
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="N64 games play from .z64, .v64 and .n64 files. Each game gets its own Controller Pak, saved with your other game saves."
+              TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
       <!-- Advanced -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Advanced" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">

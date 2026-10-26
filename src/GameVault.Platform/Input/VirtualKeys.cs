@@ -22,8 +22,14 @@ public static class VirtualKeys
     public const int E = 0x45;
     public const int F = 0x46;
     public const int G = 0x47;
+    public const int H = 0x48;
+    public const int I = 0x49;
+    public const int J = 0x4A;
+    public const int K = 0x4B;
+    public const int L = 0x4C;
     public const int Q = 0x51;
     public const int S = 0x53;
+    public const int T = 0x54;
     public const int W = 0x57;
     public const int X = 0x58;
     public const int Z = 0x5A;

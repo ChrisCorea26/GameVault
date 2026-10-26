@@ -1,0 +1,22 @@
+{
+  "SM": "eeprom4k",
+  "MK": "eeprom4k",
+  "BK": "eeprom4k",
+  "FX": "eeprom4k",
+  "GE": "eeprom4k",
+  "WR": "eeprom4k",
+  "K4": "eeprom4k",
+  "B7": "eeprom16k",
+  "PD": "eeprom16k",
+  "YS": "eeprom16k",
+  "DY": "eeprom16k",
+  "DO": "eeprom16k",
+  "CW": "eeprom16k",
+  "ZL": "sram",
+  "AL": "sram",
+  "FZ": "sram",
+  "TE": "sram",
+  "MF": "sram",
+  "ZS": "flash",
+  "MQ": "flash"
+}

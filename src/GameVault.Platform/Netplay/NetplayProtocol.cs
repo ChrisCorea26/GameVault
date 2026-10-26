@@ -17,7 +17,7 @@ public sealed record NetplayPacket
     public int FirstFrame { get; init; }
 
     /// <summary>The sender's controller for consecutive frames, starting at <see cref="FirstFrame"/>.</summary>
-    public ushort[] Inputs { get; init; } = [];
+    public uint[] Inputs { get; init; } = [];
 
     /// <summary>The newest frame of ours the sender has received without gaps (-1 for none).</summary>
     public int AckFrame { get; init; } = -1;

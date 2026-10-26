@@ -11,6 +11,7 @@ using GameVault.Platform.Audio;
 using GameVault.Core.Input;
 using GameVault.Core.Apple;
 using GameVault.Core.Genesis;
+using GameVault.Core.Nintendo64;
 using GameVault.Core.PlayStation;
 using GameVault.Core.Snes;
 using GameVault.Core.Sega;
@@ -57,6 +58,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
     // PlayStation memory cards are saved as raw .mcd images, the format other emulators read.
     private readonly BatterySaveStore? _memoryCards;
+    private readonly BatterySaveStore? _controllerPaks;
     private BatterySaveStore? _batteryStore;
     private readonly BatterySaveStore? _diskSaves;
     private readonly BatterySaveStore? _appleDiskSaves;
@@ -80,7 +82,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
     // Verified challenges (SPEC §7.9): the attempt in progress, set and cleared on the emulation thread.
     private ChallengeFile? _challenge;
-    private List<(ushort Player1, ushort Player2)> _challengeInputs = [];
+    private List<(uint Player1, uint Player2)> _challengeInputs = [];
     private volatile bool _challengeActive;
 
     // Game-aware features (SPEC §7.9): the memory-map watcher and its latest overlay values.
@@ -154,6 +156,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _diskSaves = paths is null ? null : new BatterySaveStore(paths, ".fdssave");
         _appleDiskSaves = paths is null ? null : new BatterySaveStore(paths, ".a2save");
         _memoryCards = paths is null ? null : new BatterySaveStore(paths, ".mcd");
+        _controllerPaks = paths is null ? null : new BatterySaveStore(paths, ".mpk");
         _context = SynchronizationContext.Current;
         _present = console => _video.Present(console.FrameBuffer, PaletteFor(console), console.ScreenWidth, console.ScreenHeight, console.PixelAspect);
     }
@@ -238,11 +241,12 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         }
 
         var count = 0u;
-        var limit = console switch
+        uint limit = console switch
         {
             AppleConsole or GenesisConsole => 0x1FFFF,
             SnesConsole => 0x9FFFF,
             PlayStationConsole => 0x2003FF,
+            N64Console n64 => (uint)n64.Rdram.Length - 1,
             _ => 0xFFFF,
         };
         for (var i = 0; i < buffer.Length && address + i <= limit; i++)
@@ -254,6 +258,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
                 GenesisConsole genesis => genesis.ReadAchievementMemory((int)(address + i)),
                 SnesConsole snes => snes.ReadAchievementMemory((int)(address + i)),
                 PlayStationConsole ps => ps.ReadAchievementMemory((int)(address + i)),
+                N64Console n64 => n64.ReadAchievementMemory((int)(address + i)),
                 _ => console.PeekMemory((int)(address + i)),
             };
             count++;
@@ -386,7 +391,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     {
         var data = _romData!;
         var profile = Profile ?? new GameProfile { Sha1 = string.Empty };
-        var console = ConsoleFactory.Create(data, _romSystem, profile, fdsBios: null, _romExtension, _appleRoms, _playStation);
+        var console = ConsoleFactory.Create(data, _romSystem, profile, fdsBios: null, _romExtension, _appleRoms, _playStation, _n64);
         if (_audioActive && _audio is not null)
         {
             console.EnableAudio(_audio.SampleRate);
@@ -403,6 +408,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             ReleaseDiscs(_console);
             _console = console;
             _battery = null;
+            _pak = null;
             _diskOriginal = null;
             _seenCheats = null;
             _cheatsActive = false;
@@ -634,13 +640,13 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         var system = _romSystem;
         return rom is null
             ? Task.FromResult(new ChallengeCheck(false, "Open the challenge's game first, to check results against it."))
-            : Task.Run(() => ChallengeVerifier.Verify(rom, challenge, result, system, _playStation));
+            : Task.Run(() => ChallengeVerifier.Verify(rom, challenge, result, system, _playStation, _n64));
     }
 
     /// <summary>Emulation thread: records this frame's buttons and checks the goal and the time limit.</summary>
     private void AfterChallengeFrame(IEmulatedConsole console, ChallengeFile challenge)
     {
-        _challengeInputs.Add(((ushort)_lastInputs[0], (ushort)_lastInputs[1]));
+        _challengeInputs.Add(((uint)_lastInputs[0], (uint)_lastInputs[1]));
         var frames = _challengeInputs.Count;
         if (challenge.GoalHolds(console.PeekMemory))
         {
@@ -866,7 +872,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         var playStation = rom.System == GameSystem.PlayStation
             ? await LoadPlayStationSetupAsync(cancellationToken).ConfigureAwait(false)
             : null;
-        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation);
+        var n64 = IsNintendo64(rom.System) ? await LoadN64SetupAsync(cancellationToken).ConfigureAwait(false) : null;
+        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation, n64);
     }
 
     /// <summary>The player's Apple II ROMs from Settings, or null when they aren't set yet.</summary>
@@ -903,7 +910,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         GameSystem system = GameSystem.Nes,
         string extension = "",
         AppleRoms? appleRoms = null,
-        PlayStationSetup? playStation = null)
+        PlayStationSetup? playStation = null,
+        N64Setup? n64 = null)
     {
         RomHashes hashes;
         try
@@ -916,7 +924,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         }
 
         var profile = ProfileResolver?.Invoke(hashes.Sha1) ?? new GameProfile { Sha1 = hashes.Sha1 };
-        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation);
+        n64 ??= IsNintendo64(system) ? new N64Setup(SaveTypes: N64SaveTypes) : null;
+        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation, n64);
         var nes = console as NesConsole;
 
         if (_audio is not null)
@@ -952,6 +961,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _romExtension = extension;
         _appleRoms = appleRoms;
         _playStation = playStation;
+        _n64 = n64;
+        LoadControllerPak(console);
         SetUpDiscs(data, system);
         _input.TypingMode = console is AppleConsole;
         _input.Layout = console switch
@@ -959,6 +970,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             GenesisConsole => PadLayout.Genesis,
             SnesConsole => PadLayout.Snes,
             PlayStationConsole => PadLayout.PlayStation,
+            N64Console => PadLayout.Nintendo64,
             _ => PadLayout.Nes,
         };
         var appleBoot = console is AppleConsole { Disk: var drives } && drives.DiskIn(0) is { } bootDisk
@@ -1023,6 +1035,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             _batteryStore = batteryStore;
             _batterySaved = battery?.BatteryRam.ToArray() ?? [];
             _batteryTitle = title;
+            TrackControllerPak(console);
             _running = true;
             _runAhead.ResetAutoDisable();
             _rewind.Clear();
@@ -1112,6 +1125,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             ReleaseDiscs(_console);
             _console = null;
             _battery = null;
+            _pak = null;
             _running = false;
             _rewind.Clear();
         });
@@ -1643,6 +1657,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     private void FlushBattery(bool background = false)
     {
         FlushBatteryRam(background);
+        FlushControllerPak(background);
         FlushDisk(background);
         FlushAppleDisks(background);
     }

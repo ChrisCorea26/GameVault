@@ -2,6 +2,7 @@ using GameVault.Core;
 using GameVault.Core.Apple;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Genesis;
+using GameVault.Core.Nintendo64;
 using GameVault.Core.PlayStation;
 using GameVault.Core.Sega;
 using GameVault.Core.Snes;
@@ -23,11 +24,17 @@ internal static class ConsoleFactory
         byte[]? fdsBios,
         string extension = "",
         AppleRoms? appleRoms = null,
-        PlayStationSetup? playStation = null)
+        PlayStationSetup? playStation = null,
+        N64Setup? n64 = null)
     {
         if (system == GameSystem.PlayStation)
         {
             return CreatePlayStation(data, playStation);
+        }
+
+        if (system == GameSystem.Nintendo64)
+        {
+            return CreateNintendo64(data, profile, n64 ?? new N64Setup());
         }
 
         if (system == GameSystem.AppleII)
@@ -138,6 +145,32 @@ internal static class ConsoleFactory
         {
             throw new GameLoadException(
                 $"This game uses a cartridge type GameVault doesn't support yet (mapper {ex.Mapper}).", ex);
+        }
+    }
+
+    /// <summary>
+    /// An N64 with the Expansion Pak as Settings has it. The save type comes from the game's profile, then the
+    /// homebrew header, then the save-type list, and is otherwise a 4 Kbit EEPROM (data/gamedb/n64/README.md).
+    /// </summary>
+    private static N64Console CreateNintendo64(byte[] data, GameProfile profile, N64Setup setup)
+    {
+        if (!N64Cartridge.IsN64Rom(data))
+        {
+            throw new GameLoadException("That file isn't an N64 cartridge, or it's damaged. GameVault plays .z64, .v64 and .n64 files.");
+        }
+
+        try
+        {
+            var rom = N64Cartridge.ToBigEndian(data);
+            var gameCode = System.Text.Encoding.ASCII.GetString(rom, 0x3B, 4);
+            var saveType = Library.Profiles.N64SaveTypes.Parse(profile.Save)
+                ?? N64Cartridge.HomebrewSaveType(rom)
+                ?? setup.SaveTypes?.Invoke(gameCode);
+            return new N64Console(new N64Cartridge(rom, saveType), setup.ExpansionPak);
+        }
+        catch (RomFormatException ex)
+        {
+            throw new GameLoadException("That N64 cartridge file is empty or damaged.", ex);
         }
     }
 

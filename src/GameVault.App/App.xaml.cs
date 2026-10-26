@@ -197,6 +197,7 @@ public partial class App : Application
                 ProfileResolver = sp.GetRequiredService<LibraryService>().ResolveProfile,
                 PasswordDefinitionResolver = new PasswordDefinitions(Path.Combine(AppContext.BaseDirectory, "data", "gamedb", "passwords")).For,
                 MemoryMapResolver = new MemoryMaps(Path.Combine(AppContext.BaseDirectory, "data", "gamedb", "memory")).For,
+                N64SaveTypes = new N64SaveTypes(Path.Combine(AppContext.BaseDirectory, "data", "gamedb", "n64", "saves.json")).For,
             });
             services.AddSingleton<IEmulatorService>(sp => sp.GetRequiredService<EmulatorHost>());
             services.AddSingleton(sp => new TimelineStore(sp.GetRequiredService<AppPaths>().StatesDirectory));

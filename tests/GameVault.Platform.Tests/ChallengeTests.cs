@@ -102,15 +102,17 @@ public sealed class ChallengeTests : IDisposable
     [Fact]
     public void Recordings_compress_held_buttons()
     {
-        var frames = Enumerable.Repeat(((ushort)0x80, (ushort)0), 1000).Concat(Enumerable.Repeat(((ushort)0x0900, (ushort)1), 300)).ToList();
+        var frames = Enumerable.Repeat((0x80u, 0u), 1000).Concat(Enumerable.Repeat((0x0900u, 1u), 300))
+            .Concat(Enumerable.Repeat((0xB050_0002u, 0u), 50)).ToList();
 
         var encoded = InputRecording.Encode(frames);
 
-        encoded.Length.Should().BeLessThan(14);
-        InputRecording.Decode(encoded).Should().Equal(frames, "16-bit buttons (the Genesis pad's C and Z here) survive");
+        encoded.Length.Should().BeLessThan(30);
+        InputRecording.Decode(encoded).Should().Equal(frames, "16-bit buttons (the Genesis pad's C and Z) and the N64's stick (top 16 bits) survive");
 
-        // Version 1 recordings (one byte per player) still decode.
-        InputRecording.Decode([0x02, 0x80, 0x01], version: 1).Should().Equal([((ushort)0x80, (ushort)1), ((ushort)0x80, (ushort)1)]);
+        // Version 1 recordings (one byte per player) and version 2 (16 bits) still decode.
+        InputRecording.Decode([0x02, 0x80, 0x01], version: 1).Should().Equal([(0x80u, 1u), (0x80u, 1u)]);
+        InputRecording.Decode([0x01, 0x00, 0x09, 0x01, 0x00], version: 2).Should().Equal([(0x0900u, 1u)]);
         var damaged = () => InputRecording.Decode([0x80]);
         damaged.Should().Throw<FormatException>();
         ChallengeVerifier.Time(3606).Should().Be("1:00.00");
