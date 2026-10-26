@@ -25,7 +25,8 @@ public sealed partial class PlayerViewModel(
     ISessionLog sessions,
     ChallengesViewModel challenges,
     PlayLimitViewModel limit,
-    AchievementsViewModel? achievements = null) : ObservableObject
+    AchievementsViewModel? achievements = null,
+    IGameFilePicker? picker = null) : ObservableObject
 {
     private byte[]? _passwordScreenshot;
     private bool _updatingDisk;
@@ -63,8 +64,63 @@ public sealed partial class PlayerViewModel(
 
     private void OnDiskChanged(object? sender, EventArgs e) => RefreshDisk();
 
+    /// <summary>True for Apple II games: the Player shows the Disks menu for drives 1 and 2.</summary>
+    [ObservableProperty]
+    public partial bool IsAppleGame { get; private set; }
+
+    /// <summary>"Drive 1: Name" or "Drive 1: empty".</summary>
+    [ObservableProperty]
+    public partial string Drive1Label { get; private set; } = "Drive 1: empty";
+
+    [ObservableProperty]
+    public partial string Drive2Label { get; private set; } = "Drive 2: empty";
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(EjectDrive1Command))]
+    public partial bool Drive1HasDisk { get; private set; }
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(EjectDrive2Command))]
+    public partial bool Drive2HasDisk { get; private set; }
+
+    [RelayCommand]
+    private Task InsertDrive1Async() => InsertAppleDiskAsync(0);
+
+    [RelayCommand]
+    private Task InsertDrive2Async() => InsertAppleDiskAsync(1);
+
+    [RelayCommand(CanExecute = nameof(Drive1HasDisk))]
+    private void EjectDrive1() => emulator.EjectAppleDisk(0);
+
+    [RelayCommand(CanExecute = nameof(Drive2HasDisk))]
+    private void EjectDrive2() => emulator.EjectAppleDisk(1);
+
+    /// <summary>Picks a disk image and puts it in drive 1 (0) or 2 (1).</summary>
+    private async Task InsertAppleDiskAsync(int drive)
+    {
+        if (picker is null || !IsAppleGame || await picker.PickDiskImageAsync() is not { } path)
+        {
+            return;
+        }
+
+        await emulator.InsertAppleDiskAsync(drive, path);
+    }
+
+    private void RefreshAppleDrives()
+    {
+        IsAppleGame = emulator.System == GameVault.Core.Systems.GameSystem.AppleII;
+        var names = emulator.AppleDriveNames;
+        var first = names.Count > 0 ? names[0] : null;
+        var second = names.Count > 1 ? names[1] : null;
+        Drive1Label = "Drive 1: " + (first ?? "empty");
+        Drive2Label = "Drive 2: " + (second ?? "empty");
+        Drive1HasDisk = first is not null;
+        Drive2HasDisk = second is not null;
+    }
+
     private void RefreshDisk()
     {
+        RefreshAppleDrives();
         _updatingDisk = true;
         try
         {

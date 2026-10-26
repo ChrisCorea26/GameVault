@@ -34,6 +34,8 @@ public sealed class AppleDisk
         0xED, 0xEE, 0xEF, 0xF2, 0xF3, 0xF4, 0xF5, 0xF6, 0xF7, 0xF9, 0xFA, 0xFB, 0xFC, 0xFD, 0xFE, 0xFF,
     ];
 
+    private const int PatchMagic = 0x53324147; // "GA2S"
+
     private readonly int[] _quarterTrackMap = new int[160];
 
     private AppleDisk(List<DiskTrack> tracks, int[] quarterTrackMap, bool writeProtected)
@@ -50,6 +52,66 @@ public sealed class AppleDisk
 
     /// <summary>True once the computer has written to the disk.</summary>
     public bool IsModified { get; internal set; }
+
+    /// <summary>A copy of every track's bits, to compare against later for <see cref="CreatePatch"/>.</summary>
+    public byte[][] SnapshotTracks()
+    {
+        var result = new byte[TrackData.Count][];
+        for (var i = 0; i < result.Length; i++)
+        {
+            result[i] = [.. TrackData[i].Bits];
+        }
+
+        return result;
+    }
+
+    /// <summary>
+    /// The tracks that differ from <paramref name="original"/> (a <see cref="SnapshotTracks"/> of this disk), as
+    /// "track index, byte count, bits" records; the player's image file is never rewritten.
+    /// </summary>
+    public byte[] CreatePatch(byte[][] original)
+    {
+        using var stream = new MemoryStream();
+        using var writer = new BinaryWriter(stream);
+        writer.Write(PatchMagic);
+        for (var i = 0; i < TrackData.Count && i < original.Length; i++)
+        {
+            var bits = TrackData[i].Bits;
+            if (!bits.AsSpan().SequenceEqual(original[i]))
+            {
+                writer.Write(i);
+                writer.Write(bits.Length);
+                writer.Write(bits);
+            }
+        }
+
+        writer.Flush();
+        return stream.ToArray();
+    }
+
+    /// <summary>Puts the tracks a <see cref="CreatePatch"/> saved back on this disk.</summary>
+    public void ApplyPatch(ReadOnlySpan<byte> patch)
+    {
+        if (patch.Length < 4 || BinaryPrimitives.ReadInt32LittleEndian(patch) != PatchMagic)
+        {
+            throw new InvalidDataException("This isn't a GameVault Apple II disk save.");
+        }
+
+        var offset = 4;
+        while (offset + 8 <= patch.Length)
+        {
+            var index = BinaryPrimitives.ReadInt32LittleEndian(patch[offset..]);
+            var length = BinaryPrimitives.ReadInt32LittleEndian(patch[(offset + 4)..]);
+            offset += 8;
+            if (index < 0 || index >= TrackData.Count || length != TrackData[index].Bits.Length || offset + length > patch.Length)
+            {
+                throw new InvalidDataException("This Apple II disk save doesn't match the disk.");
+            }
+
+            patch.Slice(offset, length).CopyTo(TrackData[index].Bits);
+            offset += length;
+        }
+    }
 
     /// <summary>The track under the head at <paramref name="quarterTrack"/> (0–159), or null over an empty position.</summary>
     public DiskTrack? TrackAt(int quarterTrack)

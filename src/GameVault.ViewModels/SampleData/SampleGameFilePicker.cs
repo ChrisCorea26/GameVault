@@ -18,4 +18,6 @@ public sealed class SampleGameFilePicker : IGameFilePicker
     public Task<string?> PickCatalogFileAsync() => Task.FromResult<string?>(SampleCatalog);
 
     public Task<string?> PickImageAsync() => Task.FromResult<string?>(null);
+
+    public Task<string?> PickDiskImageAsync() => Task.FromResult<string?>(@"C:\Games\Apple II\Sample Disk 2.dsk");
 }

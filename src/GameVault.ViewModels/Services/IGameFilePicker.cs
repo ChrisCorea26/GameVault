@@ -13,4 +13,7 @@ public interface IGameFilePicker
 
     /// <summary>Asks for a picture (a cover photo). Returns null if they cancel.</summary>
     Task<string?> PickImageAsync();
+
+    /// <summary>Asks for an Apple II disk image (.dsk, .do, .po, .nib or .woz). Returns null if they cancel.</summary>
+    Task<string?> PickDiskImageAsync() => PickGameFileAsync();
 }

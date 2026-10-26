@@ -205,6 +205,32 @@ public sealed class AppleConsoleTests
     }
 
     [Fact]
+    public void Disk_writes_save_as_a_patch_of_the_changed_tracks_and_apply_to_a_fresh_copy()
+    {
+        var disk = new DiskII();
+        var image = AppleDisk.FromSectors(new byte[AppleDisk.DiskBytes], proDosOrder: false);
+        var original = image.SnapshotTracks();
+        disk.Insert(0, image);
+        disk.Access(0x9, false, 0, 0);
+        disk.Access(0xD, false, 0, 0);
+        disk.Access(0xF, true, 0xD5, 0);
+        disk.Access(0xE, false, 0, 32);
+
+        var patch = image.CreatePatch(original);
+        patch.Length.Should().Be(4 + 8 + original[0].Length, "only track 0 changed");
+
+        var fresh = AppleDisk.FromSectors(new byte[AppleDisk.DiskBytes], proDosOrder: false);
+        fresh.ApplyPatch(patch);
+        for (var t = 0; t < AppleDisk.Tracks; t++)
+        {
+            fresh.TrackData[t].Bits.Should().Equal(image.TrackData[t].Bits, $"track {t}");
+        }
+
+        var act = () => fresh.ApplyPatch(new byte[] { 1, 2, 3, 4 });
+        act.Should().Throw<InvalidDataException>();
+    }
+
+    [Fact]
     public void The_stepper_moves_the_head_a_half_track_per_phase()
     {
         var disk = new DiskII();

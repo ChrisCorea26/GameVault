@@ -134,6 +134,9 @@ GameVault never ships or downloads it, as with the Disk System BIOS.
     - Backspace types the left arrow, and Shift+Backspace rewinds.
   - RetroAchievements hashes the disk as rcheevos does (MD5 of the file) and reads main and auxiliary
     RAM in its layout.
+  - The Player's **Disks** menu (Apple II games only) shows what is in drives 1 and 2, and inserts a disk
+    image from a file or ejects it. Disk writes are saved per disk image as "Name - hash.a2save" patches of the
+    changed tracks (when the game is saved, stopped, or the disk ejected), never into the image file.
 - **Tests:**
   - Dormann's two suites;
   - disk round-trips (DOS and ProDOS order), WOZ 2 parsing, and a write-then-read;
@@ -141,10 +144,11 @@ GameVault never ships or downloads it, as with the Disk System BIOS.
   - the video modes and colours, the keyboard, the Language Card, IIe auxiliary memory, paddles and
     buttons, and speaker audio;
   - save-state replay;
-  - host loading with and without ROMs, typing, and 560×384 frames.
+  - host loading with and without ROMs, typing, and 560×384 frames;
+  - disk-write patches, and the disk menu (drive 2 inserted, written, ejected and restored next session).
 - **Changed from the plan, left for later:**
-  - The Player has no disk menu yet, so the second drive and disk swapping wait. Games that need disk 2
-    can't run yet.
+  - Save states don't hold the disks' contents (as on the Disk System), so loading an older state
+    keeps the disk's newer writes.
   - The video is drawn once per frame (no mid-frame mode changes or floating-bus "vapor lock").
   - No monochrome option; a user-supplied character ROM isn't used.
   - Sample data has an Apple II game in the library, but the `--sample-data` Player doesn't run an Apple

@@ -38,7 +38,7 @@ namespace GameVault.Platform.Emulation;
 /// steady. Without audio, frames are paced by a high-resolution timer. Holding Tab fast-forwards at up to 8×
 /// with the sound muted.
 /// </remarks>
-public sealed class EmulatorHost : IEmulatorService, IDisposable
+public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 {
     /// <summary>NTSC: 39375000 / 655171 ≈ 60.0988 frames per second (NESdev Wiki: "Cycle reference chart").</summary>
     public const double NtscFrameRate = 39375000.0 / 655171.0;
@@ -52,6 +52,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private readonly IAudioOutput? _audio;
     private readonly BatterySaveStore? _batteries;
     private readonly BatterySaveStore? _diskSaves;
+    private readonly BatterySaveStore? _appleDiskSaves;
 
     // Famicom Disk System: the tracks as built from the image (the patch base) and as last saved.
     private byte[][]? _diskOriginal;
@@ -144,6 +145,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         _audio = audio;
         _batteries = paths is null ? null : new BatterySaveStore(paths);
         _diskSaves = paths is null ? null : new BatterySaveStore(paths, ".fdssave");
+        _appleDiskSaves = paths is null ? null : new BatterySaveStore(paths, ".a2save");
         _context = SynchronizationContext.Current;
         _present = console => _video.Present(console.FrameBuffer, PaletteFor(console), console.ScreenWidth, console.ScreenHeight, console.PixelAspect);
     }
@@ -905,6 +907,9 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         _romExtension = extension;
         _appleRoms = appleRoms;
         _input.TypingMode = console is AppleConsole;
+        var appleBoot = console is AppleConsole { Disk: var drives } && drives.DiskIn(0) is { } bootDisk
+            ? WithSavedWrites(bootDisk, AppleConsole.HashDisk(data), title)
+            : null;
         byte[][]? diskOriginal = null;
         byte[][]? diskSaved = null;
         if (nes?.Fds is { } disk)
@@ -953,6 +958,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             _diskSaved = diskSaved;
             _diskSideRequested = 0;
             _reportedDiskSide = -1;
+            StartAppleDrives(appleBoot);
             if (nes?.Fds is { } fds)
             {
                 UpdateDiskSide(fds);
@@ -1044,6 +1050,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         {
             EndNetplay();
             FlushBattery();
+            StartAppleDrives(null);
             ReportPlaytime();
             _console = null;
             _battery = null;
@@ -1571,6 +1578,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     {
         FlushBatteryRam(background);
         FlushDisk(background);
+        FlushAppleDisks(background);
     }
 
     /// <summary>

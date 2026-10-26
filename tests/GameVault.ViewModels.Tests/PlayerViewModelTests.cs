@@ -30,7 +30,8 @@ public class PlayerViewModelTests
             new NetplayViewModel(_emulator, new InMemoryClipboard()), _window,
             new RecapViewModel(_sessions, _journal, _passwords, _timeline), _sessions,
             new ChallengesViewModel(_emulator, new InMemoryChallengeFiles()),
-            new PlayLimitViewModel(_emulator, new InMemoryFamilyService(withSamples: false), _timeline));
+            new PlayLimitViewModel(_emulator, new InMemoryFamilyService(withSamples: false), _timeline),
+            picker: new SampleGameFilePicker());
     }
 
     [Fact]
@@ -148,6 +149,29 @@ public class PlayerViewModelTests
         _vm.DiskSlotIndex = 0;
         _emulator.DiskCommands.Should().Equal("insert 1", "eject");
         _vm.DiskSlotIndex.Should().Be(0);
+    }
+
+    [Fact]
+    public async Task Apple_ii_games_offer_a_disk_menu_for_both_drives()
+    {
+        _emulator.System = GameVault.Core.Systems.GameSystem.AppleII;
+        _emulator.AppleDrives[0] = "Game";
+
+        await _vm.StartCommand.ExecuteAsync("game.dsk");
+
+        _vm.IsAppleGame.Should().BeTrue();
+        _vm.IsDiskSystem.Should().BeFalse();
+        _vm.Drive1Label.Should().Be("Drive 1: Game");
+        _vm.Drive2Label.Should().Be("Drive 2: empty");
+        _vm.EjectDrive2Command.CanExecute(null).Should().BeFalse();
+
+        await _vm.InsertDrive2Command.ExecuteAsync(null);
+        _vm.Drive2Label.Should().Be("Drive 2: Sample Disk 2");
+        _vm.EjectDrive2Command.CanExecute(null).Should().BeTrue();
+
+        _vm.EjectDrive1Command.Execute(null);
+        _vm.Drive1Label.Should().Be("Drive 1: empty");
+        _vm.Drive1HasDisk.Should().BeFalse();
     }
 
     [Fact]
@@ -561,6 +585,25 @@ public class PlayerViewModelTests
         {
             DiskCommands.Add($"insert {side}");
             InsertedDiskSide = side;
+            DiskChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        public GameVault.Core.Systems.GameSystem? System { get; set; }
+
+        public string?[] AppleDrives { get; } = [null, null];
+
+        public IReadOnlyList<string?> AppleDriveNames => AppleDrives;
+
+        public Task InsertAppleDiskAsync(int drive, string path, CancellationToken cancellationToken = default)
+        {
+            AppleDrives[drive] = Path.GetFileNameWithoutExtension(path.Replace('\\', '/'));
+            DiskChanged?.Invoke(this, EventArgs.Empty);
+            return Task.CompletedTask;
+        }
+
+        public void EjectAppleDisk(int drive)
+        {
+            AppleDrives[drive] = null;
             DiskChanged?.Invoke(this, EventArgs.Empty);
         }
 

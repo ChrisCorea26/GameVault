@@ -171,6 +171,16 @@ public interface IEmulatorService
     {
     }
 
+    /// <summary>The disk in each Apple II drive (its name), or null for an empty drive; empty for other systems.</summary>
+    IReadOnlyList<string?> AppleDriveNames => [];
+
+    /// <summary>Reads a disk image and puts it in Apple II drive <paramref name="drive"/> (0 or 1).</summary>
+    Task InsertAppleDiskAsync(int drive, string path, CancellationToken cancellationToken = default) => Task.CompletedTask;
+
+    void EjectAppleDisk(int drive)
+    {
+    }
+
     /// <summary>Plain-language reason for <see cref="EmulatorStatus.Faulted"/>.</summary>
     string? FaultMessage { get; }
 

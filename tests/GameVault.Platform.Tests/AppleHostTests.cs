@@ -65,6 +65,55 @@ public sealed class AppleHostTests : IDisposable
         input.TypingMode.Should().BeFalse();
     }
 
+    [Fact]
+    public async Task The_disk_menu_fills_and_empties_drive_2_and_writes_are_kept_for_the_next_session()
+    {
+        var game = Path.Combine(_root.FullName, "Game.dsk");
+        var second = Path.Combine(_root.FullName, "Side 2.dsk");
+        await File.WriteAllBytesAsync(game, new byte[AppleDisk.DiskBytes]);
+        await File.WriteAllBytesAsync(second, new byte[AppleDisk.DiskBytes]);
+        var settings = new InMemorySettingsStore(new AppSettings { AppleIIRomPath = WriteRoms() });
+        var paths = new GameVault.Platform.Storage.AppPaths(Path.Combine(_root.FullName, "data"));
+
+        using (var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), settings, paths: paths))
+        {
+            await host.LoadAsync(game);
+            host.AppleDriveNames.Should().Equal("Game", null);
+
+            await host.InsertAppleDiskAsync(1, second);
+            await WaitFor(() => Task.FromResult(host.AppleDriveNames[1] == "Side 2"));
+
+            // The computer writes a byte to drive 2, as DOS would: select drive 2, motor on, write mode.
+            await host.InspectAsync(c =>
+            {
+                var disk = ((AppleConsole)c).Disk;
+                disk.Access(0xB, false, 0, 0);
+                disk.Access(0x9, false, 0, 0);
+                disk.Access(0xD, false, 0, 0);
+                disk.Access(0xF, true, 0xD5, 0);
+                disk.Access(0xE, false, 0, 32);
+                return disk.DiskIn(1)!.IsModified;
+            });
+
+            host.EjectAppleDisk(1);
+            await WaitFor(() => Task.FromResult(host.AppleDriveNames[1] is null));
+            host.Stop();
+        }
+
+        Directory.EnumerateFiles(paths.SavesDirectory, "Side 2 - *.a2save").Should().ContainSingle("ejecting saves the disk's writes");
+
+        using (var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), settings, paths: paths))
+        {
+            await host.LoadAsync(game);
+            await host.InsertAppleDiskAsync(1, second);
+            await WaitFor(() => Task.FromResult(host.AppleDriveNames[1] == "Side 2"));
+            var firstBits = await host.InspectAsync(c => ((AppleConsole)c).Disk.DiskIn(1)!.TrackData[0].Bits.Take(4).ToArray());
+            var plain = AppleDisk.FromSectors(new byte[AppleDisk.DiskBytes], proDosOrder: false).TrackData[0].Bits.Take(4).ToArray();
+            firstBits.Should().NotEqual(plain, "the saved write is back on the disk");
+            host.Stop();
+        }
+    }
+
     private static async Task WaitFor(Func<Task<bool>> condition)
     {
         var deadline = DateTime.UtcNow.AddSeconds(30);

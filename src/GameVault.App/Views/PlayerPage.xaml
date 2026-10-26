@@ -281,6 +281,25 @@
           SelectedIndex="{x:Bind ViewModel.DiskSlotIndex, Mode=TwoWay}"
           ToolTipService.ToolTip="Disk side (F4: next side)"
           Visibility="{x:Bind ViewModel.IsDiskSystem, Mode=OneWay}" />
+      <!-- Apple II: the disk images in drives 1 and 2 (Phase 12); writes are saved as patches, never into the image -->
+      <DropDownButton
+          Grid.Column="8"
+          AccessKey="D"
+          Content="Disks"
+          ToolTipService.ToolTip="Insert or eject the disks in drives 1 and 2"
+          Visibility="{x:Bind ViewModel.IsAppleGame, Mode=OneWay}">
+        <DropDownButton.Flyout>
+          <MenuFlyout Placement="BottomEdgeAlignedRight">
+            <MenuFlyoutItem IsEnabled="False" Text="{x:Bind ViewModel.Drive1Label, Mode=OneWay}" />
+            <MenuFlyoutItem Command="{x:Bind ViewModel.InsertDrive1Command}" Text="Insert disk in drive 1…" />
+            <MenuFlyoutItem Command="{x:Bind ViewModel.EjectDrive1Command}" Text="Eject drive 1" />
+            <MenuFlyoutSeparator />
+            <MenuFlyoutItem IsEnabled="False" Text="{x:Bind ViewModel.Drive2Label, Mode=OneWay}" />
+            <MenuFlyoutItem Command="{x:Bind ViewModel.InsertDrive2Command}" Text="Insert disk in drive 2…" />
+            <MenuFlyoutItem Command="{x:Bind ViewModel.EjectDrive2Command}" Text="Eject drive 2" />
+          </MenuFlyout>
+        </DropDownButton.Flyout>
+      </DropDownButton>
       <!-- SPEC §7.1: the save-state timeline; F5 saves, F8 loads the newest (docs/design/input.md §8). -->
       <Button Grid.Column="5" AccessKey="S" Content="Save states">
         <Button.Flyout>
