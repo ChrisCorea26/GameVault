@@ -245,7 +245,7 @@ public sealed class N64RspTests
 
         rsp.Dmem.AsSpan(0x100, 16).ToArray().Should().Equal(0, 1, 2, 3, 4, 5, 6, 7, 16, 17, 18, 19, 20, 21, 22, 23);
         rsp.ReadRegister(N64Rsp.SpDmaSpAddr).Should().Be(0x110);
-        rsp.ReadRegister(N64Rsp.SpDmaRamAddr).Should().Be(0x1020);
+        rsp.ReadRegister(N64Rsp.SpDmaRamAddr).Should().Be(0x1018); // no skip after the last row
         (rsp.ReadRegister(N64Rsp.SpDmaRdLen) & 0xFFFFF).Should().Be(0xFF8);
     }
 

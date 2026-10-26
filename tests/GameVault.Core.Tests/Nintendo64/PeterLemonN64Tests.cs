@@ -96,6 +96,12 @@ public sealed class PeterLemonN64Tests
     [InlineData("CPUTest/DMAAlignment-PI-cart/DMAAlignment-PI-ROM-FROM_large_6.N64", 17)]
     public void Pi_dma_programs_pass(string program, int checks) => AssertAllPass(program, checks, 640);
 
+    /// <summary>SP DMA between RDRAM and DMEM with unaligned addresses, odd lengths, counts and skips, and the registers after.</summary>
+    [N64TestRomTheory]
+    [InlineData("RSPTest/DMAAlignment-SP/DMAAlignment-SP-FROM.N64", 24)]
+    [InlineData("RSPTest/DMAAlignment-SP/DMAAlignment-SP-TO.N64", 24)]
+    public void Sp_dma_programs_pass(string program, int checks) => AssertAllPass(program, checks, 640);
+
     [N64TestRomTheory]
     [InlineData("CPUTest/CP1/ABS/CP1ABS.N64", 14)]
     [InlineData("CPUTest/CP1/ADD/CP1ADD.N64", 14)]

@@ -60,9 +60,15 @@ public sealed partial class N64Rsp : IStateful
     private uint _status = StatusHalt;
     private bool _semaphore;
 
-    // The DMA registers as last written (and as left by the last transfer).
+    // The DMA registers as the CPU reads them: where the last transfer ended.
     private uint _dmaSpAddr;
     private uint _dmaRamAddr;
+
+    // The addresses as last written. A transfer starts from these, so writing an address doesn't change what reads back
+    // until the next transfer, and a second length write repeats the transfer from the same addresses (PeterLemon's
+    // RSPTest DMAAlignment-SP programs record both on hardware).
+    private uint _dmaSpAddrWritten;
+    private uint _dmaRamAddrWritten;
     private uint _dmaRdLen;
     private uint _dmaWrLen;
 
@@ -103,7 +109,7 @@ public sealed partial class N64Rsp : IStateful
         _nextPc = 4;
         _status = StatusHalt;
         _semaphore = false;
-        _dmaSpAddr = _dmaRamAddr = _dmaRdLen = _dmaWrLen = 0;
+        _dmaSpAddr = _dmaRamAddr = _dmaSpAddrWritten = _dmaRamAddrWritten = _dmaRdLen = _dmaWrLen = 0;
         Cycles = 0;
     }
 
@@ -149,10 +155,10 @@ public sealed partial class N64Rsp : IStateful
         switch (address)
         {
             case SpDmaSpAddr:
-                _dmaSpAddr = value & 0x1FF8;
+                _dmaSpAddrWritten = value & 0x1FF8;
                 break;
             case SpDmaRamAddr:
-                _dmaRamAddr = value & 0xFFFFF8;
+                _dmaRamAddrWritten = value & 0xFFFFF8;
                 break;
             case SpDmaRdLen:
                 _dmaRdLen = value;
@@ -233,9 +239,9 @@ public sealed partial class N64Rsp : IStateful
         var length = (int)((lengthRegister & 0xFFF) | 7) + 1;
         var count = (int)((lengthRegister >> 12) & 0xFF) + 1;
         var skip = (int)((lengthRegister >> 20) & 0xFF8);
-        var memory = (_dmaSpAddr & 0x1000) != 0 ? Imem : Dmem;
-        var spAddress = (int)(_dmaSpAddr & 0xFF8);
-        var ramAddress = (int)(_dmaRamAddr & 0xFFFFF8);
+        var memory = (_dmaSpAddrWritten & 0x1000) != 0 ? Imem : Dmem;
+        var spAddress = (int)(_dmaSpAddrWritten & 0xFF8);
+        var ramAddress = (int)(_dmaRamAddrWritten & 0xFFFFF8);
         var rdram = _host.Rdram;
 
         for (var row = 0; row < count; row++)
@@ -258,10 +264,11 @@ public sealed partial class N64Rsp : IStateful
             }
 
             spAddress = (spAddress + length) & 0xFFF;
-            ramAddress = (ramAddress + length + skip) & 0xFFFFF8;
+            // The skip applies between rows only: the address reads back as the end of the last row.
+            ramAddress = (ramAddress + length + (row + 1 < count ? skip : 0)) & 0xFFFFF8;
         }
 
-        _dmaSpAddr = (_dmaSpAddr & 0x1000) | (uint)spAddress;
+        _dmaSpAddr = (_dmaSpAddrWritten & 0x1000) | (uint)spAddress;
         _dmaRamAddr = (uint)ramAddress;
         var final = (lengthRegister & 0xFF800000) | 0xFF8;
         if (toRdram)
@@ -459,6 +466,8 @@ public sealed partial class N64Rsp : IStateful
         writer.WriteBool(_semaphore);
         writer.WriteUInt32(_dmaSpAddr);
         writer.WriteUInt32(_dmaRamAddr);
+        writer.WriteUInt32(_dmaSpAddrWritten);
+        writer.WriteUInt32(_dmaRamAddrWritten);
         writer.WriteUInt32(_dmaRdLen);
         writer.WriteUInt32(_dmaWrLen);
         writer.WriteInt64(Cycles);
@@ -482,6 +491,8 @@ public sealed partial class N64Rsp : IStateful
         _semaphore = reader.ReadBool();
         _dmaSpAddr = reader.ReadUInt32();
         _dmaRamAddr = reader.ReadUInt32();
+        _dmaSpAddrWritten = reader.ReadUInt32();
+        _dmaRamAddrWritten = reader.ReadUInt32();
         _dmaRdLen = reader.ReadUInt32();
         _dmaWrLen = reader.ReadUInt32();
         Cycles = reader.ReadInt64();
