@@ -19,7 +19,7 @@ public sealed class Ps2GsOutputTests
     private static Ps2Gs NtscInterlaced(int psm = Ps2Gs.PsmCt32, int magh = 3)
     {
         var gs = new Ps2Gs();
-        gs.WritePrivileged(Ps2Gs.PrivSmode2, 3); // interlaced, frame mode
+        gs.WritePrivileged(Ps2Gs.PrivSmode2, 1); // interlaced, field mode
         gs.WritePrivileged(Ps2Gs.PrivPmode, 1 | (1 << 5) | (0xFF << 8)); // circuit 1, ALP 0xFF
         gs.WritePrivileged(Ps2Gs.PrivDispFb1, DispFb(0, 10, psm));
         gs.WritePrivileged(Ps2Gs.PrivDisplay1, Display(636, 50, magh, 0, 2559, 447));
@@ -27,7 +27,7 @@ public sealed class Ps2GsOutputTests
     }
 
     [Fact]
-    public void A_typical_ntsc_frame_mode_display_is_640_by_448()
+    public void A_typical_ntsc_field_mode_display_is_640_by_448()
     {
         var gs = NtscInterlaced();
         gs.WritePixel(Ps2Gs.PsmCt32, 0, 10, 0, 0, 0x80_8008F8);
@@ -100,10 +100,10 @@ public sealed class Ps2GsOutputTests
     }
 
     [Fact]
-    public void Field_mode_reads_each_buffer_line_for_two_picture_lines()
+    public void Frame_mode_reads_each_buffer_line_for_two_picture_lines()
     {
         var gs = NtscInterlaced();
-        gs.WritePrivileged(Ps2Gs.PrivSmode2, 1); // interlaced, field mode
+        gs.WritePrivileged(Ps2Gs.PrivSmode2, 3); // interlaced, frame mode
         gs.WritePixel(Ps2Gs.PsmCt32, 0, 10, 4, 1, 0x80_0000F8);
         gs.RenderFrame(_frame, out var width, out var height);
         height.Should().Be(448);
@@ -120,7 +120,7 @@ public sealed class Ps2GsOutputTests
         f.W(Ps2Gs.RegScissor1, GsRegs.Scissor(0, 639, 0, 447));
         f.Sprite(0, 0, 640, 448, 0x20, 0x40, 0x60);
         f.Sprite(100, 100, 110, 110, 0xF8, 0xF8, 0xF8);
-        f.Gs.WritePrivileged(Ps2Gs.PrivSmode2, 3);
+        f.Gs.WritePrivileged(Ps2Gs.PrivSmode2, 1); // interlaced, field mode
         f.Gs.WritePrivileged(Ps2Gs.PrivPmode, 1 | (1 << 5) | (0xFF << 8));
         f.Gs.WritePrivileged(Ps2Gs.PrivDispFb1, DispFb(0, 10, Ps2Gs.PsmCt32));
         f.Gs.WritePrivileged(Ps2Gs.PrivDisplay1, Display(636, 50, 3, 0, 2559, 447));

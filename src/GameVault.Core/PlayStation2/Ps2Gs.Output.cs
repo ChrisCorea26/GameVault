@@ -8,13 +8,14 @@ namespace GameVault.Core.PlayStation2;
 /// The picture is the display area in framebuffer pixels: width = (DW + 1) / (MAGH + 1) and height =
 /// (DH + 1) / (MAGV + 1), taken from the widest and tallest enabled circuit and capped at
 /// <see cref="MaxFrameWidth"/> × <see cref="MaxFrameHeight"/> (wider pictures are sampled down). A typical NTSC
-/// interlaced frame-mode game (DW 2559, MAGH 3, DH 447) gives 640×448, MAGH 4 gives 512×448, and PAL's DH 511 gives
+/// interlaced game (DW 2559, MAGH 3, DH 447) gives 640×448, MAGH 4 gives 512×448, and PAL's DH 511 gives
 /// 640×512. Each circuit is placed at its DX/DY offset from the leftmost/topmost enabled circuit, in the same units.
 /// </para>
 /// <para>
-/// In interlaced field mode (SMODE2.INT = 1, FFMD = 0) each field reads every line of the buffer, so half as many
-/// buffer lines fill the picture and each is shown twice; frame mode and progressive output read one buffer line per
-/// picture line. The merge uses ALP (PMODE.MMOD = 1) or circuit 1's pixel alpha, where $80 means fully circuit 1
+/// In interlaced frame mode (SMODE2.INT = 1, FFMD = 1) each field reads every line of the buffer, so half as many
+/// buffer lines fill the picture and each is shown twice; field mode (each field reads every other line, the two
+/// fields together the whole buffer) and progressive output read one buffer line per picture line (as Play!'s
+/// GSHandler::GetDisplayRect and PCSX2's GS halve the display height only in interlaced frame mode). The merge uses ALP (PMODE.MMOD = 1) or circuit 1's pixel alpha, where $80 means fully circuit 1
 /// (16-bit pixels: the alpha bit; 24-bit pixels: $80). Output is BGR555 with red in the low bits, indexing the
 /// shared 32,768-colour palette.
 /// </para>
@@ -82,7 +83,7 @@ public sealed partial class Ps2Gs
         var sourceWidth = Math.Max(w, 1);
         width = Math.Clamp(w, 1, MaxFrameWidth);
         height = Math.Clamp(h, 1, MaxFrameHeight);
-        var fieldMode = (_smode2 & 3) == 1;
+        var fieldMode = (_smode2 & 3) == 3; // interlaced frame mode: each buffer line shows twice
 
         var mmod = (_pmode & (1 << 5)) != 0;
         var slbg = (_pmode & (1 << 7)) != 0;

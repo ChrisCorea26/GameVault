@@ -165,14 +165,21 @@ int main(void)
      * 0.5 on the right (S, T pre-multiplied by Q), DECAL, nearest. */
     q = ad_tag(q, 1);
     gif_ad(q++, GS_TEX0_1, GS_TEX0_V(TBP_CHECKER, 1, PSMCT32, 6, 6, 1, TFX_DECAL, 0, 0, 0, 0, 0));
-    gif_tag(q++, 4, 0, 1, PRIM_TRISTRIP | PRIM_TME, GIF_FLG_PACKED, 2, (GIF_REG_XYZ2 << 4) | GIF_REG_ST, 0);
+    /* In PACKED mode the STQ descriptor's Q only reaches the GS with the next RGBAQ descriptor (ps2tek: "GIF Data
+     * Formats"), so each vertex sends STQ, RGBAQ, XYZ2. */
+    gif_tag(q++, 4, 0, 1, PRIM_TRISTRIP | PRIM_TME, GIF_FLG_PACKED, 3,
+            (GIF_REG_XYZ2 << 8) | (GIF_REG_RGBAQ << 4) | GIF_REG_ST, 0);
     gif_stq(q++, F_0_0, F_0_0, F_1_0);
+    gif_rgba(q++, 128, 128, 128, 0x80);
     gif_xyz2(q++, VX(352), VY(192), 0);
     gif_stq(q++, F_0_5, F_0_0, F_0_5);
+    gif_rgba(q++, 128, 128, 128, 0x80);
     gif_xyz2(q++, VX(608), VY(192), 0);
     gif_stq(q++, F_0_0, F_1_0, F_1_0);
+    gif_rgba(q++, 128, 128, 128, 0x80);
     gif_xyz2(q++, VX(352), VY(320), 0);
     gif_stq(q++, F_0_5, F_0_5, F_0_5);
+    gif_rgba(q++, 128, 128, 128, 0x80);
     gif_xyz2(q++, VX(608), VY(320), 0);
 
     /* D7: translucent red sprite (255,0,0, A=0x40) over D1, the background and D2: (128,96)-(256,176),
