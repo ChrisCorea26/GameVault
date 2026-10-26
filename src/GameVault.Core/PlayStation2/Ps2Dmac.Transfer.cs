@@ -67,7 +67,8 @@ public sealed partial class Ps2Dmac
 
     private bool ToMemory(int ch) => ch switch
     {
-        Vif1Channel or Sif2Channel => (_chcr[ch] & ChcrDir) == 0,
+        // DIR matters only to VIF1 and SIF2, and only in normal mode: chains always read memory (as Play! does).
+        Vif1Channel or Sif2Channel => (_chcr[ch] & ChcrDir) == 0 && Mode(ch) == 0,
         IpuFromChannel or Sif0Channel or SprFromChannel => true,
         _ => false,
     };
