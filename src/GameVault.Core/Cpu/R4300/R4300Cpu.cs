@@ -1,5 +1,6 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using GameVault.Core.State;
 
 namespace GameVault.Core.Cpu.R4300;
@@ -104,6 +105,9 @@ public sealed partial class R4300Cpu : IStateful
 
     private bool _llBit;
 
+    /// <summary>Where the current <see cref="Run"/> slice ends; an idle loop skips ahead to it.</summary>
+    private long _sliceEnd;
+
     public R4300Cpu(IR4300Bus bus)
     {
         _bus = bus;
@@ -206,6 +210,7 @@ public sealed partial class R4300Cpu : IStateful
             }
 
             var stop = Math.Min(untilCycle, _compareCycle);
+            _sliceEnd = stop;
             while (Cycles < stop)
             {
                 Step();
@@ -228,7 +233,7 @@ public sealed partial class R4300Cpu : IStateful
             var physical = (uint)address & 0x1FFF_FFFF;
             if (physical < (uint)_rdram.Length)
             {
-                instruction = BinaryPrimitives.ReadUInt32BigEndian(_rdram.AsSpan((int)physical));
+                instruction = ReadRdram32(physical);
                 return true;
             }
 
@@ -238,6 +243,15 @@ public sealed partial class R4300Cpu : IStateful
 
         return FetchSlow(address, out instruction);
     }
+
+    /// <summary>A big-endian word of RDRAM. The address is 4-byte aligned and inside RDRAM, whose size is a multiple of 4.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private uint ReadRdram32(uint physical) =>
+        BinaryPrimitives.ReverseEndianness(Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_rdram), (nint)physical)));
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void WriteRdram32(uint physical, uint value) =>
+        Unsafe.WriteUnaligned(ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_rdram), (nint)physical), BinaryPrimitives.ReverseEndianness(value));
 
     private bool FetchSlow(ulong address, out uint instruction)
     {
@@ -432,9 +446,7 @@ public sealed partial class R4300Cpu : IStateful
             return false;
         }
 
-        value = physical < (uint)_rdram.Length
-            ? BinaryPrimitives.ReadUInt32BigEndian(_rdram.AsSpan((int)physical))
-            : _bus.Read32(physical);
+        value = physical < (uint)_rdram.Length ? ReadRdram32(physical) : _bus.Read32(physical);
         return true;
     }
 
@@ -517,7 +529,7 @@ public sealed partial class R4300Cpu : IStateful
 
         if (physical < (uint)_rdram.Length)
         {
-            BinaryPrimitives.WriteUInt32BigEndian(_rdram.AsSpan((int)physical), value);
+            WriteRdram32(physical, value);
         }
         else
         {

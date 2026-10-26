@@ -983,6 +983,29 @@ public sealed partial class R4300Cpu
         if (taken)
         {
             _nextPc = target;
+            if (target == _currentPc)
+            {
+                SkipIdleLoop();
+            }
+        }
+    }
+
+    /// <summary>
+    /// A branch to itself with a NOP in its delay slot (libultra's idle thread, homebrew's final loops) only waits for
+    /// an interrupt, which can only arrive at the next event: the CPU skips to the end of its slice. The cycles still
+    /// pass, so Count and everything timed by them are as if the loop had run.
+    /// </summary>
+    private void SkipIdleLoop()
+    {
+        if ((_pc & 0xFFFF_FFFF_C000_0003) != 0xFFFF_FFFF_8000_0000)
+        {
+            return; // only loops in unmapped RDRAM, so peeking at the delay slot can't fault
+        }
+
+        var physical = (uint)_pc & 0x1FFF_FFFF;
+        if (physical < (uint)_rdram.Length && ReadRdram32(physical) == 0 && _sliceEnd - 2 > Cycles)
+        {
+            Cycles = _sliceEnd - 2;
         }
     }
 
