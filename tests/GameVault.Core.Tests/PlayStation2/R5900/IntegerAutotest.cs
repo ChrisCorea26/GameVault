@@ -21,7 +21,7 @@ internal sealed partial class IntegerAutotest
     private const int RsVar = 9;
     private const int RtVar = 10;
 
-    private static readonly Dictionary<string, UInt128> Constants = new()
+    internal static readonly Dictionary<string, UInt128> Constants = new()
     {
         ["C_ZERO"] = Q(0, 0, 0, 0),
         ["C_S16_MAX"] = Q(0x7FFF, 0, 0, 0),

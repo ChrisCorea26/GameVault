@@ -44,11 +44,11 @@ public sealed partial class R5900Cpu
                 ExecuteRegimm(op, rs, rt);
                 break;
             case 0x02: // J
-                Branch(true, (_pc & 0xF000_0000) | ((op & 0x03FF_FFFF) << 2));
+                Branch(true, ((_currentPc + 4) & 0xF000_0000) | ((op & 0x03FF_FFFF) << 2));
                 break;
             case 0x03: // JAL
                 Gpr(31) = SignExtend32(_currentPc + 8);
-                Branch(true, (_pc & 0xF000_0000) | ((op & 0x03FF_FFFF) << 2));
+                Branch(true, ((_currentPc + 4) & 0xF000_0000) | ((op & 0x03FF_FFFF) << 2));
                 break;
             case 0x04: // BEQ
                 Branch(Gpr(rs) == Gpr(rt), BranchTarget(op));
@@ -801,7 +801,7 @@ public sealed partial class R5900Cpu
     // ---- Branches ----
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private uint BranchTarget(uint op) => _pc + ((uint)(int)(short)op << 2);
+    private uint BranchTarget(uint op) => _currentPc + 4 + ((uint)(int)(short)op << 2);
 
     /// <summary>A branch or jump: the next instruction is its delay slot; then <paramref name="target"/> if taken.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
