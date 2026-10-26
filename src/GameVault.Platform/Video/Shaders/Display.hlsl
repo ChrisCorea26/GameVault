@@ -7,14 +7,14 @@ cbuffer Params : register(b0)
     float SourceTop;     // first visible NES line
     float SourceHeight;  // visible NES lines
     int Mode;
-    float3 Padding;
+    float2 FrameSize;    // the frame texture's size (256x240 for the NES)
+    float Padding;
 };
 
 Texture2D Frame : register(t0);
 SamplerState PointSampler : register(s0);
 SamplerState LinearSampler : register(s1);
 
-static const float2 FrameSize = float2(256.0, 240.0);
 
 struct VsOut
 {

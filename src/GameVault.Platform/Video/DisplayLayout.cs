@@ -19,14 +19,27 @@ public static class DisplayLayout
     /// <summary>NES pixels on a TV were a little wider than tall: 8:7 (NESdev Wiki: "Overscan", PAR).</summary>
     public const double TvPixelAspect = 8.0 / 7.0;
 
-    public static DisplayRect Compute(int outputWidth, int outputHeight, DisplayPreset preset, bool cropOverscan, bool tvPixelShape)
+    /// <param name="frameWidth">The frame's width (256 except for systems like the Apple II).</param>
+    /// <param name="frameHeight">The frame's height; overscan cropping and the TV pixel shape only apply to 256×240 frames.</param>
+    /// <param name="framePixelAspect">Other frames' own pixel shape (width over height).</param>
+    public static DisplayRect Compute(
+        int outputWidth,
+        int outputHeight,
+        DisplayPreset preset,
+        bool cropOverscan,
+        bool tvPixelShape,
+        int frameWidth = FrameWidth,
+        int frameHeight = FrameHeight,
+        double framePixelAspect = 1.0)
     {
         outputWidth = Math.Max(1, outputWidth);
         outputHeight = Math.Max(1, outputHeight);
-        var sourceTop = cropOverscan ? OverscanLines : 0;
-        var sourceHeight = FrameHeight - 2 * sourceTop;
-        var pixelAspect = tvPixelShape ? TvPixelAspect : 1.0;
-        var naturalWidth = FrameWidth * pixelAspect;
+        var standard = frameWidth == FrameWidth && frameHeight == FrameHeight;
+        var sourceTop = standard && cropOverscan ? OverscanLines : 0;
+        var sourceHeight = frameHeight - 2 * sourceTop;
+        var pixelAspect = standard ? (tvPixelShape ? TvPixelAspect : 1.0) : framePixelAspect;
+        var square = Math.Abs(pixelAspect - 1.0) < 0.001;
+        var naturalWidth = frameWidth * pixelAspect;
 
         double width, height;
         if (preset == DisplayPreset.SharpPixels)
@@ -34,7 +47,7 @@ public static class DisplayLayout
             // Vertical scale is a whole number; horizontal follows the pixel shape (whole too when square).
             var scale = Math.Max(1, (int)Math.Min(outputWidth / naturalWidth, (double)outputHeight / sourceHeight));
             height = sourceHeight * scale;
-            width = tvPixelShape ? Math.Round(naturalWidth * scale) : FrameWidth * scale;
+            width = square ? frameWidth * scale : Math.Round(naturalWidth * scale);
         }
         else
         {

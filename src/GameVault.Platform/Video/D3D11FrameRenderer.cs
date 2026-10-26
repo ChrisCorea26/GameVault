@@ -16,8 +16,10 @@ namespace GameVault.Platform.Video;
 /// </summary>
 public sealed class D3D11FrameRenderer : IDisposable
 {
-    private const int FrameWidth = DisplayLayout.FrameWidth;
-    private const int FrameHeight = DisplayLayout.FrameHeight;
+    // The frame texture's current size: 256×240 until a system with another size presents a frame.
+    private int _frameWidth = DisplayLayout.FrameWidth;
+    private int _frameHeight = DisplayLayout.FrameHeight;
+    private double _framePixelAspect = 1.0;
 
     private readonly ID3D11Device _device;
     private readonly ID3D11DeviceContext _context;
@@ -27,9 +29,9 @@ public sealed class D3D11FrameRenderer : IDisposable
     private readonly ID3D11SamplerState _pointSampler;
     private readonly ID3D11SamplerState _linearSampler;
     private readonly ID3D11Buffer _constants;
-    private readonly ID3D11Texture2D _frameTexture;
-    private readonly ID3D11ShaderResourceView _frameView;
-    private readonly uint[] _pixels = new uint[FrameWidth * FrameHeight];
+    private ID3D11Texture2D _frameTexture;
+    private ID3D11ShaderResourceView _frameView;
+    private readonly uint[] _pixels = new uint[IVideoSink.MaxWidth * IVideoSink.MaxHeight];
     private ID3D11RenderTargetView? _target;
     private int _width;
     private int _height;
@@ -89,7 +91,7 @@ public sealed class D3D11FrameRenderer : IDisposable
             (uint)Marshal.SizeOf<Constants>(), BindFlags.ConstantBuffer, ResourceUsage.Dynamic, CpuAccessFlags.Write));
 
         _frameTexture = _device.CreateTexture2D(new Texture2DDescription(
-            Format.B8G8R8A8_UNorm, FrameWidth, FrameHeight, 1, 1, BindFlags.ShaderResource, ResourceUsage.Dynamic, CpuAccessFlags.Write));
+            Format.B8G8R8A8_UNorm, (uint)_frameWidth, (uint)_frameHeight, 1, 1, BindFlags.ShaderResource, ResourceUsage.Dynamic, CpuAccessFlags.Write));
         _frameView = _device.CreateShaderResourceView(_frameTexture);
 
         CreateTarget();
@@ -129,10 +131,30 @@ public sealed class D3D11FrameRenderer : IDisposable
         CreateTarget();
     }
 
-    /// <summary>Uploads a new frame (palette indices plus emphasis) converted through <paramref name="palette"/>.</summary>
-    public void UploadFrame(ReadOnlySpan<ushort> frame, ReadOnlySpan<uint> palette)
+    /// <summary>Uploads a new 256×240 frame (palette indices plus emphasis) converted through <paramref name="palette"/>.</summary>
+    public void UploadFrame(ReadOnlySpan<ushort> frame, ReadOnlySpan<uint> palette) =>
+        UploadFrame(frame, palette, DisplayLayout.FrameWidth, DisplayLayout.FrameHeight, 1.0);
+
+    /// <summary>Uploads a frame of any system's size; the texture follows the frame's size.</summary>
+    public void UploadFrame(VideoFrame frame, ReadOnlySpan<uint> palette) =>
+        UploadFrame(frame.Span, palette, frame.Width, frame.Height, frame.PixelAspect);
+
+    private void UploadFrame(ReadOnlySpan<ushort> frame, ReadOnlySpan<uint> palette, int width, int height, double pixelAspect)
     {
-        for (var i = 0; i < _pixels.Length; i++)
+        if (width != _frameWidth || height != _frameHeight)
+        {
+            _frameView.Dispose();
+            _frameTexture.Dispose();
+            _frameWidth = width;
+            _frameHeight = height;
+            _frameTexture = _device.CreateTexture2D(new Texture2DDescription(
+                Format.B8G8R8A8_UNorm, (uint)width, (uint)height, 1, 1, BindFlags.ShaderResource, ResourceUsage.Dynamic, CpuAccessFlags.Write));
+            _frameView = _device.CreateShaderResourceView(_frameTexture);
+        }
+
+        _framePixelAspect = pixelAspect;
+        var count = width * height;
+        for (var i = 0; i < count; i++)
         {
             _pixels[i] = palette[frame[i] & 0x1FF];
         }
@@ -140,13 +162,13 @@ public sealed class D3D11FrameRenderer : IDisposable
         var mapped = _context.Map(_frameTexture, 0, MapMode.WriteDiscard);
         try
         {
-            var source = MemoryMarshal.AsBytes(_pixels.AsSpan());
-            for (var y = 0; y < FrameHeight; y++)
+            var source = MemoryMarshal.AsBytes(_pixels.AsSpan(0, count));
+            for (var y = 0; y < height; y++)
             {
-                var row = source.Slice(y * FrameWidth * 4, FrameWidth * 4);
+                var row = source.Slice(y * width * 4, width * 4);
                 unsafe
                 {
-                    row.CopyTo(new Span<byte>((byte*)mapped.DataPointer + y * mapped.RowPitch, FrameWidth * 4));
+                    row.CopyTo(new Span<byte>((byte*)mapped.DataPointer + y * mapped.RowPitch, width * 4));
                 }
             }
         }
@@ -165,7 +187,7 @@ public sealed class D3D11FrameRenderer : IDisposable
 
     private void Draw(DisplayPreset preset, bool cropOverscan, bool tvPixelShape)
     {
-        var rect = DisplayLayout.Compute(_width, _height, preset, cropOverscan, tvPixelShape);
+        var rect = DisplayLayout.Compute(_width, _height, preset, cropOverscan, tvPixelShape, _frameWidth, _frameHeight, _framePixelAspect);
 
         var constants = new Constants
         {
@@ -174,6 +196,8 @@ public sealed class D3D11FrameRenderer : IDisposable
             SourceTop = rect.SourceTop,
             SourceHeight = rect.SourceHeight,
             Mode = (int)preset,
+            FrameWidth = _frameWidth,
+            FrameHeight = _frameHeight,
         };
         var mapped = _context.Map(_constants, 0, MapMode.WriteDiscard);
         Marshal.StructureToPtr(constants, mapped.DataPointer, false);
@@ -256,8 +280,8 @@ public sealed class D3D11FrameRenderer : IDisposable
         public float SourceTop;
         public float SourceHeight;
         public int Mode;
-        public float Padding0;
-        public float Padding1;
-        public float Padding2;
+        public float FrameWidth;
+        public float FrameHeight;
+        public float Padding;
     }
 }

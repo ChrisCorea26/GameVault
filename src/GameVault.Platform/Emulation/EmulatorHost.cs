@@ -144,7 +144,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         _batteries = paths is null ? null : new BatterySaveStore(paths);
         _diskSaves = paths is null ? null : new BatterySaveStore(paths, ".fdssave");
         _context = SynchronizationContext.Current;
-        _present = console => _video.Present(console.FrameBuffer, PaletteFor(console));
+        _present = console => _video.Present(console.FrameBuffer, PaletteFor(console), console.ScreenWidth, console.ScreenHeight, console.PixelAspect);
     }
 
     public EmulatorStatus Status { get; private set; }
@@ -645,12 +645,14 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     /// <summary>Emulation thread: reports what the memory-map watcher saw this frame.</summary>
     private void HandleWatch(IEmulatedConsole console, WatchResult watch)
     {
+        var palette = ScreenshotPalette(console);
+        var (width, height) = (console.ScreenWidth, console.ScreenHeight);
         if (watch.BeforeDeathState is { } state && watch.BeforeDeathFrame is { } screen)
         {
             var hash = console.RomHash;
             _ = Task.Run(() =>
             {
-                var capture = new StateCapture(hash, state, PngEncoder.Thumbnail(screen, NtscPalette.Argb));
+                var capture = new StateCapture(hash, state, PngEncoder.Thumbnail(screen, palette, width, height));
                 Raise(() => LifeLost?.Invoke(this, capture));
             });
         }
@@ -662,7 +664,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             _ = Task.Run(() =>
             {
                 var args = new RoomEnteredEventArgs(
-                    key, room.Area, room.Room, PngEncoder.Downscale(frame, NtscPalette.Argb, MapStore.TileWidth, MapStore.TileHeight));
+                    key, room.Area, room.Room, PngEncoder.Downscale(frame, palette, MapStore.TileWidth, MapStore.TileHeight, width, height));
                 Raise(() => RoomEntered?.Invoke(this, args));
             });
         }
@@ -1037,7 +1039,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     /// </summary>
     public async Task<StateCapture?> CaptureAsync()
     {
-        var captured = await InspectAsync(console => (console.RomHash, console.SaveSnapshot(), console.FrameBuffer.ToArray(), ScreenshotPalette(console)))
+        var captured = await InspectAsync(console => (
+                console.RomHash, console.SaveSnapshot(), console.FrameBuffer.ToArray(), ScreenshotPalette(console), console.ScreenWidth, console.ScreenHeight))
             .ConfigureAwait(false);
         if (captured.Item2 is null)
         {
@@ -1045,15 +1048,16 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
 
         // PNG encoding happens off the emulation thread.
-        var thumbnail = PngEncoder.Thumbnail(captured.Item3, captured.Item4);
+        var thumbnail = PngEncoder.Thumbnail(captured.Item3, captured.Item4, captured.Item5, captured.Item6);
         return new StateCapture(captured.RomHash, captured.Item2, thumbnail);
     }
 
     /// <summary>The current screen as a full-size PNG (screenshots, manual password capture).</summary>
     public async Task<byte[]?> CaptureScreenshotAsync()
     {
-        var frame = await InspectAsync(console => (Pixels: console.FrameBuffer.ToArray(), Palette: ScreenshotPalette(console))).ConfigureAwait(false);
-        return frame.Pixels is null ? null : PngEncoder.Encode(PngEncoder.ToArgb(frame.Pixels, frame.Palette), 256, 240);
+        var frame = await InspectAsync(console => (
+            Pixels: console.FrameBuffer.ToArray(), Palette: ScreenshotPalette(console), Width: console.ScreenWidth, Height: console.ScreenHeight)).ConfigureAwait(false);
+        return frame.Pixels is null ? null : PngEncoder.Encode(PngEncoder.ToArgb(frame.Pixels, frame.Palette), frame.Width, frame.Height);
     }
 
     /// <summary>Loads a save state between frames. Returns false if it doesn't fit the running game.</summary>

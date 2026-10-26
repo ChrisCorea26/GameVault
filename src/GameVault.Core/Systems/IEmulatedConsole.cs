@@ -20,16 +20,26 @@ public enum GameSystem
 /// </summary>
 public interface IEmulatedConsole : IStateful
 {
-    public const int ScreenWidth = 256;
-    public const int ScreenHeight = 240;
+    public const int StandardWidth = 256;
+    public const int StandardHeight = 240;
 
     GameSystem System { get; }
+
+    /// <summary>The frame's width: 256 for the NES and Sega consoles, 560 for the Apple II.</summary>
+    int ScreenWidth => StandardWidth;
+
+    /// <summary>The frame's height: 240 for the NES and Sega consoles, 384 for the Apple II.</summary>
+    int ScreenHeight => StandardHeight;
+
+    /// <summary>A pixel's width over its height on the original screen, for frames other than 256×240.</summary>
+    double PixelAspect => 1.0;
 
     /// <summary>Identifies the game a save state belongs to (not a security hash).</summary>
     ulong RomHash { get; }
 
     /// <summary>
-    /// The finished frame: 256×240 indices into <see cref="Palette"/>. Systems with a shorter picture
+    /// The finished frame: <see cref="ScreenWidth"/>×<see cref="ScreenHeight"/> indices into <see cref="Palette"/>
+    /// (256×240 for the NES and Sega consoles). Systems with a shorter picture
     /// centre it and fill the rest with the border colour, as a TV shows it.
     /// </summary>
     ReadOnlySpan<ushort> FrameBuffer { get; }

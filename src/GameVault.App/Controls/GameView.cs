@@ -313,8 +313,11 @@ public sealed partial class GameView : Control
         private readonly Thread _thread;
         private readonly CancellationTokenSource _stop = new();
         private readonly Lock _layoutGate = new();
-        private readonly uint[] _pixels = new uint[FrameWidth * FrameHeight];
-        private readonly byte[] _bytes = new byte[FrameWidth * FrameHeight * 4];
+        private readonly uint[] _pixels = new uint[IVideoSink.MaxWidth * IVideoSink.MaxHeight];
+        private byte[] _bytes = new byte[FrameWidth * FrameHeight * 4];
+        private int _frameWidth = FrameWidth;
+        private int _frameHeight = FrameHeight;
+        private double _pixelAspect = 1.0;
         private Size _size;
         private float _dpi;
         private readonly bool _sharp;
@@ -353,7 +356,8 @@ public sealed partial class GameView : Control
 
         private void Run()
         {
-            using var bitmap = CanvasBitmap.CreateFromBytes(
+            // Recreated when a system with another frame size starts (the Apple II's is 560×384).
+            var bitmap = CanvasBitmap.CreateFromBytes(
                 _swapChain.Device, _bytes, FrameWidth, FrameHeight, DirectXPixelFormat.B8G8R8A8UIntNormalized);
             var handles = new[] { _stop.Token.WaitHandle, _frames.FrameReady };
 
@@ -381,16 +385,28 @@ public sealed partial class GameView : Control
                     crop = _crop;
                 }
 
-                if (_frames.TryGetFrame(out var frame))
+                if (_frames.TryGetVideoFrame(out var frame))
                 {
-                    var palette = _frames.Palette;
-                    for (var i = 0; i < _pixels.Length; i++)
+                    if (frame.Width != _frameWidth || frame.Height != _frameHeight)
                     {
-                        _pixels[i] = palette[frame[i] & 0x1FF];
+                        _frameWidth = frame.Width;
+                        _frameHeight = frame.Height;
+                        _bytes = new byte[_frameWidth * _frameHeight * 4];
+                        bitmap.Dispose();
+                        bitmap = CanvasBitmap.CreateFromBytes(
+                            _swapChain.Device, _bytes, _frameWidth, _frameHeight, DirectXPixelFormat.B8G8R8A8UIntNormalized);
+                    }
+
+                    _pixelAspect = frame.PixelAspect;
+                    var palette = _frames.Palette;
+                    var pixels = frame.Span;
+                    for (var i = 0; i < pixels.Length; i++)
+                    {
+                        _pixels[i] = palette[pixels[i] & 0x1FF];
                     }
 
                     // ARGB as little-endian uint is BGRA in memory, which is the bitmap's format.
-                    MemoryMarshal.AsBytes(_pixels.AsSpan()).CopyTo(_bytes);
+                    MemoryMarshal.AsBytes(_pixels.AsSpan(0, pixels.Length)).CopyTo(_bytes);
                     bitmap.SetPixelBytes(_bytes);
                 }
 
@@ -403,6 +419,8 @@ public sealed partial class GameView : Control
 
                 _swapChain.Present();
             }
+
+            bitmap.Dispose();
         }
 
         /// <summary>Placement from <see cref="DisplayLayout"/> in physical pixels, converted to DIPs.</summary>
@@ -414,8 +432,11 @@ public sealed partial class GameView : Control
                 (int)(size.Height * pixelsPerDip),
                 _sharp ? DisplayPreset.SharpPixels : DisplayPreset.Smooth,
                 crop,
-                tvPixelShape: false);
-            var source = new Rect(0, rect.SourceTop, FrameWidth, rect.SourceHeight);
+                tvPixelShape: false,
+                _frameWidth,
+                _frameHeight,
+                _pixelAspect);
+            var source = new Rect(0, rect.SourceTop, _frameWidth, rect.SourceHeight);
             var destination = new Rect(
                 rect.X / pixelsPerDip, rect.Y / pixelsPerDip, rect.Width / pixelsPerDip, rect.Height / pixelsPerDip);
             return (destination, source);
@@ -483,7 +504,7 @@ public sealed partial class GameView : Control
                     }
                 }
 
-                if (_frames.TryGetFrame(out var frame))
+                if (_frames.TryGetVideoFrame(out var frame))
                 {
                     _renderer.UploadFrame(frame, _frames.Palette);
                 }

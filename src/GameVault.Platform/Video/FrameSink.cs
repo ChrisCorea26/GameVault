@@ -8,7 +8,7 @@ namespace GameVault.Platform.Video;
 /// </summary>
 public sealed class FrameSink : IVideoSink
 {
-    private readonly TripleBuffer<ushort[]> _frames = new(() => new ushort[IVideoSink.Width * IVideoSink.Height]);
+    private readonly TripleBuffer<VideoFrame> _frames = new(() => new VideoFrame());
     private readonly AutoResetEvent _frameReady = new(false);
     private uint[] _palette = NtscPalette.Generate();
 
@@ -18,9 +18,13 @@ public sealed class FrameSink : IVideoSink
     /// <summary>The palette of the most recent frame, as ARGB (512 entries: 64 colors × 8 emphasis).</summary>
     public ReadOnlySpan<uint> Palette => _palette;
 
-    public void Present(ReadOnlySpan<ushort> indexedPixels, ReadOnlySpan<uint> paletteArgb)
+    public void Present(ReadOnlySpan<ushort> indexedPixels, ReadOnlySpan<uint> paletteArgb, int width = IVideoSink.Width, int height = IVideoSink.Height, double pixelAspect = 1.0)
     {
-        indexedPixels.CopyTo(_frames.BackBuffer);
+        var frame = _frames.BackBuffer;
+        frame.Width = width;
+        frame.Height = height;
+        frame.PixelAspect = pixelAspect;
+        indexedPixels[..(width * height)].CopyTo(frame.Pixels);
         if (!paletteArgb.IsEmpty && !paletteArgb.SequenceEqual(_palette))
         {
             _palette = paletteArgb.ToArray();
@@ -30,6 +34,14 @@ public sealed class FrameSink : IVideoSink
         _frameReady.Set();
     }
 
-    /// <summary>Renderer side: gets the newest frame, if a new one arrived since the last call.</summary>
-    public bool TryGetFrame(out ushort[] frame) => _frames.TryAcquire(out frame);
+    /// <summary>Renderer side: gets the newest frame, with its size, if a new one arrived since the last call.</summary>
+    public bool TryGetVideoFrame(out VideoFrame frame) => _frames.TryAcquire(out frame);
+
+    /// <summary>A copy of the newest frame's pixels, at the frame's size (tests and diagnostics; it allocates).</summary>
+    public bool TryGetFrame(out ushort[] frame)
+    {
+        var acquired = _frames.TryAcquire(out var video);
+        frame = video.Span.ToArray();
+        return acquired;
+    }
 }

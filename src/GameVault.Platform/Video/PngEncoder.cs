@@ -55,37 +55,25 @@ public static class PngEncoder
     }
 
     /// <summary>A small picture of a frame (nearest pixel), as ARGB pixels: the rooms of automatic maps.</summary>
-    public static uint[] Downscale(ReadOnlySpan<ushort> frame, ReadOnlySpan<uint> palette, int width, int height)
+    public static uint[] Downscale(
+        ReadOnlySpan<ushort> frame, ReadOnlySpan<uint> palette, int width, int height, int sourceWidth = 256, int sourceHeight = 240)
     {
         var argb = new uint[width * height];
         for (var y = 0; y < height; y++)
         {
-            var row = y * 240 / height * 256;
+            var row = y * sourceHeight / height * sourceWidth;
             for (var x = 0; x < width; x++)
             {
-                argb[y * width + x] = palette[frame[row + x * 256 / width] & 0x1FF];
+                argb[y * width + x] = palette[frame[row + x * sourceWidth / width] & 0x1FF];
             }
         }
 
         return argb;
     }
 
-    /// <summary>A half-size thumbnail (128×120) of a frame, for save-state slots.</summary>
-    public static byte[] Thumbnail(ReadOnlySpan<ushort> frame, ReadOnlySpan<uint> palette)
-    {
-        const int width = 128;
-        const int height = 120;
-        var argb = new uint[width * height];
-        for (var y = 0; y < height; y++)
-        {
-            for (var x = 0; x < width; x++)
-            {
-                argb[y * width + x] = palette[frame[(y * 2 * 256) + x * 2] & 0x1FF];
-            }
-        }
-
-        return Encode(argb, width, height);
-    }
+    /// <summary>A 128×120 thumbnail of a frame (half size for the NES's 256×240), for save-state slots.</summary>
+    public static byte[] Thumbnail(ReadOnlySpan<ushort> frame, ReadOnlySpan<uint> palette, int sourceWidth = 256, int sourceHeight = 240) =>
+        Encode(Downscale(frame, palette, 128, 120, sourceWidth, sourceHeight), 128, 120);
 
     private static void WriteChunk(Stream png, string type, byte[] data)
     {
