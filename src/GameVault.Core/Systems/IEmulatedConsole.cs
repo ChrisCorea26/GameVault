@@ -16,6 +16,7 @@ public enum GameSystem
     Snes,
     PlayStation,
     Nintendo64,
+    PlayStation2,
 }
 
 /// <summary>
