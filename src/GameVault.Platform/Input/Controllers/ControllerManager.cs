@@ -406,11 +406,31 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
 
     private static int SourceOf(int instanceId) => SourceOffset + instanceId;
 
-    /// <summary>Positional defaults (input.md §6): South = B, East = A, West/North = turbo B/A.</summary>
+    private static (ControllerState State, bool Turbo) SixButton(PadButton button) => button switch
+    {
+        PadButton.West => (ControllerState.B, false),
+        PadButton.South => (ControllerState.A, false),
+        PadButton.East => (ControllerState.C, false),
+        PadButton.LeftShoulder => (ControllerState.X, false),
+        PadButton.North => (ControllerState.Y, false),
+        PadButton.RightShoulder => (ControllerState.Z, false),
+        PadButton.Back => (ControllerState.Select, false),
+        PadButton.Start => (ControllerState.Start, false),
+        PadButton.DPadUp => (ControllerState.Up, false),
+        PadButton.DPadDown => (ControllerState.Down, false),
+        PadButton.DPadLeft => (ControllerState.Left, false),
+        PadButton.DPadRight => (ControllerState.Right, false),
+        _ => (ControllerState.None, false),
+    };
+
+    /// <summary>
+    /// Positional defaults (input.md §6): South = B, East = A, West/North = turbo B/A. Genesis games use the
+    /// 6-button layout instead (see <see cref="InputService.SixButtonLayout"/>; the pad's A is B here, its B is A).
+    /// </summary>
     private void ApplyToGame(int instanceId, int port, PadButton button, bool down)
     {
         var source = SourceOf(instanceId);
-        var (state, turbo) = button switch
+        var (state, turbo) = _input.SixButtonLayout ? SixButton(button) : button switch
         {
             PadButton.South => (ControllerState.B, false),
             PadButton.East => (ControllerState.A, false),

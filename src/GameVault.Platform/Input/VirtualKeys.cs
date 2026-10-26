@@ -13,6 +13,7 @@ public static class VirtualKeys
     public const int Right = 0x27;
     public const int Down = 0x28;
     public const int A = 0x41;
+    public const int C = 0x43;
     public const int D = 0x44;
     public const int E = 0x45;
     public const int F = 0x46;

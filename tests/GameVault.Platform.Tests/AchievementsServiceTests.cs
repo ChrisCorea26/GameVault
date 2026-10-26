@@ -59,10 +59,19 @@ public sealed class AchievementsServiceTests : IDisposable
             ["startsession"] = AchievementsClientTests.NoUnlocks,
             ["awardachievement"] = """{"Success":true,"Score":125,"SoftcoreScore":5,"AchievementID":5501,"AchievementsRemaining":1}""",
         };
-        using var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()));
+        // The host and service raise their events directly, not through xUnit's context (see NoSynchronizationContext).
+        EmulatorHost host;
+        AchievementsService service;
         using var client = new AchievementsClient(server);
-        using var service = new AchievementsService(
-            host, client, new AchievementsCredentials(Path.Combine(_root.FullName, "ra.json"), new XorProtector()), new InMemorySettingsStore());
+        using (NoSynchronizationContext.Enter())
+        {
+            host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()));
+            service = new AchievementsService(
+                host, client, new AchievementsCredentials(Path.Combine(_root.FullName, "ra.json"), new XorProtector()), new InMemorySettingsStore());
+        }
+
+        using var hostScope = host;
+        using var serviceScope = service;
         var unlocked = new TaskCompletionSource<AchievementsEvent>(TaskCreationOptions.RunContinuationsAsynchronously);
         service.Event += (_, e) =>
         {

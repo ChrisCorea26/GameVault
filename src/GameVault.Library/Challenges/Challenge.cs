@@ -57,7 +57,8 @@ public sealed record ChallengeFile
 /// </summary>
 public sealed record ChallengeResult
 {
-    public int Version { get; init; } = 1;
+    /// <summary>2 since Phase 13 (16-bit buttons in <see cref="Inputs"/>); version 1 results still load.</summary>
+    public int Version { get; init; } = InputRecording.CurrentVersion;
 
     public required string ChallengeId { get; init; }
 
@@ -89,18 +90,21 @@ public static class ChallengeFiles
             : throw new FormatException("This isn't a GameVault challenge, or it's from a newer version.");
 
     public static ChallengeResult LoadResult(string json) =>
-        JsonSerializer.Deserialize<ChallengeResult>(json, Json) is { Version: 1 } result
+        JsonSerializer.Deserialize<ChallengeResult>(json, Json) is { Version: 1 or InputRecording.CurrentVersion } result
             ? result
             : throw new FormatException("This isn't a GameVault challenge result, or it's from a newer version.");
 }
 
 /// <summary>
 /// Per-frame buttons for players 1 and 2, run-length encoded: repeated (count, player 1, player 2) triples,
-/// the count as a variable-length number. Held buttons make long runs, so an attempt stays small.
+/// the count as a variable-length number. Held buttons make long runs, so an attempt stays small. Version 1
+/// stored each player's buttons in a byte (the NES pad); version 2 stores 16 bits, little-endian.
 /// </summary>
 public static class InputRecording
 {
-    public static byte[] Encode(IReadOnlyList<(byte Player1, byte Player2)> frames)
+    public const int CurrentVersion = 2;
+
+    public static byte[] Encode(IReadOnlyList<(ushort Player1, ushort Player2)> frames)
     {
         using var stream = new MemoryStream();
         var i = 0;
@@ -123,17 +127,20 @@ public static class InputRecording
                 stream.WriteByte((byte)(n & 0x7F | 0x80));
             }
 
-            stream.WriteByte(frames[i].Player1);
-            stream.WriteByte(frames[i].Player2);
+            Span<byte> buttons = stackalloc byte[4];
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(buttons, frames[i].Player1);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt16LittleEndian(buttons[2..], frames[i].Player2);
+            stream.Write(buttons);
             i += run;
         }
 
         return stream.ToArray();
     }
 
-    public static List<(byte Player1, byte Player2)> Decode(ReadOnlySpan<byte> data)
+    public static List<(ushort Player1, ushort Player2)> Decode(ReadOnlySpan<byte> data, int version = CurrentVersion)
     {
-        var frames = new List<(byte, byte)>();
+        var width = version == 1 ? 1 : 2;
+        var frames = new List<(ushort, ushort)>();
         var at = 0;
         while (at < data.Length)
         {
@@ -153,17 +160,19 @@ public static class InputRecording
                 }
             }
 
-            if (at + 2 > data.Length || run == 0 || frames.Count + run > 10_000_000)
+            if (at + 2 * width > data.Length || run == 0 || frames.Count + run > 10_000_000)
             {
                 throw new FormatException("The recording is damaged.");
             }
 
+            var player1 = width == 1 ? data[at] : System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(data[at..]);
+            var player2 = width == 1 ? data[at + 1] : System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(data[(at + 2)..]);
             for (var n = 0; n < run; n++)
             {
-                frames.Add((data[at], data[at + 1]));
+                frames.Add((player1, player2));
             }
 
-            at += 2;
+            at += 2 * width;
         }
 
         return frames;

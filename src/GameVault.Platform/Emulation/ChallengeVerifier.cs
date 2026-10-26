@@ -29,10 +29,10 @@ public static class ChallengeVerifier
             return new ChallengeCheck(false, "This result was played on a different game or version.");
         }
 
-        List<(byte Player1, byte Player2)> inputs;
+        List<(ushort Player1, ushort Player2)> inputs;
         try
         {
-            inputs = InputRecording.Decode(Convert.FromBase64String(result.Inputs));
+            inputs = InputRecording.Decode(Convert.FromBase64String(result.Inputs), result.Version);
         }
         catch (FormatException)
         {

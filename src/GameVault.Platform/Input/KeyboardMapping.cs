@@ -16,7 +16,8 @@ public sealed class KeyboardMapping
 
     /// <summary>
     /// Player 1 on arrows, Z = B, X = A, Enter = Start, Right Shift = Select, and turbo next to them: A = turbo B,
-    /// S = turbo A (input.md §4.1). Player 2 has no default.
+    /// S = turbo A (input.md §4.1). Player 2 has no default. The Genesis pad's extra buttons: C = C, and Q, W, E
+    /// = X, Y, Z (so Z, X, C are the pad's A, B, C).
     /// </summary>
     public static KeyboardMapping CreateDefault()
     {
@@ -31,6 +32,10 @@ public sealed class KeyboardMapping
         mapping.Bind(VirtualKeys.RightShift, 0, ControllerState.Select);
         mapping.BindTurbo(VirtualKeys.A, 0, ControllerState.B);
         mapping.BindTurbo(VirtualKeys.S, 0, ControllerState.A);
+        mapping.Bind(VirtualKeys.C, 0, ControllerState.C);
+        mapping.Bind(VirtualKeys.Q, 0, ControllerState.X);
+        mapping.Bind(VirtualKeys.W, 0, ControllerState.Y);
+        mapping.Bind(VirtualKeys.E, 0, ControllerState.Z);
         return mapping;
     }
 

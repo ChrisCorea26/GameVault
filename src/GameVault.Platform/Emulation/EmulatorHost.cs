@@ -73,7 +73,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
     // Verified challenges (SPEC §7.9): the attempt in progress, set and cleared on the emulation thread.
     private ChallengeFile? _challenge;
-    private List<(byte Player1, byte Player2)> _challengeInputs = [];
+    private List<(ushort Player1, ushort Player2)> _challengeInputs = [];
     private volatile bool _challengeActive;
 
     // Game-aware features (SPEC §7.9): the memory-map watcher and its latest overlay values.
@@ -622,7 +622,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     /// <summary>Emulation thread: records this frame's buttons and checks the goal and the time limit.</summary>
     private void AfterChallengeFrame(IEmulatedConsole console, ChallengeFile challenge)
     {
-        _challengeInputs.Add(((byte)_lastInputs[0], (byte)_lastInputs[1]));
+        _challengeInputs.Add(((ushort)_lastInputs[0], (ushort)_lastInputs[1]));
         var frames = _challengeInputs.Count;
         if (challenge.GoalHolds(console.PeekMemory))
         {

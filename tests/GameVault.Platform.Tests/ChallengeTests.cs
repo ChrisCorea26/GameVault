@@ -102,12 +102,15 @@ public sealed class ChallengeTests : IDisposable
     [Fact]
     public void Recordings_compress_held_buttons()
     {
-        var frames = Enumerable.Repeat(((byte)0x80, (byte)0), 1000).Concat(Enumerable.Repeat(((byte)0, (byte)1), 300)).ToList();
+        var frames = Enumerable.Repeat(((ushort)0x80, (ushort)0), 1000).Concat(Enumerable.Repeat(((ushort)0x0900, (ushort)1), 300)).ToList();
 
         var encoded = InputRecording.Encode(frames);
 
-        encoded.Length.Should().BeLessThan(10);
-        InputRecording.Decode(encoded).Should().Equal(frames);
+        encoded.Length.Should().BeLessThan(14);
+        InputRecording.Decode(encoded).Should().Equal(frames, "16-bit buttons (the Genesis pad's C and Z here) survive");
+
+        // Version 1 recordings (one byte per player) still decode.
+        InputRecording.Decode([0x02, 0x80, 0x01], version: 1).Should().Equal([((ushort)0x80, (ushort)1), ((ushort)0x80, (ushort)1)]);
         var damaged = () => InputRecording.Decode([0x80]);
         damaged.Should().Throw<FormatException>();
         ChallengeVerifier.Time(3606).Should().Be("1:00.00");

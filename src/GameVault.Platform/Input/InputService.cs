@@ -107,6 +107,12 @@ public sealed class InputService
         }
     }
 
+    /// <summary>
+    /// True while a Genesis game runs (Phase 13): controllers use the 6-button layout, with the bottom row A, B, C
+    /// on West, South and East and the top row X, Y, Z on the left shoulder, North and the right shoulder.
+    /// </summary>
+    public bool SixButtonLayout { get; set; }
+
     /// <summary>True while any typing key is held (the Apple IIe reads it).</summary>
     public bool AnyTypingKeyHeld
     {
