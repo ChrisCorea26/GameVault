@@ -6,11 +6,18 @@ namespace GameVault.ViewModels;
 
 /// <summary>The Settings screen. Every change is saved immediately; there is no Apply button.</summary>
 public sealed partial class SettingsViewModel(
-    ISettingsStore settingsStore, InputSettingsViewModel input, LibrarySettingsViewModel library, FamilyViewModel? family = null)
+    ISettingsStore settingsStore,
+    InputSettingsViewModel input,
+    LibrarySettingsViewModel library,
+    FamilyViewModel? family = null,
+    RetroAchievementsSettingsViewModel? retroAchievements = null)
     : ObservableObject
 {
     /// <summary>Settings → Family: profiles, daily limits and the parent PIN (SPEC §7.9).</summary>
     public FamilyViewModel? Family { get; } = family;
+
+    /// <summary>Settings → RetroAchievements (SPEC §7.10).</summary>
+    public RetroAchievementsSettingsViewModel? RetroAchievements { get; } = retroAchievements;
 
     /// <summary>The Settings → Library section.</summary>
     public LibrarySettingsViewModel Library { get; } = library;

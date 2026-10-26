@@ -12,6 +12,7 @@ public sealed partial class SettingsPage : Page
         Codes = App.GetService<CodeCollectionsViewModel>();
         InitializeComponent();
         Loaded += OnLoaded;
+        Unloaded += (_, _) => ViewModel.RetroAchievements?.Detach();
     }
 
     public SettingsViewModel ViewModel { get; }
@@ -23,6 +24,7 @@ public sealed partial class SettingsPage : Page
     {
         ViewModel.LoadCommand.Execute(null);
         Codes.LoadCommand.Execute(null);
+        ViewModel.RetroAchievements?.Attach();
     }
 
     private void DumperPath_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveDumperPathCommand.Execute(null);

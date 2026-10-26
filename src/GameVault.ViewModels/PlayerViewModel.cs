@@ -24,7 +24,8 @@ public sealed partial class PlayerViewModel(
     RecapViewModel recap,
     ISessionLog sessions,
     ChallengesViewModel challenges,
-    PlayLimitViewModel limit) : ObservableObject
+    PlayLimitViewModel limit,
+    AchievementsViewModel? achievements = null) : ObservableObject
 {
     private byte[]? _passwordScreenshot;
     private bool _updatingDisk;
@@ -101,6 +102,9 @@ public sealed partial class PlayerViewModel(
 
     /// <summary>The family profile's daily limit (SPEC §7.9).</summary>
     public PlayLimitViewModel Limit => limit;
+
+    /// <summary>RetroAchievements notifications, trackers and the list (SPEC §7.10); null when not set up.</summary>
+    public AchievementsViewModel? Achievements => achievements;
 
     /// <summary>"Previously on…" after a break (SPEC §7.9).</summary>
     public RecapViewModel Recap => recap;
@@ -339,6 +343,7 @@ public sealed partial class PlayerViewModel(
             netplay.Attach();
             challenges.Attach();
             limit.Attach();
+            achievements?.Attach();
             if (launch?.StateId is { } stateId)
             {
                 await timeline.Service.LoadAsync(key, stateId);
@@ -501,6 +506,7 @@ public sealed partial class PlayerViewModel(
         netplay.Detach();
         challenges.Detach();
         limit.Detach();
+        achievements?.Detach();
         Detach();
     }
 

@@ -20,7 +20,11 @@ full feature specification and [CLAUDE.md](CLAUDE.md) for the contributor rules.
 | 4 | Tier 1 mappers, save states, run-ahead, video presets | ✅ MMC3 IRQ tests and state round-trips for every mapper pass |
 | 5 | Library, timeline, rewind, Zapper | ✅ Zero-config test (empty library → add folder → playing) passes |
 | 6 | Passwords, journal, assist/practice, Tier 2–3 mappers, dumper | 🟡 Built and tested; owner checks with real cartridges pending ([plan](docs/plans/phase-6.md#open-needs-the-owner)) |
-| 7 | Netplay, FDS, Tier 4 mappers | Planned |
+| 7 | Netplay, FDS, Tier 4 mappers | ✅ LAN rollback netplay, FDS with the player's own BIOS, Tier 4 boards |
+| 8 | Game Genie code library | ✅ Codes panel, imported code collections, GameGenie.com lookup on request |
+| 9 | Game-aware features | ✅ Memory maps, before-death states, auto maps, recap, family profiles, verified challenges, stat overlays |
+| 10 | RetroAchievements | 🟡 Built and tested offline with rcheevos; the owner's account and RetroAchievements' approval pending ([plan](docs/plans/phase-10.md#8-owner-tasks)) |
+| 11–19 | More systems | Planned (SPEC §7.11) |
 
 Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md).
 
@@ -30,6 +34,9 @@ Phase plans are in [`docs/plans/`](docs/plans).
 
 - Windows 10 1809 or later. Development needs Windows 10/11 with the **.NET 10 SDK**.
 - Visual Studio 2022/2026 with the *Windows application development* workload is optional. You need it for XAML Hot Reload and the Live Visual Tree.
+- **CMake** and a C compiler build the RetroAchievements component (rcheevos) on the first build: on
+  Windows, Visual Studio's *Desktop development with C++* workload; on Linux, gcc or clang. Without them
+  GameVault still builds and runs, with RetroAchievements turned off. See [`native/README.md`](native/README.md).
 
 ## Build, test and run
 
@@ -87,6 +94,10 @@ To run tests against your own dumps, set `GAMEVAULT_LOCAL_ROMS` to a local folde
 otherwise.
 
 ## Credits
+
+- **[rcheevos](https://github.com/RetroAchievements/rcheevos)** (MIT), RetroAchievements' runtime,
+  is included in `native/rcheevos/` and runs achievements, leaderboards and rich presence. See
+  [`THIRD-PARTY-NOTICES.md`](THIRD-PARTY-NOTICES.md).
 
 - **Game Genie codes from GameGenie.com.** In the Codes panel, "Get codes from GameGenie.com" shows codes
   that come from [GameGenie.com](https://gamegenie.com/cheats/gamegenie/nes/index.html) (© Danworld, Inc.).

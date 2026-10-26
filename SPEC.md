@@ -284,7 +284,8 @@ These build on **memory maps**. A memory map is a small JSON file per game, keye
 
 ### 7.10 RetroAchievements (Phase 10)
 - Support for [RetroAchievements](https://retroachievements.org): sign in with the player's own RetroAchievements account; games are identified by RetroAchievements' NES hash.
-- Achievement conditions are evaluated on the emulation thread after every frame, the same way as RetroAchievements' reference implementation (rcheevos). Unlocks show as notifications, plus leaderboards and rich presence.
+- Achievement conditions are evaluated on the emulation thread after every frame by RetroAchievements' own runtime, **rcheevos** (MIT, vendored in `native/` and called through P/Invoke). Unlocks show as notifications, plus leaderboards and rich presence.
+- Only the RetroAchievements login token is stored, encrypted for the Windows user (DPAPI), per family profile.
 - **Hardcore mode** follows RetroAchievements' rules: no save-state loading, rewind, slow motion, codes or run-ahead beyond what they allow.
 - RetroAchievements must approve the emulator for hardcore unlocks; that registration is the owner's task.
 

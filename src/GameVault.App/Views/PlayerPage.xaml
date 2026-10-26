@@ -42,7 +42,61 @@
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
+
+      <!-- SPEC §7.10: RetroAchievements for the running game, when RetroAchievements recognised it -->
+      <Button
+          Grid.Column="14"
+          AccessKey="E"
+          Content="Achievements"
+          Visibility="{x:Bind ViewModel.Achievements.HasGame, Mode=OneWay, FallbackValue=Collapsed}">
+        <Button.Flyout>
+          <Flyout Closed="Flyout_Closed" Opening="AchievementsFlyout_Opening" Placement="BottomEdgeAlignedRight">
+            <StackPanel Width="420" Spacing="8">
+              <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind ViewModel.Achievements.Summary, Mode=OneWay}" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="{x:Bind ViewModel.Achievements.RichPresence, Mode=OneWay}"
+                  TextWrapping="Wrap" />
+              <ScrollViewer MaxHeight="440">
+                <ItemsRepeater ItemsSource="{x:Bind ViewModel.Achievements.Groups, Mode=OneWay}">
+                  <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="svc:AchievementGroup">
+                      <StackPanel Margin="0,8,0,0" Spacing="6">
+                        <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Label}" />
+                        <ItemsRepeater ItemsSource="{x:Bind Achievements}">
+                          <ItemsRepeater.ItemTemplate>
+                            <DataTemplate x:DataType="svc:AchievementInfo">
+                              <Grid Padding="8" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" ColumnSpacing="12" CornerRadius="6">
+                                <Grid.ColumnDefinitions>
+                                  <ColumnDefinition Width="*" />
+                                  <ColumnDefinition Width="Auto" />
+                                </Grid.ColumnDefinitions>
+                                <StackPanel>
+                                  <TextBlock Text="{x:Bind Title}" TextWrapping="Wrap" />
+                                  <TextBlock
+                                      Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                                      Style="{StaticResource CaptionTextBlockStyle}"
+                                      Text="{x:Bind Description}"
+                                      TextWrapping="Wrap" />
+                                  <ProgressBar Margin="0,4,0,0" Maximum="100" Value="{x:Bind MeasuredPercent}" />
+                                </StackPanel>
+                                <TextBlock Grid.Column="1" VerticalAlignment="Top" Text="{x:Bind Points}" />
+                              </Grid>
+                            </DataTemplate>
+                          </ItemsRepeater.ItemTemplate>
+                        </ItemsRepeater>
+                      </StackPanel>
+                    </DataTemplate>
+                  </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+              </ScrollViewer>
+            </StackPanel>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
 
       <Button
           Grid.Column="0"
@@ -393,6 +447,66 @@
           <Button Command="{x:Bind ViewModel.Recap.DismissCommand}" Content="Continue" Style="{StaticResource AccentButtonStyle}" />
         </StackPanel>
       </StackPanel>
+    </Border>
+
+    <!-- SPEC §7.10: RetroAchievements trackers and challenge badges (top right), and the notification card -->
+    <StackPanel
+        Grid.Row="2"
+        Margin="12"
+        HorizontalAlignment="Right"
+        VerticalAlignment="Top"
+        IsHitTestVisible="False"
+        Spacing="6">
+      <ItemsRepeater ItemsSource="{x:Bind ViewModel.Achievements.Trackers, Mode=OneWay}">
+        <ItemsRepeater.ItemTemplate>
+          <DataTemplate x:DataType="vm:TrackerItem">
+            <Border Margin="0,0,0,4" Padding="10,4" HorizontalAlignment="Right" Background="#B0000000" CornerRadius="6">
+              <TextBlock FontFamily="Consolas" FontWeight="SemiBold" Foreground="White" Text="{x:Bind Text, Mode=OneWay}" />
+            </Border>
+          </DataTemplate>
+        </ItemsRepeater.ItemTemplate>
+      </ItemsRepeater>
+      <ItemsRepeater ItemsSource="{x:Bind ViewModel.Achievements.Challenges, Mode=OneWay}">
+        <ItemsRepeater.ItemTemplate>
+          <DataTemplate x:DataType="svc:AchievementInfo">
+            <Border Margin="0,0,0,4" Padding="8,4" HorizontalAlignment="Right" Background="#B0000000" CornerRadius="6">
+              <StackPanel Orientation="Horizontal" Spacing="6">
+                <FontIcon FontSize="14" Foreground="Gold" Glyph="&#xE734;" />
+                <TextBlock Foreground="White" Text="{x:Bind Title}" />
+              </StackPanel>
+            </Border>
+          </DataTemplate>
+        </ItemsRepeater.ItemTemplate>
+      </ItemsRepeater>
+    </StackPanel>
+    <Border
+        Grid.Row="2"
+        MaxWidth="420"
+        Margin="16"
+        Padding="14"
+        HorizontalAlignment="Right"
+        VerticalAlignment="Bottom"
+        Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
+        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1"
+        CornerRadius="8"
+        Visibility="{x:Bind ViewModel.Achievements.HasNotification, Mode=OneWay, FallbackValue=Collapsed}">
+      <Grid ColumnSpacing="12">
+        <Grid.ColumnDefinitions>
+          <ColumnDefinition Width="Auto" />
+          <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+        <Image Width="56" Height="56" Visibility="{x:Bind ViewModel.Achievements.HasNotificationBadge, Mode=OneWay, FallbackValue=Collapsed}">
+          <Image.Source>
+            <BitmapImage DecodePixelHeight="112" UriSource="{x:Bind ViewModel.Achievements.NotificationBadgeUri, Mode=OneWay}" />
+          </Image.Source>
+        </Image>
+        <StackPanel Grid.Column="1" Spacing="2">
+          <TextBlock Foreground="{ThemeResource AccentTextFillColorPrimaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.Achievements.NotificationHeading, Mode=OneWay}" />
+          <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind ViewModel.Achievements.NotificationTitle, Mode=OneWay}" TextWrapping="Wrap" />
+          <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind ViewModel.Achievements.NotificationText, Mode=OneWay}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Grid>
     </Border>
 
     <!-- SPEC §7.9: the family profile's daily limit — a warning, then a stop that needs the parent PIN -->

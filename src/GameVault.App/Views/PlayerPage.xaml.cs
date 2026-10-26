@@ -98,6 +98,9 @@ public sealed partial class PlayerPage : Page
 
     private void Flyout_Closed(object sender, object e) => ReturnFocusToGame();
 
+    // The list is read when it opens, so it shows the latest unlocks and progress.
+    private void AchievementsFlyout_Opening(object sender, object e) => ViewModel.Achievements?.RefreshCommand.Execute(null);
+
     private void DiskSide_DropDownClosed(object sender, object e) => ReturnFocusToGame();
 
     private void ReturnFocusToGame()

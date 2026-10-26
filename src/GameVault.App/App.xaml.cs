@@ -11,6 +11,7 @@ using GameVault.Library.Passwords;
 using GameVault.Library.Practice;
 using GameVault.Library.Profiles;
 using GameVault.Library.Timeline;
+using GameVault.Platform.Achievements;
 using GameVault.Platform.Audio;
 using GameVault.Platform.Emulation;
 using GameVault.Platform.Input;
@@ -76,6 +77,12 @@ public partial class App : Application
         // Automatic maps listen to the emulator from the start (SPEC §7.9); not used with --sample-data.
         _ = _services.GetService<MapService>();
 
+        // RetroAchievements signs in with the saved token in the background (SPEC §7.10).
+        if (_services.GetService<AchievementsService>() is { } achievements)
+        {
+            _ = achievements.StartAsync();
+        }
+
         // Housekeeping off the UI thread: states deleted last session are removed for good (SPEC §7.1 undo).
         if (_services.GetService<TimelineStore>() is { } timeline)
         {
@@ -132,6 +139,7 @@ public partial class App : Application
             services.AddSingleton<ISessionLog, InMemorySessionLog>();
             services.AddSingleton<ICodeFilePicker, SampleCodeFilePicker>();
             services.AddSingleton<IFamilyService>(_ => new InMemoryFamilyService());
+            services.AddSingleton<IAchievementsService>(_ => new SampleAchievementsService(previewUnlockDelay: TimeSpan.FromSeconds(4)));
             services.AddSingleton<IChallengeFiles>(_ => new InMemoryChallengeFiles
             {
                 ToOpen =
@@ -154,6 +162,25 @@ public partial class App : Application
             var familyStore = new FamilyStore(new AppPaths().Root);
             var family = new FamilyService(familyStore, environment.ProfileId ?? FamilyProfile.MainId, Restart);
             services.AddSingleton<IFamilyService>(family);
+            services.AddSingleton(sp =>
+            {
+                // RetroAchievements (SPEC §7.10): off, not broken, when the rcheevos component is missing.
+                var paths = sp.GetRequiredService<AppPaths>();
+                AchievementsClient? client = null;
+                if (AchievementsClient.IsAvailable)
+                {
+                    var http = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+                    client = new AchievementsClient(new HttpAchievementsServer(http));
+                    http.DefaultRequestHeaders.TryAddWithoutValidation("User-Agent", $"GameVault/{typeof(App).Assembly.GetName().Version?.ToString(3) ?? "1.0"} {client.UserAgentClause}");
+                }
+
+                return new AchievementsService(
+                    sp.GetRequiredService<EmulatorHost>(),
+                    client,
+                    new AchievementsCredentials(Path.Combine(paths.Root, "retroachievements.json"), new DpapiTokenProtector()),
+                    sp.GetRequiredService<ISettingsStore>());
+            });
+            services.AddSingleton<IAchievementsService>(sp => sp.GetRequiredService<AchievementsService>());
             services.AddSingleton(_ => new AppPaths(familyStore.DataRootFor(family.Current.Id)));
             services.AddSingleton(sp => new LibraryDatabase(sp.GetRequiredService<AppPaths>().LibraryDatabase));
             services.AddSingleton(_ => new GameProfiles(Path.Combine(AppContext.BaseDirectory, "data", "gamedb")));
@@ -243,6 +270,8 @@ public partial class App : Application
         services.AddTransient<ChallengesViewModel>();
         services.AddTransient<PlayLimitViewModel>();
         services.AddSingleton<FamilyViewModel>();
+        services.AddTransient<AchievementsViewModel>(sp => new AchievementsViewModel(sp.GetRequiredService<IAchievementsService>()));
+        services.AddTransient<RetroAchievementsSettingsViewModel>();
         services.AddTransient<DumpCartridgeViewModel>();
         services.AddTransient<PlayerViewModel>();
 

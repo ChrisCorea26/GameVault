@@ -118,6 +118,28 @@ These steps can't be done from here.
    client. GameVault shows the server's message when that happens.
 3. Try a few NES games with achievement sets against your own ROMs.
 
+## Results
+Everything except the owner tasks is done. The full Linux suite passes (Core 411, Library 48,
+ViewModels 138, Platform 159, Dumper 6), and Windows CI builds rcheevos with CMake and runs the same
+binding tests.
+- **Binding:** sign-in, an unlock, a leaderboard with its tracker and submission, rich presence, and
+  progress serialization, all through the real library against a fake server.
+- **In the emulator:** the lives test ROM unlocks an achievement from real frames, and the unlock is
+  sent as hardcore. In hardcore, states don't load, codes stay off and netplay is refused; softcore
+  allows loading states again.
+- **Credentials:** only the username and the DPAPI-encrypted token are written. The token signs in on
+  the next start, and signing out deletes the file.
+- **UI:**
+  - Settings → RetroAchievements: sign in, sign out, hardcore.
+  - Player: an Achievements button and list (with rich presence), the notification card, trackers and
+    challenge badges.
+  - Sample data shows all of them, with an unlock 4 seconds into the sample game.
+- **Changed from the plan:**
+  - Save states don't carry rcheevos progress. Loading a state (softcore only) resets achievement
+    progress instead, which is rcheevos' documented behaviour for states without progress.
+  - Rich presence shows in the Player's achievement list instead of Game details. rcheevos also sends
+    it to RetroAchievements itself.
+
 ## Order of work
 1. Vendor rcheevos, add the CMake build and the CI wiring, and load the library.
 2. The binding: client, memory, server, events.

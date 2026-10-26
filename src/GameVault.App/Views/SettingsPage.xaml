@@ -98,6 +98,63 @@
           IsTabStop="False">
         <StackPanel Spacing="8">
 
+      <!-- RetroAchievements (SPEC §7.10) -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="RetroAchievements" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="12">
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Earn achievements and compete on leaderboards with your RetroAchievements.org account. Your password is only sent to RetroAchievements; GameVault keeps an encrypted sign-in token instead."
+              TextWrapping="Wrap" />
+          <TextBlock
+              Text="The RetroAchievements component is missing from this copy of GameVault."
+              TextWrapping="Wrap"
+              Visibility="{x:Bind ViewModel.RetroAchievements.IsUnavailable, Mode=OneWay, FallbackValue=Collapsed}" />
+          <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.RetroAchievements.IsSignedOut, Mode=OneWay, FallbackValue=Collapsed}">
+            <TextBox
+                Width="280"
+                HorizontalAlignment="Left"
+                Header="Username"
+                Text="{x:Bind ViewModel.RetroAchievements.UserName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            <PasswordBox
+                Width="280"
+                HorizontalAlignment="Left"
+                Header="Password"
+                Password="{x:Bind ViewModel.RetroAchievements.Password, Mode=TwoWay}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <Button Command="{x:Bind ViewModel.RetroAchievements.SignInCommand}" Content="Sign in" Style="{StaticResource AccentButtonStyle}" />
+              <ProgressRing Width="20" Height="20" IsActive="{x:Bind ViewModel.RetroAchievements.IsBusy, Mode=OneWay, FallbackValue=False}" />
+            </StackPanel>
+          </StackPanel>
+          <StackPanel Orientation="Horizontal" Spacing="12" Visibility="{x:Bind ViewModel.RetroAchievements.IsSignedIn, Mode=OneWay, FallbackValue=Collapsed}">
+            <TextBlock VerticalAlignment="Center" Text="{x:Bind ViewModel.RetroAchievements.SignedInText, Mode=OneWay}" />
+            <Button Command="{x:Bind ViewModel.RetroAchievements.SignOutCommand}" Content="Sign out" />
+          </StackPanel>
+          <Grid Visibility="{x:Bind ViewModel.RetroAchievements.IsAvailable, Mode=OneWay, FallbackValue=Collapsed}">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Hardcore mode" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Achievements count double on RetroAchievements. Loading save states, rewind, codes, slow motion and netplay are off; saving states still works. Turning it on restarts the running game."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch
+                Grid.Column="1"
+                MinWidth="0"
+                IsOn="{x:Bind ViewModel.RetroAchievements.Hardcore, Mode=TwoWay, FallbackValue=False}"
+                OffContent=""
+                OnContent="" />
+          </Grid>
+          <TextBlock Text="{x:Bind ViewModel.RetroAchievements.Message, Mode=OneWay}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
       <!-- Library (SPEC §6.2) -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Library" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
