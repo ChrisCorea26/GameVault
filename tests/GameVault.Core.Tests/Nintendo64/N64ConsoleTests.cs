@@ -320,6 +320,38 @@ public sealed class N64ConsoleTests
     }
 
     [Fact]
+    public void Si_dma_carries_joybus_commands_to_the_pif_and_the_replies_back()
+    {
+        var console = new N64Console(new N64Cartridge(Rom([Mips.BranchSelf, Mips.Nop])));
+        console.Power();
+        console.SetControllerState(1, ControllerState.Start.WithStick(-5, 7));
+
+        // In RDRAM: skip port 0, then "read buttons" for port 1, and run the joybus.
+        var block = console.Rdram.AsSpan(0x1000, 64);
+        block.Clear();
+        block[0] = 0;
+        block[1] = 1;
+        block[2] = 4;
+        block[3] = 0x01;
+        block[8] = 0xFE;
+        block[63] = 1;
+        console.Write32(0x0480_0000, 0x1000);
+        console.Write32(0x0480_0010, 0x1FC0_07C0); // SI_PIF_AD_WR64B
+        (console.Read32(0x0480_0018) & 1).Should().Be(1u, "the SI is busy");
+        console.RunCycles(10_000);
+        (console.Read32(0x0480_0018) & 0x1000).Should().NotBe(0u, "the SI interrupt");
+        console.Write32(0x0480_0018, 0);
+
+        console.Write32(0x0480_0000, 0x2000);
+        console.Write32(0x0480_0004, 0x1FC0_07C0); // SI_PIF_AD_RD64B
+        console.RunCycles(10_000);
+        var reply = console.Rdram.AsSpan(0x2000, 64);
+        ((N64Buttons)((reply[4] << 8) | reply[5])).Should().Be(N64Buttons.Start);
+        ((sbyte)reply[6]).Should().Be(-5);
+        ((sbyte)reply[7]).Should().Be(7);
+    }
+
+    [Fact]
     public void An_empty_port_reports_no_device()
     {
         var pif = new N64Pif(null, null) { ConnectedPads = 1 };

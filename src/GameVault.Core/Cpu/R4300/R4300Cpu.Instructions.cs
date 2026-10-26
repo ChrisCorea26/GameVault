@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 
 namespace GameVault.Core.Cpu.R4300;
 
@@ -21,7 +22,7 @@ public sealed partial class R4300Cpu
     {
         var rs = (int)(op >> 21) & 31;
         var rt = (int)(op >> 16) & 31;
-        var gpr = _gpr;
+        ref var gpr = ref MemoryMarshal.GetArrayDataReference(_gpr);
         switch (op >> 26)
         {
             case 0x00:
@@ -34,24 +35,24 @@ public sealed partial class R4300Cpu
                 Branch(true, (_pc & ~0x0FFF_FFFFUL) | ((op & 0x03FF_FFFF) << 2));
                 break;
             case 0x03: // JAL
-                gpr[31] = _currentPc + 8;
+                Unsafe.Add(ref gpr, 31) = _currentPc + 8;
                 Branch(true, (_pc & ~0x0FFF_FFFFUL) | ((op & 0x03FF_FFFF) << 2));
                 break;
             case 0x04: // BEQ
-                Branch(gpr[rs] == gpr[rt], BranchTarget(op));
+                Branch(Unsafe.Add(ref gpr, rs) == Unsafe.Add(ref gpr, rt), BranchTarget(op));
                 break;
             case 0x05: // BNE
-                Branch(gpr[rs] != gpr[rt], BranchTarget(op));
+                Branch(Unsafe.Add(ref gpr, rs) != Unsafe.Add(ref gpr, rt), BranchTarget(op));
                 break;
             case 0x06: // BLEZ
-                Branch((long)gpr[rs] <= 0, BranchTarget(op));
+                Branch((long)Unsafe.Add(ref gpr, rs) <= 0, BranchTarget(op));
                 break;
             case 0x07: // BGTZ
-                Branch((long)gpr[rs] > 0, BranchTarget(op));
+                Branch((long)Unsafe.Add(ref gpr, rs) > 0, BranchTarget(op));
                 break;
             case 0x08: // ADDI
             {
-                var a = (int)gpr[rs];
+                var a = (int)Unsafe.Add(ref gpr, rs);
                 var b = (int)(short)op;
                 var sum = a + b;
                 if (((a ^ sum) & (b ^ sum)) < 0)
@@ -60,30 +61,30 @@ public sealed partial class R4300Cpu
                     return;
                 }
 
-                gpr[rt] = (ulong)(long)sum;
+                Unsafe.Add(ref gpr, rt) = (ulong)(long)sum;
                 break;
             }
 
             case 0x09: // ADDIU
-                gpr[rt] = SignExtend32((uint)gpr[rs] + (uint)(short)op);
+                Unsafe.Add(ref gpr, rt) = SignExtend32((uint)Unsafe.Add(ref gpr, rs) + (uint)(short)op);
                 break;
             case 0x0A: // SLTI
-                gpr[rt] = (long)gpr[rs] < (short)op ? 1UL : 0UL;
+                Unsafe.Add(ref gpr, rt) = (long)Unsafe.Add(ref gpr, rs) < (short)op ? 1UL : 0UL;
                 break;
             case 0x0B: // SLTIU
-                gpr[rt] = gpr[rs] < (ulong)(long)(short)op ? 1UL : 0UL;
+                Unsafe.Add(ref gpr, rt) = Unsafe.Add(ref gpr, rs) < (ulong)(long)(short)op ? 1UL : 0UL;
                 break;
             case 0x0C: // ANDI
-                gpr[rt] = gpr[rs] & (op & 0xFFFF);
+                Unsafe.Add(ref gpr, rt) = Unsafe.Add(ref gpr, rs) & (op & 0xFFFF);
                 break;
             case 0x0D: // ORI
-                gpr[rt] = gpr[rs] | (op & 0xFFFF);
+                Unsafe.Add(ref gpr, rt) = Unsafe.Add(ref gpr, rs) | (op & 0xFFFF);
                 break;
             case 0x0E: // XORI
-                gpr[rt] = gpr[rs] ^ (op & 0xFFFF);
+                Unsafe.Add(ref gpr, rt) = Unsafe.Add(ref gpr, rs) ^ (op & 0xFFFF);
                 break;
             case 0x0F: // LUI
-                gpr[rt] = SignExtend32(op << 16);
+                Unsafe.Add(ref gpr, rt) = SignExtend32(op << 16);
                 break;
             case 0x10:
                 ExecuteCop0(op, rs, rt);
@@ -98,20 +99,20 @@ public sealed partial class R4300Cpu
                 RaiseException(R4300Exception.ReservedInstruction, 3);
                 break;
             case 0x14: // BEQL
-                BranchLikely(gpr[rs] == gpr[rt], BranchTarget(op));
+                BranchLikely(Unsafe.Add(ref gpr, rs) == Unsafe.Add(ref gpr, rt), BranchTarget(op));
                 break;
             case 0x15: // BNEL
-                BranchLikely(gpr[rs] != gpr[rt], BranchTarget(op));
+                BranchLikely(Unsafe.Add(ref gpr, rs) != Unsafe.Add(ref gpr, rt), BranchTarget(op));
                 break;
             case 0x16: // BLEZL
-                BranchLikely((long)gpr[rs] <= 0, BranchTarget(op));
+                BranchLikely((long)Unsafe.Add(ref gpr, rs) <= 0, BranchTarget(op));
                 break;
             case 0x17: // BGTZL
-                BranchLikely((long)gpr[rs] > 0, BranchTarget(op));
+                BranchLikely((long)Unsafe.Add(ref gpr, rs) > 0, BranchTarget(op));
                 break;
             case 0x18: // DADDI
             {
-                var a = (long)gpr[rs];
+                var a = (long)Unsafe.Add(ref gpr, rs);
                 var b = (long)(short)op;
                 var sum = a + b;
                 if (((a ^ sum) & (b ^ sum)) < 0)
@@ -120,16 +121,16 @@ public sealed partial class R4300Cpu
                     return;
                 }
 
-                gpr[rt] = (ulong)sum;
+                Unsafe.Add(ref gpr, rt) = (ulong)sum;
                 break;
             }
 
             case 0x19: // DADDIU
-                gpr[rt] = gpr[rs] + (ulong)(long)(short)op;
+                Unsafe.Add(ref gpr, rt) = Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op;
                 break;
             case 0x1A: // LDL
             {
-                var address = gpr[rs] + (ulong)(long)(short)op;
+                var address = Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op;
                 if (!LoadAligned64(address, out var data))
                 {
                     return;
@@ -137,13 +138,13 @@ public sealed partial class R4300Cpu
 
                 var shift = (int)(address & 7) * 8;
                 var mask = shift == 0 ? 0UL : ulong.MaxValue >> (64 - shift);
-                gpr[rt] = (gpr[rt] & mask) | (data << shift);
+                Unsafe.Add(ref gpr, rt) = (Unsafe.Add(ref gpr, rt) & mask) | (data << shift);
                 break;
             }
 
             case 0x1B: // LDR
             {
-                var address = gpr[rs] + (ulong)(long)(short)op;
+                var address = Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op;
                 if (!LoadAligned64(address, out var data))
                 {
                     return;
@@ -151,15 +152,15 @@ public sealed partial class R4300Cpu
 
                 var shift = (int)(7 - (address & 7)) * 8;
                 var mask = shift == 0 ? 0UL : ulong.MaxValue << (64 - shift);
-                gpr[rt] = (gpr[rt] & mask) | (data >> shift);
+                Unsafe.Add(ref gpr, rt) = (Unsafe.Add(ref gpr, rt) & mask) | (data >> shift);
                 break;
             }
 
             case 0x20: // LB
             {
-                if (Load8(gpr[rs] + (ulong)(long)(short)op, out var value))
+                if (Load8(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, out var value))
                 {
-                    gpr[rt] = (ulong)(long)(sbyte)value;
+                    Unsafe.Add(ref gpr, rt) = (ulong)(long)(sbyte)value;
                 }
 
                 break;
@@ -167,9 +168,9 @@ public sealed partial class R4300Cpu
 
             case 0x21: // LH
             {
-                if (Load16(gpr[rs] + (ulong)(long)(short)op, out var value))
+                if (Load16(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, out var value))
                 {
-                    gpr[rt] = (ulong)(long)(short)value;
+                    Unsafe.Add(ref gpr, rt) = (ulong)(long)(short)value;
                 }
 
                 break;
@@ -177,7 +178,7 @@ public sealed partial class R4300Cpu
 
             case 0x22: // LWL
             {
-                var address = gpr[rs] + (ulong)(long)(short)op;
+                var address = Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op;
                 if (!Load32(address & ~3UL, out var data))
                 {
                     return;
@@ -185,15 +186,15 @@ public sealed partial class R4300Cpu
 
                 var shift = (int)(address & 3) * 8;
                 var mask = shift == 0 ? 0u : uint.MaxValue >> (32 - shift);
-                gpr[rt] = SignExtend32(((uint)gpr[rt] & mask) | (data << shift));
+                Unsafe.Add(ref gpr, rt) = SignExtend32(((uint)Unsafe.Add(ref gpr, rt) & mask) | (data << shift));
                 break;
             }
 
             case 0x23: // LW
             {
-                if (Load32(gpr[rs] + (ulong)(long)(short)op, out var value))
+                if (Load32(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, out var value))
                 {
-                    gpr[rt] = SignExtend32(value);
+                    Unsafe.Add(ref gpr, rt) = SignExtend32(value);
                 }
 
                 break;
@@ -201,9 +202,9 @@ public sealed partial class R4300Cpu
 
             case 0x24: // LBU
             {
-                if (Load8(gpr[rs] + (ulong)(long)(short)op, out var value))
+                if (Load8(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, out var value))
                 {
-                    gpr[rt] = value;
+                    Unsafe.Add(ref gpr, rt) = value;
                 }
 
                 break;
@@ -211,9 +212,9 @@ public sealed partial class R4300Cpu
 
             case 0x25: // LHU
             {
-                if (Load16(gpr[rs] + (ulong)(long)(short)op, out var value))
+                if (Load16(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, out var value))
                 {
-                    gpr[rt] = value;
+                    Unsafe.Add(ref gpr, rt) = value;
                 }
 
                 break;
@@ -221,7 +222,7 @@ public sealed partial class R4300Cpu
 
             case 0x26: // LWR
             {
-                var address = gpr[rs] + (ulong)(long)(short)op;
+                var address = Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op;
                 if (!Load32(address & ~3UL, out var data))
                 {
                     return;
@@ -229,29 +230,29 @@ public sealed partial class R4300Cpu
 
                 var shift = (int)(3 - (address & 3)) * 8;
                 var mask = shift == 0 ? 0u : uint.MaxValue << (32 - shift);
-                gpr[rt] = SignExtend32(((uint)gpr[rt] & mask) | (data >> shift));
+                Unsafe.Add(ref gpr, rt) = SignExtend32(((uint)Unsafe.Add(ref gpr, rt) & mask) | (data >> shift));
                 break;
             }
 
             case 0x27: // LWU
             {
-                if (Load32(gpr[rs] + (ulong)(long)(short)op, out var value))
+                if (Load32(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, out var value))
                 {
-                    gpr[rt] = value;
+                    Unsafe.Add(ref gpr, rt) = value;
                 }
 
                 break;
             }
 
             case 0x28: // SB
-                Store8(gpr[rs] + (ulong)(long)(short)op, (byte)gpr[rt]);
+                Store8(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, (byte)Unsafe.Add(ref gpr, rt));
                 break;
             case 0x29: // SH
-                Store16(gpr[rs] + (ulong)(long)(short)op, (ushort)gpr[rt]);
+                Store16(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, (ushort)Unsafe.Add(ref gpr, rt));
                 break;
             case 0x2A: // SWL
             {
-                var address = gpr[rs] + (ulong)(long)(short)op;
+                var address = Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op;
                 if (!Load32(address & ~3UL, out var data))
                 {
                     return;
@@ -259,16 +260,16 @@ public sealed partial class R4300Cpu
 
                 var shift = (int)(address & 3) * 8;
                 var mask = shift == 0 ? 0u : uint.MaxValue << (32 - shift);
-                Store32(address & ~3UL, (data & mask) | ((uint)gpr[rt] >> shift));
+                Store32(address & ~3UL, (data & mask) | ((uint)Unsafe.Add(ref gpr, rt) >> shift));
                 break;
             }
 
             case 0x2B: // SW
-                Store32(gpr[rs] + (ulong)(long)(short)op, (uint)gpr[rt]);
+                Store32(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, (uint)Unsafe.Add(ref gpr, rt));
                 break;
             case 0x2C: // SDL
             {
-                var address = gpr[rs] + (ulong)(long)(short)op;
+                var address = Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op;
                 if (!LoadAligned64(address, out var data))
                 {
                     return;
@@ -276,13 +277,13 @@ public sealed partial class R4300Cpu
 
                 var shift = (int)(address & 7) * 8;
                 var mask = shift == 0 ? 0UL : ulong.MaxValue << (64 - shift);
-                Store64(address & ~7UL, (data & mask) | (gpr[rt] >> shift));
+                Store64(address & ~7UL, (data & mask) | (Unsafe.Add(ref gpr, rt) >> shift));
                 break;
             }
 
             case 0x2D: // SDR
             {
-                var address = gpr[rs] + (ulong)(long)(short)op;
+                var address = Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op;
                 if (!LoadAligned64(address, out var data))
                 {
                     return;
@@ -290,13 +291,13 @@ public sealed partial class R4300Cpu
 
                 var shift = (int)(7 - (address & 7)) * 8;
                 var mask = shift == 0 ? 0UL : ulong.MaxValue >> (64 - shift);
-                Store64(address & ~7UL, (data & mask) | (gpr[rt] << shift));
+                Store64(address & ~7UL, (data & mask) | (Unsafe.Add(ref gpr, rt) << shift));
                 break;
             }
 
             case 0x2E: // SWR
             {
-                var address = gpr[rs] + (ulong)(long)(short)op;
+                var address = Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op;
                 if (!Load32(address & ~3UL, out var data))
                 {
                     return;
@@ -304,7 +305,7 @@ public sealed partial class R4300Cpu
 
                 var shift = (int)(3 - (address & 3)) * 8;
                 var mask = shift == 0 ? 0u : uint.MaxValue >> (32 - shift);
-                Store32(address & ~3UL, (data & mask) | ((uint)gpr[rt] << shift));
+                Store32(address & ~3UL, (data & mask) | ((uint)Unsafe.Add(ref gpr, rt) << shift));
                 break;
             }
 
@@ -317,10 +318,10 @@ public sealed partial class R4300Cpu
                 break;
             case 0x30: // LL
             {
-                var address = gpr[rs] + (ulong)(long)(short)op;
+                var address = Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op;
                 if (Load32(address, out var value))
                 {
-                    gpr[rt] = SignExtend32(value);
+                    Unsafe.Add(ref gpr, rt) = SignExtend32(value);
                     _llBit = true;
                     _llAddr = LinkedAddress(address);
                 }
@@ -335,7 +336,7 @@ public sealed partial class R4300Cpu
                     return;
                 }
 
-                if (Load32(gpr[rs] + (ulong)(long)(short)op, out var value))
+                if (Load32(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, out var value))
                 {
                     Fpu.WriteWord(rt, value);
                 }
@@ -345,10 +346,10 @@ public sealed partial class R4300Cpu
 
             case 0x34: // LLD
             {
-                var address = gpr[rs] + (ulong)(long)(short)op;
+                var address = Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op;
                 if (Load64(address, out var value))
                 {
-                    gpr[rt] = value;
+                    Unsafe.Add(ref gpr, rt) = value;
                     _llBit = true;
                     _llAddr = LinkedAddress(address);
                 }
@@ -363,7 +364,7 @@ public sealed partial class R4300Cpu
                     return;
                 }
 
-                if (Load64(gpr[rs] + (ulong)(long)(short)op, out var value))
+                if (Load64(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, out var value))
                 {
                     Fpu.WriteDoubleword(rt, value);
                 }
@@ -373,9 +374,9 @@ public sealed partial class R4300Cpu
 
             case 0x37: // LD
             {
-                if (Load64(gpr[rs] + (ulong)(long)(short)op, out var value))
+                if (Load64(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, out var value))
                 {
-                    gpr[rt] = value;
+                    Unsafe.Add(ref gpr, rt) = value;
                 }
 
                 break;
@@ -383,10 +384,10 @@ public sealed partial class R4300Cpu
 
             case 0x38: // SC
             {
-                var address = gpr[rs] + (ulong)(long)(short)op;
+                var address = Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op;
                 if (_llBit)
                 {
-                    if (!Store32(address, (uint)gpr[rt]))
+                    if (!Store32(address, (uint)Unsafe.Add(ref gpr, rt)))
                     {
                         return;
                     }
@@ -397,23 +398,23 @@ public sealed partial class R4300Cpu
                     return;
                 }
 
-                gpr[rt] = _llBit ? 1UL : 0UL;
+                Unsafe.Add(ref gpr, rt) = _llBit ? 1UL : 0UL;
                 break;
             }
 
             case 0x39: // SWC1
                 if (Cop1Usable())
                 {
-                    Store32(gpr[rs] + (ulong)(long)(short)op, Fpu.ReadWord(rt));
+                    Store32(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, Fpu.ReadWord(rt));
                 }
 
                 break;
             case 0x3C: // SCD
             {
-                var address = gpr[rs] + (ulong)(long)(short)op;
+                var address = Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op;
                 if (_llBit)
                 {
-                    if (!Store64(address, gpr[rt]))
+                    if (!Store64(address, Unsafe.Add(ref gpr, rt)))
                     {
                         return;
                     }
@@ -424,19 +425,19 @@ public sealed partial class R4300Cpu
                     return;
                 }
 
-                gpr[rt] = _llBit ? 1UL : 0UL;
+                Unsafe.Add(ref gpr, rt) = _llBit ? 1UL : 0UL;
                 break;
             }
 
             case 0x3D: // SDC1
                 if (Cop1Usable())
                 {
-                    Store64(gpr[rs] + (ulong)(long)(short)op, Fpu.ReadDoubleword(rt));
+                    Store64(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, Fpu.ReadDoubleword(rt));
                 }
 
                 break;
             case 0x3F: // SD
-                Store64(gpr[rs] + (ulong)(long)(short)op, gpr[rt]);
+                Store64(Unsafe.Add(ref gpr, rs) + (ulong)(long)(short)op, Unsafe.Add(ref gpr, rt));
                 break;
             case 0x32 or 0x36 or 0x3A or 0x3E: // LWC2, LDC2, SWC2, SDC2
                 RaiseException(R4300Exception.CoprocessorUnusable, 2);
@@ -456,36 +457,36 @@ public sealed partial class R4300Cpu
 
     private void ExecuteSpecial(uint op, int rs, int rt)
     {
-        var gpr = _gpr;
+        ref var gpr = ref MemoryMarshal.GetArrayDataReference(_gpr);
         var rd = (int)(op >> 11) & 31;
         var sa = (int)(op >> 6) & 31;
         switch (op & 0x3F)
         {
             case 0x00: // SLL
-                gpr[rd] = SignExtend32((uint)gpr[rt] << sa);
+                Unsafe.Add(ref gpr, rd) = SignExtend32((uint)Unsafe.Add(ref gpr, rt) << sa);
                 break;
             case 0x02: // SRL
-                gpr[rd] = SignExtend32((uint)gpr[rt] >> sa);
+                Unsafe.Add(ref gpr, rd) = SignExtend32((uint)Unsafe.Add(ref gpr, rt) >> sa);
                 break;
             case 0x03: // SRA: shifts the whole 64-bit register, then keeps the low word (n64-systemtest)
-                gpr[rd] = SignExtend32((ulong)((long)gpr[rt] >> sa));
+                Unsafe.Add(ref gpr, rd) = SignExtend32((ulong)((long)Unsafe.Add(ref gpr, rt) >> sa));
                 break;
             case 0x04: // SLLV
-                gpr[rd] = SignExtend32((uint)gpr[rt] << (int)(gpr[rs] & 31));
+                Unsafe.Add(ref gpr, rd) = SignExtend32((uint)Unsafe.Add(ref gpr, rt) << (int)(Unsafe.Add(ref gpr, rs) & 31));
                 break;
             case 0x06: // SRLV
-                gpr[rd] = SignExtend32((uint)gpr[rt] >> (int)(gpr[rs] & 31));
+                Unsafe.Add(ref gpr, rd) = SignExtend32((uint)Unsafe.Add(ref gpr, rt) >> (int)(Unsafe.Add(ref gpr, rs) & 31));
                 break;
             case 0x07: // SRAV
-                gpr[rd] = SignExtend32((ulong)((long)gpr[rt] >> (int)(gpr[rs] & 31)));
+                Unsafe.Add(ref gpr, rd) = SignExtend32((ulong)((long)Unsafe.Add(ref gpr, rt) >> (int)(Unsafe.Add(ref gpr, rs) & 31)));
                 break;
             case 0x08: // JR
-                Branch(true, gpr[rs]);
+                Branch(true, Unsafe.Add(ref gpr, rs));
                 break;
             case 0x09: // JALR
             {
-                var target = gpr[rs];
-                gpr[rd] = _currentPc + 8;
+                var target = Unsafe.Add(ref gpr, rs);
+                Unsafe.Add(ref gpr, rd) = _currentPc + 8;
                 Branch(true, target);
                 break;
             }
@@ -499,29 +500,29 @@ public sealed partial class R4300Cpu
             case 0x0F: // SYNC
                 break;
             case 0x10: // MFHI
-                gpr[rd] = Hi;
+                Unsafe.Add(ref gpr, rd) = Hi;
                 break;
             case 0x11: // MTHI
-                Hi = gpr[rs];
+                Hi = Unsafe.Add(ref gpr, rs);
                 break;
             case 0x12: // MFLO
-                gpr[rd] = Lo;
+                Unsafe.Add(ref gpr, rd) = Lo;
                 break;
             case 0x13: // MTLO
-                Lo = gpr[rs];
+                Lo = Unsafe.Add(ref gpr, rs);
                 break;
             case 0x14: // DSLLV
-                gpr[rd] = gpr[rt] << (int)(gpr[rs] & 63);
+                Unsafe.Add(ref gpr, rd) = Unsafe.Add(ref gpr, rt) << (int)(Unsafe.Add(ref gpr, rs) & 63);
                 break;
             case 0x16: // DSRLV
-                gpr[rd] = gpr[rt] >> (int)(gpr[rs] & 63);
+                Unsafe.Add(ref gpr, rd) = Unsafe.Add(ref gpr, rt) >> (int)(Unsafe.Add(ref gpr, rs) & 63);
                 break;
             case 0x17: // DSRAV
-                gpr[rd] = (ulong)((long)gpr[rt] >> (int)(gpr[rs] & 63));
+                Unsafe.Add(ref gpr, rd) = (ulong)((long)Unsafe.Add(ref gpr, rt) >> (int)(Unsafe.Add(ref gpr, rs) & 63));
                 break;
             case 0x18: // MULT
             {
-                var product = (long)(int)gpr[rs] * (int)gpr[rt];
+                var product = (long)(int)Unsafe.Add(ref gpr, rs) * (int)Unsafe.Add(ref gpr, rt);
                 Lo = SignExtend32((ulong)product);
                 Hi = SignExtend32((ulong)(product >> 32));
                 Cycles += MultCycles;
@@ -530,7 +531,7 @@ public sealed partial class R4300Cpu
 
             case 0x19: // MULTU
             {
-                var product = (ulong)(uint)gpr[rs] * (uint)gpr[rt];
+                var product = (ulong)(uint)Unsafe.Add(ref gpr, rs) * (uint)Unsafe.Add(ref gpr, rt);
                 Lo = SignExtend32(product);
                 Hi = SignExtend32(product >> 32);
                 Cycles += MultCycles;
@@ -539,8 +540,8 @@ public sealed partial class R4300Cpu
 
             case 0x1A: // DIV
             {
-                var dividend = (int)gpr[rs];
-                var divisor = (int)gpr[rt];
+                var dividend = (int)Unsafe.Add(ref gpr, rs);
+                var divisor = (int)Unsafe.Add(ref gpr, rt);
                 if (divisor == 0)
                 {
                     Lo = dividend >= 0 ? ulong.MaxValue : 1UL;
@@ -563,8 +564,8 @@ public sealed partial class R4300Cpu
 
             case 0x1B: // DIVU
             {
-                var dividend = (uint)gpr[rs];
-                var divisor = (uint)gpr[rt];
+                var dividend = (uint)Unsafe.Add(ref gpr, rs);
+                var divisor = (uint)Unsafe.Add(ref gpr, rt);
                 if (divisor == 0)
                 {
                     Lo = ulong.MaxValue;
@@ -582,7 +583,7 @@ public sealed partial class R4300Cpu
 
             case 0x1C: // DMULT
             {
-                var high = Math.BigMul((long)gpr[rs], (long)gpr[rt], out var low);
+                var high = Math.BigMul((long)Unsafe.Add(ref gpr, rs), (long)Unsafe.Add(ref gpr, rt), out var low);
                 Lo = (ulong)low;
                 Hi = (ulong)high;
                 Cycles += DMultCycles;
@@ -591,7 +592,7 @@ public sealed partial class R4300Cpu
 
             case 0x1D: // DMULTU
             {
-                Hi = Math.BigMul(gpr[rs], gpr[rt], out var low);
+                Hi = Math.BigMul(Unsafe.Add(ref gpr, rs), Unsafe.Add(ref gpr, rt), out var low);
                 Lo = low;
                 Cycles += DMultCycles;
                 break;
@@ -599,8 +600,8 @@ public sealed partial class R4300Cpu
 
             case 0x1E: // DDIV
             {
-                var dividend = (long)gpr[rs];
-                var divisor = (long)gpr[rt];
+                var dividend = (long)Unsafe.Add(ref gpr, rs);
+                var divisor = (long)Unsafe.Add(ref gpr, rt);
                 if (divisor == 0)
                 {
                     Lo = dividend >= 0 ? ulong.MaxValue : 1UL;
@@ -623,8 +624,8 @@ public sealed partial class R4300Cpu
 
             case 0x1F: // DDIVU
             {
-                var dividend = gpr[rs];
-                var divisor = gpr[rt];
+                var dividend = Unsafe.Add(ref gpr, rs);
+                var divisor = Unsafe.Add(ref gpr, rt);
                 if (divisor == 0)
                 {
                     Lo = ulong.MaxValue;
@@ -642,8 +643,8 @@ public sealed partial class R4300Cpu
 
             case 0x20: // ADD
             {
-                var a = (int)gpr[rs];
-                var b = (int)gpr[rt];
+                var a = (int)Unsafe.Add(ref gpr, rs);
+                var b = (int)Unsafe.Add(ref gpr, rt);
                 var sum = a + b;
                 if (((a ^ sum) & (b ^ sum)) < 0)
                 {
@@ -651,17 +652,17 @@ public sealed partial class R4300Cpu
                     return;
                 }
 
-                gpr[rd] = (ulong)(long)sum;
+                Unsafe.Add(ref gpr, rd) = (ulong)(long)sum;
                 break;
             }
 
             case 0x21: // ADDU
-                gpr[rd] = SignExtend32((uint)gpr[rs] + (uint)gpr[rt]);
+                Unsafe.Add(ref gpr, rd) = SignExtend32((uint)Unsafe.Add(ref gpr, rs) + (uint)Unsafe.Add(ref gpr, rt));
                 break;
             case 0x22: // SUB
             {
-                var a = (int)gpr[rs];
-                var b = (int)gpr[rt];
+                var a = (int)Unsafe.Add(ref gpr, rs);
+                var b = (int)Unsafe.Add(ref gpr, rt);
                 var difference = a - b;
                 if (((a ^ b) & (a ^ difference)) < 0)
                 {
@@ -669,35 +670,35 @@ public sealed partial class R4300Cpu
                     return;
                 }
 
-                gpr[rd] = (ulong)(long)difference;
+                Unsafe.Add(ref gpr, rd) = (ulong)(long)difference;
                 break;
             }
 
             case 0x23: // SUBU
-                gpr[rd] = SignExtend32((uint)gpr[rs] - (uint)gpr[rt]);
+                Unsafe.Add(ref gpr, rd) = SignExtend32((uint)Unsafe.Add(ref gpr, rs) - (uint)Unsafe.Add(ref gpr, rt));
                 break;
             case 0x24: // AND
-                gpr[rd] = gpr[rs] & gpr[rt];
+                Unsafe.Add(ref gpr, rd) = Unsafe.Add(ref gpr, rs) & Unsafe.Add(ref gpr, rt);
                 break;
             case 0x25: // OR
-                gpr[rd] = gpr[rs] | gpr[rt];
+                Unsafe.Add(ref gpr, rd) = Unsafe.Add(ref gpr, rs) | Unsafe.Add(ref gpr, rt);
                 break;
             case 0x26: // XOR
-                gpr[rd] = gpr[rs] ^ gpr[rt];
+                Unsafe.Add(ref gpr, rd) = Unsafe.Add(ref gpr, rs) ^ Unsafe.Add(ref gpr, rt);
                 break;
             case 0x27: // NOR
-                gpr[rd] = ~(gpr[rs] | gpr[rt]);
+                Unsafe.Add(ref gpr, rd) = ~(Unsafe.Add(ref gpr, rs) | Unsafe.Add(ref gpr, rt));
                 break;
             case 0x2A: // SLT
-                gpr[rd] = (long)gpr[rs] < (long)gpr[rt] ? 1UL : 0UL;
+                Unsafe.Add(ref gpr, rd) = (long)Unsafe.Add(ref gpr, rs) < (long)Unsafe.Add(ref gpr, rt) ? 1UL : 0UL;
                 break;
             case 0x2B: // SLTU
-                gpr[rd] = gpr[rs] < gpr[rt] ? 1UL : 0UL;
+                Unsafe.Add(ref gpr, rd) = Unsafe.Add(ref gpr, rs) < Unsafe.Add(ref gpr, rt) ? 1UL : 0UL;
                 break;
             case 0x2C: // DADD
             {
-                var a = (long)gpr[rs];
-                var b = (long)gpr[rt];
+                var a = (long)Unsafe.Add(ref gpr, rs);
+                var b = (long)Unsafe.Add(ref gpr, rt);
                 var sum = a + b;
                 if (((a ^ sum) & (b ^ sum)) < 0)
                 {
@@ -705,17 +706,17 @@ public sealed partial class R4300Cpu
                     return;
                 }
 
-                gpr[rd] = (ulong)sum;
+                Unsafe.Add(ref gpr, rd) = (ulong)sum;
                 break;
             }
 
             case 0x2D: // DADDU
-                gpr[rd] = gpr[rs] + gpr[rt];
+                Unsafe.Add(ref gpr, rd) = Unsafe.Add(ref gpr, rs) + Unsafe.Add(ref gpr, rt);
                 break;
             case 0x2E: // DSUB
             {
-                var a = (long)gpr[rs];
-                var b = (long)gpr[rt];
+                var a = (long)Unsafe.Add(ref gpr, rs);
+                var b = (long)Unsafe.Add(ref gpr, rt);
                 var difference = a - b;
                 if (((a ^ b) & (a ^ difference)) < 0)
                 {
@@ -723,48 +724,48 @@ public sealed partial class R4300Cpu
                     return;
                 }
 
-                gpr[rd] = (ulong)difference;
+                Unsafe.Add(ref gpr, rd) = (ulong)difference;
                 break;
             }
 
             case 0x2F: // DSUBU
-                gpr[rd] = gpr[rs] - gpr[rt];
+                Unsafe.Add(ref gpr, rd) = Unsafe.Add(ref gpr, rs) - Unsafe.Add(ref gpr, rt);
                 break;
             case 0x30: // TGE
-                Trap((long)gpr[rs] >= (long)gpr[rt]);
+                Trap((long)Unsafe.Add(ref gpr, rs) >= (long)Unsafe.Add(ref gpr, rt));
                 break;
             case 0x31: // TGEU
-                Trap(gpr[rs] >= gpr[rt]);
+                Trap(Unsafe.Add(ref gpr, rs) >= Unsafe.Add(ref gpr, rt));
                 break;
             case 0x32: // TLT
-                Trap((long)gpr[rs] < (long)gpr[rt]);
+                Trap((long)Unsafe.Add(ref gpr, rs) < (long)Unsafe.Add(ref gpr, rt));
                 break;
             case 0x33: // TLTU
-                Trap(gpr[rs] < gpr[rt]);
+                Trap(Unsafe.Add(ref gpr, rs) < Unsafe.Add(ref gpr, rt));
                 break;
             case 0x34: // TEQ
-                Trap(gpr[rs] == gpr[rt]);
+                Trap(Unsafe.Add(ref gpr, rs) == Unsafe.Add(ref gpr, rt));
                 break;
             case 0x36: // TNE
-                Trap(gpr[rs] != gpr[rt]);
+                Trap(Unsafe.Add(ref gpr, rs) != Unsafe.Add(ref gpr, rt));
                 break;
             case 0x38: // DSLL
-                gpr[rd] = gpr[rt] << sa;
+                Unsafe.Add(ref gpr, rd) = Unsafe.Add(ref gpr, rt) << sa;
                 break;
             case 0x3A: // DSRL
-                gpr[rd] = gpr[rt] >> sa;
+                Unsafe.Add(ref gpr, rd) = Unsafe.Add(ref gpr, rt) >> sa;
                 break;
             case 0x3B: // DSRA
-                gpr[rd] = (ulong)((long)gpr[rt] >> sa);
+                Unsafe.Add(ref gpr, rd) = (ulong)((long)Unsafe.Add(ref gpr, rt) >> sa);
                 break;
             case 0x3C: // DSLL32
-                gpr[rd] = gpr[rt] << (sa + 32);
+                Unsafe.Add(ref gpr, rd) = Unsafe.Add(ref gpr, rt) << (sa + 32);
                 break;
             case 0x3E: // DSRL32
-                gpr[rd] = gpr[rt] >> (sa + 32);
+                Unsafe.Add(ref gpr, rd) = Unsafe.Add(ref gpr, rt) >> (sa + 32);
                 break;
             case 0x3F: // DSRA32
-                gpr[rd] = (ulong)((long)gpr[rt] >> (sa + 32));
+                Unsafe.Add(ref gpr, rd) = (ulong)((long)Unsafe.Add(ref gpr, rt) >> (sa + 32));
                 break;
             default:
                 RaiseException(R4300Exception.ReservedInstruction);
@@ -774,7 +775,7 @@ public sealed partial class R4300Cpu
 
     private void ExecuteRegimm(uint op, int rs, int rt)
     {
-        var value = (long)_gpr[rs];
+        var value = (long)Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), rs);
         var immediate = (long)(short)op;
         switch (rt)
         {
@@ -809,19 +810,19 @@ public sealed partial class R4300Cpu
                 Trap(value != immediate);
                 break;
             case 0x10: // BLTZAL
-                _gpr[31] = _currentPc + 8;
+                Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), 31) = _currentPc + 8;
                 Branch(value < 0, BranchTarget(op));
                 break;
             case 0x11: // BGEZAL
-                _gpr[31] = _currentPc + 8;
+                Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), 31) = _currentPc + 8;
                 Branch(value >= 0, BranchTarget(op));
                 break;
             case 0x12: // BLTZALL
-                _gpr[31] = _currentPc + 8;
+                Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), 31) = _currentPc + 8;
                 BranchLikely(value < 0, BranchTarget(op));
                 break;
             case 0x13: // BGEZALL
-                _gpr[31] = _currentPc + 8;
+                Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), 31) = _currentPc + 8;
                 BranchLikely(value >= 0, BranchTarget(op));
                 break;
             default:
@@ -842,20 +843,20 @@ public sealed partial class R4300Cpu
         switch (rs)
         {
             case 0x00: // MFC0
-                _gpr[rt] = SignExtend32(ReadCop0(rd));
+                Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), rt) = SignExtend32(ReadCop0(rd));
                 break;
             case 0x01: // DMFC0
             {
                 var value = ReadCop0(rd);
-                _gpr[rt] = IsWideCop0(rd) || rd is 7 or >= 21 and <= 25 or 31 ? value : SignExtend32(value);
+                Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), rt) = IsWideCop0(rd) || rd is 7 or >= 21 and <= 25 or 31 ? value : SignExtend32(value);
                 break;
             }
 
             case 0x04: // MTC0
-                WriteCop0(rd, SignExtend32(_gpr[rt]));
+                WriteCop0(rd, SignExtend32(Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), rt)));
                 break;
             case 0x05: // DMTC0
-                WriteCop0(rd, _gpr[rt]);
+                WriteCop0(rd, Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), rt));
                 break;
             case >= 0x10:
                 switch (op & 0x3F)
@@ -922,22 +923,22 @@ public sealed partial class R4300Cpu
         switch (rs)
         {
             case 0x00: // MFC1
-                _gpr[rt] = SignExtend32(Fpu.ReadWord(fs));
+                Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), rt) = SignExtend32(Fpu.ReadWord(fs));
                 break;
             case 0x01: // DMFC1
-                _gpr[rt] = Fpu.ReadDoubleword(fs);
+                Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), rt) = Fpu.ReadDoubleword(fs);
                 break;
             case 0x02: // CFC1
-                _gpr[rt] = SignExtend32(Fpu.ReadControl(fs));
+                Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), rt) = SignExtend32(Fpu.ReadControl(fs));
                 break;
             case 0x04: // MTC1
-                Fpu.WriteWord(fs, (uint)_gpr[rt]);
+                Fpu.WriteWord(fs, (uint)Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), rt));
                 break;
             case 0x05: // DMTC1
-                Fpu.WriteDoubleword(fs, _gpr[rt]);
+                Fpu.WriteDoubleword(fs, Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), rt));
                 break;
             case 0x06: // CTC1
-                if (!Fpu.WriteControl(fs, (uint)_gpr[rt]))
+                if (!Fpu.WriteControl(fs, (uint)Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), rt)))
                 {
                     RaiseException(R4300Exception.FloatingPoint);
                 }
