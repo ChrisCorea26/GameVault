@@ -1,5 +1,7 @@
 using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 using GameVault.Core.Cpu.R5900;
 using GameVault.Core.State;
 
@@ -51,6 +53,7 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
     private readonly uint _microMask;
     private readonly int _dataQwordMask;
     private readonly bool _isVu1;
+    private readonly DecodedPair[] _decoded;
 
     // Registers. VF lanes are raw float bits, x first; VF00 is (0, 0, 0, 1) and ignores writes.
     private readonly uint[] _vf = new uint[32 * 4];
@@ -108,6 +111,9 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
     private int _stageReg;
     private int _stageMask;
 
+    // Set while a macro-mode instruction runs: its results are complete at once, so nothing is marked in flight.
+    private bool _inMacro;
+
     // VU0's control registers for both units (CMSAR0/1, FBRST's enables) and the reserved register 24.
     private uint _cmsar0;
     private uint _cmsar1;
@@ -126,6 +132,7 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
         _data = new byte[size];
         _microMask = (uint)size - 1;
         _dataQwordMask = size / 16 - 1;
+        _decoded = new DecodedPair[size / 8];
         _vf[3] = One;
     }
 
@@ -254,17 +261,57 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
     private void Step()
     {
         var pc = _pc;
-        var lower = ReadInstruction(pc);
-        var upper = ReadInstruction(pc + 4);
-        var immediate = (upper & IBit) != 0;
-
-        var ready = UpperReady(upper);
-        if (!immediate)
+        var raw = BinaryPrimitives.ReadUInt64LittleEndian(new ReadOnlySpan<byte>(_micro, (int)pc, 8));
+        ref var d = ref _decoded[pc >> 3];
+        if (d.Raw != raw || !d.Valid)
         {
-            var lowerReady = LowerReady(lower);
-            if (lowerReady > ready)
+            Decode(ref d, raw);
+        }
+
+        // Wait for the operands still in the pipeline, and for a busy FDIV/EFU (or WAITQ/WAITP).
+        long ready = 0;
+        if (d.UMaskA != 0)
+        {
+            ready = VfReady(d.UReadA, d.UMaskA);
+        }
+
+        if (d.UMaskB != 0)
+        {
+            ready = Math.Max(ready, VfReady(d.UReadB, d.UMaskB));
+        }
+
+        if (d.LMaskA != 0)
+        {
+            ready = Math.Max(ready, VfReady(d.LReadA, d.LMaskA));
+        }
+
+        if (d.LMaskB != 0)
+        {
+            ready = Math.Max(ready, VfReady(d.LReadB, d.LMaskB));
+        }
+
+        if (d.ViA != 0)
+        {
+            ready = Math.Max(ready, _viReady[d.ViA]);
+        }
+
+        if (d.ViB != 0)
+        {
+            ready = Math.Max(ready, _viReady[d.ViB]);
+        }
+
+        if (d.Waits != 0)
+        {
+            if (d.Waits == WaitsForFdiv)
             {
-                ready = lowerReady;
+                if (_qPending)
+                {
+                    ready = Math.Max(ready, _qReady);
+                }
+            }
+            else if (_pPending)
+            {
+                ready = Math.Max(ready, _pReady);
             }
         }
 
@@ -287,14 +334,14 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
         }
 
         _stageReg = -1;
-        ExecuteUpper(upper);
-        if (immediate)
+        ExecuteUpper(ref d);
+        if (d.Immediate)
         {
-            _i = lower;
+            _i = (uint)raw;
         }
         else
         {
-            ExecuteLower(lower, pc);
+            ExecuteLower(ref d, pc);
         }
 
         CommitStage();
@@ -302,18 +349,19 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
         _pc = nextPc & _microMask;
 
         // The E bit ends the program after the next pair; D and T stop it now when FBRST enables them.
+        var bits = d.UpperBits;
         var end = _endPending;
-        _endPending = !end && (upper & EBit) != 0;
-        if ((upper & (DBit | TBit)) != 0)
+        _endPending = !end && (bits & EBit) != 0;
+        if ((bits & (DBit | TBit)) != 0)
         {
-            if ((upper & DBit) != 0 && DebugEnable)
+            if ((bits & DBit) != 0 && DebugEnable)
             {
-                _dStop = end = true;
+                _dStop = true;
             }
 
-            if ((upper & TBit) != 0 && TrapEnable)
+            if ((bits & TBit) != 0 && TrapEnable)
             {
-                _tStop = end = true;
+                _tStop = true;
             }
 
             if (_dStop || _tStop)
@@ -330,6 +378,68 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
         }
     }
 
+    /// <summary>Decodes an instruction pair into the cache entry for its address.</summary>
+    private void Decode(ref DecodedPair d, ulong raw)
+    {
+        var upper = (uint)(raw >> 32);
+        DecodeUpper(ref d, upper);
+        d.UpperBits = upper & (EBit | DBit | TBit);
+        d.Immediate = (upper & IBit) != 0;
+        if (d.Immediate)
+        {
+            d.Lower = LowerOp.Nop;
+            d.LMaskA = d.LMaskB = d.ViA = d.ViB = d.Waits = 0;
+        }
+        else
+        {
+            DecodeLower(ref d, (uint)raw);
+        }
+
+        d.Raw = raw;
+        d.Valid = true;
+    }
+
+    /// <summary>
+    /// A decoded instruction pair: what it does and what it waits for. Each micro-memory pair has one, checked against
+    /// the raw doubleword before use, so MPG uploads and direct writes to <see cref="MicroMemory"/> need no flush.
+    /// </summary>
+    private struct DecodedPair
+    {
+        public ulong Raw;
+        public bool Valid;
+        public bool Immediate;
+        public uint UpperBits;
+
+        public UpperKind Upper;
+        public byte Operand;
+        public bool ToAcc;
+        public byte UDest;
+        public byte Fd;
+        public byte Fs;
+        public byte Ft;
+        public byte Bc;
+        public byte UReadA;
+        public byte UMaskA;
+        public byte UReadB;
+        public byte UMaskB;
+
+        public LowerOp Lower;
+        public byte LDest;
+        public byte It;
+        public byte Is;
+        public byte Id;
+        public byte Fsf;
+        public byte Ftf;
+        public int Imm;
+        public byte LReadA;
+        public byte LMaskA;
+        public byte LReadB;
+        public byte LMaskB;
+        public byte ViA;
+        public byte ViB;
+        public byte Waits;
+    }
+
     private void Stop()
     {
         _running = false;
@@ -337,10 +447,6 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
         _branchPending = false;
         FlushPipeline();
     }
-
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private uint ReadInstruction(uint address) =>
-        BinaryPrimitives.ReadUInt32LittleEndian(new ReadOnlySpan<byte>(_micro, (int)(address & _microMask), 4));
 
     /// <summary>Applies the flag updates, Q and P that are due by now.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -365,8 +471,18 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
         }
     }
 
-    /// <summary>Completes everything in flight at once: a program's end, and every macro-mode instruction.</summary>
+    /// <summary>Completes everything in flight at once, at a program's end.</summary>
     private void FlushPipeline()
+    {
+        CompletePending();
+        Array.Clear(_vfReady);
+        Array.Clear(_vfRegReady);
+        Array.Clear(_viReady);
+        _intWriteReg = _prevIntWriteReg = -1;
+    }
+
+    /// <summary>Applies every flag update, Q and P in flight (a macro instruction's results, at once).</summary>
+    private void CompletePending()
     {
         while (_flagCount > 0)
         {
@@ -385,11 +501,6 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
             _p = _pNext;
             _pPending = false;
         }
-
-        Array.Clear(_vfReady);
-        Array.Clear(_vfRegReady);
-        Array.Clear(_viReady);
-        _intWriteReg = _prevIntWriteReg = -1;
     }
 
     private void ApplyFlag(int slot)
@@ -462,7 +573,7 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void MarkVfWrite(int reg, int mask)
     {
-        if (reg == 0 || mask == 0)
+        if (reg == 0 || mask == 0 || _inMacro)
         {
             return;
         }
@@ -470,13 +581,35 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
         var ready = _cycle + FmacLatency;
         _vfRegReady[reg] = ready;
         var baseIndex = reg << 2;
-        for (var lane = 0; lane < 4; lane++)
+        if ((mask & 8) != 0)
         {
-            if ((mask & (8 >> lane)) != 0)
-            {
-                _vfReady[baseIndex + lane] = ready;
-            }
+            _vfReady[baseIndex] = ready;
         }
+
+        if ((mask & 4) != 0)
+        {
+            _vfReady[baseIndex + 1] = ready;
+        }
+
+        if ((mask & 2) != 0)
+        {
+            _vfReady[baseIndex + 2] = ready;
+        }
+
+        if ((mask & 1) != 0)
+        {
+            _vfReady[baseIndex + 3] = ready;
+        }
+    }
+
+    /// <summary>Writes the <paramref name="mask"/> lanes of a VF register (not VF00) and marks them in flight.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void WriteVfMasked(int reg, int mask, Vector128<uint> value)
+    {
+        ref var vf = ref MemoryMarshal.GetArrayDataReference(_vf);
+        var index = (nuint)(reg << 2);
+        Vector128.ConditionalSelect(s_laneMasks[mask], value, Vector128.LoadUnsafe(ref vf, index)).StoreUnsafe(ref vf, index);
+        MarkVfWrite(reg, mask);
     }
 
     private void CommitStage()
@@ -487,17 +620,7 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
             return;
         }
 
-        var mask = _stageMask;
-        var baseIndex = reg << 2;
-        for (var lane = 0; lane < 4; lane++)
-        {
-            if ((mask & (8 >> lane)) != 0)
-            {
-                _vf[baseIndex + lane] = _stage[lane];
-            }
-        }
-
-        MarkVfWrite(reg, mask);
+        WriteVfMasked(reg, _stageMask, Vector128.LoadUnsafe(ref MemoryMarshal.GetArrayDataReference(_stage)));
     }
 
     // Data memory, in quadwords. VU0's addresses $4000-$43FF (quadwords $400-$43F) reach VU1's registers.

@@ -1,4 +1,6 @@
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics;
 
 namespace GameVault.Core.PlayStation2;
 
@@ -120,103 +122,111 @@ public sealed partial class Ps2Vu
         return function < 0x3C ? function : 64 + (int)((instr & 3) | ((instr >> 4) & 0x7C));
     }
 
-    /// <summary>The cycle when the upper instruction's operands are ready (FMAC hazards are checked per field).</summary>
-    private long UpperReady(uint instr)
+    /// <summary>Decodes an upper instruction and the FMAC hazards it checks (per field: ps2tek "FMAC Pipeline").</summary>
+    private static void DecodeUpper(ref DecodedPair d, uint instr)
     {
         var key = UpperKey(instr);
         var kind = s_upperKind[key];
-        if (kind <= UpperKind.Nop)
-        {
-            return 0;
-        }
-
-        var dest = (int)(instr >> 21) & 0xF;
-        var ft = (int)(instr >> 16) & 0x1F;
-        var fs = (int)(instr >> 11) & 0x1F;
+        var dest = (byte)((instr >> 21) & 0xF);
+        var ft = (byte)((instr >> 16) & 0x1F);
+        var fs = (byte)((instr >> 11) & 0x1F);
+        d.Upper = kind;
+        d.Operand = s_upperOperand[key];
+        d.ToAcc = s_upperToAcc[key];
+        d.UDest = dest;
+        d.Ft = ft;
+        d.Fs = fs;
+        d.Fd = (byte)((instr >> 6) & 0x1F);
+        d.Bc = (byte)(instr & 3);
+        d.UReadA = d.UMaskA = d.UReadB = d.UMaskB = 0;
         switch (kind)
         {
+            case UpperKind.Invalid:
+            case UpperKind.Nop:
+                d.Upper = UpperKind.Nop;
+                break;
             case UpperKind.OpMula:
             case UpperKind.OpMsub:
-                return Math.Max(VfReady(fs, 0xE), VfReady(ft, 0xE));
+                SetUpperReads(ref d, fs, 0xE, ft, 0xE);
+                break;
             case UpperKind.Abs:
             case UpperKind.Ftoi:
             case UpperKind.Itof:
-                return VfReady(fs, dest);
+                SetUpperReads(ref d, fs, dest, 0, 0);
+                break;
             case UpperKind.Clip:
-                return Math.Max(VfReady(fs, 0xE), VfReady(ft, 0x1));
+                SetUpperReads(ref d, fs, 0xE, ft, 0x1);
+                break;
             default:
-                var ready = VfReady(fs, dest);
-                var operand = s_upperOperand[key];
-                if (operand == OperandVector)
+                var tMask = d.Operand switch
                 {
-                    ready = Math.Max(ready, VfReady(ft, dest));
-                }
-                else if (operand == OperandBroadcast)
-                {
-                    ready = Math.Max(ready, VfReady(ft, 8 >> (int)(instr & 3)));
-                }
-
-                return ready;
+                    OperandVector => dest,
+                    OperandBroadcast => 8 >> d.Bc,
+                    _ => 0,
+                };
+                SetUpperReads(ref d, fs, dest, tMask == 0 ? (byte)0 : ft, (byte)tMask);
+                break;
         }
+    }
+
+    private static void SetUpperReads(ref DecodedPair d, byte a, int maskA, byte b, int maskB)
+    {
+        d.UReadA = a;
+        d.UMaskA = a == 0 ? (byte)0 : (byte)maskA;
+        d.UReadB = b;
+        d.UMaskB = b == 0 ? (byte)0 : (byte)maskB;
     }
 
     /// <summary>
     /// Runs an upper instruction. A VF result goes to the stage (written after the lower instruction has read its
     /// operands); ACC is written at once, since no lower instruction reads it.
     /// </summary>
-    private void ExecuteUpper(uint instr)
+    private void ExecuteUpper(ref DecodedPair d)
     {
-        var key = UpperKey(instr);
-        var kind = s_upperKind[key];
-        if (kind <= UpperKind.Nop)
+        int fs = d.Fs;
+        int ft = d.Ft;
+        switch (d.Upper)
         {
-            return;
-        }
-
-        var dest = (int)(instr >> 21) & 0xF;
-        var ft = (int)(instr >> 16) & 0x1F;
-        var fs = (int)(instr >> 11) & 0x1F;
-        var fd = (int)(instr >> 6) & 0x1F;
-        switch (kind)
-        {
+            case UpperKind.Nop:
+                return;
             case UpperKind.OpMula:
                 OuterProduct(fs, ft, -1);
-                break;
+                return;
             case UpperKind.OpMsub:
-                OuterProduct(fs, ft, fd);
-                break;
+                OuterProduct(fs, ft, d.Fd);
+                return;
             case UpperKind.Abs:
                 for (var lane = 0; lane < 4; lane++)
                 {
                     _stage[lane] = _vf[(fs << 2) | lane] & Ps2VuFloat.Max;
                 }
 
-                SetStage(ft, dest);
-                break;
+                SetStage(ft, d.UDest);
+                return;
             case UpperKind.Ftoi:
-                var toInt = s_fixedPoint[instr & 3];
+                var toInt = s_fixedPoint[d.Bc];
                 for (var lane = 0; lane < 4; lane++)
                 {
                     _stage[lane] = Ps2VuFloat.ToInt(_vf[(fs << 2) | lane], toInt);
                 }
 
-                SetStage(ft, dest);
-                break;
+                SetStage(ft, d.UDest);
+                return;
             case UpperKind.Itof:
-                var fromInt = s_fixedPoint[instr & 3];
+                var fromInt = s_fixedPoint[d.Bc];
                 for (var lane = 0; lane < 4; lane++)
                 {
                     _stage[lane] = Ps2VuFloat.FromInt(_vf[(fs << 2) | lane], fromInt);
                 }
 
-                SetStage(ft, dest);
-                break;
+                SetStage(ft, d.UDest);
+                return;
             case UpperKind.Clip:
                 Clip(fs, ft);
-                break;
+                return;
             default:
-                Arithmetic(kind, s_upperOperand[key], s_upperToAcc[key], fd, fs, ft, (int)(instr & 3), dest);
-                break;
+                Arithmetic(ref d);
+                return;
         }
     }
 
@@ -227,67 +237,89 @@ public sealed partial class Ps2Vu
         _stageMask = mask;
     }
 
-    private void Arithmetic(UpperKind kind, byte operand, bool toAcc, int fd, int fs, int ft, int bc, int dest)
+    /// <summary>ADD/SUB/MUL/MADD/MSUB/MAX/MINI in every operand form, to a VF register or ACC, four lanes at once.</summary>
+    private void Arithmetic(ref DecodedPair d)
     {
-        var scalar = operand switch
+        ref var vf = ref MemoryMarshal.GetArrayDataReference(_vf);
+        var s = Vector128.LoadUnsafe(ref vf, (nuint)(d.Fs << 2));
+        var t = d.Operand switch
         {
-            OperandBroadcast => _vf[(ft << 2) | bc],
-            OperandI => _i,
-            OperandQ => _q,
-            _ => 0u,
+            OperandVector => Vector128.LoadUnsafe(ref vf, (nuint)(d.Ft << 2)),
+            OperandBroadcast => Vector128.Create(_vf[(d.Ft << 2) | d.Bc]),
+            OperandI => Vector128.Create(_i),
+            _ => Vector128.Create(_q),
         };
 
-        var target = toAcc ? _acc : _stage;
-        var mac = 0;
-        for (var lane = 0; lane < 4; lane++)
+        ref var accRef = ref MemoryMarshal.GetArrayDataReference(_acc);
+        var sign = Vector128.Create(Ps2VuFloat.SignBit);
+        Vector128<uint> result;
+        Vector128<uint> overflow;
+        Vector128<uint> underflow;
+        var kind = d.Upper;
+        switch (kind)
         {
-            if ((dest & (8 >> lane)) == 0)
-            {
-                continue;
-            }
-
-            var s = _vf[(fs << 2) | lane];
-            var t = operand == OperandVector ? _vf[(ft << 2) | lane] : scalar;
-            uint result;
-            var ou = 0;
-            switch (kind)
-            {
-                case UpperKind.Add:
-                    result = Ps2VuFloat.Add(s, t, out ou);
-                    break;
-                case UpperKind.Sub:
-                    result = Ps2VuFloat.Sub(s, t, out ou);
-                    break;
-                case UpperKind.Mul:
-                    result = Ps2VuFloat.Mul(s, t, out ou);
-                    break;
-                case UpperKind.Madd:
-                    result = Ps2VuFloat.Add(_acc[lane], Ps2VuFloat.Mul(s, t, out _), out ou);
-                    break;
-                case UpperKind.Msub:
-                    result = Ps2VuFloat.Sub(_acc[lane], Ps2VuFloat.Mul(s, t, out _), out ou);
-                    break;
-                case UpperKind.Max:
-                    result = Ps2VuFloat.OrderKey(s) >= Ps2VuFloat.OrderKey(t) ? s : t;
-                    break;
-                default: // Mini
-                    result = Ps2VuFloat.OrderKey(s) < Ps2VuFloat.OrderKey(t) ? s : t;
-                    break;
-            }
-
-            target[lane] = result;
-            mac |= Ps2VuFloat.MacBits(result, ou, lane);
+            case UpperKind.Add:
+                result = Ps2VuFloat.Add4(s, t, out overflow, out underflow);
+                break;
+            case UpperKind.Sub:
+                result = Ps2VuFloat.Add4(s, t ^ sign, out overflow, out underflow);
+                break;
+            case UpperKind.Mul:
+                result = Ps2VuFloat.Mul4(s, t, out overflow, out underflow);
+                break;
+            case UpperKind.Madd:
+                result = Ps2VuFloat.Add4(Vector128.LoadUnsafe(ref accRef), Ps2VuFloat.Mul4(s, t, out _, out _), out overflow, out underflow);
+                break;
+            case UpperKind.Msub:
+                result = Ps2VuFloat.Add4(Vector128.LoadUnsafe(ref accRef), Ps2VuFloat.Mul4(s, t, out _, out _) ^ sign, out overflow, out underflow);
+                break;
+            case UpperKind.Max:
+                result = Vector128.ConditionalSelect(Vector128.GreaterThanOrEqual(OrderKey4(s), OrderKey4(t)).AsUInt32(), s, t);
+                overflow = underflow = Vector128<uint>.Zero;
+                break;
+            default: // Mini
+                result = Vector128.ConditionalSelect(Vector128.LessThan(OrderKey4(s), OrderKey4(t)).AsUInt32(), s, t);
+                overflow = underflow = Vector128<uint>.Zero;
+                break;
         }
 
-        if (!toAcc)
+        if (d.ToAcc)
         {
-            SetStage(fd, dest);
+            Vector128.ConditionalSelect(s_laneMasks[d.UDest], result, Vector128.LoadUnsafe(ref accRef)).StoreUnsafe(ref accRef);
+        }
+        else
+        {
+            result.StoreUnsafe(ref MemoryMarshal.GetArrayDataReference(_stage));
+            SetStage(d.Fd, d.UDest);
         }
 
         if (kind != UpperKind.Max && kind != UpperKind.Mini)
         {
-            QueueFlag(FlagKindMac, mac);
+            QueueFlag(FlagKindMac, Ps2VuFloat.MacBits4(result, overflow, underflow, d.UDest));
         }
+    }
+
+    /// <summary><see cref="Ps2VuFloat.OrderKey"/> on four lanes.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Vector128<int> OrderKey4(Vector128<uint> v) =>
+        (v ^ ((v.AsInt32() >> 31).AsUInt32() & Vector128.Create(Ps2VuFloat.Max))).AsInt32();
+
+    /// <summary>A dest field mask (x = 8 … w = 1) as lane masks.</summary>
+    private static readonly Vector128<uint>[] s_laneMasks = CreateLaneMasks();
+
+    private static Vector128<uint>[] CreateLaneMasks()
+    {
+        var masks = new Vector128<uint>[16];
+        for (var dest = 0; dest < 16; dest++)
+        {
+            masks[dest] = Vector128.Create(
+                (dest & 8) != 0 ? ~0u : 0,
+                (dest & 4) != 0 ? ~0u : 0,
+                (dest & 2) != 0 ? ~0u : 0,
+                (dest & 1) != 0 ? ~0u : 0);
+        }
+
+        return masks;
     }
 
     /// <summary>OPMULA (<paramref name="fd"/> &lt; 0: ACC = fs × ft) or OPMSUB (fd = ACC − fs × ft), the cross product's halves.</summary>

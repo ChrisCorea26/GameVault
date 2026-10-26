@@ -170,6 +170,7 @@ public sealed partial class Ps2Vu
             WaitForMicro();
         }
 
+        _inMacro = true;
         var function = instruction & 0x3F;
         if (function < 0x30)
         {
@@ -180,13 +181,15 @@ public sealed partial class Ps2Vu
             switch (function)
             {
                 case 0x38: // VCALLMS
+                    _inMacro = false;
                     StartMicro(((instruction >> 6) & 0x7FFF) << 3);
                     return;
                 case 0x39: // VCALLMSR
+                    _inMacro = false;
                     StartMicro(_cmsar0 << 3);
                     return;
                 default: // VIADD, VISUB, VIADDI, VIAND, VIOR: the lower encodings with bit 31 set
-                    ExecuteLower(0x80000000 | (instruction & 0x01FFFFFF), _pc);
+                    RunMacroLower(instruction);
                     break;
             }
         }
@@ -196,17 +199,28 @@ public sealed partial class Ps2Vu
         }
         else
         {
-            ExecuteLower(0x80000000 | (instruction & 0x01FFFFFF), _pc);
+            RunMacroLower(instruction);
         }
 
-        FlushPipeline();
+        CompletePending();
+        _intWriteReg = -1;
+        _inMacro = false;
     }
 
     private void RunMacroUpper(uint instruction)
     {
+        var d = default(DecodedPair);
+        DecodeUpper(ref d, instruction & 0x01FFFFFF);
         _stageReg = -1;
-        ExecuteUpper(instruction & 0x01FFFFFF);
+        ExecuteUpper(ref d);
         CommitStage();
+    }
+
+    private void RunMacroLower(uint instruction)
+    {
+        var d = default(DecodedPair);
+        DecodeLower(ref d, 0x80000000 | (instruction & 0x01FFFFFF));
+        ExecuteLower(ref d, _pc);
     }
 
     /// <inheritdoc/>
