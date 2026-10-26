@@ -117,8 +117,15 @@ public sealed partial class N64Console
 
     // ---- The CPU's bus ----
 
+    /// <summary>
+    /// A read that leaves the CPU for the RCP's bus stalls it: about 22 cycles for a register or the RSP's memories,
+    /// as PeterLemon's timing programs measure a VI register read (approximate).
+    /// </summary>
+    private const int RcpReadCycles = 22;
+
     public uint Read32(uint address)
     {
+        Cpu.Cycles += RcpReadCycles;
         if (address < 0x0400_0000)
         {
             if (address is >= 0x03F0_0000)
