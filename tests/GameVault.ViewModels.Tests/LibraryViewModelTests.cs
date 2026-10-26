@@ -169,7 +169,7 @@ public class LibraryViewModelTests
 
         vm.Regions.Should().StartWith(LibraryViewModel.Any).And.Contain("Japan");
         vm.SelectedRegion = "Japan";
-        vm.Games.Select(g => g.Title).Should().BeEquivalentTo("Rocket Rally", "Dragon Lantern");
+        vm.Games.Select(g => g.Title).Should().BeEquivalentTo("Rocket Rally", "Dragon Lantern", "Orbit Squadron");
 
         vm.SelectedRegion = LibraryViewModel.Any;
         vm.SelectedGenre = "Shooter";
@@ -180,6 +180,21 @@ public class LibraryViewModelTests
         vm.SelectedYear = "1988";
         vm.SelectedStatus = "Playing";
         vm.Games.Select(g => g.Title).Should().Equal("Crystal Caverns");
+    }
+
+    [Fact]
+    public async Task Filters_by_system_and_shows_each_games_system()
+    {
+        var vm = await LoadedSampleLibrary();
+
+        vm.HasSeveralSystems.Should().BeTrue();
+        vm.Systems.Should().Equal(LibraryViewModel.Any, "Master System", "NES", "SG-1000");
+        vm.SelectedSystem = "Master System";
+        vm.Games.Should().ContainSingle().Which.Title.Should().Be("Coral Coast");
+        vm.Games[0].SystemText.Should().Be("Master System");
+
+        vm.SelectedSystem = "SG-1000";
+        vm.Games.Select(g => g.Title).Should().Equal("Orbit Squadron");
     }
 
     [Fact]

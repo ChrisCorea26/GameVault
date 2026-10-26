@@ -69,6 +69,9 @@
             TextTrimming="CharacterEllipsis" />
 
         <StackPanel Grid.Row="3" Padding="4,0" Orientation="Horizontal" Spacing="6">
+          <Border Padding="6,1" Background="{ThemeResource AccentFillColorTertiaryBrush}" CornerRadius="4">
+            <TextBlock Foreground="{ThemeResource TextOnAccentFillColorPrimaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind SystemText}" />
+          </Border>
           <Border
               Padding="6,1"
               Background="{ThemeResource SubtleFillColorSecondaryBrush}"
@@ -121,6 +124,7 @@
         </StackPanel>
 
         <StackPanel Grid.Column="2" VerticalAlignment="Center" Orientation="Horizontal" Spacing="6">
+          <TextBlock VerticalAlignment="Center" Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind SystemText}" />
           <FontIcon FontSize="14" Glyph="&#xE735;" Visibility="{x:Bind IsFavorite}" AutomationProperties.Name="Favorite" />
           <Border Padding="6,1" Background="{ThemeResource SubtleFillColorSecondaryBrush}" CornerRadius="4">
             <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind StatusText}" />
@@ -224,6 +228,12 @@
           OnContent="Complete checklist" />
 
       <StackPanel Grid.Row="1" Grid.ColumnSpan="4" Orientation="Horizontal" Spacing="8">
+        <ComboBox
+            Header="System"
+            MinWidth="150"
+            ItemsSource="{x:Bind ViewModel.Systems}"
+            SelectedItem="{x:Bind ViewModel.SystemChoice, Mode=TwoWay}"
+            Visibility="{x:Bind ViewModel.HasSeveralSystems, Mode=OneWay}" />
         <ComboBox Header="Region" MinWidth="140" ItemsSource="{x:Bind ViewModel.Regions}" SelectedItem="{x:Bind ViewModel.RegionChoice, Mode=TwoWay}" />
         <ComboBox Header="Genre" MinWidth="140" ItemsSource="{x:Bind ViewModel.Genres}" SelectedItem="{x:Bind ViewModel.GenreChoice, Mode=TwoWay}" />
         <ComboBox Header="Publisher" MinWidth="140" ItemsSource="{x:Bind ViewModel.Publishers}" SelectedItem="{x:Bind ViewModel.PublisherChoice, Mode=TwoWay}" />

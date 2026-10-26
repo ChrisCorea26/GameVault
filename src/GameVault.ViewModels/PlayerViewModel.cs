@@ -229,6 +229,10 @@ public sealed partial class PlayerViewModel(
     [ObservableProperty]
     public partial double RewindSeconds { get; private set; }
 
+    /// <summary>False for other systems' games: the Codes panel (Game Genie) is NES-only (SPEC §7.11).</summary>
+    [ObservableProperty]
+    public partial bool IsNesGame { get; private set; } = true;
+
     /// <summary>The game is set up for the Zapper, so the mouse aims (SPEC §7.5).</summary>
     [ObservableProperty]
     public partial bool UsesZapper { get; private set; }
@@ -636,6 +640,7 @@ public sealed partial class PlayerViewModel(
         Status = emulator.Status;
         Title = emulator.GameTitle ?? "Player";
         UsesZapper = emulator.UsesZapper;
+        IsNesGame = emulator.System is null or GameVault.Core.Systems.GameSystem.Nes;
         if (emulator.Status == EmulatorStatus.Faulted)
         {
             ErrorMessage = emulator.FaultMessage;

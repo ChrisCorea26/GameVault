@@ -92,6 +92,9 @@ public interface IEmulatorService
     {
     }
 
+    /// <summary>The running game's system (SPEC §7.11); null when idle.</summary>
+    GameVault.Core.Systems.GameSystem? System => null;
+
     /// <summary>The names of the running game's memory-map values, for building challenge goals.</summary>
     IReadOnlyList<string> MemoryValueNames => [];
 

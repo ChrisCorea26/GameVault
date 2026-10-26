@@ -28,6 +28,12 @@ public sealed partial class LibraryViewModel(
 
     public ObservableCollection<string> Regions { get; } = [Any];
 
+    /// <summary>The systems the library has games for (SPEC §7.11).</summary>
+    public ObservableCollection<string> Systems { get; } = [Any];
+
+    /// <summary>The system filter shows once the library has games for more than one system.</summary>
+    public bool HasSeveralSystems => Systems.Count > 2;
+
     public ObservableCollection<string> Genres { get; } = [Any];
 
     public ObservableCollection<string> Publishers { get; } = [Any];
@@ -59,6 +65,17 @@ public sealed partial class LibraryViewModel(
     {
         get => SelectedRegion;
         set => SelectedRegion = value as string ?? Any;
+    }
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SystemChoice))]
+    public partial string SelectedSystem { get; set; } = Any;
+
+    /// <summary><see cref="SelectedSystem"/> as an object, for a ComboBox's two-way SelectedItem binding.</summary>
+    public object? SystemChoice
+    {
+        get => SelectedSystem;
+        set => SelectedSystem = value as string ?? Any;
     }
 
     [ObservableProperty]
@@ -271,6 +288,8 @@ public sealed partial class LibraryViewModel(
 
     partial void OnSelectedStatusChanged(string value) => ApplyFilter();
 
+    partial void OnSelectedSystemChanged(string value) => ApplyFilter();
+
     private static bool IsMine(GameTileViewModel tile) => tile.IsPlayable || tile.IsOwned;
 
     private void ApplyFilter()
@@ -282,6 +301,7 @@ public sealed partial class LibraryViewModel(
             if ((ShowChecklist || IsMine(tile))
                 && (!ShowOwnedOnly || tile.IsOwned)
                 && tile.Matches(SearchText)
+                && Is(SelectedSystem, GameTileViewModel.SystemName(game.System))
                 && Is(SelectedRegion, RegionName(game.Region))
                 && Is(SelectedGenre, game.Genre)
                 && Is(SelectedPublisher, game.Publisher)
@@ -309,6 +329,8 @@ public sealed partial class LibraryViewModel(
 
     private void RefreshOptions(IReadOnlyList<GameEntry> games)
     {
+        Replace(Systems, games.Select(g => GameTileViewModel.SystemName(g.System)));
+        OnPropertyChanged(nameof(HasSeveralSystems));
         Replace(Regions, games.Select(g => RegionName(g.Region)));
         Replace(Genres, games.Select(g => g.Genre));
         Replace(Publishers, games.Select(g => g.Publisher));

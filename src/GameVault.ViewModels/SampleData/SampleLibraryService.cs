@@ -4,6 +4,8 @@ using GameVault.Library.Profiles;
 using GameVault.Library.Scanning;
 using GameVault.ViewModels.Services;
 
+using GameVault.Core.Systems;
+
 namespace GameVault.ViewModels.SampleData;
 
 /// <summary>
@@ -41,6 +43,12 @@ public sealed class SampleLibraryService : ILibraryService
             Ownership.DigitalDump, PlayStatus.Playing, hours: 1.25, lastPlayedDaysAgo: 1, licensed: false),
         Game(14, "Pixel Pilgrim (Homebrew)", GameRegion.World, "Community", 2023, "Adventure",
             Ownership.DigitalDump, PlayStatus.Unplayed, licensed: false),
+
+        // Phase 11: other systems, so the system filter and badges show in previews.
+        Game(15, "Coral Coast", GameRegion.Europe, "Tidewave", 1989, "Platformer",
+            Ownership.DigitalDump, PlayStatus.Playing, hours: 2.5, lastPlayedDaysAgo: 3, system: GameSystem.MasterSystem),
+        Game(16, "Orbit Squadron", GameRegion.Japan, "Tidewave", 1984, "Shooter",
+            Ownership.DigitalDump, system: GameSystem.Sg1000),
     ];
 
     private readonly List<GameEntry> _games;
@@ -169,8 +177,10 @@ public sealed class SampleLibraryService : ILibraryService
         double hours = 0,
         int? lastPlayedDaysAgo = null,
         int players = 1,
-        bool licensed = true) => new()
+        bool licensed = true,
+        GameSystem system = GameSystem.Nes) => new()
         {
+            System = system,
             Key = $"sample:{id}",
             IsCataloged = true,
             Title = title,
@@ -186,6 +196,13 @@ public sealed class SampleLibraryService : ILibraryService
             Rating = rating,
             Playtime = TimeSpan.FromHours(hours),
             LastPlayed = lastPlayedDaysAgo is { } days ? Now.AddDays(-days) : null,
-            RomPath = owned.HasFlag(Ownership.DigitalDump) ? $@"C:\Games\NES\{title}.nes" : null,
+            RomPath = owned.HasFlag(Ownership.DigitalDump)
+                ? system switch
+                {
+                    GameSystem.MasterSystem => $@"C:\Games\Master System\{title}.sms",
+                    GameSystem.Sg1000 => $@"C:\Games\SG-1000\{title}.sg",
+                    _ => $@"C:\Games\NES\{title}.nes",
+                }
+                : null,
         };
 }

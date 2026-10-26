@@ -126,3 +126,30 @@ Save and load take about 0.005–0.008 ms each (budget: 1 ms).
 | Standard controller | ✅ | Two ports; turbo and pads in the platform layer |
 | Zapper | ✅ | Port 2. Light sense needs a bright pixel the beam drew within the last 20 scanlines (NESdev Wiki: "Zapper"). The mouse aims and the left button fires. |
 | Four Score | ✅ Core | Players 3–4 and the signature bits; the settings UI for four ports is deferred to Phase 6 |
+
+## Sega SG-1000 / SC-3000 and Master System (Phase 11)
+
+### Z80
+| Test | Result |
+|---|---|
+| zexdoc (Frank Cringle): every instruction, documented flags | ✅ No errors (5.76 billion instructions) |
+| zexall: every instruction, all flags including bits 3 and 5 | ✅ No errors |
+| Unit tests: DAA, block instructions, IX/IY with displacements and halves, IM 1, EI delay, HALT, NMI, R, save states | ✅ |
+
+zexdoc and zexall run in their own CI job ("Z80 exerciser", Release build). Locally, run them with
+`GAMEVAULT_RUN_ZEX=1 dotnet test tests/GameVault.Core.Tests -c Release --filter "FullyQualifiedName~Zex_exercises"`.
+
+### Video, sound and cartridges
+| Part | State |
+|---|---|
+| TMS9918A (SG-1000): Graphics I and II, Text, Multicolor, sprites (4 per line, 5th-sprite flag, collision) | ✅ Unit tests |
+| SMS VDP Mode 4: background, scrolling with the locks, priority, left-column blanking, sprites (8 per line, 8×16, zoom), line and frame interrupts, V counter | ✅ Unit tests |
+| SMS2 224-line mode | Implemented; no test ROM yet |
+| SN76489 PSG (Sega noise variant) | ✅ Unit tests |
+| Sega mapper (with cartridge RAM, saved like a battery save), Codemasters (detected from the ROM), Korean, plain ≤48 KB | ✅ Unit tests (Sega, detection) |
+| SG-1000 8 KB RAM-expansion boards | Supported by the cartridge; not yet selected by a game database |
+| YM2413 FM sound (Japanese SMS) | Not yet |
+| SC-3000 keyboard | Not yet |
+| PAL timing | Supported (313 lines), chosen by the game database's `region` |
+
+Real-game results need the owner's cartridges or ROMs (see `docs/plans/phase-11.md`, owner checklist).

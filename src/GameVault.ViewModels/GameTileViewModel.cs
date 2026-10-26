@@ -9,6 +9,16 @@ public sealed class GameTileViewModel(GameEntry game)
 
     public string Title => Game.Title;
 
+    /// <summary>"NES", "Master System", "SG-1000": the tile's system badge and the library's system filter.</summary>
+    public string SystemText => SystemName(Game.System);
+
+    public static string SystemName(GameVault.Core.Systems.GameSystem system) => system switch
+    {
+        GameVault.Core.Systems.GameSystem.MasterSystem => "Master System",
+        GameVault.Core.Systems.GameSystem.Sg1000 => "SG-1000",
+        _ => "NES",
+    };
+
     /// <summary>For example "1988 · Lumen Soft · Platformer".</summary>
     public string Subtitle => string.Join(" · ", new[]
     {

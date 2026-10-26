@@ -146,6 +146,35 @@ run-ahead work unchanged through `IEmulatedConsole`.
 8. UI and sample data.
 9. Docs.
 
+## Results
+- **Groundwork:** `IEmulatedConsole` (Core) is what the host, rewind, run-ahead, netplay, challenges,
+  memory maps and RetroAchievements use.
+  - Every system draws into the same 256×240 indexed frame with its own palette, so the D3D11 path,
+    screenshots, thumbnails, maps and the recap needed no changes. The 192-line picture sits in a
+    border, as on a TV.
+  - `ConsoleFactory` builds the right console for loading, netplay and challenge checks.
+- **Z80:** zexdoc and zexall pass with no errors. They run in a separate Release CI job, about
+  80 seconds each.
+- **Consoles:** `SegaConsole` (SG-1000 and Master System) has the VDP, PSG, the Sega/Codemasters/Korean
+  boards and the I/O ports, and the Pause button is the NMI. Save states round-trip, and a replay from
+  a state is identical.
+- **Library:** schema version 2 adds a `system` column. The scanner finds `.sms`, `.sg` and `.sc` files,
+  zipped too. DAT imports take the system from each ROM's extension or the DAT's name. The Library has a
+  System filter, which shows once there's more than one system, and each tile has a system badge.
+- **RetroAchievements:**
+  - Master System and SG-1000 games are hashed as rcheevos does (plain MD5).
+  - Memory reads follow rcheevos' address layouts for these consoles (system RAM at 0, then cartridge
+    RAM).
+- **Player:** the Codes panel hides for non-NES games. Netplay, the timeline, rewind, challenges and
+  achievements all work for Sega games.
+- **Sample data:** a Master System and an SG-1000 game in the library.
+- **Changed from the plan:**
+  - The `--sample-data` Player still shows the NES test pattern. The SMS video path is covered by the
+    host test (a Mode 4 ROM drawing through the real frame sink).
+  - Settings → Input doesn't rename buttons per system yet; `docs/design/input.md` §6.1 gives the
+    mapping.
+  - The SMS VDP is always the 315-5246 (SMS2), which runs every SMS1 game's modes as well.
+
 ## Owner checklist (later)
 Try a handful of your own SG-1000 and SMS cartridges or ROMs (a few mapper types and PAL/NTSC
 titles), and list anything that misbehaves.

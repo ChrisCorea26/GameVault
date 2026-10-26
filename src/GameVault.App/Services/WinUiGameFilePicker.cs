@@ -13,8 +13,11 @@ public sealed class WinUiGameFilePicker : IGameFilePicker
             SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
             CommitButtonText = "Play",
         };
-        picker.FileTypeFilter.Add(".nes");
-        picker.FileTypeFilter.Add(".fds");
+        foreach (var extension in GameVault.Library.Scanning.RomFiles.Extensions)
+        {
+            picker.FileTypeFilter.Add(extension);
+        }
+
         picker.FileTypeFilter.Add(".zip");
 
         var result = await picker.PickSingleFileAsync();

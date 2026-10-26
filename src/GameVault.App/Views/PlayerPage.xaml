@@ -130,7 +130,7 @@
           Command="{x:Bind ViewModel.ResetCommand}"
           Content="Reset" />
       <!-- SPEC §7.8: codes for this game; the badge shows while any are on. F3 turns them all off. -->
-      <Button Grid.Column="9" AccessKey="C" AutomationProperties.Name="Codes">
+      <Button Grid.Column="9" AccessKey="C" AutomationProperties.Name="Codes" Visibility="{x:Bind ViewModel.IsNesGame, Mode=OneWay}">
         <StackPanel Orientation="Horizontal" Spacing="6">
           <TextBlock Text="Codes" />
           <Border

@@ -140,6 +140,11 @@ SDL's GameController API reports buttons by **position**, so the defaults are po
 - Remaps are stored per controller model (SDL GUID) and per player. Per-game overrides arrive with
   game profiles (Phase 5, SPEC §7.5).
 
+### 6.1 Other systems (Phase 11)
+Sega SG-1000 and Master System pads use the same bindings. **B** (keyboard Z) is **Button 1**, **A**
+(keyboard X) is **Button 2**, and **Start** (keyboard Enter) is the console's **Pause** button, which is
+an NMI on both consoles. Select does nothing on these systems.
+
 ## 7. Game input vs. UI navigation
 
 - **In the Library and other pages:** every connected pad navigates the UI (D-pad and stick move XY
