@@ -60,6 +60,12 @@ public sealed class Ps2AutotestsTests
         $"{actualHash} {differing}".Should().Be($"{hash} {differingLines}", $"{reason}; the output changed:\n{result}");
     }
 
+    /// <summary>The IOP programs (cpu/iop, kernel/iop: 23 .irx modules) need an IOP kernel to load them: left for later.</summary>
+    [Fact(Skip = "The IOP programs (.irx) need an IOP kernel; GameVault's high-level IOP services don't load modules (left for later).")]
+    public void Iop_programs_are_not_run()
+    {
+    }
+
     [TestRomTheory("ps2autotests/cpu/ee/alu.elf")]
     [MemberData(nameof(Passing))]
     public void Program_prints_what_the_hardware_printed(string test)

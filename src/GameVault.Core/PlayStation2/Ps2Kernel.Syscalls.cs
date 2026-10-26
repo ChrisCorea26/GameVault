@@ -29,6 +29,7 @@ public sealed partial class Ps2Kernel
         _intcHandlers.Clear();
         _dmacHandlers.Clear();
         _inInterrupt = false;
+        _alarms.Clear();
         _sifQueue.Clear();
         _sifActive = 0;
         _sifNextId = 1;
@@ -64,6 +65,8 @@ public sealed partial class Ps2Kernel
             case 0x15 or 0x1B: EnableIntc(false); break;
             case 0x16 or 0x1C: EnableDmac(true); break;
             case 0x17 or 0x1D: EnableDmac(false); break;
+            case 0x18 or 0x1E: SetAlarm(); break;
+            case 0x19 or 0x1F: ReleaseAlarm(); break;
             case 0x20: CreateThread(); break;
             case 0x21: DeleteThread(); break;
             case 0x22: StartThread(); break;

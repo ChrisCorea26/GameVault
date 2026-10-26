@@ -119,6 +119,39 @@ public sealed class Ps2ConsoleTests(ITestOutputHelper log)
     }
 
     [Fact]
+    public void An_alarm_calls_its_handler_after_the_h_blanks_asked_for()
+    {
+        // SetAlarm(100, handler, 0x77); interrupts on; spin. The handler stores its arg and id in the status block.
+        const int handler = 15 * 4;
+        uint[] code =
+        [
+            0x2403_0018, // li v1, SetAlarm
+            0x2404_0064, // li a0, 100 H-blanks
+            Lui(5, 0x8010), Ori(5, 5, handler),
+            0x2406_0077, // li a2, 0x77
+            0x0000_000C, // syscall
+            0x4008_6000, // mfc0 t0, Status
+            0x3508_0001, // ori t0, IE
+            0x4088_6000, // mtc0 t0, Status
+            Lui(13, 0x8000), Ori(13, 13, 0x0400), // t5: a counter in kernel RAM
+            Lw(14, 13, 0), 0x25CE_0001 /* addiu t6, t6, 1 */, Sw(14, 13, 0),
+            0x1000_FFFC, // b back to the counter
+            Lui(9, 0xA01F), Ori(9, 9, 0xFF00), Sw(6, 9, 0), Sw(4, 9, 4), 0x03E0_0008 /* jr ra */, Nop,
+        ];
+        code[15].Should().Be(Lui(9, 0xA01F), "the handler's offset");
+        var console = new Ps2Console(Ps2Boot.FromElf(MakeElf(code)));
+        console.RunCycles(90L * 18743); // 90 lines: not yet
+        BinaryPrimitives.ReadUInt32LittleEndian(console.Rdram.AsSpan(0x1F_FF00)).Should().Be(0);
+        console.RunCycles(20L * 18743);
+        BinaryPrimitives.ReadUInt32LittleEndian(console.Rdram.AsSpan(0x1F_FF00)).Should().Be(0x77);
+        BinaryPrimitives.ReadUInt32LittleEndian(console.Rdram.AsSpan(0x1F_FF04)).Should().Be(1, "the alarm's id");
+        var counter = BinaryPrimitives.ReadUInt32LittleEndian(console.Rdram.AsSpan(0x400));
+        console.RunCycles(10_000);
+        BinaryPrimitives.ReadUInt32LittleEndian(console.Rdram.AsSpan(0x400)).Should().BeGreaterThan(counter, "the program carries on after the handler");
+        console.Kernel!.Fault.Should().BeNull();
+    }
+
+    [Fact]
     public void A_disc_needs_a_bios()
     {
         var disc = new MemoryPs2Disc(new byte[IPs2Disc.SectorSize * 32]);

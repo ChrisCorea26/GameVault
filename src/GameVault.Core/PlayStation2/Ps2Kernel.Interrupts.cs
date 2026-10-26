@@ -30,7 +30,9 @@ public sealed partial class Ps2Kernel
     private uint _dmacPending;
     private bool _causeIsDmac;
     private int _cause;
+    /// <summary>The handlers still to call for the current cause: handler ids, or alarm ids negated.</summary>
     private readonly List<int> _callQueue = [];
+    private bool _callingAlarm;
 
     // ---- Handler registration ----
 
@@ -163,9 +165,9 @@ public sealed partial class Ps2Kernel
             return;
         }
 
-        if ((int)_cpu.GetGpr64(2) < 0)
+        if (!_callingAlarm && (int)_cpu.GetGpr64(2) < 0)
         {
-            _callQueue.Clear(); // a negative result stops the cause's chain
+            _callQueue.Clear(); // a negative result stops the cause's chain (an alarm's result means nothing)
         }
 
         CallNextHandler();
@@ -179,6 +181,17 @@ public sealed partial class Ps2Kernel
             {
                 var id = _callQueue[0];
                 _callQueue.RemoveAt(0);
+                if (id < 0)
+                {
+                    if (CallAlarm(-id))
+                    {
+                        return;
+                    }
+
+                    continue;
+                }
+
+                _callingAlarm = false;
                 var list = _causeIsDmac ? _dmacHandlers : _intcHandlers;
                 var handler = list.Find(h => h.Id == id);
                 if (handler is null)
@@ -192,7 +205,6 @@ public sealed partial class Ps2Kernel
                 _cpu.SetGpr64(28, handler.Gp);
                 _cpu.SetGpr64(29, InterruptStackTop - 0x40);
                 _cpu.SetGpr64(31, HandlerReturnTrap);
-                SyscallTrace?.Invoke(_causeIsDmac ? 0x1000 + _cause : 0x2000 + _cause, handler.Address);
                 _cpu.Jump(handler.Address);
                 return;
             }
@@ -214,6 +226,11 @@ public sealed partial class Ps2Kernel
             _intcPending &= ~(1u << line);
             _console.Intc.Write(Ps2Intc.StatAddress, 1u << line);
             QueueHandlers(_intcHandlers, line, dmac: false);
+            if (line == (int)Ps2Interrupt.Timer3)
+            {
+                QueueDueAlarms();
+            }
+
             return true;
         }
 
@@ -268,6 +285,8 @@ public sealed partial class Ps2Kernel
         writer.WriteBool(_causeIsDmac);
         writer.WriteInt32(_cause);
         WriteList(writer, _callQueue);
+        writer.WriteBool(_callingAlarm);
+        SaveAlarms(writer);
     }
 
     private void LoadInterrupts(StateReader reader)
@@ -281,6 +300,8 @@ public sealed partial class Ps2Kernel
         _causeIsDmac = reader.ReadBool();
         _cause = reader.ReadInt32();
         ReadList(reader, _callQueue);
+        _callingAlarm = reader.ReadBool();
+        LoadAlarms(reader);
     }
 
     private static void SaveHandlers(StateWriter writer, List<Handler> list)
