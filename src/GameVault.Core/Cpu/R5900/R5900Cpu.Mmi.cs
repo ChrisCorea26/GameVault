@@ -695,16 +695,20 @@ public sealed partial class R5900Cpu
                     var low = H(ref s)[i * 2] * H(ref t)[i * 2];
                     var value = subtract ? high - low : high + low;
                     W(ref d)[i] = value;
+
+                    // The odd words keep the high product (PHMADH) or its complement (PHMSBH), as the hardware's
+                    // adder leaves them (ps2autotests cpu/ee_simd/muldiv).
+                    var odd = (uint)(subtract ? ~high : high);
                     var word = (i >> 1) * 2;
                     if ((i & 1) == 0)
                     {
                         SetLoWord(word, (uint)value);
-                        SetLoWord(word + 1, (uint)high);
+                        SetLoWord(word + 1, odd);
                     }
                     else
                     {
                         SetHiWord(word, (uint)value);
-                        SetHiWord(word + 1, (uint)high);
+                        SetHiWord(word + 1, odd);
                     }
                 }
 
