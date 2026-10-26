@@ -147,3 +147,36 @@ jobs:
         env:
           GAMEVAULT_RUN_ZEX: 1
         run: dotnet test tests/GameVault.Core.Tests -c Release --filter "FullyQualifiedName~Zex_exercises" --logger "console;verbosity=detailed"
+
+  m68000-tests:
+    name: 68000 single-step tests (Linux, Release)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-dotnet@v5
+        id: setup-dotnet
+        continue-on-error: true
+        with:
+          global-json-file: global.json
+
+      # See the Windows job: fall back to builds.dotnet.microsoft.com when setup-dotnet's download fails.
+      - name: Install .NET from builds.dotnet.microsoft.com (fallback)
+        if: steps.setup-dotnet.outcome == 'failure'
+        run: |
+          feed=https://builds.dotnet.microsoft.com/dotnet
+          version=$(curl -fsSL "$feed/Sdk/10.0/latest.version" | tr -d '\r' | sed '/^$/d' | tail -1)
+          curl -fsSL https://dot.net/v1/dotnet-install.sh -o dotnet-install.sh
+          dir="$RUNNER_TEMP/dotnet"
+          bash dotnet-install.sh --version "$version" --azure-feed "$feed" --install-dir "$dir"
+          echo "$dir" >> "$GITHUB_PATH"
+          echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+
+      - name: Fetch the 68000 tests
+        run: ./tests/TestRoms/fetch-test-roms.sh manifest-680x0.tsv
+
+      # About a million tests (124 files of 8,065), each one instruction from a stated state; under a minute in Release.
+      - name: Run the SingleStepTests 680x0 suite
+        env:
+          GAMEVAULT_RUN_68K: 1
+        run: dotnet test tests/GameVault.Core.Tests -c Release --filter "FullyQualifiedName~SingleStepTests" --logger "console;verbosity=detailed"

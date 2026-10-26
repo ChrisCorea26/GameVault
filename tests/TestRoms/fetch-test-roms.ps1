@@ -1,10 +1,12 @@
-# Downloads the test ROMs listed in manifest.tsv into .cache/ and verifies their SHA-256 hashes.
+# Downloads the test ROMs listed in manifest.tsv (or the manifest given as -Manifest) into .cache/ and verifies
+# their SHA-256 hashes.
+param([string]$Manifest = 'manifest.tsv')
 # These suites have no explicit redistribution license, so they are never committed (SPEC §11.3).
 $ErrorActionPreference = 'Stop'
 $here = $PSScriptRoot
 $cache = Join-Path $here '.cache'
 
-foreach ($line in Get-Content (Join-Path $here 'manifest.tsv')) {
+foreach ($line in Get-Content (Join-Path $here $Manifest)) {
     if ($line -match '^\s*(#|$)') { continue }
     $path, $sha, $url = $line -split "`t"
     $target = Join-Path $cache $path

@@ -64,3 +64,14 @@ Pinned to commit `7954e2dbb49c469ea286070bf46cdd71aeb29e4b` of
 |---|---|---|---|---|
 | `6502/6502_functional_test.bin` | 6502 functional test, including decimal mode (success trap at `$3469`) | Klaus Dormann | GPL v3: redistributable, but kept out of the repository with the other suites | Phase 12: NMOS 6502 with decimal mode (Apple II) |
 | `6502/65C02_extended_opcodes_test.bin` | 65C02 extended opcodes, including the WDC/Rockwell bit instructions (success trap at `$24F1`) | Klaus Dormann | GPL v3, as above | Phase 12: 65C02 (enhanced Apple IIe) |
+
+### 68000 (Phase 13)
+
+Pinned to commit `e0d5ece9670205cc84a0101081837deb446f86a3` of
+[SingleStepTests/680x0](https://github.com/SingleStepTests/680x0), listed in `manifest-680x0.tsv` and fetched
+with `fetch-test-roms.sh manifest-680x0.tsv` (`-Manifest manifest-680x0.tsv` on Windows). It is about 200 MB, so only
+the 68000 CI job downloads it.
+
+| Cache path | Suite | Author | Why it isn't committed | Used by |
+|---|---|---|---|---|
+| `680x0/68000/v1/*.json.gz` (124 files, 8,065 tests each) | One instruction per test, with the processor and memory state before and after | Thomas Harte (SingleStepTests) | No licence file in the repository; too large to commit anyway | Phase 13: 68000 instructions, flags, exceptions and address-error frames (`GAMEVAULT_RUN_68K=1`) |
