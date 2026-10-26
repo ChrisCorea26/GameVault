@@ -193,7 +193,7 @@ public sealed partial class Ps2Vu
 
         var fsf = 8 >> d.Fsf;
         var ftf = 8 >> d.Ftf;
-        var efu = _isVu1;
+        var vu1 = _isVu1; // The EFU, XGKICK and XTOP are VU1's alone.
         switch (LowerSpecial(instr))
         {
             case 0x30: op = LowerOp.Move; SetLowerReads(ref d, fs, dest, 0, 0); break;
@@ -215,23 +215,23 @@ public sealed partial class Ps2Vu
             case 0x42: op = LowerOp.Rinit; SetLowerReads(ref d, fs, fsf, 0, 0); break;
             case 0x43: op = LowerOp.Rxor; SetLowerReads(ref d, fs, fsf, 0, 0); break;
             case 0x64: op = LowerOp.Mfp; break;
-            case 0x68: op = LowerOp.Xtop; break;
+            case 0x68 when vu1: op = LowerOp.Xtop; break; // VIF0 has no TOP
             case 0x69: op = LowerOp.Xitop; break;
-            case 0x6C when efu: op = LowerOp.Xgkick; d.ViA = viS; break;
-            case 0x70 when efu: op = LowerOp.Esadd; SetLowerReads(ref d, fs, 0xE, 0, 0); break;
-            case 0x71 when efu: op = LowerOp.Ersadd; SetLowerReads(ref d, fs, 0xE, 0, 0); break;
-            case 0x72 when efu: op = LowerOp.Eleng; SetLowerReads(ref d, fs, 0xE, 0, 0); break;
-            case 0x73 when efu: op = LowerOp.Erleng; SetLowerReads(ref d, fs, 0xE, 0, 0); break;
-            case 0x74 when efu: op = LowerOp.EatanXy; SetLowerReads(ref d, fs, 0xC, 0, 0); break;
-            case 0x75 when efu: op = LowerOp.EatanXz; SetLowerReads(ref d, fs, 0xA, 0, 0); break;
-            case 0x76 when efu: op = LowerOp.Esum; SetLowerReads(ref d, fs, 0xF, 0, 0); break;
-            case 0x78 when efu: op = LowerOp.Esqrt; SetLowerReads(ref d, fs, fsf, 0, 0); break;
-            case 0x79 when efu: op = LowerOp.Ersqrt; SetLowerReads(ref d, fs, fsf, 0, 0); break;
-            case 0x7A when efu: op = LowerOp.Ercpr; SetLowerReads(ref d, fs, fsf, 0, 0); break;
-            case 0x7B when efu: op = LowerOp.Waitp; break;
-            case 0x7C when efu: op = LowerOp.Esin; SetLowerReads(ref d, fs, fsf, 0, 0); break;
-            case 0x7D when efu: op = LowerOp.Eatan; SetLowerReads(ref d, fs, fsf, 0, 0); break;
-            case 0x7E when efu: op = LowerOp.Eexp; SetLowerReads(ref d, fs, fsf, 0, 0); break;
+            case 0x6C when vu1: op = LowerOp.Xgkick; d.ViA = viS; break;
+            case 0x70 when vu1: op = LowerOp.Esadd; SetLowerReads(ref d, fs, 0xE, 0, 0); break;
+            case 0x71 when vu1: op = LowerOp.Ersadd; SetLowerReads(ref d, fs, 0xE, 0, 0); break;
+            case 0x72 when vu1: op = LowerOp.Eleng; SetLowerReads(ref d, fs, 0xE, 0, 0); break;
+            case 0x73 when vu1: op = LowerOp.Erleng; SetLowerReads(ref d, fs, 0xE, 0, 0); break;
+            case 0x74 when vu1: op = LowerOp.EatanXy; SetLowerReads(ref d, fs, 0xC, 0, 0); break;
+            case 0x75 when vu1: op = LowerOp.EatanXz; SetLowerReads(ref d, fs, 0xA, 0, 0); break;
+            case 0x76 when vu1: op = LowerOp.Esum; SetLowerReads(ref d, fs, 0xF, 0, 0); break;
+            case 0x78 when vu1: op = LowerOp.Esqrt; SetLowerReads(ref d, fs, fsf, 0, 0); break;
+            case 0x79 when vu1: op = LowerOp.Ersqrt; SetLowerReads(ref d, fs, fsf, 0, 0); break;
+            case 0x7A when vu1: op = LowerOp.Ercpr; SetLowerReads(ref d, fs, fsf, 0, 0); break;
+            case 0x7B when vu1: op = LowerOp.Waitp; break;
+            case 0x7C when vu1: op = LowerOp.Esin; SetLowerReads(ref d, fs, fsf, 0, 0); break;
+            case 0x7D when vu1: op = LowerOp.Eatan; SetLowerReads(ref d, fs, fsf, 0, 0); break;
+            case 0x7E when vu1: op = LowerOp.Eexp; SetLowerReads(ref d, fs, fsf, 0, 0); break;
         }
 
         if (op is >= LowerOp.Esadd and <= LowerOp.Eexp or LowerOp.Waitp)

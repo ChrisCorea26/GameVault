@@ -20,6 +20,8 @@ namespace GameVault.Core.PlayStation2;
 /// random, integer and vu0_macro), whose recorded results the unit tests reproduce.
 /// Register writes go straight to the register file and readers stall until they are due, which gives the same values
 /// as a pipelined write-back; only Q, P and the flags, which programs read without interlocks, are held back.
+/// Not modelled: the M bit (VU0's early release of an interlocked QMTC2/CTC2: the EE waits for the whole program), and
+/// the stall of a second XGKICK while PATH1 is busy (the GIF takes the whole packet at once).
 /// </remarks>
 public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
 {
@@ -163,21 +165,28 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
     /// <summary>This unit's four VPU-STAT bits: running, stopped by D, stopped by T, force-broken.</summary>
     public int StatBits => (_running ? 1 : 0) | (_dStop ? 2 : 0) | (_tStop ? 4 : 0) | (_forceBreak ? 8 : 0);
 
+    /// <summary>The status flags as flag instructions read them now (ZSUOID and their sticky copies).</summary>
     public uint Status => (uint)_status;
 
+    /// <summary>The MAC flags as flag instructions read them now.</summary>
     public uint Mac => (uint)_mac;
 
+    /// <summary>The clipping flags: the last four CLIP judgements, newest in bits 0–5.</summary>
     public uint Clipping => (uint)_clip;
 
+    /// <summary>The I register (loaded by an upper instruction's I bit).</summary>
     public uint I { get => _i; set => _i = value; }
 
+    /// <summary>The Q register as instructions read it (a DIV in flight isn't in it yet).</summary>
     public uint Q { get => _q; set => _q = value; }
 
+    /// <summary>The P register (VU1's EFU result) as instructions read it.</summary>
     public uint P { get => _p; set => _p = value; }
 
     /// <summary>R as RGET reads it: 1.0 with the generator's 23 bits as the mantissa.</summary>
     public uint R { get => One | _r; set => _r = value & 0x7FFFFF; }
 
+    /// <summary>A VI register; VI00 is always 0 and <see cref="SetVi"/> leaves it so.</summary>
     public ushort GetVi(int index) => _vi[index & 15];
 
     public void SetVi(int index, ushort value)
@@ -188,6 +197,7 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
         }
     }
 
+    /// <summary>A VF register's field (lane 0 = x); VF00 is (0, 0, 0, 1) and <see cref="SetVf"/> leaves it so.</summary>
     public uint GetVf(int index, int lane) => _vf[((index & 31) << 2) | (lane & 3)];
 
     public void SetVf(int index, int lane, uint value)
@@ -198,6 +208,7 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
         }
     }
 
+    /// <summary>A field of the accumulator.</summary>
     public uint GetAcc(int lane) => _acc[lane & 3];
 
     /// <inheritdoc/>
