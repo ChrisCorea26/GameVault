@@ -87,3 +87,12 @@ Pinned to commit `307c63f5673c8c6b861c52f71ddb89212a227480` of
 |---|---|---|---|---|
 | `65816/v1/*.json` (512 files: each opcode in native and emulation mode, 10,000 tests each; 100 for MVN/MVP) | One instruction per test, with the state before and after and every bus cycle | Thomas Harte and contributors (SingleStepTests) | MIT: redistributable, but far too large to commit | Phase 14: 65C816 instructions, flags, emulation-mode wrapping and cycles (`GAMEVAULT_RUN_65816=1`) |
 | `spc700/v1/*.json` (256 files, 1,000 tests each) | One instruction per test, with every bus cycle | SingleStepTests | MIT, as above | Phase 14: SPC700 instructions, flags and cycles (`GAMEVAULT_RUN_SPC700=1`) |
+
+### PlayStation (Phase 15)
+
+Pinned to commit `6d20c132aba02cf387ed2224993ce9ee9a48e620` of [PeterLemon/PSX](https://github.com/PeterLemon/PSX),
+listed in `manifest.tsv` (about 2 MB), so every test run fetches them.
+
+| Cache path | Suite | Author | Why it isn't committed | Used by |
+|---|---|---|---|---|
+| `psx-peterlemon/CPUTest/**/*.exe` (31 PS-EXE programs: 29 CPU, 2 GTE) | Bare-metal tests that draw PASS (green font) or FAIL (red font) for each check; no BIOS needed | Peter Lemon (krom) | No licence file in the repository | Phase 15: R3000A ALU, shifts, MULT/DIV, loads and stores; GTE AVSZ3/AVSZ4 and NCLIP |
