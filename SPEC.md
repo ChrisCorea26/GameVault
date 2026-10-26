@@ -288,6 +288,28 @@ These build on **memory maps**. A memory map is a small JSON file per game, keye
 - **Hardcore mode** follows RetroAchievements' rules: no save-state loading, rewind, slow motion, codes or run-ahead beyond what they allow.
 - RetroAchievements must approve the emulator for hardcore unlocks; that registration is the owner's task.
 
+### 7.11 More systems (Phases 11–18)
+GameVault grows from an NES emulator into a multi-system one, one system (or family) per phase, in the owner's order:
+
+| Phase | System | Main hardware | Notes |
+|---|---|---|---|
+| 11 | Sega SG-1000 / SC-3000 and Sega Master System | Z80, TMS9918 / SMS VDP, SN76489 | Includes the **multi-system groundwork**: a system-neutral core interface, per-system library, catalog and controller mapping, and a system picker. No BIOS needed. |
+| 12 | Apple II (II, II+, IIe) | 6502 / 65C02, Disk II | Computer-style input (keyboard, joystick, paddles) and disk images (.dsk, .woz). The machine ROMs are copyrighted, so the player supplies their own, like the Disk System BIOS. |
+| 13 | Sega Genesis / Mega Drive | 68000, Z80, VDP, YM2612, SN76489 | New 68000 core; FM synthesis. No BIOS needed. |
+| 14 | Super Nintendo | 65C816, S-PPU, SPC700 + S-DSP | Enhancement chips (SuperFX, SA-1, DSP-n, …) one by one; chips with internal program ROMs need the player's own dumps. |
+| 15 | Sony PlayStation | MIPS R3000A, GPU, SPU, CD-ROM, MDEC | Player-supplied BIOS. CD images (.cue/.bin, .chd); memory cards. |
+| 16 | Nintendo 64 | MIPS R4300i, RSP, RDP | GPU-accelerated graphics through Direct3D 11/12; a recompiling or optimized interpreter CPU core. |
+| 17 | PlayStation 2 | Emotion Engine (MIPS R5900 + VU0/VU1), GS, IOP, SPU2 | Player-supplied BIOS. Needs dynamic recompilation and a GPU renderer; by far the largest effort so far. |
+| 18 | GameCube / Wii | PowerPC Gekko/Broadway, Flipper/Hollywood GPU, DSP | Needs dynamic recompilation and a GPU renderer; Wii adds remotes and motion. Comparable to Phase 17. |
+
+Rules that carry over to every system:
+- The player supplies all games, BIOS and system ROM files. GameVault never ships, downloads or links to them.
+- Each core is deterministic and implements save states, so the timeline, rewind, practice, netplay and verified challenges work on every system.
+- Each system has accuracy tests from freely redistributable test ROMs where they exist. Each system also has a compatibility page section.
+- Features that depend on per-game data (memory maps, passwords, codes) get per-system data folders and formats as each system arrives.
+
+The later phases (15–18) are large projects; each phase's plan will scope a first playable milestone and list what remains.
+
 ## 8. Cartridge Dumper Integration (Phase 6)
 - Support **INL Retro-Prog** first (open-source USB dumper). Initial integration shells out to its CLI tool; a native USB implementation is a later option.
 - Flow: *Library → Dump Cartridge* → pick the board/mapper (pre-filled from a catalog search) → dump → verify the hash against the catalog → add to library and mark as "Owned: Cartridge + Digital dump."
@@ -377,6 +399,14 @@ Each phase ends with all tests green and a tagged release.
 | **8. Game Genie codes** | Game Genie and RAM code engine, per-game code library, import/export, Player and Game Details UI, bundled code database | Codes decode and apply correctly in tests; codes can be added, toggled and imported for a game; the screens render under `--sample-data` |
 | **9. Game-aware features** | Memory maps, rewind-to-before-death markers, automatic maps, "Previously on…" recap, family profiles, verified challenges, stat overlays | Each feature works end to end with synthetic test ROMs and memory maps; the screens render under `--sample-data`; launch memory maps for real games are listed for the owner to verify |
 | **10. RetroAchievements** | Sign-in, NES hashing, achievement/leaderboard/rich-presence runtime, hardcore rules, notifications | Achievement conditions pass rcheevos' published test cases; login and unlock flow work against RetroAchievements (needs the owner's account and RetroAchievements' approval for hardcore) |
+| **11. Sega 8-bit** | Multi-system groundwork; SG-1000 / SC-3000 and Master System cores | Z80 and VDP test ROMs pass; SG-1000 and SMS homebrew run with sound, saves, timeline and netplay; NES behaviour unchanged |
+| **12. Apple II** | 6502/65C02 machine, Disk II, keyboard/joystick input, player-supplied ROMs | Free test disks boot and run; .dsk and .woz images load; save states round-trip |
+| **13. Sega Genesis** | 68000 core, VDP, YM2612 + SN76489, controllers | 68000 test suites pass; Genesis test ROMs and homebrew run with correct sound |
+| **14. Super Nintendo** | 65C816, PPU, SPC700/S-DSP, enhancement chips in stages | 65C816 and SPC700 test suites pass; SNES test ROMs render correctly |
+| **15. PlayStation** | R3000A, GPU, SPU, CD-ROM, MDEC, memory cards | CPU/GPU test suites pass; homebrew and the player's games boot with their BIOS |
+| **16. Nintendo 64** | R4300i, RSP, RDP (GPU-accelerated) | CPU/RSP test ROMs pass; N64 test ROMs and homebrew render correctly |
+| **17. PlayStation 2** | EE + VUs (recompiled), GS renderer, IOP, SPU2 | Scoped in its plan: a first playable milestone with test programs and homebrew |
+| **18. GameCube / Wii** | Gekko/Broadway (recompiled), Flipper/Hollywood renderer, DSP, controllers | Scoped in its plan: a first playable milestone with test programs and homebrew |
 
 ---
 
