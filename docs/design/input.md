@@ -253,7 +253,8 @@ T/F/G/H are the D-pad and 5/6 are L3/R3; other systems never see those keys (the
 two-player keyboard preset's F and G (Player 2's B and A) are taken by the D-pad while a PS2 game runs. A pad's left
 stick drives the left stick and stops pressing the D-pad; for each stick the strongest of the keyboard and the pads
 wins. Turbo is off, as for the PlayStation. The pressure-sensitive buttons report full presses; vibration is left for
-later.
+later. Challenge recordings carry the whole pad; netplay isn't offered for PS2 games, whose states are too large for
+rollback (host-budgets.md §3).
 
 ## 7. Game input vs. UI navigation
 
