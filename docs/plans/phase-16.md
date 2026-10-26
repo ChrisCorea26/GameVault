@@ -205,8 +205,12 @@ The N64 controller maps onto `ControllerState` by position, like the SNES and Pl
 - **The FPU:** every operation and conversion in all four rounding modes, done exactly (.NET always rounds to nearest,
   so the other modes correct the result with its exact error), the FCR31 flags, enables and causes, the
   unimplemented-operation cases and the FR=0 register pairs. 573 unit tests, 522 of them PeterLemon's own vectors.
-- **Timing:** one cycle per instruction, the multiply/divide latencies, and 22 cycles for a read over the RCP's bus.
-  An idle loop (a branch to itself with a NOP in its delay slot) skips to the next event.
+- **Timing:** one cycle per instruction; the multiply/divide latencies; the FPU's latencies from the VR4300 manual
+  (multiply, divide, square root and conversions from integers finish at once on a zero operand, as the hardware
+  recordings show); and 22 cycles for a read over the RCP's bus, plus one more on every fifth read for the bus being
+  shared. PeterLemon's timing programs count loop iterations against the VI: GameVault's counts are within 0.3% of
+  the hardware's on average for integer instructions and 1.3% for FPU ones (3.1% at worst, DMULT). An idle loop (a
+  branch to itself with a NOP in its delay slot) skips to the next event.
 
 **The machine:**
 - MI, VI, AI, PI, SI and RI, with the scheduler of Phase 15: the CPU runs to the next event (a line, a DMA's end, an
@@ -269,7 +273,11 @@ rate through the band-limited resampler.
   set up (as a warm boot does) and stores osMemSize itself, as Mupen64Plus does.
 - **CIC detection:** libdragon's open-source IPL3 isn't told apart; it is treated as a 6102, which it accepts.
 - **The CPU timing programs** (`CPUTIMINGNTSC`, `CP1TIMINGNTSC`) compare loop counts with the hardware's to the
-  iteration; they need a pipeline and cache model and are left for later.
+  iteration, so they still print FAIL; a test holds GameVault's counts to the hardware's within a few percent instead.
+  Matching them exactly isn't possible from the CPU's side: the hardware's iteration time (27.19 cycles) can't be
+  produced by waiting for any combination of the CPU, RCP and VI clocks, so it includes irregular bus delays (the
+  VI's framebuffer reads share the bus), and identical one-cycle instructions already vary by four iterations
+  between tests.
 - **Coverage:** the RDP computes 8-sample coverage per pixel rather than full coverage, but RDRAM's hidden bits
   aren't kept, so coverage read back from memory is approximate.
 - **n64-systemtest** (MIT) could not be built here (it needs a Rust toolchain); a local test runs it when the owner
@@ -284,7 +292,7 @@ rate through the band-limited resampler.
 - **A GPU renderer** (Direct3D), for upscaling and for speed in heavy scenes, with the software RDP as its reference.
 - **A recompiler** for the VR4300 (and the RSP) if the interpreters can't keep up with real games.
 - **Accessories:** the Rumble Pak, the Transfer Pak, the mouse, the VRU; the 64DD.
-- **Timing:** caches and pipeline stalls (the timing programs), RDP and RSP DMA timing.
+- **Timing:** the caches, the VI's share of the bus, RDP and RSP DMA timing.
 - **The VI's filters**, and 32-bit colour shown at full depth.
 - **Save types:** a fuller list of games, checked by the owner.
 - **GameShark codes** for the N64.

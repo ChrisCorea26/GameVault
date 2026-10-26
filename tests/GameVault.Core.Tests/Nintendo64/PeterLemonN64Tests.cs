@@ -189,6 +189,53 @@ public sealed class PeterLemonN64Tests
     [InlineData("RSPTest/CP2/VXOR/RSPCP2VXOR.N64", 8, 640)]
     public void Rsp_programs_pass(string program, int checks, int width) => AssertAllPass(program, checks, width);
 
+    /// <summary>
+    /// The timing programs count how many times a loop around one instruction (and a read of VI_V_CURRENT) runs in 256
+    /// lines, and compare with counts recorded on hardware to the iteration. Those counts include bus delays from the
+    /// VI's framebuffer reads that GameVault doesn't model, so the programs print FAIL; the counts are held to the
+    /// hardware's within a few percent instead (on average 0.3% for integer instructions and 1.3% for FPU ones). Each
+    /// program keeps its expected counts in a table with its count word right after it.
+    /// </summary>
+    [N64TestRomTheory]
+    [InlineData("CPUTest/CPU/TIMINGNTSC/CPUTIMINGNTSC.N64", 42, 0.5)]
+    [InlineData("CPUTest/CP1/TIMINGNTSC/CP1TIMINGNTSC.N64", 40, 1.5)]
+    public void Timing_programs_count_close_to_the_hardware(string program, int tests, double meanPercent)
+    {
+        var console = Boot(program);
+        console.RunFrame();
+        var ram = console.Rdram;
+        var table = -1;
+        for (var at = 0; at < 0x20_0000 && table < 0; at += 4)
+        {
+            var found = BinaryPrimitives.ReadUInt32BigEndian(ram.AsSpan(at + tests * 4)) == 0;
+            for (var i = 0; i < tests && found; i++)
+            {
+                found = BinaryPrimitives.ReadUInt32BigEndian(ram.AsSpan(at + i * 4)) is > 10_000 and < 70_000;
+            }
+
+            table = found ? at : -1;
+        }
+
+        table.Should().BeGreaterThanOrEqualTo(0, "the table of hardware counts is in RDRAM");
+        var countWord = ram.AsSpan(table + tests * 4, 4);
+        var errors = new List<double>();
+        for (var slice = 0; slice < 40_000 && errors.Count < tests; slice++)
+        {
+            console.RunCycles(20_000);
+            var count = BinaryPrimitives.ReadUInt32BigEndian(countWord);
+            if (count != 0)
+            {
+                var expected = BinaryPrimitives.ReadUInt32BigEndian(ram.AsSpan(table + errors.Count * 4));
+                errors.Add(Math.Abs((double)count - expected) / expected * 100);
+                countWord.Clear(); // so that a repeated count is seen too
+            }
+        }
+
+        errors.Should().HaveCount(tests);
+        errors.Should().OnlyContain(e => e < 3.5);
+        errors.Average().Should().BeLessThan(meanPercent);
+    }
+
     private static void AssertAllPass(string program, int checks, int width)
     {
         var console = Boot(program);

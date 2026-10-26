@@ -104,6 +104,7 @@ public sealed partial class N64Console
         _flashMode = FlashMode.Read;
         _flashStatus = 0;
         _flashOffset = 0;
+        _rcpReads = 0;
 
         // The PIF sets domain 1's timing from the ROM's first word (n64brew: "ROM Header").
         var rom = Cartridge.Rom;
@@ -123,9 +124,20 @@ public sealed partial class N64Console
     /// </summary>
     private const int RcpReadCycles = 22;
 
+    /// <summary>
+    /// Every fifth read over the RCP's bus waits one more cycle: on average the extra fifth of a cycle PeterLemon's
+    /// timing programs measure, which comes from the bus being shared (with the VI's framebuffer reads, among others).
+    /// </summary>
+    private int _rcpReads;
+
     public uint Read32(uint address)
     {
         Cpu.Cycles += RcpReadCycles;
+        if (++_rcpReads == 5)
+        {
+            _rcpReads = 0;
+            Cpu.Cycles++;
+        }
         if ((address & 3) != 0 && address is < 0x1000_0000 or >= 0x1FC0_0000)
         {
             address &= ~3u; // only the cartridge bus reads from a halfword address
@@ -1038,6 +1050,7 @@ public sealed partial class N64Console
         writer.WriteUInt32(_flashStatus);
         writer.WriteUInt32(_flashOffset);
         writer.WriteBytes(_flashPage);
+        writer.WriteInt32(_rcpReads);
     }
 
     private void LoadIo(StateReader reader)
@@ -1093,5 +1106,6 @@ public sealed partial class N64Console
         _flashStatus = reader.ReadUInt32();
         _flashOffset = reader.ReadUInt32();
         reader.ReadBytes(_flashPage);
+        _rcpReads = reader.ReadInt32();
     }
 }

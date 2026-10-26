@@ -960,17 +960,49 @@ public sealed partial class R4300Cpu
             }
 
             case 0x10 or 0x11 or 0x14 or 0x15:
+            {
+                var cycles = FpuCycles(op, rs, fs, rt);
                 if (!Fpu.Execute(op))
                 {
                     RaiseException(R4300Exception.FloatingPoint);
+                    break;
                 }
 
+                Cycles += cycles;
                 break;
+            }
             default: // DCFC1, DCTC1 and the reserved formats
                 Fpu.Unimplemented();
                 RaiseException(R4300Exception.FloatingPoint);
                 break;
         }
+    }
+
+    /// <summary>
+    /// The cycles an FPU operation holds the pipeline beyond its own, from the VR4300 manual's latencies (add 3,
+    /// multiply 5/8, divide and square root 29/58, conversions 5). PeterLemon's <c>CP1TIMINGNTSC</c> recordings show
+    /// multiply, divide, square root and conversions from integers finishing at once when an operand is zero, so those
+    /// take no extra time then.
+    /// </summary>
+    private uint FpuCycles(uint op, int format, int fs, int ft)
+    {
+        var function = op & 0x3F;
+        var single = format is 0x10 or 0x14;
+        var wide = format is 0x11 or 0x15;
+        bool Zero(int register) => wide
+            ? (Fpu.ReadDoubleword(register) & 0x7FFF_FFFF_FFFF_FFFF) == 0
+            : (Fpu.ReadWord(register) & (format == 0x10 ? 0x7FFF_FFFFu : 0xFFFF_FFFFu)) == 0;
+
+        return function switch
+        {
+            0 or 1 => 2, // ADD, SUB
+            2 => Zero(fs) || Zero(ft) ? 0u : single ? 4u : 7u, // MUL
+            3 => Zero(fs) || Zero(ft) ? 0u : single ? 28u : 57u, // DIV
+            4 => Zero(fs) ? 0u : single ? 28u : 57u, // SQRT
+            >= 8 and <= 15 or 36 or 37 => 4, // ROUND/TRUNC/CEIL/FLOOR, CVT.W, CVT.L
+            32 or 33 => Zero(fs) ? 0u : format >= 0x14 ? 4u : function == 32 ? 1u : 0u, // CVT.S, CVT.D
+            _ => 0, // ABS, MOV, NEG, compares
+        };
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]

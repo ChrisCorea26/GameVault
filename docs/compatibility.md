@@ -237,7 +237,7 @@ Real discs need the owner's BIOS (Settings → PlayStation); real games are the 
 | VR4300: COP0 registers and Cause after a cold boot (`CPUTest/CP0`, recorded on hardware) | ✅ Pass |
 | VR4300: TLB, exceptions, branch-likely, Count/Compare | ✅ Unit tests |
 | FPU: PeterLemon `CPUTest/CP1` (28 programs: arithmetic, conversions, rounding, all 16 compares) | ✅ All pass, plus 573 unit tests of the rounding modes, exceptions and FR modes |
-| CPU timing (`CPUTIMINGNTSC`, `CP1TIMINGNTSC`: exact loop counts against the VI) | Not yet: one cycle per instruction plus approximate memory and I/O costs |
+| CPU timing (`CPUTIMINGNTSC`, `CP1TIMINGNTSC`: exact loop counts against the VI) | 🟡 Counts within 0.3% of the hardware's on average for integer instructions and 1.3% for FPU ones (worst 3.1%); not exact, because the hardware's counts include bus delays from the VI's framebuffer reads |
 | RSP: PeterLemon `RSPTest` (scalar unit, every vector instruction including the reserved opcodes, transposes, IMEM, SP DMA alignment) | ✅ All pass |
 | RDP: PeterLemon's 115 drawing programs through the whole console (CPU, RSP over XBUS, RDP, VI) | ✅ Golden images; 105 are also held to their reference pictures (89–100% of pixels identical; the references are an emulator's captures, some a row off) |
 | RDP: coverage anti-aliasing, the VI's filters (anti-aliasing, divot, gamma) | 🟡 Coverage is computed per pixel but the hidden RDRAM bits aren't kept; the VI shows the framebuffer without its filters |
