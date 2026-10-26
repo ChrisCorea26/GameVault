@@ -104,7 +104,7 @@ listed in `manifest.tsv` (about 3 MB), so every test run fetches them.
 ### Nintendo 64 (Phase 16)
 
 Pinned to commit `7085543e4a19d8c539fc9e0a4d2869e788b4ed4b` of [PeterLemon/N64](https://github.com/PeterLemon/N64), listed in
-`manifest-n64.tsv` (about 270 MB: each program is a 1 MB ROM) and fetched with `fetch-test-roms.sh manifest-n64.tsv`
+`manifest-n64.tsv` (about 280 MB: each program is a 1 MB ROM) and fetched with `fetch-test-roms.sh manifest-n64.tsv`
 (`-Manifest manifest-n64.tsv` on Windows). Only the Nintendo 64 CI job fetches them, and it caches them; elsewhere the
 tests run when the files are cached, or with `GAMEVAULT_RUN_N64=1`. The programs boot with krom's own boot code, not
 Nintendo's, and the repository is public domain; they are downloaded like the other suites to keep the repository
@@ -116,4 +116,4 @@ small.
 | `n64-peterlemon/CPUTest/CPU/ADD/Font{Green,Red}8x8.bin` | The fonts those programs print with | Peter Lemon (krom) | As above | Phase 16: reading PASS and FAIL back from the framebuffer |
 | `n64-peterlemon/RSPTest/**/*.N64` | The RSP's scalar and vector instructions, its memories and SP DMA alignment, as PASS/FAIL programs | Peter Lemon (krom) | As above | Phase 16: the RSP (`PeterLemonN64Tests`) |
 | `n64-peterlemon/RDPTest/**/*.N64`, `n64-peterlemon/RDP/**/*.{N64,png}` (115 programs, 105 reference pictures) | The RDP's registers (PASS/FAIL), and drawing demos: fill, copy, one-cycle and two-cycle modes, triangles, rectangles, lines, every texture format, TLUTs, mask/clamp/mirror, the combiner, blender, alpha compare and Z buffer | Peter Lemon (krom) | As above | Phase 16: the RDP through the whole console, held to each reference picture and pinned as golden images (`PeterLemonN64RdpTests`) |
-
+| `n64-peterlemon/RSP/**/*.{N64,png}` (5 demos), `n64-peterlemon/CP1/Fractal/**/*.N64` (2) | Demos that use the whole machine: RSP programs (a gradient, DCT decoding, strided DMA, RDP commands over the XBUS) and FPU fractals | Peter Lemon (krom) | As above | Phase 16: the RSP's demos held to their reference pictures, all pinned as golden images |
