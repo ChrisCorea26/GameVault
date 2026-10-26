@@ -29,7 +29,7 @@ full feature specification and [CLAUDE.md](CLAUDE.md) for the contributor rules.
 | 13 | Sega Genesis / Mega Drive | ✅ 68000 passes the SingleStepTests suite; VDP, YM2612, PSG, Z80, 3/6-button pads, SRAM. Real-game checks are the owner's ([plan](docs/plans/phase-13.md)) |
 | 14 | Super Nintendo | ✅ 65C816 and SPC700 pass their SingleStepTests suites; PPU modes 0–7, DMA/HDMA, S-DSP with GameVault's own boot program. Enhancement-chip games aren't supported yet; real-game checks are the owner's ([plan](docs/plans/phase-14.md)) |
 | 15 | Sony PlayStation | ✅ R3000A passes PeterLemon's CPU tests; the GPU matches hardware VRAM dumps pixel for pixel; GTE, SPU, MDEC, CD-ROM (XA, CD-DA), pads and memory cards; .cue/.bin, .chd and .m3u. Needs your own BIOS; real-game checks are the owner's ([plan](docs/plans/phase-15.md)) |
-| 16 | Nintendo 64 | ✅ VR4300, FPU and RSP pass PeterLemon's test programs; a software RDP draws PeterLemon's 115 RDP programs; audio, controllers with the analog stick, Controller Pak, EEPROM, SRAM and FlashRAM; .z64, .v64 and .n64. Not yet full speed in heavy 3D scenes (a GPU renderer is left for later); real-game checks are the owner's ([plan](docs/plans/phase-16.md)) |
+| 16 | Nintendo 64 | ✅ VR4300, FPU and RSP pass PeterLemon's test programs; a software RDP draws PeterLemon's 115 RDP programs; audio, controllers with the analog stick, Controller Pak, EEPROM, SRAM and FlashRAM; .z64, .v64 and .n64. the RDP is software-only, so heavy 3D scenes may run below full speed until the GPU renderer (left for later); real-game checks are the owner's ([plan](docs/plans/phase-16.md)) |
 | 16–19 | More systems | Planned (SPEC §7.11) |
 
 Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md).

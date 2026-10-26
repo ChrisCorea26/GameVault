@@ -253,6 +253,17 @@ rate through the band-limited resampler.
 - **Sample data:** an N64 game in the sample library.
 - **CI:** a job fetches PeterLemon's programs (cached, about 270 MB) and runs them in Release.
 
+**Performance (Release, on the build machine, a 4-core VM):**
+- **The VR4300 interpreter** runs about 110 M instructions a second on integer code, a little over the real CPU's
+  93.75 MHz. Idle loops cost nothing, so games that wait for the VI run well faster.
+- **The RSP** runs about 95–100 M instructions a second with its vector unit on `Vector128`, over the real 62.5 MHz.
+- **The RDP** draws about 800 Mpixels a second in fill mode, 40 one-cycle flat, 22 textured (point sampled), 13
+  bilinear with blending and Z, and 8 in two-cycle mode. A heavy 3D scene can need 15–20 Mpixels a second, so the RDP
+  is what keeps such games below full speed; the GPU renderer is left for later.
+- **Whole frames:** the N64NICCC polygon demo takes 6 ms a frame; the RSP's XBUS rectangle demo 2.3 ms.
+- **Save states:** a state is 8 MB (mostly RDRAM); saving takes 0.65 ms and loading 0.87 ms through a reused writer, so
+  rewind and run-ahead work as on the PlayStation, at about twice the memory per snapshot.
+
 **Changed from the plan:**
 - **RDRAM sizing:** instead of answering the RDRAM registers for IPL3's memory test, the simulated PIF leaves RDRAM
   set up (as a warm boot does) and stores osMemSize itself, as Mupen64Plus does.
