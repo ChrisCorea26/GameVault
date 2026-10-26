@@ -1,4 +1,5 @@
 using GameVault.Core;
+using GameVault.Core.Apple;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Sega;
 using GameVault.Core.Systems;
@@ -11,8 +12,36 @@ namespace GameVault.Platform.Emulation;
 internal static class ConsoleFactory
 {
     /// <summary>Throws <see cref="GameLoadException"/> with a message for the player.</summary>
-    public static IEmulatedConsole Create(byte[] data, GameSystem system, GameProfile profile, byte[]? fdsBios)
+    public static IEmulatedConsole Create(
+        byte[] data, GameSystem system, GameProfile profile, byte[]? fdsBios, string extension = "", AppleRoms? appleRoms = null)
     {
+        if (system == GameSystem.AppleII)
+        {
+            if (appleRoms is null)
+            {
+                throw new GameLoadException(
+                    "This is an Apple II disk. To play it, choose your own Apple II ROM files in Settings → Apple II. GameVault doesn't include them.");
+            }
+
+            try
+            {
+                var model = profile.Model?.ToLowerInvariant() switch
+                {
+                    "ii+" or "iiplus" => AppleModel.IIPlus,
+                    "iie" => AppleModel.IIe,
+                    "iie-enhanced" => AppleModel.IIeEnhanced,
+                    _ => (AppleModel?)null,
+                };
+                var apple = new AppleConsole(appleRoms, model);
+                apple.InsertDisk(0, AppleDisk.Open(data, extension.Length > 0 ? extension : ".dsk"), AppleConsole.HashDisk(data));
+                return apple;
+            }
+            catch (RomFormatException ex)
+            {
+                throw new GameLoadException(ex.Message, ex);
+            }
+        }
+
         if (system != GameSystem.Nes)
         {
             try

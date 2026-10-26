@@ -664,6 +664,17 @@ public sealed class AppleConsole : IEmulatedConsole, ICpuBus
         reader.EndChunk();
     }
 
+    /// <summary>Identifies a disk image inside save states (not a security hash).</summary>
+    public static ulong HashDisk(ReadOnlySpan<byte> image) => Fnv(image);
+
+    /// <summary>Memory in RetroAchievements' layout (rcheevos consoleinfo.c): main RAM, then auxiliary RAM at $10000.</summary>
+    public byte ReadAchievementMemory(int address) => address switch
+    {
+        < 0x10000 => _main[address],
+        < 0x20000 when _aux.Length > 0 => _aux[address - 0x10000],
+        _ => 0,
+    };
+
     private static ulong Fnv(ReadOnlySpan<byte> data)
     {
         var hash = 14695981039346656037UL;

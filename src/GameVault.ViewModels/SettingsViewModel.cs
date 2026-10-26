@@ -37,6 +37,14 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial string FdsBiosPath { get; set; } = string.Empty;
 
+    /// <summary>The player's own Apple II ROM (SPEC §7.11). Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string AppleIIRomPath { get; set; } = string.Empty;
+
+    /// <summary>The player's own Disk II boot ROM. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string AppleIIDiskRomPath { get; set; } = string.Empty;
+
     /// <summary>Index into <see cref="RewindMemoryOptions"/>.</summary>
     [ObservableProperty]
     public partial int RewindMemoryIndex { get; set; } = 2;
@@ -90,6 +98,8 @@ public sealed partial class SettingsViewModel(
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
         DumperPath = settings.DumperPath;
         FdsBiosPath = settings.FdsBiosPath;
+        AppleIIRomPath = settings.AppleIIRomPath;
+        AppleIIDiskRomPath = settings.AppleIIDiskRomPath;
         _isLoaded = true;
         await Library.LoadCommand.ExecuteAsync(null);
     }
@@ -150,6 +160,9 @@ public sealed partial class SettingsViewModel(
     [RelayCommand]
     private void SaveFdsBiosPath() => SaveIfLoaded();
 
+    [RelayCommand]
+    private void SaveAppleRomPaths() => SaveIfLoaded();
+
     partial void OnRewindMemoryIndexChanged(int value)
     {
         if (value >= 0 && value < RewindMemoryValues.Length)
@@ -182,6 +195,8 @@ public sealed partial class SettingsViewModel(
             Volume = (int)Math.Round(Math.Clamp(Volume, 0, 100)),
             DumperPath = DumperPath.Trim().Trim('"'),
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),
+            AppleIIRomPath = AppleIIRomPath.Trim().Trim('"'),
+            AppleIIDiskRomPath = AppleIIDiskRomPath.Trim().Trim('"'),
             RewindMemoryMb = RewindMemoryIndex >= 0 && RewindMemoryIndex < RewindMemoryValues.Length
                 ? RewindMemoryValues[RewindMemoryIndex]
                 : current.RewindMemoryMb,

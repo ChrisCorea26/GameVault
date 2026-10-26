@@ -567,6 +567,35 @@
         </StackPanel>
       </Border>
 
+      <!-- Apple II (SPEC §7.11): the player's own ROMs; GameVault never ships them -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Apple II" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Apple II disks (.dsk, .do, .po, .nib, .woz) need the ROMs from your own Apple: the system ROM (12 KB for a II or II+, 16 KB for a IIe) and the Disk II controller's 256-byte boot ROM. GameVault doesn't include them. Paste where the files are."
+              TextWrapping="Wrap" />
+          <TextBox
+              AutomationProperties.Name="Apple II system ROM file"
+              Header="System ROM"
+              LostFocus="AppleRoms_LostFocus"
+              PlaceholderText="C:\Apple\apple2e-enhanced.rom"
+              Text="{x:Bind ViewModel.AppleIIRomPath, Mode=TwoWay}" />
+          <TextBox
+              AutomationProperties.Name="Disk II boot ROM file"
+              Header="Disk II boot ROM"
+              LostFocus="AppleRoms_LostFocus"
+              PlaceholderText="C:\Apple\disk2.rom"
+              Text="{x:Bind ViewModel.AppleIIDiskRomPath, Mode=TwoWay}" />
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="While an Apple II game runs, the keyboard types into it. F1 is the Apple's Esc key, Backspace is its left arrow, Shift+Backspace rewinds, and Ctrl+F12 is Reset."
+              TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
       <!-- Advanced -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Advanced" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">

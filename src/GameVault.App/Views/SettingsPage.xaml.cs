@@ -30,4 +30,6 @@ public sealed partial class SettingsPage : Page
     private void DumperPath_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveDumperPathCommand.Execute(null);
 
     private void FdsBiosPath_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveFdsBiosPathCommand.Execute(null);
+
+    private void AppleRoms_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveAppleRomPathsCommand.Execute(null);
 }

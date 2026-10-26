@@ -9,6 +9,7 @@ using GameVault.Core.Ppu;
 using GameVault.Platform.Achievements;
 using GameVault.Platform.Audio;
 using GameVault.Core.Input;
+using GameVault.Core.Apple;
 using GameVault.Core.Sega;
 using GameVault.Core.State;
 using GameVault.Core.Systems;
@@ -150,6 +151,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     public EmulatorStatus Status { get; private set; }
 
     private GameSystem _romSystem;
+    private string _romExtension = "";
+    private AppleRoms? _appleRoms;
 
     /// <summary>The system of the running game; null when idle.</summary>
     public GameSystem? System { get; private set; }
@@ -225,11 +228,15 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
 
         var count = 0u;
-        for (var i = 0; i < buffer.Length && address + i <= 0xFFFF; i++)
+        var limit = console is AppleConsole ? 0x1FFFF : 0xFFFF;
+        for (var i = 0; i < buffer.Length && address + i <= limit; i++)
         {
-            buffer[i] = console is SegaConsole sega
-                ? sega.ReadAchievementMemory((int)(address + i))
-                : console.PeekMemory((int)(address + i));
+            buffer[i] = console switch
+            {
+                SegaConsole sega => sega.ReadAchievementMemory((int)(address + i)),
+                AppleConsole apple => apple.ReadAchievementMemory((int)(address + i)),
+                _ => console.PeekMemory((int)(address + i)),
+            };
             count++;
         }
 
@@ -360,7 +367,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     {
         var data = _romData!;
         var profile = Profile ?? new GameProfile { Sha1 = string.Empty };
-        var console = ConsoleFactory.Create(data, _romSystem, profile, fdsBios: null);
+        var console = ConsoleFactory.Create(data, _romSystem, profile, fdsBios: null, _romExtension, _appleRoms);
         if (_audioActive && _audio is not null)
         {
             console.EnableAudio(_audio.SampleRate);
@@ -804,6 +811,12 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
 
         var data = rom.Data;
+        AppleRoms? appleRoms = null;
+        if (rom.System == GameSystem.AppleII && _settings is not null)
+        {
+            appleRoms = await LoadAppleRomsAsync(cancellationToken).ConfigureAwait(false);
+        }
+
         byte[]? bios = null;
         if (FdsImage.IsFdsImage(data) && _settings is not null)
         {
@@ -822,18 +835,42 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             }
         }
 
-        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System);
+        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms);
+    }
+
+    /// <summary>The player's Apple II ROMs from Settings, or null when they aren't set yet.</summary>
+    private async Task<AppleRoms?> LoadAppleRomsAsync(CancellationToken cancellationToken)
+    {
+        var settings = await _settings!.LoadAsync(cancellationToken).ConfigureAwait(false);
+        if (string.IsNullOrWhiteSpace(settings.AppleIIRomPath))
+        {
+            return null;
+        }
+
+        try
+        {
+            var system = await File.ReadAllBytesAsync(settings.AppleIIRomPath, cancellationToken).ConfigureAwait(false);
+            var disk = string.IsNullOrWhiteSpace(settings.AppleIIDiskRomPath)
+                ? null
+                : await File.ReadAllBytesAsync(settings.AppleIIDiskRomPath, cancellationToken).ConfigureAwait(false);
+            return new AppleRoms(system, disk);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            throw new GameLoadException("GameVault couldn't open your Apple II ROM files. Check the files chosen in Settings → Apple II.", ex);
+        }
     }
 
     /// <summary>
     /// Loads a game from bytes already in memory. Famicom Disk System images also need the player's own
     /// 8 KB BIOS in <paramref name="fdsBios"/>.
     /// </summary>
-    public void Load(byte[] data, string title, byte[]? fdsBios = null, GameSystem system = GameSystem.Nes)
+    public void Load(
+        byte[] data, string title, byte[]? fdsBios = null, GameSystem system = GameSystem.Nes, string extension = "", AppleRoms? appleRoms = null)
     {
         var hashes = RomHasher.Hash(data, system);
         var profile = ProfileResolver?.Invoke(hashes.Sha1) ?? new GameProfile { Sha1 = hashes.Sha1 };
-        var console = ConsoleFactory.Create(data, system, profile, fdsBios);
+        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms);
         var nes = console as NesConsole;
 
         if (_audio is not null)
@@ -865,6 +902,9 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
         _romData = data;
         _romSystem = system;
+        _romExtension = extension;
+        _appleRoms = appleRoms;
+        _input.TypingMode = console is AppleConsole;
         byte[][]? diskOriginal = null;
         byte[][]? diskSaved = null;
         if (nes?.Fds is { } disk)
@@ -997,6 +1037,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         {
             return;
         }
+
+        _input.TypingMode = false;
 
         Post(() =>
         {
@@ -1278,6 +1320,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 }
             }
 
+            if (console is AppleConsole apple)
+            {
+                Type(apple);
+            }
+
             if (console is NesConsole { InputSetup: InputSetup.Zapper } nes)
             {
                 var (aim, trigger) = _input.SampleZapper();
@@ -1346,6 +1393,24 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
     }
 
+    /// <summary>Keys typed since the last frame go to the Apple's keyboard; Ctrl+F12 is its Reset key.</summary>
+    private void Type(AppleConsole apple)
+    {
+        while (_input.TryDequeueTyped(out var key, out var shift, out var control))
+        {
+            if (key == VirtualKeys.F12 && control)
+            {
+                apple.Reset();
+            }
+            else if (AppleKeyboard.ToAscii(key, shift, control) is { } ascii)
+            {
+                apple.TypeKey(ascii);
+            }
+        }
+
+        apple.SetKeyHeld(_input.AnyTypingKeyHeld);
+    }
+
     /// <summary>
     /// Backspace or the left shoulder (input.md §8) held: walk back through the rewind history. Returns true
     /// while rewinding; raises <see cref="RewindChanged"/> on start and stop.
@@ -1353,7 +1418,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private bool UpdateRewinding()
     {
         // No rewinding in a challenge attempt or in hardcore mode.
-        var held = _input.IsHotkeyHeld(VirtualKeys.Backspace) && _challenge is null && !_hardcore;
+        // While typing into a computer, Backspace types; Shift+Backspace rewinds.
+        var held = _input.IsHotkeyHeld(VirtualKeys.Backspace) && (!_input.TypingMode || _input.ShiftHeld) && _challenge is null && !_hardcore;
         if (held != _rewinding)
         {
             _rewinding = held;

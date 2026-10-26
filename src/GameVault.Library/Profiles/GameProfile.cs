@@ -56,6 +56,9 @@ public sealed record GameProfile
     /// <summary>"ntsc", "pal" or "dendy".</summary>
     public string? Region { get; init; }
 
+    /// <summary>Apple II games: the machine to run on, "ii+", "iie" or "iie-enhanced" (the default for 16 KB ROMs).</summary>
+    public string? Model { get; init; }
+
     /// <summary>File name of the password definition in <c>data/gamedb/passwords/</c> (Phase 6).</summary>
     public string? PasswordDefinition { get; init; }
 
@@ -67,6 +70,7 @@ public sealed record GameProfile
         RunAheadSafe = overrides.RunAheadSafe ?? RunAheadSafe,
         RemoveSpriteLimit = overrides.RemoveSpriteLimit ?? RemoveSpriteLimit,
         Region = overrides.Region ?? Region,
+        Model = overrides.Model ?? Model,
         PasswordDefinition = overrides.PasswordDefinition ?? PasswordDefinition,
     };
 

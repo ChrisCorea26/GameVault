@@ -49,6 +49,15 @@ public sealed record AppSettings
     /// </summary>
     public string FdsBiosPath { get; init; } = string.Empty;
 
+    /// <summary>
+    /// The player's own Apple II system ROM (12 KB for the II/II+, 16 KB for the IIe), or empty. GameVault never ships,
+    /// downloads or links to it (SPEC §7.11).
+    /// </summary>
+    public string AppleIIRomPath { get; init; } = string.Empty;
+
+    /// <summary>The player's own Disk II boot ROM (256 bytes, slot 6), or empty.</summary>
+    public string AppleIIDiskRomPath { get; init; } = string.Empty;
+
     /// <summary>Game volume, 0–100 (0 mutes).</summary>
     public int Volume { get; init; } = 80;
 

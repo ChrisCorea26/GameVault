@@ -49,6 +49,8 @@ public sealed class SampleLibraryService : ILibraryService
             Ownership.DigitalDump, PlayStatus.Playing, hours: 2.5, lastPlayedDaysAgo: 3, system: GameSystem.MasterSystem),
         Game(16, "Orbit Squadron", GameRegion.Japan, "Tidewave", 1984, "Shooter",
             Ownership.DigitalDump, system: GameSystem.Sg1000),
+        Game(17, "Lantern Keep", GameRegion.NorthAmerica, "Quillsoft", 1983, "Adventure",
+            Ownership.DigitalDump, PlayStatus.Playing, hours: 4, lastPlayedDaysAgo: 9, system: GameSystem.AppleII),
     ];
 
     private readonly List<GameEntry> _games;
@@ -201,6 +203,7 @@ public sealed class SampleLibraryService : ILibraryService
                 {
                     GameSystem.MasterSystem => $@"C:\Games\Master System\{title}.sms",
                     GameSystem.Sg1000 => $@"C:\Games\SG-1000\{title}.sg",
+                    GameSystem.AppleII => $@"C:\Games\Apple II\{title}.dsk",
                     _ => $@"C:\Games\NES\{title}.nes",
                 }
                 : null,

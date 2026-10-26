@@ -83,8 +83,97 @@ public sealed class InputService
     /// emulator reads itself (Tab, Backspace, F5, F8, F12). Esc and unbound keys return false so page-level
     /// accelerators still see them. Hotkeys never reach the game (docs/design/input.md §8).
     /// </summary>
+    // ---------------------------------------------------------------- typing (computers such as the Apple II)
+
+    private const int Control = 0x11;
+    private readonly HashSet<int> _typingHeld = [];
+    private readonly Queue<(int Key, bool Shift, bool Control)> _typed = new();
+
+    /// <summary>
+    /// While a computer is running, every key also types into it (SPEC §7.11, Phase 12). GameVault's hotkeys keep
+    /// working, except that Backspace types (Shift+Backspace rewinds).
+    /// </summary>
+    public bool TypingMode
+    {
+        get;
+        set
+        {
+            lock (_gate)
+            {
+                field = value;
+                _typed.Clear();
+                _typingHeld.Clear();
+            }
+        }
+    }
+
+    /// <summary>True while any typing key is held (the Apple IIe reads it).</summary>
+    public bool AnyTypingKeyHeld
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _typingHeld.Any(k => k is not (VirtualKeys.Shift or VirtualKeys.LeftShift or VirtualKeys.RightShift or Control));
+            }
+        }
+    }
+
+    /// <summary>The next key typed since the last call, with the Shift and Ctrl state when it was pressed.</summary>
+    public bool TryDequeueTyped(out int virtualKey, out bool shift, out bool control)
+    {
+        lock (_gate)
+        {
+            if (_typed.TryDequeue(out var typed))
+            {
+                (virtualKey, shift, control) = typed;
+                return true;
+            }
+        }
+
+        virtualKey = 0;
+        shift = control = false;
+        return false;
+    }
+
+    /// <summary>True while either Shift key is held (Shift+Backspace rewinds while typing).</summary>
+    public bool ShiftHeld
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _typingHeld.Contains(VirtualKeys.Shift) || _typingHeld.Contains(VirtualKeys.LeftShift) || _typingHeld.Contains(VirtualKeys.RightShift);
+            }
+        }
+    }
+
+    /// <summary>Typing mode: records the key; true when the key was a typing key (so the page doesn't act on it).</summary>
+    private bool Type(int virtualKey)
+    {
+        lock (_gate)
+        {
+            var shift = _typingHeld.Contains(VirtualKeys.Shift) || _typingHeld.Contains(VirtualKeys.LeftShift) || _typingHeld.Contains(VirtualKeys.RightShift);
+            var first = _typingHeld.Add(virtualKey);
+            var isHotkey = KeyboardMapping.Hotkeys.Contains(virtualKey) && virtualKey != VirtualKeys.Backspace;
+            if (isHotkey || virtualKey is VirtualKeys.Shift or VirtualKeys.LeftShift or VirtualKeys.RightShift or Control)
+            {
+                return false;
+            }
+
+            // Key repeat types again, as on the Apple's own keyboard.
+            if (first || _typed.Count < 8)
+            {
+                _typed.Enqueue((virtualKey, shift, _typingHeld.Contains(Control)));
+            }
+
+            return virtualKey != VirtualKeys.Backspace || !shift;
+        }
+    }
+
     public bool KeyDown(int virtualKey)
     {
+        var typed = TypingMode && Type(virtualKey);
         if (KeyboardMapping.Hotkeys.Contains(virtualKey))
         {
             lock (_gate)
@@ -97,7 +186,7 @@ public sealed class InputService
 
         if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button, out var turbo))
         {
-            return false;
+            return typed;
         }
 
         lock (_gate)
@@ -121,6 +210,14 @@ public sealed class InputService
 
     public bool KeyUp(int virtualKey)
     {
+        if (TypingMode)
+        {
+            lock (_gate)
+            {
+                _typingHeld.Remove(virtualKey);
+            }
+        }
+
         if (KeyboardMapping.Hotkeys.Contains(virtualKey))
         {
             lock (_gate)
@@ -133,7 +230,7 @@ public sealed class InputService
 
         if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button, out var turbo))
         {
-            return false;
+            return TypingMode;
         }
 
         lock (_gate)

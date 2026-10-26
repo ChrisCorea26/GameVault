@@ -97,6 +97,59 @@ GameVault never ships or downloads it, as with the Disk System BIOS.
 - **Speaker:** samples follow the toggles.
 - **Determinism and save-state round-trips.**
 
+## Results
+- **CPU:** a `CpuVariant` on GameVault's cycle-exact 6502 (one bus access per cycle). It adds NMOS
+  decimal mode for the II/II+/IIe and the 65C02 for the enhanced IIe, including the WDC/Rockwell bit
+  instructions, STP and WAI. Klaus Dormann's 6502 functional test (with decimal) and 65C02
+  extended-opcodes test both reach their success traps; the NES CPU tests are unchanged.
+- **Frames of any size:** `IEmulatedConsole` has `ScreenWidth`, `ScreenHeight` and `PixelAspect`. The
+  frame sink carries each frame's size, and these follow the frame: the D3D11 texture and shader, the
+  Win2D fallback, display layout (overscan and TV shape apply to 256×240 only), thumbnails, screenshots
+  and map tiles. The watcher's thumbnails now use each system's own palette, which also fixes them for
+  Sega games.
+- **The machine:** `AppleConsole` covers:
+  - the II+, IIe and enhanced IIe;
+  - main and auxiliary memory, the Language Card, and the IIe memory and video switches with their
+    status reads;
+  - the keyboard latch and any-key-down, the speaker (1-bit, through the band-limited resampler, settling
+    to rest), and paddles and buttons from the pad;
+  - slot 6 with the player's Disk II ROM, and the IIe's internal $C100–$CFFF ROM.
+- **Video:** 560×384, 4:3.
+  - Modes: 40- and 80-column text, lo-res, hi-res with NTSC artifact colour (including the half-pixel
+    shift and gap fill), double hi-res, and mixed mode.
+  - Text uses GameVault's own 5×7 font, because Apple's character ROM is copyrighted.
+- **Disk II:** a bit-level controller.
+  - Reads: the latch holds a complete byte for two bit times, and zero bits after a complete byte are
+    dropped (self-sync).
+  - Writes: the data register shifts out a bit at a time.
+  - Also the stepper and two drives.
+  - **Images:** `.dsk`/`.do`/`.po` nibblized with 6-and-2 GCR (DOS and ProDOS order; a ProDOS volume
+    header in a `.dsk` picks ProDOS order), `.nib`, and WOZ 1 and 2.
+- **Platform:**
+  - Settings → Apple II takes the system ROM and the Disk II boot ROM.
+  - The library finds `.dsk`, `.do`, `.po`, `.nib` and `.woz` files.
+  - Game properties' `model` picks II+, IIe or enhanced IIe.
+  - Typing mode sends every key to the Apple, with Shift and Ctrl:
+    - F1 is Esc and Ctrl+F12 is Reset;
+    - Backspace types the left arrow, and Shift+Backspace rewinds.
+  - RetroAchievements hashes the disk as rcheevos does (MD5 of the file) and reads main and auxiliary
+    RAM in its layout.
+- **Tests:**
+  - Dormann's two suites;
+  - disk round-trips (DOS and ProDOS order), WOZ 2 parsing, and a write-then-read;
+  - a 6502 loop reading nibbles in order through the controller, and the stepper;
+  - the video modes and colours, the keyboard, the Language Card, IIe auxiliary memory, paddles and
+    buttons, and speaker audio;
+  - save-state replay;
+  - host loading with and without ROMs, typing, and 560×384 frames.
+- **Changed from the plan, left for later:**
+  - The Player has no disk menu yet, so the second drive and disk swapping wait. Games that need disk 2
+    can't run yet.
+  - The video is drawn once per frame (no mid-frame mode changes or floating-bus "vapor lock").
+  - No monochrome option; a user-supplied character ROM isn't used.
+  - Sample data has an Apple II game in the library, but the `--sample-data` Player doesn't run an Apple
+    program.
+
 ## Order of work
 1. 6502 decimal mode and the 65C02, with Dormann's tests.
 2. Variable frame size through the video path.
