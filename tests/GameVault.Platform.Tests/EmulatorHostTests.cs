@@ -227,7 +227,7 @@ public sealed class EmulatorHostTests : IDisposable
         WaitFor(() => _host.FrameCount > start + 2);
 
         // The ROM shifts the 8 buttons into a byte, so the first button read (A) ends up in bit 7.
-        var echoed = await _host.InspectAsync(c => c.Bus.Peek(0x0001));
+        var echoed = await _host.InspectNesAsync(c => c.Bus.Peek(0x0001));
 
         echoed.Should().Be(0b1000_0010, "A is read first and Left seventh");
     }

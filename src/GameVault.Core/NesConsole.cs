@@ -8,6 +8,7 @@ using GameVault.Core.Cpu;
 using GameVault.Core.Input;
 using GameVault.Core.Ppu;
 using GameVault.Core.State;
+using GameVault.Core.Systems;
 
 namespace GameVault.Core;
 
@@ -15,7 +16,7 @@ namespace GameVault.Core;
 /// The whole console. Owns every component and is the only entry point the platform layer uses.
 /// Deterministic: the same ROM and inputs from power-on always produce the same state.
 /// </summary>
-public sealed class NesConsole : IStateful
+public sealed class NesConsole : IEmulatedConsole
 {
     private static readonly StateTag Tag = StateTag.From("NES ");
     private static readonly StateTag SnapshotTag = StateTag.From("GVST");
@@ -121,6 +122,21 @@ public sealed class NesConsole : IStateful
         var rom = FdsAdapter.BiosRom(bios);
         return new NesConsole(rom, new FdsAdapter(rom, FdsImage.Parse(diskImage)));
     }
+
+    public GameSystem System => GameSystem.Nes;
+
+    public ReadOnlySpan<ushort> FrameBuffer => Ppu.FrameBuffer;
+
+    public ReadOnlySpan<uint> Palette => NtscPalette.Argb;
+
+    public long FrameCount => Ppu.FrameCount;
+
+    /// <summary>Four with the Four Score; the platform sends all four either way.</summary>
+    public int ControllerPorts => 4;
+
+    public IBatteryBacked? Battery => Mapper is IBatteryBacked { HasBattery: true } battery ? battery : null;
+
+    public byte PeekMemory(int address) => Bus.Peek((ushort)address);
 
     /// <summary>The Disk System adapter when this console runs an FDS game.</summary>
     public FdsAdapter? Fds => Mapper as FdsAdapter;

@@ -70,7 +70,7 @@ public sealed class SaveStorageTests : IDisposable
         using (var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), paths: _paths))
         {
             host.Load(rom, "Battery Game");
-            (await host.InspectAsync(c => c.Bus.Peek(0x7FFF))).Should().Be(0x5A);
+            (await host.InspectNesAsync(c => c.Bus.Peek(0x7FFF))).Should().Be(0x5A);
             await Task.Delay(100); // the test program writes its counter into PRG-RAM
             host.Stop();
         }
@@ -93,7 +93,7 @@ public sealed class SaveStorageTests : IDisposable
         var key = host.GameKey!;
 
         await service.SaveAsync("Before the boss");
-        var savedFrame = await host.InspectAsync(c => c.Ppu.FrameCount);
+        var savedFrame = await host.InspectNesAsync(c => c.Ppu.FrameCount);
         var items = await service.GetAsync(key);
         items.Should().ContainSingle().Which.Label.Should().Be("Before the boss");
         File.Exists(items[0].ThumbnailPath).Should().BeTrue();
@@ -101,16 +101,16 @@ public sealed class SaveStorageTests : IDisposable
         // Let the game run past the save, then pause so no frame can run between loading and checking:
         // the result doesn't depend on how busy the machine is.
         var deadline = DateTime.UtcNow.AddSeconds(60);
-        while (await host.InspectAsync(c => c.Ppu.FrameCount) <= savedFrame + 5 && DateTime.UtcNow < deadline)
+        while (await host.InspectNesAsync(c => c.Ppu.FrameCount) <= savedFrame + 5 && DateTime.UtcNow < deadline)
         {
             await Task.Delay(20);
         }
 
         host.Pause();
-        var frameBeforeLoad = await host.InspectAsync(c => c.Ppu.FrameCount);
+        var frameBeforeLoad = await host.InspectNesAsync(c => c.Ppu.FrameCount);
         frameBeforeLoad.Should().BeGreaterThan(savedFrame);
         (await service.LoadAsync(key, items[0].Id)).Should().BeTrue();
-        var frameAfterLoad = await host.InspectAsync(c => c.Ppu.FrameCount);
+        var frameAfterLoad = await host.InspectNesAsync(c => c.Ppu.FrameCount);
         frameAfterLoad.Should().BeLessThanOrEqualTo(savedFrame, "loading went back to the saved frame");
         host.Resume();
         (await service.LoadAsync("sha1:other", items[0].Id)).Should().BeFalse("it isn't the running game");

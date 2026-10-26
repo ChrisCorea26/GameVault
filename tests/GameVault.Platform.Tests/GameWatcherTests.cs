@@ -173,7 +173,7 @@ public sealed class GameWatcherTests : IDisposable
         await WaitFor(() => notices.Contains("Loaded"), 30);
         input.KeyUp(VirtualKeys.F2);
         host.Pause();
-        (await host.InspectAsync(c => c.Bus.Peek(0x10))).Should().Be(3, "back to before the life was lost");
+        (await host.InspectNesAsync(c => c.Bus.Peek(0x10))).Should().Be(3, "back to before the life was lost");
     }
 
     private static async Task WaitFor(Func<bool> condition, int seconds)

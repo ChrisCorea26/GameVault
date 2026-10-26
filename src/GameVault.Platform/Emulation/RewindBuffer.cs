@@ -1,3 +1,4 @@
+using GameVault.Core.Systems;
 using System.IO.Compression;
 using GameVault.Core;
 using GameVault.Core.State;
@@ -42,7 +43,7 @@ public sealed class RewindBuffer(long capacityBytes = RewindBuffer.DefaultCapaci
     }
 
     /// <summary>Call once after every emulated frame; captures every <see cref="Interval"/> frames.</summary>
-    public void OnFrame(NesConsole console)
+    public void OnFrame(IEmulatedConsole console)
     {
         if (_frames++ % Interval != 0)
         {
@@ -93,7 +94,7 @@ public sealed class RewindBuffer(long capacityBytes = RewindBuffer.DefaultCapaci
     /// Restores the newest entry and removes it, so holding rewind walks back in time. Returns false when the
     /// history is empty.
     /// </summary>
-    public bool StepBack(NesConsole console)
+    public bool StepBack(IEmulatedConsole console)
     {
         if (_entries.Count == 0)
         {

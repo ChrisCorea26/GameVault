@@ -1,3 +1,4 @@
+using GameVault.Core.Systems;
 using GameVault.Core;
 using GameVault.Library.Memory;
 using GameVault.ViewModels.Services;
@@ -36,7 +37,7 @@ public sealed class GameWatcher
 
     private readonly Queue<(long Frame, byte[] State, ushort[] Screen)> _recent = new();
     private MemoryMap? _map;
-    private NesConsole? _console;
+    private IEmulatedConsole? _console;
     private Func<int, byte> _readRam;
     private long _frame;
     private int? _lives;
@@ -44,7 +45,7 @@ public sealed class GameWatcher
     private bool _resync = true;
     private IReadOnlyList<StatValue> _overlay = [];
 
-    public GameWatcher() => _readRam = address => _console!.Bus.Peek((ushort)address);
+    public GameWatcher() => _readRam = address => _console!.PeekMemory(address);
 
     /// <summary>The running game's memory map, or null (the watcher then does nothing).</summary>
     public MemoryMap? Map
@@ -61,7 +62,7 @@ public sealed class GameWatcher
 
     public void Resync() => _resync = true;
 
-    public WatchResult OnFrame(NesConsole console)
+    public WatchResult OnFrame(IEmulatedConsole console)
     {
         if (_map is not { } map)
         {
@@ -72,7 +73,7 @@ public sealed class GameWatcher
         _frame++;
         if (_frame % FramesPerSecond == 0)
         {
-            _recent.Enqueue((_frame, console.SaveSnapshot(), console.Ppu.FrameBuffer.ToArray()));
+            _recent.Enqueue((_frame, console.SaveSnapshot(), console.FrameBuffer.ToArray()));
             while (_recent.Count > StatesKept)
             {
                 _recent.Dequeue();

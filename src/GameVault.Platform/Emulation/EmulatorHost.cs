@@ -10,6 +10,7 @@ using GameVault.Platform.Achievements;
 using GameVault.Platform.Audio;
 using GameVault.Core.Input;
 using GameVault.Core.State;
+using GameVault.Core.Systems;
 using GameVault.Library.Challenges;
 using GameVault.Library.Hashing;
 using GameVault.Library.Maps;
@@ -92,7 +93,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private long _rewindCapacity = RewindBuffer.DefaultCapacity;
     private bool _profileRemovesSpriteLimit;
     private AssistOptions _assist = AssistOptions.Off;
-    private readonly Action<NesConsole> _present;
+    private readonly Action<IEmulatedConsole> _present;
     private readonly float[] _samples = new float[8192];
     private AudioPacing? _pacing;
     private bool _audioActive;
@@ -107,7 +108,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private volatile bool _shutdown;
 
     // Owned by the emulation thread.
-    private NesConsole? _console;
+    private IEmulatedConsole? _console;
     private bool _running;
     private long _frameCount;
     private IBatteryBacked? _battery;
@@ -142,10 +143,22 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         _batteries = paths is null ? null : new BatterySaveStore(paths);
         _diskSaves = paths is null ? null : new BatterySaveStore(paths, ".fdssave");
         _context = SynchronizationContext.Current;
-        _present = console => _video.Present(console.Ppu.FrameBuffer, _palette);
+        _present = console => _video.Present(console.FrameBuffer, PaletteFor(console));
     }
 
     public EmulatorStatus Status { get; private set; }
+
+    /// <summary>The running console when it's an NES (Game Genie, the Disk System, the Zapper and passwords are NES-only).</summary>
+    private NesConsole? Nes => _console as NesConsole;
+
+    /// <summary>The buttons sent to each port on the last frame (challenge recordings).</summary>
+    private readonly ControllerState[] _lastInputs = new ControllerState[InputService.PortCount];
+
+    /// <summary>The NES uses the player's palette preset; other systems bring their own colours.</summary>
+    private ReadOnlySpan<uint> PaletteFor(IEmulatedConsole console) => console is NesConsole ? _palette : console.Palette;
+
+    /// <summary>Screenshots and thumbnails use the standard colours, whatever the colour-vision setting.</summary>
+    private static uint[] ScreenshotPalette(IEmulatedConsole console) => (console is NesConsole ? NtscPalette.Argb : console.Palette).ToArray();
 
     // ---------------------------------------------------------------- RetroAchievements (SPEC §7.10)
 
@@ -187,7 +200,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 _cheatsActive = false;
                 Post(() =>
                 {
-                    if (_console is { } console && console.Cheats.Count > 0)
+                    if (_console is NesConsole console && console.Cheats.Count > 0)
                     {
                         console.SetCheats([]);
                         _seenCheats = null; // reported through CheatsChanged on the next frame
@@ -208,7 +221,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         var count = 0u;
         for (var i = 0; i < buffer.Length && address + i <= 0xFFFF; i++)
         {
-            buffer[i] = console.Bus.Peek((ushort)(address + i));
+            buffer[i] = console.PeekMemory((int)(address + i));
             count++;
         }
 
@@ -262,7 +275,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         _cheatsActive = copy.Count > 0;
         Post(() =>
         {
-            if (_console is { } console)
+            if (_console is NesConsole console)
             {
                 console.SetCheats(copy);
                 _seenCheats = console.Bus.Cheats;
@@ -395,7 +408,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     }
 
     /// <summary>One netplay frame: exchange inputs, roll back if needed, run, show it. Emulation thread.</summary>
-    private void RunNetplayFrame(NesConsole console, RollbackSession session, UdpNetplayLink link)
+    private void RunNetplayFrame(IEmulatedConsole console, RollbackSession session, UdpNetplayLink link)
     {
         var ran = session.AdvanceFrame(_input.Sample(0, session.Frame));
         var status = session.State switch
@@ -482,15 +495,20 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         // No codes in the starting point: the check replays without them.
         var state = await InspectAsync(console =>
         {
-            if (console.InputSetup != InputSetup.Controllers)
+            if (console is not NesConsole nes)
+            {
+                return console.SaveSnapshot();
+            }
+
+            if (nes.InputSetup != InputSetup.Controllers)
             {
                 return null;
             }
 
-            var codes = console.Cheats.ToList();
-            console.SetCheats([]);
-            var snapshot = console.SaveSnapshot();
-            console.SetCheats(codes);
+            var codes = nes.Cheats.ToList();
+            nes.SetCheats([]);
+            var snapshot = nes.SaveSnapshot();
+            nes.SetCheats(codes);
             return snapshot;
         }).ConfigureAwait(false) ?? throw new ChallengeException("Challenges work with games played on controllers.");
 
@@ -549,8 +567,12 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 return;
             }
 
-            console.SetCheats([]);
-            _seenCheats = console.Bus.Cheats;
+            if (console is NesConsole nes)
+            {
+                nes.SetCheats([]);
+                _seenCheats = nes.Bus.Cheats;
+            }
+
             _cheatsActive = false;
             _rewind.Clear();
             _watcher.Resync();
@@ -580,11 +602,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     }
 
     /// <summary>Emulation thread: records this frame's buttons and checks the goal and the time limit.</summary>
-    private void AfterChallengeFrame(NesConsole console, ChallengeFile challenge)
+    private void AfterChallengeFrame(IEmulatedConsole console, ChallengeFile challenge)
     {
-        _challengeInputs.Add(((byte)console.Controller1.State, (byte)console.Controller2.State));
+        _challengeInputs.Add(((byte)_lastInputs[0], (byte)_lastInputs[1]));
         var frames = _challengeInputs.Count;
-        if (challenge.GoalHolds(address => console.Bus.Peek((ushort)address)))
+        if (challenge.GoalHolds(console.PeekMemory))
         {
             var result = new ChallengeResult
             {
@@ -612,7 +634,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     }
 
     /// <summary>Emulation thread: reports what the memory-map watcher saw this frame.</summary>
-    private void HandleWatch(NesConsole console, WatchResult watch)
+    private void HandleWatch(IEmulatedConsole console, WatchResult watch)
     {
         if (watch.BeforeDeathState is { } state && watch.BeforeDeathFrame is { } screen)
         {
@@ -626,7 +648,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
         if (watch.NewRoom is { } room)
         {
-            var frame = console.Ppu.FrameBuffer.ToArray();
+            var frame = console.FrameBuffer.ToArray();
             var key = GameKey;
             _ = Task.Run(() =>
             {
@@ -652,7 +674,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     public void InsertDiskSide(int side) => Post(() =>
     {
-        if (_console?.Fds is { } fds && side >= 0 && side < fds.SideCount)
+        if (Nes?.Fds is { } fds && side >= 0 && side < fds.SideCount)
         {
             _diskSideRequested = side;
             fds.InsertSide(side);
@@ -662,7 +684,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     public void EjectDisk() => Post(() =>
     {
-        if (_console?.Fds is { } fds)
+        if (Nes?.Fds is { } fds)
         {
             fds.Eject();
             UpdateDiskSide(fds);
@@ -720,7 +742,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         _speed = Math.Clamp(_assist.SpeedPercent, 10, 100) / 100.0;
         _palette = Video.ColorVisionPalettes.Create(NtscPalette.Argb, _assist.Palette);
         _rewind.CapacityBytes = _assist.UnlimitedRewind ? 4L * 1024 * 1024 * 1024 : _rewindCapacity;
-        if (_console is { } console)
+        if (_console is NesConsole console)
         {
             console.Ppu.RemoveSpriteLimit = _profileRemovesSpriteLimit || _assist.RemoveFlicker;
         }
@@ -1014,19 +1036,23 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     }
 
     /// <summary>Runs a read-only query against the console on the emulation thread, between frames.</summary>
-    internal Task<T?> InspectAsync<T>(Func<NesConsole, T> query)
+    internal Task<T?> InspectAsync<T>(Func<IEmulatedConsole, T> query)
     {
         var result = new TaskCompletionSource<T?>(TaskCreationOptions.RunContinuationsAsynchronously);
         Post(() => result.SetResult(_console is null ? default : query(_console)));
         return result.Task;
     }
 
+    /// <summary>Like <see cref="InspectAsync{T}"/>, for NES-only queries (default when the console isn't an NES).</summary>
+    internal Task<T?> InspectNesAsync<T>(Func<NesConsole, T> query) =>
+        InspectAsync(console => console is NesConsole nes ? query(nes) : default);
+
     /// <summary>
     /// Takes a save state between frames, with a thumbnail of the current screen. Null when no game is running.
     /// </summary>
     public async Task<StateCapture?> CaptureAsync()
     {
-        var captured = await InspectAsync(console => (console.RomHash, console.SaveSnapshot(), console.Ppu.FrameBuffer.ToArray()))
+        var captured = await InspectAsync(console => (console.RomHash, console.SaveSnapshot(), console.FrameBuffer.ToArray(), ScreenshotPalette(console)))
             .ConfigureAwait(false);
         if (captured.Item2 is null)
         {
@@ -1034,15 +1060,15 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
 
         // PNG encoding happens off the emulation thread.
-        var thumbnail = PngEncoder.Thumbnail(captured.Item3, NtscPalette.Argb);
+        var thumbnail = PngEncoder.Thumbnail(captured.Item3, captured.Item4);
         return new StateCapture(captured.RomHash, captured.Item2, thumbnail);
     }
 
     /// <summary>The current screen as a full-size PNG (screenshots, manual password capture).</summary>
     public async Task<byte[]?> CaptureScreenshotAsync()
     {
-        var frame = await InspectAsync(console => console.Ppu.FrameBuffer.ToArray()).ConfigureAwait(false);
-        return frame is null ? null : PngEncoder.Encode(PngEncoder.ToArgb(frame, NtscPalette.Argb), 256, 240);
+        var frame = await InspectAsync(console => (Pixels: console.FrameBuffer.ToArray(), Palette: ScreenshotPalette(console))).ConfigureAwait(false);
+        return frame.Pixels is null ? null : PngEncoder.Encode(PngEncoder.ToArgb(frame.Pixels, frame.Palette), 256, 240);
     }
 
     /// <summary>Loads a save state between frames. Returns false if it doesn't fit the running game.</summary>
@@ -1249,40 +1275,45 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
     }
 
-    private bool TryRunFrame(NesConsole console)
+    private bool TryRunFrame(IEmulatedConsole console)
     {
         try
         {
             for (var port = 0; port < InputService.PortCount; port++)
             {
-                console.SetControllerState(port, _input.Sample(port, console.Ppu.FrameCount));
+                var state = _input.Sample(port, console.FrameCount);
+                _lastInputs[port] = state;
+                if (port < console.ControllerPorts)
+                {
+                    console.SetControllerState(port, state);
+                }
             }
 
-            if (console.InputSetup == InputSetup.Zapper)
+            if (console is NesConsole { InputSetup: InputSetup.Zapper } nes)
             {
                 var (aim, trigger) = _input.SampleZapper();
-                console.Zapper.Aim = aim;
-                console.Zapper.Trigger = trigger;
+                nes.Zapper.Aim = aim;
+                nes.Zapper.Trigger = trigger;
             }
 
-            if (console.Bus.Cheats != _seenCheats)
+            if (console is NesConsole withCodes && withCodes.Bus.Cheats != _seenCheats)
             {
-                _seenCheats = console.Bus.Cheats;
-                var codes = console.Cheats;
+                _seenCheats = withCodes.Bus.Cheats;
+                var codes = withCodes.Cheats;
                 _cheatsActive = codes.Count > 0;
                 Raise(() => CheatsChanged?.Invoke(this, codes));
             }
 
             _rewind.OnFrame(console);
-            if (console.Fds is { } drive)
+            if (console is NesConsole { Fds: { } drive })
             {
                 UpdateDiskSide(drive);
             }
 
             var runAheadOff = _runAhead.RunFrame(console, _present);
-            if (_passwords.OnFrame(console) is { } password)
+            if (console is NesConsole passwordConsole && _passwords.OnFrame(passwordConsole) is { } password)
             {
-                var png = PngEncoder.Encode(PngEncoder.ToArgb(console.Ppu.FrameBuffer, _palette), 256, 240);
+                var png = PngEncoder.Encode(PngEncoder.ToArgb(console.FrameBuffer, _palette), 256, 240);
                 Raise(() => PasswordCaptured?.Invoke(this, new PasswordCapturedEventArgs(password, png)));
             }
 
@@ -1350,7 +1381,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     }
 
     /// <summary>One step of rewind: restore an older state and show the frame that follows it, silently.</summary>
-    private bool TryRewindFrame(NesConsole console)
+    private bool TryRewindFrame(IEmulatedConsole console)
     {
         try
         {
@@ -1449,7 +1480,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
         // F4: the next disk side, as when turning the disk over or swapping disks (input.md §8).
         var diskKey = _input.IsHotkeyHeld(VirtualKeys.F4);
-        if (diskKey && !_diskKeyHeld && _console?.Fds is { } fds)
+        if (diskKey && !_diskKeyHeld && Nes?.Fds is { } fds)
         {
             _diskSideRequested = (_diskSideRequested + 1) % fds.SideCount;
             fds.InsertSide(_diskSideRequested);
@@ -1470,7 +1501,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
         // F3: every code off at once (SPEC §7.8; input.md §8).
         var codesOff = _input.IsHotkeyHeld(VirtualKeys.F3);
-        if (codesOff && !_codesOffKeyHeld && _console is { Cheats.Count: > 0 } withCodes)
+        if (codesOff && !_codesOffKeyHeld && _console is NesConsole { Cheats.Count: > 0 } withCodes)
         {
             withCodes.SetCheats([]);
             RaiseNotice("All codes are off.");
@@ -1522,7 +1553,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     /// </summary>
     private void FlushDisk(bool background)
     {
-        if (_console?.Fds is not { IsDiskModified: true } fds || _diskSaves is null || _diskOriginal is null || _diskSaved is null)
+        if (Nes?.Fds is not { IsDiskModified: true } fds || _diskSaves is null || _diskOriginal is null || _diskSaved is null)
         {
             return;
         }

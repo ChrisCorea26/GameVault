@@ -32,7 +32,7 @@ public class RunAheadTests
         for (var i = 0; i < 30; i++)
         {
             ushort[]? shown = null;
-            runAhead.RunFrame(ahead, c => shown = c.Ppu.FrameBuffer.ToArray());
+            runAhead.RunFrame(ahead, c => shown = c.FrameBuffer.ToArray());
 
             shown.Should().Equal(plainFrames[i + frames], $"host frame {i} should show emulated frame {i + frames}");
         }
@@ -89,8 +89,8 @@ public class ProfileApplicationTests
 
         host.UsesZapper.Should().BeTrue();
         host.GameKey.Should().StartWith("sha1:");
-        (await host.InspectAsync(c => c.InputSetup)).Should().Be(GameVault.Core.Input.InputSetup.Zapper);
-        (await host.InspectAsync(c => c.Mapper.Mirroring)).Should().Be(GameVault.Core.Cartridge.Mirroring.Vertical);
-        (await host.InspectAsync(c => c.Ppu.RemoveSpriteLimit)).Should().BeTrue();
+        (await host.InspectNesAsync(c => c.InputSetup)).Should().Be(GameVault.Core.Input.InputSetup.Zapper);
+        (await host.InspectNesAsync(c => c.Mapper.Mirroring)).Should().Be(GameVault.Core.Cartridge.Mirroring.Vertical);
+        (await host.InspectNesAsync(c => c.Ppu.RemoveSpriteLimit)).Should().BeTrue();
     }
 }

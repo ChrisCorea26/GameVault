@@ -56,16 +56,16 @@ public sealed class CheatServiceTests : IDisposable
         await _service.AddAsync(key, "SXIOPO", "Lives");
         await _service.AddAsync(key, "0300:09", "Hearts");
 
-        await Eventually(async () => (await _host.InspectAsync(c => c.Cheats.Count)) == 2);
+        await Eventually(async () => (await _host.InspectNesAsync(c => c.Cheats.Count)) == 2);
         _host.CheatsActive.Should().BeTrue();
 
         var items = await _service.GetAsync(key);
         await _service.SetEnabledAsync(key, items[0].Id, false);
-        await Eventually(async () => (await _host.InspectAsync(c => c.Cheats.Count)) == 1);
-        (await _host.InspectAsync(c => c.Bus.Peek(0x0300))).Should().Be(0x09, "the RAM code is held");
+        await Eventually(async () => (await _host.InspectNesAsync(c => c.Cheats.Count)) == 1);
+        (await _host.InspectNesAsync(c => c.Bus.Peek(0x0300))).Should().Be(0x09, "the RAM code is held");
 
         await _service.SetAllEnabledAsync(key, false);
-        await Eventually(async () => (await _host.InspectAsync(c => c.Cheats.Count)) == 0);
+        await Eventually(async () => (await _host.InspectNesAsync(c => c.Cheats.Count)) == 0);
         _host.CheatsActive.Should().BeFalse();
     }
 
@@ -74,11 +74,11 @@ public sealed class CheatServiceTests : IDisposable
     {
         var key = StartGame();
         await _service.AddAsync(key, "0300:09", "Hearts");
-        await Eventually(async () => (await _host.InspectAsync(c => c.Cheats.Count)) == 1);
+        await Eventually(async () => (await _host.InspectNesAsync(c => c.Cheats.Count)) == 1);
         var withCodes = await _host.CaptureStateAsync();
 
         await _service.SetAllEnabledAsync(key, false);
-        await Eventually(async () => (await _host.InspectAsync(c => c.Cheats.Count)) == 0);
+        await Eventually(async () => (await _host.InspectNesAsync(c => c.Cheats.Count)) == 0);
 
         var changed = new TaskCompletionSource();
         _service.Changed += (_, _) => changed.TrySetResult();
@@ -94,12 +94,12 @@ public sealed class CheatServiceTests : IDisposable
     {
         var key = StartGame();
         await _service.AddAsync(key, "SXIOPO", "Lives");
-        await Eventually(async () => (await _host.InspectAsync(c => c.Cheats.Count)) == 1);
+        await Eventually(async () => (await _host.InspectNesAsync(c => c.Cheats.Count)) == 1);
         var notices = new List<string>();
         _host.Notice += (_, n) => notices.Add(n);
 
         _input.KeyDown(VirtualKeys.F3);
-        await Eventually(async () => (await _host.InspectAsync(c => c.Cheats.Count)) == 0);
+        await Eventually(async () => (await _host.InspectNesAsync(c => c.Cheats.Count)) == 0);
         _input.KeyUp(VirtualKeys.F3);
 
         await Eventually(async () => (await _service.GetAsync(key)).All(c => !c.Enabled));

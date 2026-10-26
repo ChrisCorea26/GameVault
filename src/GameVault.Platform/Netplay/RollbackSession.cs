@@ -1,3 +1,4 @@
+using GameVault.Core.Systems;
 using System.IO.Hashing;
 using GameVault.Core;
 using GameVault.Core.Input;
@@ -46,7 +47,7 @@ public sealed class RollbackSession
     /// <summary>How many of our recent inputs each packet repeats, to cover lost packets.</summary>
     private const int MaxInputsPerPacket = 32;
 
-    private readonly NesConsole _console;
+    private readonly IEmulatedConsole _console;
     private readonly INetplayLink _link;
     private readonly int _localPort;
     private readonly Dictionary<int, byte> _localInputs = [];
@@ -63,7 +64,7 @@ public sealed class RollbackSession
     private int _nextChecksumFrame = ChecksumInterval;
 
     /// <param name="localPlayer">0 for player 1 (the host), 1 for player 2.</param>
-    public RollbackSession(NesConsole console, INetplayLink link, int localPlayer, int inputDelay)
+    public RollbackSession(IEmulatedConsole console, INetplayLink link, int localPlayer, int inputDelay)
     {
         ArgumentOutOfRangeException.ThrowIfLessThan(localPlayer, 0);
         ArgumentOutOfRangeException.ThrowIfGreaterThan(localPlayer, 1);

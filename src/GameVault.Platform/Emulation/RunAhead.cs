@@ -1,3 +1,4 @@
+using GameVault.Core.Systems;
 using System.Diagnostics;
 using GameVault.Core;
 using GameVault.Core.State;
@@ -38,7 +39,7 @@ public sealed class RunAhead
     /// Advances the console by one real frame and calls <paramref name="present"/> with the frame to show.
     /// Returns true if run-ahead just switched itself off.
     /// </summary>
-    public bool RunFrame(NesConsole console, Action<NesConsole> present)
+    public bool RunFrame(IEmulatedConsole console, Action<IEmulatedConsole> present)
     {
         var frames = AutoDisabled ? 0 : Math.Clamp(Frames, 0, 3);
         if (frames == 0)
