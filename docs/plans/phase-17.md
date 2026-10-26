@@ -203,3 +203,101 @@ SPU. Code cites the page or source for subtle behaviour.
 3. GameVault's kernel and IOP services; ps2autotests through the whole console.
 4. GameVault's homebrew and golden images; BIOS boot with the stand-in BIOS; the IPU.
 5. Platform: input, library, settings, memory cards, RetroAchievements, sample data, docs.
+
+## Results
+**Done when:**
+- **Test programs pass:** 54 of ps2autotests' 55 EE programs print exactly what the hardware printed, through the whole
+  console on GameVault's kernel: the EE's integer, FPU, MMI and COP0 programs, VU0 macro mode, VU micro mode, DMA
+  (DMAC, scratchpad, VIF), the GS's SIGNAL/LABEL, memory and the kernel's threads and interrupt order. The one left,
+  `vu/lower/efu`, matches 184 of 208 lines; the other 24 are a bit or two off in VU1's elementary functions, whose
+  hardware series aren't known exactly. Its output is pinned so any change shows. The 23 IOP programs aren't run
+  (they need an IOP kernel; left for later).
+- **Homebrew renders correctly:** GameVault's four homebrew programs (`tests/Ps2Homebrew`, built with clang) draw
+  through PATH3 (DMA), PATH2 (VIF1 DIRECT) and PATH1 (a VU1 microprogram's XGKICK), with Gouraud shading, PSMCT32,
+  PSMT8 and PSMT4 textures with CLUTs, STQ perspective, bilinear filtering, blending and the depth test. Each picture
+  was checked against its README's probe table and is pinned as a golden image; `mmi-fpu-check` passes 16 of 16.
+- **The player's BIOS boots:** a stand-in BIOS built by the tests runs on the EE and the IOP together: the SIF
+  mailbox handshake, SIF DMA both ways, a CDVD read and a GS frame. Fast boot loads an ELF, or a disc's BOOT2 program,
+  when the BIOS reaches EELOAD. Real BIOSes and discs are the owner's to try (checklist below).
+
+**The EE:** the R5900 with 128-bit registers, every MMI instruction, COP0 with the 48-entry TLB and the scratchpad,
+the non-IEEE FPU (ADD and MUL truncate, DIV and SQRT round to nearest, saturation, and the multiplier's dropped carry
+that makes MUL non-commutative, all pinned by ps2autotests' vectors), and COP2 through VU0. One cycle per instruction
+plus the multiply/divide and FPU latencies; idle loops skip to the end of the slice.
+
+**The VUs:** micro and macro mode, every instruction, the FMAC pipeline's four-cycle results and flags, Q and P with
+their latencies, the integer branch hazard, the E/I/M/D/T bits, VU0's window onto VU1's registers, XGKICK and
+XTOP/XITOP. The arithmetic is the hardware's non-IEEE floats (Play!'s truncating add and multiply, BSD-2).
+
+**DMA and the VIFs:** the ten DMAC channels with chain, interleave, stall control and MFIFO; every VIFcode and UNPACK
+format with masks and modes; the VIF's FIFO plus its two-quadword decoder buffer, which is what STAT.FQC counts (it
+makes `dma/vif/intstall` exact).
+
+**The GS:** local memory with the hardware's swizzling in all 13 formats; transfers in both directions; every
+primitive with texturing, CLUTs, fog, the alpha, destination-alpha and depth tests, blending, dithering and
+scissoring; the PCRTC's two circuits with the merge, interlaced field and frame modes, NTSC 640×448 and PAL 640×512.
+
+**The IOP side:** Phase 15's R3000A as the IOP (PRId $1F, no GTE), IOP DMA (including SIF0's tag mode and SIF1's
+chain), the six timers, the CDVD (N and S commands, deterministic seek and read times, an RTC from a fixed start),
+SIO2 with the DualShock 2 (digital, analog, DualShock 2 mode with pressures) and the 8 MB memory card (created
+formatted, with ECC), and the SPU2 (two cores, ADPCM voices checked sample for sample against the PlayStation's SPU,
+ADMA streaming, reverb, IRQs). The IPU decodes MPEG-1/2 macroblocks (all ten commands, checked against a reference
+decoder in the tests).
+
+**GameVault's kernel (no BIOS):** ELFs start on a C# kernel ported in design from Play!'s PS2OS (BSD-2): the standard
+TLB, threads with a priority scheduler, semaphores, INTC/DMAC handlers run on the EE, alarms, the SIF calls,
+SetGsCrt and the rest ps2sdk's programs use. The IOP's side of SIF (the command and RPC layers, and `fileio` for
+printing) is answered in C# over the real SIF DMA path.
+
+**Platform:** `.iso`, `.cue/.bin`, `.chd` (CD and DVD) and `.elf` in the library (PS1 and PS2 discs told apart by
+SYSTEM.CNF); Redump hashes and "Sony - PlayStation 2" DATs; the BIOS setting and fast boot; one 8 MB memory card per
+game as a `.ps2` file; the DualShock 2 with both sticks (`ControllerState` is 64 bits; recordings and netplay are
+version 4); frames up to 640×512; RetroAchievements (console 21, rcheevos' `rc_hash_ps2`, RDRAM then the
+scratchpad); a PS2 game in the sample library.
+
+**Performance (Release, on the shared 4-core build machine):**
+- The EE interpreter runs 64–71 M instructions a second on mixed code; CPU-heavy test programs run at about 30% of
+  real time (the interpreter is 70–75% of the time). VU1 runs about 25–27 M cycles a second on FMAC-heavy code.
+- The GS draws about 190 Mpixels a second for plain fills, 55 with Z, and 22 textured, blended and Z-tested.
+- So games won't reach full speed yet: the recompilers SPEC asks for (EE and VU) and a GPU renderer are the next
+  step, with these interpreters and the software GS as their reference.
+- **Save states:** about 49 MB (the 8.6 MB memory card included); saving takes 6–7 ms into a reused writer, loading
+  about 7 ms. So for the PS2 rewind captures every 30 frames and compresses on a worker thread, run-ahead is off and
+  netplay isn't offered (`docs/design/host-budgets.md`).
+
+**Changed from the plan:**
+- **ELFs with a BIOS** boot through the BIOS (fast boot at EELOAD), so homebrew that loads IOP modules works; without a
+  BIOS they run on GameVault's kernel.
+- **Kernel entry:** programs start in user mode with `$a0` = 0 (ps2sdk's crt0 keeps `$a0` for its exit), and argv
+  through SetupThread; programs linked in KSEG0 (bare-metal homebrew) start in kernel mode.
+- **The ps2autotests programs are downloaded** like the other suites (ISC, but kept with the downloads).
+- **ps2sdk's samples** can't be built here (the ps2dev toolchain can't run in this environment), so GameVault's
+  homebrew is written for clang instead; the samples are on the owner's checklist.
+
+**Left approximate:**
+- Timing: one cycle per EE instruction, no caches or dual issue; DMA at about a quadword per bus cycle; the GS, VIF
+  and IPU take no time; H-blank and V-blank at fixed points of the line and field.
+- VU1's EFU in the last bit; the FMAC multiplier's quirks beyond the lowest partial product.
+- The GS's line and point rasterization; the merge circuit's alpha scale.
+- The SPU2's reverb at half rate without the hardware's resampling filter.
+
+## Left for later
+- **Recompilers** for the EE and the VUs, and a **GPU renderer** for the GS (upscaling, speed), with the interpreters
+  and the software GS as their reference.
+- **An IOP kernel** of GameVault's own, to run IRX modules (and ps2autotests' IOP programs) without a BIOS; more
+  `fileio`/RPC servers.
+- **GS:** mipmapping and LOD, anti-aliasing, 24-bit colour shown at full depth.
+- **Timing:** caches, DMA priorities and cycle stealing, GS/VIF/IPU command timing (some games need the IPU's delay).
+- **Peripherals:** the multitap, PS1 mode (PS1 discs on the PS2), USB, the network adapter and HDD (DEV9), MagicGate
+  decryption, memory card slot 2.
+- **Netplay and run-ahead** for the PS2, once states are smaller and faster.
+
+## Owner checklist
+- Set your own BIOS in Settings → PlayStation 2 (a 4 MB dump of your console, e.g. SCPH-39001 or SCPH-70012).
+- Try your own discs as `.iso`, `.cue/.bin` or `.chd`, with and without "Skip the startup screens", including a game
+  with FMV (the IPU), one that saves to the memory card, and a dual-layer DVD. List what misbehaves (expect low speed:
+  the interpreters run games well below full speed).
+- Try homebrew ELFs built with ps2sdk (its `samples/draw` and `samples/graph`), with and without the BIOS.
+- **RetroAchievements:** check that a PS2 set's memory reads line up.
+- **Optional local tests:** put the BIOS at `ps2/bios.bin` (and discs under `ps2/`) in a folder and run
+  `GAMEVAULT_LOCAL_ROMS=<folder> dotnet test tests/GameVault.Core.Tests --filter Ps2LocalTests`.
