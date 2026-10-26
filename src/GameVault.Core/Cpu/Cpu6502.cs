@@ -12,6 +12,19 @@ namespace GameVault.Core.Cpu;
 /// Interrupt lines are sampled at the end of every cycle. The CPU acts on the state sampled at the end
 /// of an instruction's second-to-last cycle (NESdev Wiki: "CPU interrupts").
 /// </remarks>
+/// <summary>Which 6502 a console has.</summary>
+public enum CpuVariant
+{
+    /// <summary>The NES's Ricoh 2A03: an NMOS 6502 whose decimal mode is disconnected.</summary>
+    Ricoh2A03,
+
+    /// <summary>An NMOS 6502 with decimal mode (Apple II, II+, unenhanced IIe).</summary>
+    Nmos6502,
+
+    /// <summary>A WDC 65C02 (enhanced Apple IIe): new instructions, fixed JMP (abs), valid decimal flags.</summary>
+    Cmos65C02,
+}
+
 public sealed class Cpu6502 : IStateful
 {
     private const ushort NmiVector = 0xFFFA;
@@ -22,6 +35,9 @@ public sealed class Cpu6502 : IStateful
     private static readonly StateTag Tag = StateTag.From("CPU ");
 
     private readonly ICpuBus _bus;
+
+    // The bit RMB/SMB act on, from the opcode.
+    private int _bitIndex;
 
     // Interrupt sampling (see remarks).
     private bool _prevNmiLine;
@@ -38,10 +54,18 @@ public sealed class Cpu6502 : IStateful
     private byte _oamDmaPage;
     private bool _dmcDmaPending;
 
-    public Cpu6502(ICpuBus bus)
+    public Cpu6502(ICpuBus bus, CpuVariant variant = CpuVariant.Ricoh2A03)
     {
         _bus = bus;
+        Variant = variant;
     }
+
+    public CpuVariant Variant { get; }
+
+    private bool IsCmos => Variant == CpuVariant.Cmos65C02;
+
+    /// <summary>True while a 65C02 waits in WAI for an interrupt.</summary>
+    public bool IsWaiting { get; private set; }
 
     public byte A { get; set; }
 
@@ -139,6 +163,7 @@ public sealed class Cpu6502 : IStateful
     public void Reset()
     {
         IsJammed = false;
+        IsWaiting = false;
         _oamDmaPending = _dmcDmaPending = _needHalt = _needDummyRead = false;
         _needNmi = _prevNeedNmi = _runIrq = _prevRunIrq = false;
         _prevNmiLine = NmiLine;
@@ -158,6 +183,24 @@ public sealed class Cpu6502 : IStateful
         if (IsJammed)
         {
             Read(0xFFFF);
+            return;
+        }
+
+        if (IsWaiting)
+        {
+            // WAI: idle until an interrupt is requested (taken only if I is clear, otherwise execution resumes).
+            Read(PC);
+            if (_irqLines == IrqSource.None && !_needNmi)
+            {
+                return;
+            }
+
+            IsWaiting = false;
+            if (_prevRunIrq || _prevNeedNmi)
+            {
+                Interrupt();
+            }
+
             return;
         }
 
@@ -399,6 +442,14 @@ public sealed class Cpu6502 : IStateful
                 return Indexed((ushort)(lo | (hi << 8)), Y, alwaysFixup);
             }
 
+            case AddressingMode.ZeroPageIndirect:
+            {
+                var zp = Fetch();
+                var lo = Read(zp);
+                var hi = Read((byte)(zp + 1));
+                return (ushort)(lo | (hi << 8));
+            }
+
             default:
                 throw new InvalidOperationException($"Addressing mode {mode} has no operand address.");
         }
@@ -420,8 +471,8 @@ public sealed class Cpu6502 : IStateful
 
     private void Execute(byte opcode)
     {
-        var instruction = OpcodeTable.GetInstruction(opcode);
-        var mode = OpcodeTable.GetMode(opcode);
+        var instruction = IsCmos ? OpcodeTable65C02.GetInstruction(opcode) : OpcodeTable.GetInstruction(opcode);
+        var mode = IsCmos ? OpcodeTable65C02.GetMode(opcode) : OpcodeTable.GetMode(opcode);
 
         switch (instruction)
         {
@@ -430,11 +481,35 @@ public sealed class Cpu6502 : IStateful
                 or Instruction.CPY or Instruction.EOR or Instruction.LDA or Instruction.LDX or Instruction.LDY
                 or Instruction.ORA or Instruction.SBC or Instruction.LAX or Instruction.ANC or Instruction.ALR
                 or Instruction.ARR or Instruction.AXS or Instruction.LXA or Instruction.ANE or Instruction.LAS:
+                if (instruction == Instruction.BIT && mode == AddressingMode.Immediate)
+                {
+                    Zero = (A & Fetch()) == 0; // the 65C02's BIT #imm only sets Z
+                    break;
+                }
+
                 ExecuteRead(instruction, mode == AddressingMode.Immediate ? Fetch() : Read(Address(mode, false)));
+                if (IsCmos && Decimal && instruction is Instruction.ADC or Instruction.SBC)
+                {
+                    Read(PC); // the 65C02 takes a cycle to correct decimal results
+                }
+
                 break;
 
             case Instruction.NOP:
-                if (mode == AddressingMode.Implied)
+                if (mode == AddressingMode.SingleCycle)
+                {
+                    // Unused 65C02 opcode: one byte, one cycle.
+                }
+                else if (mode == AddressingMode.AbsoluteIndexedIndirect)
+                {
+                    // 65C02 $5C: three bytes, eight cycles.
+                    FetchWord();
+                    for (var i = 0; i < 5; i++)
+                    {
+                        Read(PC);
+                    }
+                }
+                else if (mode == AddressingMode.Implied)
                 {
                     Read(PC);
                 }
@@ -462,11 +537,14 @@ public sealed class Cpu6502 : IStateful
             case Instruction.SAX:
                 Write(Address(mode, true), (byte)(A & X));
                 break;
+            case Instruction.STZ:
+                Write(Address(mode, true), 0);
+                break;
 
             // Read-modify-write
             case Instruction.ASL or Instruction.LSR or Instruction.ROL or Instruction.ROR or Instruction.INC
                 or Instruction.DEC or Instruction.SLO or Instruction.RLA or Instruction.SRE or Instruction.RRA
-                or Instruction.DCP or Instruction.ISB:
+                or Instruction.DCP or Instruction.ISB or Instruction.TRB or Instruction.TSB or Instruction.RMB or Instruction.SMB:
                 if (mode == AddressingMode.Accumulator)
                 {
                     Read(PC);
@@ -474,13 +552,33 @@ public sealed class Cpu6502 : IStateful
                 }
                 else
                 {
-                    var address = Address(mode, true);
+                    // The 65C02 only spends the abs,X fix-up cycle for shifts when the page changes.
+                    var fixup = !IsCmos || mode != AddressingMode.AbsoluteX || instruction is Instruction.INC or Instruction.DEC;
+                    var address = Address(mode, fixup);
                     var value = Read(address);
-                    Write(address, value); // the 6502 writes the unmodified value back first
+                    if (IsCmos)
+                    {
+                        Read(address); // the 65C02 reads again instead of writing the old value
+                    }
+                    else
+                    {
+                        Write(address, value); // the 6502 writes the unmodified value back first
+                    }
+
+                    _bitIndex = (opcode >> 4) & 7;
                     Write(address, Modify(instruction, value));
                 }
 
                 break;
+
+            case Instruction.BBR or Instruction.BBS:
+            {
+                var value = Read(Fetch());
+                Read(PC);
+                var set = (value & (1 << ((opcode >> 4) & 7))) != 0;
+                Branch(instruction == Instruction.BBS ? set : !set);
+                break;
+            }
 
             // Branches
             case Instruction.BPL: Branch(!Negative); break;
@@ -491,6 +589,7 @@ public sealed class Cpu6502 : IStateful
             case Instruction.BCS: Branch(Carry); break;
             case Instruction.BNE: Branch(!Zero); break;
             case Instruction.BEQ: Branch(Zero); break;
+            case Instruction.BRA: Branch(true); break;
 
             // Flags and transfers (2 cycles: the second is a dummy read of the next byte)
             case Instruction.CLC: Read(PC); Carry = false; break;
@@ -516,6 +615,26 @@ public sealed class Cpu6502 : IStateful
                 Read(PC);
                 Push(A);
                 break;
+            case Instruction.PHX:
+                Read(PC);
+                Push(X);
+                break;
+            case Instruction.PHY:
+                Read(PC);
+                Push(Y);
+                break;
+            case Instruction.PLX:
+                Read(PC);
+                Read((ushort)(0x100 | SP));
+                X = Pull();
+                SetZn(X);
+                break;
+            case Instruction.PLY:
+                Read(PC);
+                Read((ushort)(0x100 | SP));
+                Y = Pull();
+                SetZn(Y);
+                break;
             case Instruction.PHP:
                 Read(PC);
                 Push((byte)(Status | FlagB));
@@ -537,6 +656,19 @@ public sealed class Cpu6502 : IStateful
                 if (mode == AddressingMode.Absolute)
                 {
                     PC = FetchWord();
+                }
+                else if (mode == AddressingMode.AbsoluteIndexedIndirect)
+                {
+                    var pointer = (ushort)(FetchWord() + X);
+                    Read(PC);
+                    PC = ReadWord(pointer);
+                }
+                else if (IsCmos)
+                {
+                    // The 65C02 fixed the page-wrap bug, at the cost of a cycle.
+                    var pointer = FetchWord();
+                    Read(PC);
+                    PC = ReadWord(pointer);
                 }
                 else
                 {
@@ -592,8 +724,24 @@ public sealed class Cpu6502 : IStateful
                 _needNmi = false;
                 Push((byte)(Status | FlagB));
                 InterruptDisable = true;
+                if (IsCmos)
+                {
+                    Decimal = false;
+                }
+
                 PC = ReadWord(vector);
                 _prevNeedNmi = false; // no interrupt immediately after BRK's vector fetch
+                break;
+
+            case Instruction.STP:
+                IsJammed = true;
+                Read(PC);
+                break;
+
+            case Instruction.WAI:
+                Read(PC);
+                Read(PC);
+                IsWaiting = true;
                 break;
 
             // Unstable "high byte" stores (NESdev Wiki: "CPU unofficial opcodes")
@@ -642,8 +790,28 @@ public sealed class Cpu6502 : IStateful
             case Instruction.AND: A &= value; SetZn(A); break;
             case Instruction.ORA: A |= value; SetZn(A); break;
             case Instruction.EOR: A ^= value; SetZn(A); break;
-            case Instruction.ADC: AddWithCarry(value); break;
-            case Instruction.SBC: AddWithCarry((byte)~value); break;
+            case Instruction.ADC:
+                if (Decimal && Variant != CpuVariant.Ricoh2A03)
+                {
+                    AddDecimal(value);
+                }
+                else
+                {
+                    AddWithCarry(value);
+                }
+
+                break;
+            case Instruction.SBC:
+                if (Decimal && Variant != CpuVariant.Ricoh2A03)
+                {
+                    SubtractDecimal(value);
+                }
+                else
+                {
+                    AddWithCarry((byte)~value);
+                }
+
+                break;
             case Instruction.CMP: Compare(A, value); break;
             case Instruction.CPX: Compare(X, value); break;
             case Instruction.CPY: Compare(Y, value); break;
@@ -714,6 +882,14 @@ public sealed class Cpu6502 : IStateful
             case Instruction.RRA: value = RotateRight(value); AddWithCarry(value); return value;
             case Instruction.DCP: value--; Compare(A, value); return value;
             case Instruction.ISB: value++; AddWithCarry((byte)~value); return value;
+            case Instruction.TSB:
+                Zero = (A & value) == 0;
+                return (byte)(value | A);
+            case Instruction.TRB:
+                Zero = (A & value) == 0;
+                return (byte)(value & ~A);
+            case Instruction.RMB: return (byte)(value & ~(1 << _bitIndex));
+            case Instruction.SMB: return (byte)(value | (1 << _bitIndex));
             default: throw new InvalidOperationException($"{instruction} is not a read-modify-write instruction.");
         }
     }
@@ -725,6 +901,86 @@ public sealed class Cpu6502 : IStateful
         Carry = sum > 0xFF;
         A = (byte)sum;
         SetZn(A);
+    }
+
+    /// <summary>
+    /// Decimal ADC (Bruce Clark, "Decimal Mode" on 6502.org). On the NMOS 6502, Z comes from the binary sum and N
+    /// and V from the result before the high nibble is corrected; the 65C02 sets N and Z from the result.
+    /// </summary>
+    private void AddDecimal(byte value)
+    {
+        var carry = Carry ? 1 : 0;
+        var lo = (A & 0x0F) + (value & 0x0F) + carry;
+        if (lo >= 0x0A)
+        {
+            lo = ((lo + 0x06) & 0x0F) + 0x10;
+        }
+
+        var sum = (A & 0xF0) + (value & 0xF0) + lo;
+        var binaryZero = ((A + value + carry) & 0xFF) == 0;
+        Overflow = (~(A ^ value) & (A ^ sum) & 0x80) != 0;
+        Negative = (sum & 0x80) != 0;
+        if (sum >= 0xA0)
+        {
+            sum += 0x60;
+        }
+
+        Carry = sum >= 0x100;
+        A = (byte)sum;
+        if (IsCmos)
+        {
+            SetZn(A);
+        }
+        else
+        {
+            Zero = binaryZero;
+        }
+    }
+
+    /// <summary>Decimal SBC: C and V as in binary; N and Z from the binary result on the NMOS 6502, from the result on the 65C02.</summary>
+    private void SubtractDecimal(byte value)
+    {
+        var carry = Carry ? 1 : 0;
+        var binary = A - value - (1 - carry);
+        Overflow = ((A ^ value) & (A ^ binary) & 0x80) != 0;
+        var newCarry = binary >= 0;
+        int result;
+        if (IsCmos)
+        {
+            var lo = (A & 0x0F) - (value & 0x0F) + carry - 1;
+            result = binary;
+            if (result < 0)
+            {
+                result -= 0x60;
+            }
+
+            if (lo < 0)
+            {
+                result -= 0x06;
+            }
+
+            A = (byte)result;
+            SetZn(A);
+        }
+        else
+        {
+            var lo = (A & 0x0F) - (value & 0x0F) + carry - 1;
+            if (lo < 0)
+            {
+                lo = ((lo - 0x06) & 0x0F) - 0x10;
+            }
+
+            result = (A & 0xF0) - (value & 0xF0) + lo;
+            if (result < 0)
+            {
+                result -= 0x60;
+            }
+
+            SetZn((byte)binary);
+            A = (byte)result;
+        }
+
+        Carry = newCarry;
     }
 
     private void Compare(byte register, byte value)
@@ -821,6 +1077,11 @@ public sealed class Cpu6502 : IStateful
         _needNmi = false;
         Push(Status);
         InterruptDisable = true;
+        if (IsCmos)
+        {
+            Decimal = false;
+        }
+
         PC = ReadWord(vector);
     }
 
@@ -828,7 +1089,7 @@ public sealed class Cpu6502 : IStateful
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 2);
+        writer.BeginChunk(Tag, 3);
         writer.WriteByte(A);
         writer.WriteByte(X);
         writer.WriteByte(Y);
@@ -849,13 +1110,14 @@ public sealed class Cpu6502 : IStateful
         writer.WriteBool(_dmcDmaPending);
         writer.WriteBool(_needHalt);
         writer.WriteBool(_needDummyRead);
+        writer.WriteBool(IsWaiting); // version 3: the 65C02's WAI
         writer.EndChunk();
     }
 
     public void LoadState(StateReader reader)
     {
         var version = reader.BeginChunk(Tag);
-        if (version != 2)
+        if (version is not (2 or 3))
         {
             throw new StateFormatException($"Unsupported CPU state version {version}.");
         }
@@ -880,6 +1142,7 @@ public sealed class Cpu6502 : IStateful
         _dmcDmaPending = reader.ReadBool();
         _needHalt = reader.ReadBool();
         _needDummyRead = reader.ReadBool();
+        IsWaiting = version >= 3 && reader.ReadBool();
         reader.EndChunk();
     }
 }

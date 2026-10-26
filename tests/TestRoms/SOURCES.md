@@ -54,3 +54,13 @@ Pinned to commit `1c418fa0d719abab9273131113defbe276101d95` of
 | Cache path | Suite | Author | Why it isn't committed | Used by |
 |---|---|---|---|---|
 | `z80/zexdoc.com`, `z80/zexall.com` | Z80 instruction exerciser (zexdoc: documented flags; zexall: all flags) | Frank D. Cringle (1994) | GPL v2: redistributable, but kept out of the repository with the other suites | Phase 11: Z80 instructions and flags, run on a minimal CP/M stub |
+
+### 6502 and 65C02 (Phase 12)
+
+Pinned to commit `7954e2dbb49c469ea286070bf46cdd71aeb29e4b` of
+[Klaus2m5/6502_65C02_functional_tests](https://github.com/Klaus2m5/6502_65C02_functional_tests).
+
+| Cache path | Suite | Author | Why it isn't committed | Used by |
+|---|---|---|---|---|
+| `6502/6502_functional_test.bin` | 6502 functional test, including decimal mode (success trap at `$3469`) | Klaus Dormann | GPL v3: redistributable, but kept out of the repository with the other suites | Phase 12: NMOS 6502 with decimal mode (Apple II) |
+| `6502/65C02_extended_opcodes_test.bin` | 65C02 extended opcodes, including the WDC/Rockwell bit instructions (success trap at `$24F1`) | Klaus Dormann | GPL v3, as above | Phase 12: 65C02 (enhanced Apple IIe) |

@@ -15,4 +15,7 @@ public enum Instruction : byte
     // Unofficial
     ALR, ANC, ANE, ARR, AXS, DCP, ISB, JAM, LAS, LAX, LXA, RLA, RRA, SAX,
     SHA, SHX, SHY, SLO, SRE, TAS,
+
+    // 65C02 (Apple IIe enhanced; WDC adds the bit instructions, STP and WAI)
+    BRA, PHX, PHY, PLX, PLY, STZ, TRB, TSB, RMB, SMB, BBR, BBS, STP, WAI,
 }
