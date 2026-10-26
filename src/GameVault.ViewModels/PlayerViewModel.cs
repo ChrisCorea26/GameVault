@@ -131,10 +131,11 @@ public sealed partial class PlayerViewModel(
                 DiskSlots.Clear();
                 if (count > 0)
                 {
-                    DiskSlots.Add("No disk");
+                    var discs = emulator.DiscNames;
+                    DiskSlots.Add(discs.Count > 0 ? "No disc (shell open)" : "No disk");
                     for (var side = 0; side < count; side++)
                     {
-                        DiskSlots.Add(DiskSideName(side));
+                        DiskSlots.Add(side < discs.Count ? $"Disc {side + 1}: {discs[side]}" : DiskSideName(side));
                     }
                 }
             }

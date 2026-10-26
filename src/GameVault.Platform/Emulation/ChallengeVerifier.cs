@@ -16,7 +16,8 @@ namespace GameVault.Platform.Emulation;
 /// </summary>
 public static class ChallengeVerifier
 {
-    public static ChallengeCheck Verify(byte[] romImage, ChallengeFile challenge, ChallengeResult result, GameSystem system = GameSystem.Nes)
+    public static ChallengeCheck Verify(
+        byte[] romImage, ChallengeFile challenge, ChallengeResult result, GameSystem system = GameSystem.Nes, PlayStationSetup? playStation = null)
     {
         if (result.ChallengeId != challenge.Id)
         {
@@ -52,13 +53,28 @@ public static class ChallengeVerifier
         IEmulatedConsole console;
         try
         {
-            console = ConsoleFactory.Create(romImage, system, new GameVault.Library.Profiles.GameProfile { Sha1 = challenge.RomSha1 }, fdsBios: null);
+            console = ConsoleFactory.Create(
+                romImage, system, new GameVault.Library.Profiles.GameProfile { Sha1 = challenge.RomSha1 }, fdsBios: null, playStation: playStation);
         }
         catch (GameLoadException)
         {
             return new ChallengeCheck(false, "This game can't be checked.");
         }
 
+        try
+        {
+            return Replay(console, challenge, result, inputs);
+        }
+        finally
+        {
+            // A PlayStation's replay opened its own copy of the disc.
+            ((console as GameVault.Core.PlayStation.PlayStationConsole)?.CdRom.Disc as IDisposable)?.Dispose();
+        }
+    }
+
+    private static ChallengeCheck Replay(
+        IEmulatedConsole console, ChallengeFile challenge, ChallengeResult result, List<(ushort Player1, ushort Player2)> inputs)
+    {
         console.Power();
         try
         {

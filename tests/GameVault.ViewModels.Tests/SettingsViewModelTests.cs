@@ -36,6 +36,21 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task The_playstation_bios_path_and_fast_boot_are_saved()
+    {
+        var store = new InMemorySettingsStore();
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        vm.PlayStationBiosPath = "\"C:\\BIOS\\scph1001.bin\" ";
+        vm.SavePlayStationBiosPathCommand.Execute(null);
+        vm.PlayStationFastBoot = true;
+
+        store.Current.PlayStationBiosPath.Should().Be(@"C:\BIOS\scph1001.bin", "quotes from a pasted path are removed");
+        store.Current.PlayStationFastBoot.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task Display_preset_and_pixel_shape_are_saved()
     {
         var store = new InMemorySettingsStore(new AppSettings { DisplayPreset = DisplayPreset.Smooth });

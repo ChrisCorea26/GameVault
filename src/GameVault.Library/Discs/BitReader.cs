@@ -1,4 +1,4 @@
-namespace GameVault.Platform.Emulation.Discs;
+namespace GameVault.Library.Discs;
 
 /// <summary>
 /// Reads bits most-significant first (FLAC frames and CHD's compressed hunk maps). Reads past the end give zeros and

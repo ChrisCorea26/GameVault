@@ -1,4 +1,4 @@
-namespace GameVault.Platform.Emulation.Discs;
+namespace GameVault.Library.Discs;
 
 /// <summary>
 /// The canonical Huffman decoder CHD uses for its compressed hunk map. The tree is sent as a run-length-coded list

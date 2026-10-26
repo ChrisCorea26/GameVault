@@ -19,6 +19,7 @@ public sealed class GameTileViewModel(GameEntry game)
         GameVault.Core.Systems.GameSystem.AppleII => "Apple II",
         GameVault.Core.Systems.GameSystem.Genesis => "Genesis",
         GameVault.Core.Systems.GameSystem.Snes => "Super Nintendo",
+        GameVault.Core.Systems.GameSystem.PlayStation => "PlayStation",
         _ => "NES",
     };
 

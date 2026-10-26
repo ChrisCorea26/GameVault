@@ -149,8 +149,11 @@ public interface IEmulatorService
     {
     }
 
-    /// <summary>Disk sides of a Famicom Disk System game (0 for cartridges).</summary>
+    /// <summary>Disk sides of a Famicom Disk System game, or discs of a multi-disc PlayStation game (0 for others).</summary>
     int DiskSideCount => 0;
+
+    /// <summary>The discs of a multi-disc PlayStation game (.m3u), by name; empty for other games.</summary>
+    IReadOnlyList<string> DiscNames => [];
 
     /// <summary>The disk side in the drive, or null while it is empty (or for cartridges).</summary>
     int? InsertedDiskSide => null;
@@ -162,7 +165,10 @@ public interface IEmulatorService
         remove { }
     }
 
-    /// <summary>Ejects the current side and inserts <paramref name="side"/> after a short pause, like a real drive.</summary>
+    /// <summary>
+    /// Ejects the current side and inserts <paramref name="side"/> after a short pause, like a real drive (for a
+    /// PlayStation, changes to disc <paramref name="side"/>).
+    /// </summary>
     void InsertDiskSide(int side)
     {
     }

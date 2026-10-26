@@ -596,6 +596,49 @@
         </StackPanel>
       </Border>
 
+      <!-- PlayStation (SPEC §7.11): the player's own BIOS; GameVault never ships it -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="PlayStation" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="PlayStation discs (.cue with its .bin files, .chd, or an .m3u list of discs) need the BIOS from your own console (512 KB, such as SCPH-1001). GameVault doesn't include it. Paste where the file is."
+              TextWrapping="Wrap" />
+          <TextBox
+              AutomationProperties.Name="PlayStation BIOS file"
+              LostFocus="PlayStationBiosPath_LostFocus"
+              PlaceholderText="C:\PlayStation\scph1001.bin"
+              Text="{x:Bind ViewModel.PlayStationBiosPath, Mode=TwoWay}" />
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Skip the startup screens" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Starts the game straight away instead of showing the console's intro. A few games need the intro to start correctly."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch
+                Grid.Column="1"
+                MinWidth="0"
+                AutomationProperties.Name="Skip the PlayStation startup screens"
+                IsOn="{x:Bind ViewModel.PlayStationFastBoot, Mode=TwoWay}"
+                OffContent=""
+                OnContent="" />
+          </Grid>
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Each game gets its own memory card in slot 1, saved with your other game saves."
+              TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
       <!-- Advanced -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Advanced" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">

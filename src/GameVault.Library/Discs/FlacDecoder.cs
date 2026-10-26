@@ -1,4 +1,4 @@
-namespace GameVault.Platform.Emulation.Discs;
+namespace GameVault.Library.Discs;
 
 /// <summary>
 /// Decodes a sequence of FLAC frames with no stream header, as CHD's <c>flac</c> and <c>cdfl</c> codecs store

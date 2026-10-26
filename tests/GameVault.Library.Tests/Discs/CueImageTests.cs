@@ -1,8 +1,8 @@
 using FluentAssertions;
 using GameVault.Core.PlayStation;
-using GameVault.Platform.Emulation.Discs;
+using GameVault.Library.Discs;
 
-namespace GameVault.Platform.Tests.Discs;
+namespace GameVault.Library.Tests.Discs;
 
 /// <summary>Cue sheets over .bin files, and .m3u playlists (SPEC §7.11, Phase 15).</summary>
 public sealed class CueImageTests

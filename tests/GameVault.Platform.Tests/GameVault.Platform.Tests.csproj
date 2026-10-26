@@ -9,6 +9,8 @@
   <ItemGroup>
     <!-- Synthetic mapper ROMs shared with the core tests. -->
     <Compile Include="..\GameVault.Core.Tests\Cartridge\BankedRom.cs" Link="BankedRom.cs" />
+    <!-- PlayStation discs (ISO-9660 with SYSTEM.CNF and a boot executable) shared with the core tests. -->
+    <Compile Include="..\GameVault.Core.Tests\PlayStation\TestDisc.cs" Link="TestDisc.cs" />
   </ItemGroup>
 
   <ItemGroup>

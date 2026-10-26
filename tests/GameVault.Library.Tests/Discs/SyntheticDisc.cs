@@ -1,7 +1,7 @@
 using System.Buffers.Binary;
-using GameVault.Platform.Emulation.Discs;
+using GameVault.Library.Discs;
 
-namespace GameVault.Platform.Tests.Discs;
+namespace GameVault.Library.Tests.Discs;
 
 /// <summary>
 /// The generated discs and codec inputs the fixtures were made from (Fixtures/make_chd_fixtures.py and

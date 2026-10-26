@@ -152,6 +152,21 @@ public class PlayerViewModelTests
     }
 
     [Fact]
+    public async Task Multi_disc_playstation_games_offer_their_discs()
+    {
+        _emulator.DiskSideCount = 2;
+        _emulator.DiscNames = ["Saga (Disc 1)", "Saga (Disc 2)"];
+        _emulator.InsertedDiskSide = 0;
+
+        await _vm.StartCommand.ExecuteAsync("saga.m3u");
+
+        _vm.IsDiskSystem.Should().BeTrue();
+        _vm.DiskSlots.Should().Equal("No disc (shell open)", "Disc 1: Saga (Disc 1)", "Disc 2: Saga (Disc 2)");
+        _vm.DiskSlotIndex = 2;
+        _emulator.DiskCommands.Should().Equal("insert 1");
+    }
+
+    [Fact]
     public async Task Apple_ii_games_offer_a_disk_menu_for_both_drives()
     {
         _emulator.System = GameVault.Core.Systems.GameSystem.AppleII;
@@ -574,6 +589,8 @@ public class PlayerViewModelTests
         }
 
         public int DiskSideCount { get; set; }
+
+        public IReadOnlyList<string> DiscNames { get; set; } = [];
 
         public int? InsertedDiskSide { get; set; }
 

@@ -66,6 +66,23 @@ public class ControllerManagerTests
     }
 
     [Fact]
+    public void PlayStation_games_use_positional_buttons_and_the_triggers_as_l2_and_r2()
+    {
+        _manager.OnConnected(Pad(1));
+        _manager.GameHasFocus = true;
+        _input.Layout = PadLayout.PlayStation;
+
+        _manager.OnButton(1, PadButton.West, true); // Square
+        _manager.OnAxis(1, PadAxis.TriggerRight, 30000);
+        _input.Sample(0).Should().Be(ControllerState.Y | ControllerState.R2);
+
+        _manager.OnAxis(1, PadAxis.TriggerRight, 12000);
+        _input.Sample(0).Should().Be(ControllerState.Y | ControllerState.R2, "a trigger easing off a little stays held");
+        _manager.OnAxis(1, PadAxis.TriggerRight, 2000);
+        _input.Sample(0).Should().Be(ControllerState.Y);
+    }
+
+    [Fact]
     public void Left_stick_drives_the_dpad_in_game()
     {
         _manager.OnConnected(Pad(1));

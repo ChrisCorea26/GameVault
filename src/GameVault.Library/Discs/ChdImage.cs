@@ -4,7 +4,7 @@ using System.IO.Compression;
 using System.Text;
 using GameVault.Core.PlayStation;
 
-namespace GameVault.Platform.Emulation.Discs;
+namespace GameVault.Library.Discs;
 
 /// <summary>
 /// A CD stored as a CHD ("MAME Compressed Hunks of Data", version 5), as chdman's <c>createcd</c> writes it: hunks

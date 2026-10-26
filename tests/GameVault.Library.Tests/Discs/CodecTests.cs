@@ -1,7 +1,7 @@
 using FluentAssertions;
-using GameVault.Platform.Emulation.Discs;
+using GameVault.Library.Discs;
 
-namespace GameVault.Platform.Tests.Discs;
+namespace GameVault.Library.Tests.Discs;
 
 /// <summary>The LZMA and FLAC decoders behind CHD's cdlz and cdfl codecs, on streams from the reference encoders.</summary>
 public sealed class CodecTests

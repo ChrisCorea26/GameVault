@@ -58,6 +58,15 @@ public sealed record AppSettings
     /// <summary>The player's own Disk II boot ROM (256 bytes, slot 6), or empty.</summary>
     public string AppleIIDiskRomPath { get; init; } = string.Empty;
 
+    /// <summary>
+    /// The player's own PlayStation BIOS (512 KB, such as SCPH-1001), or empty. GameVault never ships, downloads or
+    /// links to it (SPEC §7.11).
+    /// </summary>
+    public string PlayStationBiosPath { get; init; } = string.Empty;
+
+    /// <summary>Skip the PlayStation BIOS's intro and start the disc's game directly. Off by default.</summary>
+    public bool PlayStationFastBoot { get; init; }
+
     /// <summary>Game volume, 0–100 (0 mutes).</summary>
     public int Volume { get; init; } = 80;
 

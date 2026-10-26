@@ -13,7 +13,7 @@ public sealed class InputService
     public const int PortCount = 4;
     public const int KeyboardSource = 0;
 
-    private const int ButtonCount = 8;
+    private const int ButtonCount = 16; // every bit of ControllerState, not just the NES pad's eight
     /// <summary>The default turbo cycle: pressed for 2 frames, released for 2, 15 presses per second at 60 Hz (input.md §6).</summary>
     public const int DefaultTurboPeriodFrames = 4;
 
@@ -414,9 +414,10 @@ public sealed class InputService
             }
 
             var period = _turboPeriod;
-            if (Layout == PadLayout.Snes)
+            if (Layout is PadLayout.Snes or PadLayout.PlayStation)
             {
-                // No turbo on SNES pads: those keys are Y (turbo B's key) and X (turbo A's key).
+                // No turbo on SNES or PlayStation pads: those keys are Y (turbo B's key) and X (turbo A's key), the
+                // PlayStation's Square and Triangle.
                 foreach (var ((_, p, bit), _) in _turboCount)
                 {
                     if (p == port)
@@ -467,4 +468,7 @@ public enum PadLayout
     Nes,
     Genesis,
     Snes,
+
+    /// <summary>The SNES's positions (Cross south, Circle east, Square west, Triangle north) plus the triggers as L2 and R2.</summary>
+    PlayStation,
 }

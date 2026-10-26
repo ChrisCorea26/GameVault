@@ -59,14 +59,18 @@ public static class PsDisc
         return semicolon >= 0 ? name[..semicolon] : name;
     }
 
-    /// <summary>Reads a file by path (directories separated by backslashes), case-insensitively; null when missing.</summary>
-    public static byte[]? ReadFile(ICdImage disc, string path)
+    /// <summary>
+    /// Reads a file by path (directories separated by backslashes), case-insensitively; null when missing.
+    /// <paramref name="length"/> reads that many bytes from the file's first sector instead of the file's size.
+    /// </summary>
+    public static byte[]? ReadFile(ICdImage disc, string path, int? length = null)
     {
-        if (FindFile(disc, path) is not { } entry)
+        if (FindFile(disc, path) is not { } found)
         {
             return null;
         }
 
+        var entry = length is { } count ? (found.Lba, Size: count) : found;
         var data = new byte[entry.Size];
         var sector = new byte[ICdImage.SectorSize];
         for (var offset = 0; offset < entry.Size; offset += 2048)

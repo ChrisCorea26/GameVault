@@ -22,6 +22,17 @@ public class InputServiceTests
     }
 
     [Fact]
+    public void Buttons_beyond_the_nes_pad_can_be_held()
+    {
+        // The Genesis X/Y/Z keys and the shoulders are bits 9 and up of the controller state.
+        _input.KeyDown(VirtualKeys.Q);
+        _input.KeyDown(VirtualKeys.Digit1);
+        _input.KeyDown(VirtualKeys.Digit4);
+
+        _input.Sample(0).Should().Be(ControllerState.X | ControllerState.L | ControllerState.R2);
+    }
+
+    [Fact]
     public void Key_up_releases_and_key_repeat_is_ignored()
     {
         _input.KeyDown(VirtualKeys.X);

@@ -2,9 +2,11 @@ using GameVault.Core;
 using GameVault.Core.Apple;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Genesis;
+using GameVault.Core.PlayStation;
 using GameVault.Core.Sega;
 using GameVault.Core.Snes;
 using GameVault.Core.Systems;
+using GameVault.Library.Discs;
 using GameVault.Library.Profiles;
 using GameVault.ViewModels.Services;
 
@@ -15,8 +17,19 @@ internal static class ConsoleFactory
 {
     /// <summary>Throws <see cref="GameLoadException"/> with a message for the player.</summary>
     public static IEmulatedConsole Create(
-        byte[] data, GameSystem system, GameProfile profile, byte[]? fdsBios, string extension = "", AppleRoms? appleRoms = null)
+        byte[] data,
+        GameSystem system,
+        GameProfile profile,
+        byte[]? fdsBios,
+        string extension = "",
+        AppleRoms? appleRoms = null,
+        PlayStationSetup? playStation = null)
     {
+        if (system == GameSystem.PlayStation)
+        {
+            return CreatePlayStation(data, playStation);
+        }
+
         if (system == GameSystem.AppleII)
         {
             if (appleRoms is null)
@@ -126,6 +139,50 @@ internal static class ConsoleFactory
             throw new GameLoadException(
                 $"This game uses a cartridge type GameVault doesn't support yet (mapper {ex.Mapper}).", ex);
         }
+    }
+
+    /// <summary>
+    /// A PlayStation with the player's BIOS and the game's first disc (for an .m3u, the first in the list), or a
+    /// PS-EXE: run after the BIOS boots, or straight away without one (bare-metal homebrew).
+    /// </summary>
+    private static PlayStationConsole CreatePlayStation(byte[] data, PlayStationSetup? setup)
+    {
+        var bios = setup?.Bios;
+        if (bios is not null && bios.Length != PlayStationConsole.BiosSize)
+        {
+            throw new GameLoadException(
+                "The PlayStation BIOS chosen in Settings → PlayStation isn't a 512 KB BIOS file. Choose the BIOS dumped from your own console.");
+        }
+
+        if (!PlayStationGames.TryGetPath(data, out var path))
+        {
+            try
+            {
+                return new PlayStationConsole(bios, exe: PsExe.Parse(data));
+            }
+            catch (InvalidDataException ex)
+            {
+                throw new GameLoadException("That file isn't a PlayStation program (PS-EXE), or it's damaged.", ex);
+            }
+        }
+
+        if (bios is null)
+        {
+            throw new GameLoadException(
+                "This is a PlayStation disc. To play it, choose your own PlayStation BIOS in Settings → PlayStation. GameVault doesn't include it.");
+        }
+
+        ICdImage disc;
+        try
+        {
+            disc = DiscImages.Open(PlayStationGames.DiscPaths(path)[0]);
+        }
+        catch (InvalidDataException ex)
+        {
+            throw new GameLoadException("GameVault couldn't open that disc: " + ex.Message, ex);
+        }
+
+        return new PlayStationConsole(bios, disc, fastBoot: setup!.FastBoot);
     }
 
     /// <summary>Header corrections and region from the game database (SPEC §4.5, §7.5).</summary>

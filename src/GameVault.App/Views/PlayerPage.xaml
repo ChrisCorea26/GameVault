@@ -270,16 +270,16 @@
         <FontIcon FontSize="16" Glyph="&#xE740;" />
       </Button>
 
-      <!-- Famicom Disk System: the side in the drive; F4 inserts the next side (input.md §8) -->
+      <!-- Famicom Disk System: the side in the drive; PlayStation .m3u games: the disc. F4 inserts the next one (input.md §8) -->
       <ComboBox
           Grid.Column="8"
           MinWidth="170"
           VerticalAlignment="Center"
-          AutomationProperties.Name="Disk side"
+          AutomationProperties.Name="Disk or disc in the drive"
           DropDownClosed="DiskSide_DropDownClosed"
           ItemsSource="{x:Bind ViewModel.DiskSlots}"
           SelectedIndex="{x:Bind ViewModel.DiskSlotIndex, Mode=TwoWay}"
-          ToolTipService.ToolTip="Disk side (F4: next side)"
+          ToolTipService.ToolTip="Disk side or disc (F4: the next one)"
           Visibility="{x:Bind ViewModel.IsDiskSystem, Mode=OneWay}" />
       <!-- Apple II: the disk images in drives 1 and 2 (Phase 12); writes are saved as patches, never into the image -->
       <DropDownButton

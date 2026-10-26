@@ -1,4 +1,4 @@
-namespace GameVault.Platform.Emulation.Discs;
+namespace GameVault.Library.Discs;
 
 /// <summary>
 /// A raw LZMA (LZMA1) decoder for a stream whose decompressed size is known, as CHD's <c>lzma</c> and <c>cdlz</c>

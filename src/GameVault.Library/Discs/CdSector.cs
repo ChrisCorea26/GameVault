@@ -1,6 +1,6 @@
 using System.Buffers.Binary;
 
-namespace GameVault.Platform.Emulation.Discs;
+namespace GameVault.Library.Discs;
 
 /// <summary>
 /// Raw CD sector helpers (ECMA-130): the sync pattern, MSF headers, the EDC checksum and the P/Q error-correction

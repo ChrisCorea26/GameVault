@@ -55,6 +55,8 @@ public sealed class SampleLibraryService : ILibraryService
             Ownership.Cartridge | Ownership.DigitalDump, PlayStatus.Completed, hours: 11, lastPlayedDaysAgo: 30, system: GameSystem.Genesis),
         Game(19, "Starfall Keep", GameRegion.NorthAmerica, "Quillsoft", 1993, "RPG",
             Ownership.Cartridge | Ownership.Box | Ownership.DigitalDump, PlayStatus.Playing, rating: 5, hours: 22, lastPlayedDaysAgo: 1, system: GameSystem.Snes),
+        Game(20, "Neon Drift Zero", GameRegion.NorthAmerica, "Polyline Works", 1997, "Racing",
+            Ownership.Box | Ownership.DigitalDump, PlayStatus.Playing, hours: 3, lastPlayedDaysAgo: 12, system: GameSystem.PlayStation),
     ];
 
     private readonly List<GameEntry> _games;
@@ -210,6 +212,7 @@ public sealed class SampleLibraryService : ILibraryService
                     GameSystem.AppleII => $@"C:\Games\Apple II\{title}.dsk",
                     GameSystem.Genesis => $@"C:\Games\Genesis\{title}.md",
                     GameSystem.Snes => $@"C:\Games\Super Nintendo\{title}.sfc",
+                    GameSystem.PlayStation => $@"C:\Games\PlayStation\{title}.cue",
                     _ => $@"C:\Games\NES\{title}.nes",
                 }
                 : null,

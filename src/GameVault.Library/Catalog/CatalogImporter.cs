@@ -75,7 +75,9 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
                         ? GameVault.Core.Systems.GameSystem.Genesis
                         : datName.Contains("Super Nintendo", StringComparison.OrdinalIgnoreCase) || datName.Contains("Super Famicom", StringComparison.OrdinalIgnoreCase)
                             ? GameVault.Core.Systems.GameSystem.Snes
-                            : GameVault.Core.Systems.GameSystem.Nes;
+                            : datName.Contains("PlayStation", StringComparison.OrdinalIgnoreCase)
+                                ? GameVault.Core.Systems.GameSystem.PlayStation
+                                : GameVault.Core.Systems.GameSystem.Nes;
 
     public static string KeyFor(CatalogGame game) => game.Sha1 is { } sha1 ? "sha1:" + sha1 : "crc:" + game.Crc32;
 
@@ -130,9 +132,23 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
                 switch (reader.Name)
                 {
                     case "rom" when crc is null:
+                        // A Redump disc lists its .cue first, then its tracks: discs are matched on track 1.
+                        if (datSystem == GameVault.Core.Systems.GameSystem.PlayStation)
+                        {
+                            if (reader.GetAttribute("name")?.EndsWith(".cue", StringComparison.OrdinalIgnoreCase) == true)
+                            {
+                                break;
+                            }
+
+                            romSystem = datSystem;
+                        }
+                        else
+                        {
+                            romSystem = reader.GetAttribute("name") is { } romName ? GameVault.Library.Scanning.RomFiles.SystemOf(romName) : null;
+                        }
+
                         crc = reader.GetAttribute("crc")?.ToLowerInvariant();
                         sha1 = reader.GetAttribute("sha1")?.ToLowerInvariant();
-                        romSystem = reader.GetAttribute("name") is { } romName ? GameVault.Library.Scanning.RomFiles.SystemOf(romName) : null;
                         break;
                     case "publisher" or "manufacturer":
                         publisher = reader.ReadElementContentAsString().Trim();

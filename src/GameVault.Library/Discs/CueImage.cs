@@ -1,7 +1,7 @@
 using System.Globalization;
 using GameVault.Core.PlayStation;
 
-namespace GameVault.Platform.Emulation.Discs;
+namespace GameVault.Library.Discs;
 
 /// <summary>
 /// A disc as a cue sheet over one or more .bin files (one bin for the whole disc, or one per track). Understands FILE

@@ -22,10 +22,17 @@ public static class RomHasher
 
     /// <summary>
     /// Hashes for <paramref name="system"/>. Sega cartridges have no header, but copier dumps can carry a 512-byte
-    /// one, which No-Intro leaves out too.
+    /// one, which No-Intro leaves out too. A PlayStation disc reference hashes the disc's first track.
     /// </summary>
     public static RomHashes Hash(ReadOnlySpan<byte> image, GameSystem system)
     {
+        if (system == GameSystem.PlayStation && GameVault.Library.Discs.PlayStationGames.TryGetPath(image, out var disc))
+        {
+            // A disc: its first track, as Redump lists it.
+            var (discCrc, discSha1) = GameVault.Library.Discs.PlayStationGames.HashReference(disc);
+            return new RomHashes(discCrc, discSha1);
+        }
+
         var body = system switch
         {
             GameSystem.Nes => StripHeader(image),

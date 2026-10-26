@@ -2,9 +2,9 @@ using System.Buffers.Binary;
 using System.Text;
 using FluentAssertions;
 using GameVault.Core.PlayStation;
-using GameVault.Platform.Emulation.Discs;
+using GameVault.Library.Discs;
 
-namespace GameVault.Platform.Tests.Discs;
+namespace GameVault.Library.Tests.Discs;
 
 /// <summary>
 /// CHD discs (SPEC §7.11, Phase 15). The fixtures are chdman's own output for a generated disc with a mode 1 track

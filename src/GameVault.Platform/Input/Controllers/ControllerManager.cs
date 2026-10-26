@@ -301,6 +301,12 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
 
     public void OnAxis(int instanceId, PadAxis axis, short value)
     {
+        if (axis is PadAxis.TriggerLeft or PadAxis.TriggerRight)
+        {
+            OnTrigger(instanceId, axis == PadAxis.TriggerLeft ? ControllerState.L2 : ControllerState.R2, value);
+            return;
+        }
+
         if (axis is not (PadAxis.LeftX or PadAxis.LeftY))
         {
             return;
@@ -448,7 +454,7 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
     private void ApplyToGame(int instanceId, int port, PadButton button, bool down)
     {
         var source = SourceOf(instanceId);
-        var (state, turbo) = _input.Layout == PadLayout.Genesis ? SixButton(button) : _input.Layout == PadLayout.Snes ? SnesButton(button) : button switch
+        var (state, turbo) = _input.Layout == PadLayout.Genesis ? SixButton(button) : _input.Layout is PadLayout.Snes or PadLayout.PlayStation ? SnesButton(button) : button switch
         {
             PadButton.South => (ControllerState.B, false),
             PadButton.East => (ControllerState.A, false),
@@ -486,6 +492,41 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         if (hotkey != 0)
         {
             _input.SetPadHotkey(source, hotkey, down);
+        }
+    }
+
+    /// <summary>
+    /// The analog triggers are the PlayStation's L2 and R2 while a PlayStation game runs: pressed past half way,
+    /// released below a quarter, so a resting trigger never flickers.
+    /// </summary>
+    private void OnTrigger(int instanceId, ControllerState button, short value)
+    {
+        bool changed, down;
+        int? port;
+        lock (_gate)
+        {
+            if (!_pads.TryGetValue(instanceId, out var pad))
+            {
+                return;
+            }
+
+            var held = (pad.Triggers & button) != 0;
+            down = _input.Layout == PadLayout.PlayStation && AppActive && (held ? value > 8000 : value > 16000);
+            changed = held != down;
+            pad.Triggers = down ? pad.Triggers | button : pad.Triggers & ~button;
+            port = _model.Policy.PortOf(instanceId);
+        }
+
+        if (changed && port is { } p)
+        {
+            if (down && GameHasFocus)
+            {
+                _input.Press(SourceOf(instanceId), p, button);
+            }
+            else if (!down)
+            {
+                _input.Release(SourceOf(instanceId), p, button);
+            }
         }
     }
 
@@ -590,6 +631,9 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         public short StickY { get; set; }
 
         public ControllerState StickDirections { get; set; }
+
+        /// <summary>The triggers held as L2 and R2.</summary>
+        public ControllerState Triggers { get; set; }
 
         public bool SuppressUntilRelease { get; set; }
 

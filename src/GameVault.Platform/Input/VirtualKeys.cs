@@ -12,6 +12,10 @@ public static class VirtualKeys
     public const int Up = 0x26;
     public const int Right = 0x27;
     public const int Down = 0x28;
+    public const int Digit1 = 0x31;
+    public const int Digit2 = 0x32;
+    public const int Digit3 = 0x33;
+    public const int Digit4 = 0x34;
     public const int A = 0x41;
     public const int C = 0x43;
     public const int D = 0x44;

@@ -1,6 +1,6 @@
 using GameVault.Core.PlayStation;
 
-namespace GameVault.Platform.Emulation.Discs;
+namespace GameVault.Library.Discs;
 
 /// <summary>Opens the disc image formats GameVault reads for CD systems: .cue/.bin, .chd, and .m3u playlists of discs.</summary>
 public static class DiscImages

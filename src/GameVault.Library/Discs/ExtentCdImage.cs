@@ -1,6 +1,6 @@
 using GameVault.Core.PlayStation;
 
-namespace GameVault.Platform.Emulation.Discs;
+namespace GameVault.Library.Discs;
 
 /// <summary>
 /// A run of consecutive disc addresses stored the same way: <see cref="SectorSize"/> bytes per sector starting at

@@ -11,6 +11,7 @@ using GameVault.Platform.Audio;
 using GameVault.Core.Input;
 using GameVault.Core.Apple;
 using GameVault.Core.Genesis;
+using GameVault.Core.PlayStation;
 using GameVault.Core.Snes;
 using GameVault.Core.Sega;
 using GameVault.Core.State;
@@ -53,6 +54,10 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     private readonly ISettingsStore? _settings;
     private readonly IAudioOutput? _audio;
     private readonly BatterySaveStore? _batteries;
+
+    // PlayStation memory cards are saved as raw .mcd images, the format other emulators read.
+    private readonly BatterySaveStore? _memoryCards;
+    private BatterySaveStore? _batteryStore;
     private readonly BatterySaveStore? _diskSaves;
     private readonly BatterySaveStore? _appleDiskSaves;
 
@@ -148,6 +153,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _batteries = paths is null ? null : new BatterySaveStore(paths);
         _diskSaves = paths is null ? null : new BatterySaveStore(paths, ".fdssave");
         _appleDiskSaves = paths is null ? null : new BatterySaveStore(paths, ".a2save");
+        _memoryCards = paths is null ? null : new BatterySaveStore(paths, ".mcd");
         _context = SynchronizationContext.Current;
         _present = console => _video.Present(console.FrameBuffer, PaletteFor(console), console.ScreenWidth, console.ScreenHeight, console.PixelAspect);
     }
@@ -236,6 +242,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         {
             AppleConsole or GenesisConsole => 0x1FFFF,
             SnesConsole => 0x9FFFF,
+            PlayStationConsole => 0x2003FF,
             _ => 0xFFFF,
         };
         for (var i = 0; i < buffer.Length && address + i <= limit; i++)
@@ -246,6 +253,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
                 AppleConsole apple => apple.ReadAchievementMemory((int)(address + i)),
                 GenesisConsole genesis => genesis.ReadAchievementMemory((int)(address + i)),
                 SnesConsole snes => snes.ReadAchievementMemory((int)(address + i)),
+                PlayStationConsole ps => ps.ReadAchievementMemory((int)(address + i)),
                 _ => console.PeekMemory((int)(address + i)),
             };
             count++;
@@ -378,7 +386,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     {
         var data = _romData!;
         var profile = Profile ?? new GameProfile { Sha1 = string.Empty };
-        var console = ConsoleFactory.Create(data, _romSystem, profile, fdsBios: null, _romExtension, _appleRoms);
+        var console = ConsoleFactory.Create(data, _romSystem, profile, fdsBios: null, _romExtension, _appleRoms, _playStation);
         if (_audioActive && _audio is not null)
         {
             console.EnableAudio(_audio.SampleRate);
@@ -392,6 +400,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             EndNetplay();
             NetplayInviteCode = code;
             FlushBattery();
+            ReleaseDiscs(_console);
             _console = console;
             _battery = null;
             _diskOriginal = null;
@@ -625,7 +634,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         var system = _romSystem;
         return rom is null
             ? Task.FromResult(new ChallengeCheck(false, "Open the challenge's game first, to check results against it."))
-            : Task.Run(() => ChallengeVerifier.Verify(rom, challenge, result, system));
+            : Task.Run(() => ChallengeVerifier.Verify(rom, challenge, result, system, _playStation));
     }
 
     /// <summary>Emulation thread: records this frame's buttons and checks the goal and the time limit.</summary>
@@ -703,7 +712,11 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
     public void InsertDiskSide(int side) => Post(() =>
     {
-        if (Nes?.Fds is { } fds && side >= 0 && side < fds.SideCount)
+        if (_console is PlayStationConsole ps)
+        {
+            ChangePlayStationDisc(ps, side);
+        }
+        else if (Nes?.Fds is { } fds && side >= 0 && side < fds.SideCount)
         {
             _diskSideRequested = side;
             fds.InsertSide(side);
@@ -713,7 +726,11 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
     public void EjectDisk() => Post(() =>
     {
-        if (Nes?.Fds is { } fds)
+        if (_console is PlayStationConsole ps)
+        {
+            OpenPlayStationShell(ps);
+        }
+        else if (Nes?.Fds is { } fds)
         {
             fds.Eject();
             UpdateDiskSide(fds);
@@ -802,7 +819,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             // Library games can be zipped (one game file inside), so read them the way the scanner does.
             rom = await Task.Run(() => RomFiles.Read(path), cancellationToken).ConfigureAwait(false)
                 ?? throw new GameLoadException(
-                    "That file isn't a game GameVault can open. It plays NES (.nes, .fds), Master System (.sms) and SG-1000 (.sg, .sc) files, and .zip files with one of them inside.");
+                    "That file isn't a game GameVault can open. Check that it's one of the game files GameVault plays, or a .zip with one of them inside.");
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
         {
@@ -846,7 +863,10 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             }
         }
 
-        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms);
+        var playStation = rom.System == GameSystem.PlayStation
+            ? await LoadPlayStationSetupAsync(cancellationToken).ConfigureAwait(false)
+            : null;
+        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation);
     }
 
     /// <summary>The player's Apple II ROMs from Settings, or null when they aren't set yet.</summary>
@@ -877,11 +897,26 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     /// 8 KB BIOS in <paramref name="fdsBios"/>.
     /// </summary>
     public void Load(
-        byte[] data, string title, byte[]? fdsBios = null, GameSystem system = GameSystem.Nes, string extension = "", AppleRoms? appleRoms = null)
+        byte[] data,
+        string title,
+        byte[]? fdsBios = null,
+        GameSystem system = GameSystem.Nes,
+        string extension = "",
+        AppleRoms? appleRoms = null,
+        PlayStationSetup? playStation = null)
     {
-        var hashes = RomHasher.Hash(data, system);
+        RomHashes hashes;
+        try
+        {
+            hashes = RomHasher.Hash(data, system);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            throw new GameLoadException("GameVault couldn't read that disc: " + ex.Message, ex);
+        }
+
         var profile = ProfileResolver?.Invoke(hashes.Sha1) ?? new GameProfile { Sha1 = hashes.Sha1 };
-        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms);
+        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation);
         var nes = console as NesConsole;
 
         if (_audio is not null)
@@ -897,12 +932,13 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         }
 
         var battery = console.Battery;
+        var batteryStore = console is PlayStationConsole ? _memoryCards : _batteries;
 
-        if (battery is not null && _batteries is not null)
+        if (battery is not null && batteryStore is not null)
         {
             try
             {
-                _batteries.TryLoad(console.RomHash, battery.BatteryRam);
+                batteryStore.TryLoad(console.RomHash, battery.BatteryRam);
             }
             catch (IOException)
             {
@@ -915,11 +951,14 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _romSystem = system;
         _romExtension = extension;
         _appleRoms = appleRoms;
+        _playStation = playStation;
+        SetUpDiscs(data, system);
         _input.TypingMode = console is AppleConsole;
         _input.Layout = console switch
         {
             GenesisConsole => PadLayout.Genesis,
             SnesConsole => PadLayout.Snes,
+            PlayStationConsole => PadLayout.PlayStation,
             _ => PadLayout.Nes,
         };
         var appleBoot = console is AppleConsole { Disk: var drives } && drives.DiskIn(0) is { } bootDisk
@@ -966,6 +1005,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             _challenge = null;
             _challengeActive = false;
             FlushBattery(); // the previous game's
+            ReleaseDiscs(_console);
             _console = console;
             _seenCheats = null;
             _cheatsActive = false;
@@ -980,6 +1020,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             }
 
             _battery = battery;
+            _batteryStore = batteryStore;
             _batterySaved = battery?.BatteryRam.ToArray() ?? [];
             _batteryTitle = title;
             _running = true;
@@ -1006,9 +1047,9 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         Profile = profile;
         UsesZapper = nes?.InputSetup == InputSetup.Zapper;
         UsesFourScore = nes?.InputSetup == InputSetup.FourScore;
-        DiskSideCount = nes?.Fds?.SideCount ?? 0;
+        DiskSideCount = nes?.Fds?.SideCount ?? DiscNames.Count;
         MemoryMap = memoryMap;
-        _insertedDiskSide = nes?.Fds is null ? -1 : 0;
+        _insertedDiskSide = nes?.Fds is null && DiscNames.Count == 0 ? -1 : 0;
         SetAudioPaused(false);
 
         GameTitle = title;
@@ -1068,6 +1109,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             FlushBattery();
             StartAppleDrives(null);
             ReportPlaytime();
+            ReleaseDiscs(_console);
             _console = null;
             _battery = null;
             _running = false;
@@ -1081,6 +1123,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         UsesZapper = false;
         UsesFourScore = false;
         DiskSideCount = 0;
+        DiscNames = [];
+        _discPaths = [];
         _insertedDiskSide = -1;
         Profile = null;
         System = null;
@@ -1536,6 +1580,12 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             RaiseNotice($"Inserting {DiskSideName(_diskSideRequested)}.");
             UpdateDiskSide(fds);
         }
+        else if (diskKey && !_diskKeyHeld && _console is PlayStationConsole ps && _discPaths.Count > 1)
+        {
+            var next = (_diskSideRequested + 1) % _discPaths.Count;
+            RaiseNotice($"Changing to {DiscNames[next]}.");
+            ChangePlayStationDisc(ps, next);
+        }
 
         _diskKeyHeld = diskKey;
 
@@ -1648,7 +1698,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
     private void FlushBatteryRam(bool background)
     {
-        if (_battery is null || _batteries is null || _battery.BatteryRam.SequenceEqual(_batterySaved))
+        if (_battery is null || _batteryStore is not { } store || _battery.BatteryRam.SequenceEqual(_batterySaved))
         {
             return;
         }
@@ -1662,7 +1712,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         {
             try
             {
-                _batteries.Save(title, hash, data);
+                store.Save(title, hash, data);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {
