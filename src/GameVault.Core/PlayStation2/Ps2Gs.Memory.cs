@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 
 namespace GameVault.Core.PlayStation2;
@@ -251,21 +250,21 @@ public sealed partial class Ps2Gs
         switch (psm)
         {
             case PsmCt32:
-                return BinaryPrimitives.ReadUInt32LittleEndian(mem.AsSpan(Address32(PageCt32, bp, bw, x, y)));
+                return Read32(mem, Address32(PageCt32, bp, bw, x, y));
             case PsmCt24:
-                return BinaryPrimitives.ReadUInt32LittleEndian(mem.AsSpan(Address32(PageCt32, bp, bw, x, y))) & 0xFFFFFF;
+                return Read32(mem, Address32(PageCt32, bp, bw, x, y)) & 0xFFFFFF;
             case PsmZ32:
-                return BinaryPrimitives.ReadUInt32LittleEndian(mem.AsSpan(Address32(PageZ32, bp, bw, x, y)));
+                return Read32(mem, Address32(PageZ32, bp, bw, x, y));
             case PsmZ24:
-                return BinaryPrimitives.ReadUInt32LittleEndian(mem.AsSpan(Address32(PageZ32, bp, bw, x, y))) & 0xFFFFFF;
+                return Read32(mem, Address32(PageZ32, bp, bw, x, y)) & 0xFFFFFF;
             case PsmCt16:
-                return BinaryPrimitives.ReadUInt16LittleEndian(mem.AsSpan(Address16(PageCt16, bp, bw, x, y)));
+                return Read16(mem, Address16(PageCt16, bp, bw, x, y));
             case PsmCt16S:
-                return BinaryPrimitives.ReadUInt16LittleEndian(mem.AsSpan(Address16(PageCt16S, bp, bw, x, y)));
+                return Read16(mem, Address16(PageCt16S, bp, bw, x, y));
             case PsmZ16:
-                return BinaryPrimitives.ReadUInt16LittleEndian(mem.AsSpan(Address16(PageZ16, bp, bw, x, y)));
+                return Read16(mem, Address16(PageZ16, bp, bw, x, y));
             case PsmZ16S:
-                return BinaryPrimitives.ReadUInt16LittleEndian(mem.AsSpan(Address16(PageZ16S, bp, bw, x, y)));
+                return Read16(mem, Address16(PageZ16S, bp, bw, x, y));
             case PsmT8:
                 return mem[Address8(bp, bw, x, y)];
             case PsmT4:
@@ -281,7 +280,7 @@ public sealed partial class Ps2Gs
             case PsmT4HH:
                 return (uint)mem[Address32(PageCt32, bp, bw, x, y) + 3] >> 4;
             default:
-                return BinaryPrimitives.ReadUInt32LittleEndian(mem.AsSpan(Address32(PageCt32, bp, bw, x, y)));
+                return Read32(mem, Address32(PageCt32, bp, bw, x, y));
         }
     }
 
@@ -292,10 +291,10 @@ public sealed partial class Ps2Gs
         switch (psm)
         {
             case PsmCt32:
-                BinaryPrimitives.WriteUInt32LittleEndian(mem.AsSpan(Address32(PageCt32, bp, bw, x, y)), value);
+                Write32(mem, Address32(PageCt32, bp, bw, x, y), value);
                 break;
             case PsmZ32:
-                BinaryPrimitives.WriteUInt32LittleEndian(mem.AsSpan(Address32(PageZ32, bp, bw, x, y)), value);
+                Write32(mem, Address32(PageZ32, bp, bw, x, y), value);
                 break;
             case PsmCt24:
                 Write24(Address32(PageCt32, bp, bw, x, y), value);
@@ -304,16 +303,16 @@ public sealed partial class Ps2Gs
                 Write24(Address32(PageZ32, bp, bw, x, y), value);
                 break;
             case PsmCt16:
-                BinaryPrimitives.WriteUInt16LittleEndian(mem.AsSpan(Address16(PageCt16, bp, bw, x, y)), (ushort)value);
+                Write16(mem, Address16(PageCt16, bp, bw, x, y), (ushort)value);
                 break;
             case PsmCt16S:
-                BinaryPrimitives.WriteUInt16LittleEndian(mem.AsSpan(Address16(PageCt16S, bp, bw, x, y)), (ushort)value);
+                Write16(mem, Address16(PageCt16S, bp, bw, x, y), (ushort)value);
                 break;
             case PsmZ16:
-                BinaryPrimitives.WriteUInt16LittleEndian(mem.AsSpan(Address16(PageZ16, bp, bw, x, y)), (ushort)value);
+                Write16(mem, Address16(PageZ16, bp, bw, x, y), (ushort)value);
                 break;
             case PsmZ16S:
-                BinaryPrimitives.WriteUInt16LittleEndian(mem.AsSpan(Address16(PageZ16S, bp, bw, x, y)), (ushort)value);
+                Write16(mem, Address16(PageZ16S, bp, bw, x, y), (ushort)value);
                 break;
             case PsmT8:
                 mem[Address8(bp, bw, x, y)] = (byte)value;
@@ -345,10 +344,24 @@ public sealed partial class Ps2Gs
             }
 
             default:
-                BinaryPrimitives.WriteUInt32LittleEndian(mem.AsSpan(Address32(PageCt32, bp, bw, x, y)), value);
+                Write32(mem, Address32(PageCt32, bp, bw, x, y), value);
                 break;
         }
     }
+
+    // Pixel addresses are aligned to their size and masked inside local memory, so these never cross its end. Local
+    // memory is little-endian, like every host .NET runs this core on.
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint Read32(byte[] memory, int address) => Unsafe.ReadUnaligned<uint>(ref memory[address]);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static uint Read16(byte[] memory, int address) => Unsafe.ReadUnaligned<ushort>(ref memory[address]);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Write32(byte[] memory, int address, uint value) => Unsafe.WriteUnaligned(ref memory[address], value);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void Write16(byte[] memory, int address, ushort value) => Unsafe.WriteUnaligned(ref memory[address], value);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Write24(int address, uint value)

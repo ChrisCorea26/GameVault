@@ -16,8 +16,9 @@ namespace GameVault.Core.PlayStation2;
 /// <para>
 /// PATH3 has the hardware's 16-quadword FIFO: while PATH3 is masked (MSKPATH3 or GIF_MODE.M3R) between packets, or
 /// another path holds the GIF, its DMA fills the FIFO and stops when it is full. In intermittent mode
-/// (GIF_MODE.IMT) PATH3 lets go of the GIF every 8 quadwords of IMAGE data, so a waiting PATH1 or PATH2 packet can
-/// run in between ("PATH3 slices"); without IMT it keeps the GIF to the end of its packet.
+/// (GIF_MODE.IMT) PATH3 lets go of the GIF every 8 quadwords of IMAGE data: a queued PATH1 packet runs, and the
+/// PATH3 write returns there (the DMA retries the rest), so VIF1 can send a PATH2 packet in between ("PATH3
+/// slices"); without IMT PATH3 keeps the GIF to the end of its packet.
 /// </para>
 /// <para>
 /// A second SIGNAL before the EE clears CSR.SIGNAL stalls the GS (ps2autotests gs/signal); the GIF then stops taking
@@ -63,6 +64,9 @@ public sealed class Ps2Gif : IPs2Gif, IStateful
     private bool _intermittent;
     private bool _path3Masked;
     private UInt128 _lastTag;
+
+    // The last Feed stopped at an intermittent-mode slice.
+    private bool _sliced;
 
     public Ps2Gif(Ps2Gs gs)
     {
@@ -214,6 +218,11 @@ public sealed class Ps2Gif : IPs2Gif, IStateful
         if (_fifoCount == 0 && !Path3Blocked)
         {
             taken = Feed(3, data);
+            if (_sliced)
+            {
+                // The DMA retries the rest, after PATH1/PATH2 had their chance.
+                return taken;
+            }
         }
 
         // What PATH3 can't send now waits in its FIFO.
@@ -235,6 +244,7 @@ public sealed class Ps2Gif : IPs2Gif, IStateful
     private int Feed(int path, ReadOnlySpan<UInt128> data)
     {
         var taken = 0;
+        _sliced = false;
         while (taken < data.Length)
         {
             if (path != 1 && Path1Queued && _owner == 0)
@@ -258,6 +268,7 @@ public sealed class Ps2Gif : IPs2Gif, IStateful
             {
                 // An intermittent-mode slice: let PATH1 in, and return so the caller can run PATH2.
                 _owner = 0;
+                _sliced = true;
                 RunPath1();
                 break;
             }

@@ -1,3 +1,4 @@
+using System.Runtime.CompilerServices;
 using GameVault.Core.State;
 
 namespace GameVault.Core.PlayStation2;
@@ -21,26 +22,7 @@ public sealed partial class Ps2Gs
     public const int PrimTriangleFan = 5;
     public const int PrimSprite = 6;
 
-    // Attribute slots for interpolation.
-    private const int AttrR = 0;
-    private const int AttrG = 1;
-    private const int AttrB = 2;
-    private const int AttrA = 3;
-    private const int AttrZ = 4;
-    private const int AttrF = 5;
-    private const int AttrS = 6;
-    private const int AttrT = 7;
-    private const int AttrQ = 8;
-    private const int AttrCount = 9;
-
     private readonly Vertex[] _queue = new Vertex[3];
-    private readonly double[] _attrDx = new double[AttrCount];
-    private readonly double[] _attrDy = new double[AttrCount];
-    private readonly double[] _attrRow = new double[AttrCount];
-    private readonly double[] _attrCur = new double[AttrCount];
-    private readonly double[] _attrV0 = new double[AttrCount];
-    private readonly double[] _attrV1 = new double[AttrCount];
-    private readonly double[] _attrV2 = new double[AttrCount];
     private int _queueCount;
 
     private struct Vertex
@@ -58,6 +40,48 @@ public sealed partial class Ps2Gs
         public float Q;
         public int U;
         public int V;
+    }
+
+    /// <summary>A pixel's interpolated attributes; S, T, Q hold U, V (in 1/16 texels) and 1 for UV texturing.</summary>
+    private struct Attr
+    {
+        public double R;
+        public double G;
+        public double B;
+        public double A;
+        public double Z;
+        public double F;
+        public double S;
+        public double T;
+        public double Q;
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void Add(in Attr d)
+        {
+            R += d.R;
+            G += d.G;
+            B += d.B;
+            A += d.A;
+            Z += d.Z;
+            F += d.F;
+            S += d.S;
+            T += d.T;
+            Q += d.Q;
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public void AddScaled(in Attr d, double k)
+        {
+            R += d.R * k;
+            G += d.G * k;
+            B += d.B * k;
+            A += d.A * k;
+            Z += d.Z * k;
+            F += d.F * k;
+            S += d.S * k;
+            T += d.T * k;
+            Q += d.Q * k;
+        }
     }
 
     private void ResetDrawing()
@@ -161,26 +185,38 @@ public sealed partial class Ps2Gs
         }
     }
 
-    private void LoadAttributes(in Vertex v, double[] a)
+    private Attr Attributes(in Vertex v)
     {
-        a[AttrR] = v.R;
-        a[AttrG] = v.G;
-        a[AttrB] = v.B;
-        a[AttrA] = v.A;
-        a[AttrZ] = v.Z;
-        a[AttrF] = v.F;
+        var a = default(Attr);
+        a.R = v.R;
+        a.G = v.G;
+        a.B = v.B;
+        a.A = v.A;
+        a.Z = v.Z;
+        a.F = v.F;
         if (_fst)
         {
-            a[AttrS] = v.U;
-            a[AttrT] = v.V;
-            a[AttrQ] = v.Q;
+            a.S = v.U;
+            a.T = v.V;
+            a.Q = 1;
         }
         else
         {
-            a[AttrS] = v.S;
-            a[AttrT] = v.T;
-            a[AttrQ] = v.Q;
+            a.S = v.S;
+            a.T = v.T;
+            a.Q = v.Q;
         }
+
+        return a;
+    }
+
+    /// <summary>Flat shading: every pixel takes the colour of <paramref name="v"/>.</summary>
+    private static void Flatten(ref Attr a, in Vertex v)
+    {
+        a.R = v.R;
+        a.G = v.G;
+        a.B = v.B;
+        a.A = v.A;
     }
 
     // ---- Points -----------------------------------------------------------------------------------------------
@@ -194,8 +230,8 @@ public sealed partial class Ps2Gs
             return;
         }
 
-        LoadAttributes(v, _attrCur);
-        ShadeFragment(x, y, _attrCur, v.R, v.G, v.B, v.A);
+        var a = Attributes(v);
+        ShadeFragment(x, y, ref a);
     }
 
     // ---- Lines ------------------------------------------------------------------------------------------------
@@ -209,8 +245,9 @@ public sealed partial class Ps2Gs
             return;
         }
 
-        LoadAttributes(v0, _attrV0);
-        LoadAttributes(v1, _attrV1);
+        var a0 = Attributes(v0);
+        var delta = Attributes(v1);
+        delta.AddScaled(a0, -1);
         var xMajor = Math.Abs(dx) >= Math.Abs(dy);
         var p0 = xMajor ? v0.X : v0.Y;
         var p1 = xMajor ? v1.X : v1.Y;
@@ -242,12 +279,14 @@ public sealed partial class Ps2Gs
                 continue;
             }
 
-            for (var i = 0; i < AttrCount; i++)
+            var a = a0;
+            a.AddScaled(delta, t);
+            if (!_iip)
             {
-                _attrCur[i] = _attrV0[i] + ((_attrV1[i] - _attrV0[i]) * t);
+                Flatten(ref a, v1);
             }
 
-            ShadeFragment(x, y, _attrCur, v1.R, v1.G, v1.B, v1.A);
+            ShadeFragment(x, y, ref a);
         }
     }
 
@@ -260,22 +299,9 @@ public sealed partial class Ps2Gs
         var x1 = v1.X;
         var y0 = v0.Y;
         var y1 = v1.Y;
-        double s0, s1, t0, t1;
-        if (_fst)
-        {
-            s0 = v0.U;
-            s1 = v1.U;
-            t0 = v0.V;
-            t1 = v1.V;
-        }
-        else
-        {
-            s0 = v0.S;
-            s1 = v1.S;
-            t0 = v0.T;
-            t1 = v1.T;
-        }
-
+        var a0 = Attributes(v0);
+        var a = Attributes(v1);
+        double s0 = a0.S, s1 = a.S, t0 = a0.T, t1 = a.T;
         if (x0 > x1)
         {
             (x0, x1) = (x1, x0);
@@ -297,27 +323,24 @@ public sealed partial class Ps2Gs
             return;
         }
 
-        LoadAttributes(v1, _attrCur);
-        var ds = x1 != x0 ? (s1 - s0) / (x1 - x0) * 16 : 0;
-        var dt = y1 != y0 ? (t1 - t0) / (y1 - y0) * 16 : 0;
-        var sStart = s0 + ((x1 != x0 ? (s1 - s0) / (x1 - x0) : 0) * ((xs * 16) - x0));
-        var tStart = t0 + ((y1 != y0 ? (t1 - t0) / (y1 - y0) : 0) * ((ys * 16) - y0));
-
         if (!_tme && !_fge && CanFillFast())
         {
             FillSpriteFast(xs, xe, ys, ye, v1);
             return;
         }
 
-        var t = tStart;
-        for (var y = ys; y <= ye; y++, t += dt)
+        var sPerUnit = x1 != x0 ? (s1 - s0) / (x1 - x0) : 0;
+        var tPerUnit = y1 != y0 ? (t1 - t0) / (y1 - y0) : 0;
+        var sStart = s0 + (sPerUnit * ((xs * 16) - x0));
+        var ds = sPerUnit * 16;
+        var dt = tPerUnit * 16;
+        a.T = t0 + (tPerUnit * ((ys * 16) - y0));
+        for (var y = ys; y <= ye; y++, a.T += dt)
         {
-            var s = sStart;
-            _attrCur[AttrT] = t;
-            for (var x = xs; x <= xe; x++, s += ds)
+            a.S = sStart;
+            for (var x = xs; x <= xe; x++, a.S += ds)
             {
-                _attrCur[AttrS] = s;
-                ShadeFragment(x, y, _attrCur, v1.R, v1.G, v1.B, v1.A);
+                ShadeFragment(x, y, ref a);
             }
         }
     }
@@ -326,12 +349,6 @@ public sealed partial class Ps2Gs
 
     private void DrawTriangle(in Vertex a, in Vertex b, in Vertex c)
     {
-        // Flat shading takes the colour of the vertex that completed the triangle.
-        var flatR = c.R;
-        var flatG = c.G;
-        var flatB = c.B;
-        var flatA = c.A;
-
         var v0 = a;
         var v1 = b;
         var v2 = c;
@@ -365,70 +382,89 @@ public sealed partial class Ps2Gs
         Edge(v2, v0, xs, ys, out var w1Row, out var w1Dx, out var w1Dy);
         Edge(v0, v1, xs, ys, out var w2Row, out var w2Dx, out var w2Dy);
 
-        LoadAttributes(v0, _attrV0);
-        LoadAttributes(v1, _attrV1);
-        LoadAttributes(v2, _attrV2);
-        var x10 = (double)(v1.X - v0.X);
-        var y10 = (double)(v1.Y - v0.Y);
-        var x20 = (double)(v2.X - v0.X);
-        var y20 = (double)(v2.Y - v0.Y);
-        var inv = 1.0 / area;
-        var ox = (xs * 16.0) - v0.X;
-        var oy = (ys * 16.0) - v0.Y;
-        for (var i = 0; i < AttrCount; i++)
+        // Attribute planes: value = v0 + ddx·(x − x0) + ddy·(y − y0), stepped per pixel and per row.
+        var a0 = Attributes(v0);
+        var d1 = Attributes(v1);
+        var d2 = Attributes(v2);
+        d1.AddScaled(a0, -1);
+        d2.AddScaled(a0, -1);
+        var inv = 16.0 / area;
+        var stepX = default(Attr);
+        stepX.AddScaled(d1, (v2.Y - v0.Y) * inv);
+        stepX.AddScaled(d2, -(v1.Y - v0.Y) * inv);
+        var stepY = default(Attr);
+        stepY.AddScaled(d2, (v1.X - v0.X) * inv);
+        stepY.AddScaled(d1, -(v2.X - v0.X) * inv);
+        var row = a0;
+        row.AddScaled(stepX, ((xs * 16.0) - v0.X) / 16);
+        row.AddScaled(stepY, ((ys * 16.0) - v0.Y) / 16);
+        if (!_iip)
         {
-            var d1 = _attrV1[i] - _attrV0[i];
-            var d2 = _attrV2[i] - _attrV0[i];
-            var ddx = ((d1 * y20) - (d2 * y10)) * inv;
-            var ddy = ((d2 * x10) - (d1 * x20)) * inv;
-            _attrDx[i] = ddx * 16;
-            _attrDy[i] = ddy * 16;
-            _attrRow[i] = _attrV0[i] + (ddx * ox) + (ddy * oy);
+            // Flat shading takes the colour of the vertex that completed the triangle.
+            Flatten(ref row, c);
+            stepX.R = stepX.G = stepX.B = stepX.A = 0;
+            stepY.R = stepY.G = stepY.B = stepY.A = 0;
         }
 
+        var width = xe - xs;
         for (var y = ys; y <= ye; y++)
         {
-            var w0 = w0Row;
-            var w1 = w1Row;
-            var w2 = w2Row;
-            var entered = false;
-            for (var x = xs; x <= xe; x++)
+            // The span of this row where all three edge functions are positive.
+            var kMin = 0;
+            var kMax = width;
+            SpanLimit(w0Row, w0Dx, ref kMin, ref kMax);
+            SpanLimit(w1Row, w1Dx, ref kMin, ref kMax);
+            SpanLimit(w2Row, w2Dx, ref kMin, ref kMax);
+            if (kMin <= kMax)
             {
-                if (w0 > 0 && w1 > 0 && w2 > 0)
+                var cur = row;
+                cur.AddScaled(stepX, kMin);
+                for (var x = xs + kMin; x <= xs + kMax; x++)
                 {
-                    if (!entered)
-                    {
-                        entered = true;
-                        var dxPixels = x - xs;
-                        for (var i = 0; i < AttrCount; i++)
-                        {
-                            _attrCur[i] = _attrRow[i] + (_attrDx[i] * dxPixels);
-                        }
-                    }
-
-                    ShadeFragment(x, y, _attrCur, flatR, flatG, flatB, flatA);
-                    for (var i = 0; i < AttrCount; i++)
-                    {
-                        _attrCur[i] += _attrDx[i];
-                    }
+                    ShadeFragment(x, y, ref cur);
+                    cur.Add(stepX);
                 }
-                else if (entered)
-                {
-                    break;
-                }
-
-                w0 += w0Dx;
-                w1 += w1Dx;
-                w2 += w2Dx;
             }
 
             w0Row += w0Dy;
             w1Row += w1Dy;
             w2Row += w2Dy;
-            for (var i = 0; i < AttrCount; i++)
+            row.Add(stepY);
+        }
+    }
+
+    /// <summary>Narrows [kMin, kMax] to the steps k where w + k·step &gt; 0.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static void SpanLimit(long w, long step, ref int kMin, ref int kMax)
+    {
+        if (step > 0)
+        {
+            if (w <= 0)
             {
-                _attrRow[i] += _attrDy[i];
+                var k = ((-w) / step) + 1;
+                if (k > kMin)
+                {
+                    kMin = k > int.MaxValue ? int.MaxValue : (int)k;
+                }
             }
+        }
+        else if (step < 0)
+        {
+            if (w <= 0)
+            {
+                kMax = -1;
+                return;
+            }
+
+            var k = (w - 1) / -step;
+            if (k < kMax)
+            {
+                kMax = (int)k;
+            }
+        }
+        else if (w <= 0)
+        {
+            kMax = -1;
         }
     }
 

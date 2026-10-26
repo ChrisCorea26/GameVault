@@ -1,4 +1,3 @@
-using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
 
 namespace GameVault.Core.PlayStation2;
@@ -443,40 +442,29 @@ public sealed partial class Ps2Gs
         value is >= -(1 << 24) and <= 1 << 24 ? (int)Math.Floor(value) : value > 0 ? 1 << 24 : -(1 << 24);
 
     /// <summary>Shades one sampled pixel from its interpolated attributes and sends it through the tests.</summary>
-    private void ShadeFragment(int x, int y, double[] attr, int flatR, int flatG, int flatB, int flatA)
+    private void ShadeFragment(int x, int y, ref Attr attr)
     {
-        int r, g, b, a;
-        if (_iip)
-        {
-            r = ToByte(attr[AttrR]);
-            g = ToByte(attr[AttrG]);
-            b = ToByte(attr[AttrB]);
-            a = ToByte(attr[AttrA]);
-        }
-        else
-        {
-            r = flatR;
-            g = flatG;
-            b = flatB;
-            a = flatA;
-        }
-
-        var zf = attr[AttrZ];
+        var r = ToByte(attr.R);
+        var g = ToByte(attr.G);
+        var b = ToByte(attr.B);
+        var a = ToByte(attr.A);
+        var zf = attr.Z;
         var z = zf <= 0 ? 0u : zf >= uint.MaxValue ? uint.MaxValue : (uint)zf;
 
         if (_tme)
         {
             int u16, v16;
-            var q = attr[AttrQ];
+            var q = attr.Q;
             if (_fst)
             {
-                u16 = ToTexCoord(attr[AttrS]);
-                v16 = ToTexCoord(attr[AttrT]);
+                u16 = ToTexCoord(attr.S);
+                v16 = ToTexCoord(attr.T);
             }
             else
             {
-                u16 = ToTexCoord(attr[AttrS] / q * _texW * 16);
-                v16 = ToTexCoord(attr[AttrT] / q * _texH * 16);
+                var scale = 16 / q;
+                u16 = ToTexCoord(attr.S * scale * _texW);
+                v16 = ToTexCoord(attr.T * scale * _texH);
             }
 
             bool linear;
@@ -533,7 +521,7 @@ public sealed partial class Ps2Gs
 
         if (_fge)
         {
-            var f = ToByte(attr[AttrF]);
+            var f = ToByte(attr.F);
             r = ((f * r) + ((255 - f) * _fogR)) >> 8;
             g = ((f * g) + ((255 - f) * _fogG)) >> 8;
             b = ((f * b) + ((255 - f) * _fogB)) >> 8;
@@ -563,14 +551,14 @@ public sealed partial class Ps2Gs
         _z16 ? Address16(_zTable, _zbp, _fbw, x, y) : Address32(_zTable, _zbp, _fbw, x, y);
 
     private uint ReadZ(int address) =>
-        _z16 ? BinaryPrimitives.ReadUInt16LittleEndian(_memory.AsSpan(address))
-        : BinaryPrimitives.ReadUInt32LittleEndian(_memory.AsSpan(address)) & _zMax;
+        _z16 ? Read16(_memory, address)
+        : Read32(_memory, address) & _zMax;
 
     private void WriteZ(int address, uint z)
     {
         if (_z16)
         {
-            BinaryPrimitives.WriteUInt16LittleEndian(_memory.AsSpan(address), (ushort)z);
+            Write16(_memory, address, (ushort)z);
         }
         else if (_z24)
         {
@@ -578,7 +566,7 @@ public sealed partial class Ps2Gs
         }
         else
         {
-            BinaryPrimitives.WriteUInt32LittleEndian(_memory.AsSpan(address), z);
+            Write32(_memory, address, z);
         }
     }
 
@@ -587,11 +575,11 @@ public sealed partial class Ps2Gs
     {
         if (_fb16)
         {
-            uint c = BinaryPrimitives.ReadUInt16LittleEndian(_memory.AsSpan(address));
+            uint c = Read16(_memory, address);
             return ((c & 0x1F) << 3) | ((c & 0x3E0) << 6) | ((c & 0x7C00) << 9) | ((c & 0x8000) != 0 ? 0x8000_0000u : 0);
         }
 
-        var v = BinaryPrimitives.ReadUInt32LittleEndian(_memory.AsSpan(address));
+        var v = Read32(_memory, address);
         return _fb24 ? (v & 0xFFFFFF) | 0x8000_0000u : v;
     }
 
@@ -602,13 +590,12 @@ public sealed partial class Ps2Gs
         {
             var c16 = ((color >> 3) & 0x1F) | ((color >> 6) & 0x3E0) | ((color >> 9) & 0x7C00) | ((color >> 16) & 0x8000);
             var m16 = ((mask >> 3) & 0x1F) | ((mask >> 6) & 0x3E0) | ((mask >> 9) & 0x7C00) | ((mask >> 16) & 0x8000);
-            var span = _memory.AsSpan(address);
             if (m16 != 0)
             {
-                c16 = (c16 & ~m16) | (BinaryPrimitives.ReadUInt16LittleEndian(span) & m16);
+                c16 = (c16 & ~m16) | (Read16(_memory, address) & m16);
             }
 
-            BinaryPrimitives.WriteUInt16LittleEndian(span, (ushort)c16);
+            Write16(_memory, address, (ushort)c16);
             return;
         }
 
@@ -617,13 +604,12 @@ public sealed partial class Ps2Gs
             mask |= 0xFF00_0000;
         }
 
-        var target = _memory.AsSpan(address);
         if (mask != 0)
         {
-            color = (color & ~mask) | (BinaryPrimitives.ReadUInt32LittleEndian(target) & mask);
+            color = (color & ~mask) | (Read32(_memory, address) & mask);
         }
 
-        BinaryPrimitives.WriteUInt32LittleEndian(target, color);
+        Write32(_memory, address, color);
     }
 
     /// <summary>The tests, the blend and the writes for one coloured fragment.</summary>
