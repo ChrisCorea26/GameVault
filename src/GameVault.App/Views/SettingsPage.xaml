@@ -603,7 +603,7 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="PlayStation discs (.cue with its .bin files, .chd, or an .m3u list of discs) need the BIOS from your own console (512 KB, such as SCPH-1001). GameVault doesn't include it. Paste where the file is."
+              Text="PlayStation discs (.cue with its .bin files, .chd, .iso, or an .m3u list of discs) need the BIOS from your own console (512 KB, such as SCPH-1001). GameVault doesn't include it. Paste where the file is."
               TextWrapping="Wrap" />
           <TextBox
               AutomationProperties.Name="PlayStation BIOS file"
@@ -668,6 +668,59 @@
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
               Text="N64 games play from .z64, .v64 and .n64 files. Each game gets its own Controller Pak, saved with your other game saves."
+              TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <!-- PlayStation 2 (SPEC §7.11, Phase 17): the player's own BIOS; GameVault never ships it -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="PlayStation 2" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="PlayStation 2 discs (.iso, .chd, or .cue with its .bin files) need the BIOS from your own console (4 MB, such as SCPH-39001). GameVault doesn't include it. Homebrew .elf programs run without it. Paste where the file is."
+              TextWrapping="Wrap" />
+          <TextBox
+              AutomationProperties.Name="PlayStation 2 BIOS file"
+              LostFocus="PlayStation2BiosPath_LostFocus"
+              PlaceholderText="C:\PlayStation 2\scph39001.bin"
+              Text="{x:Bind ViewModel.PlayStation2BiosPath, Mode=TwoWay}" />
+          <InfoBar
+              IsClosable="False"
+              IsOpen="{x:Bind ViewModel.HasPlayStation2BiosProblem, Mode=OneWay}"
+              Message="{x:Bind ViewModel.PlayStation2BiosProblem, Mode=OneWay}"
+              Severity="Warning" />
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="{x:Bind ViewModel.PlayStation2BiosStatus, Mode=OneWay}"
+              TextWrapping="Wrap" />
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Skip the startup screens" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Starts the game straight away instead of showing the console's startup screens and browser. A few games need them to start correctly."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch
+                Grid.Column="1"
+                MinWidth="0"
+                AutomationProperties.Name="Skip the PlayStation 2 startup screens"
+                IsOn="{x:Bind ViewModel.PlayStation2FastBoot, Mode=TwoWay}"
+                OffContent=""
+                OnContent="" />
+          </Grid>
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Each game gets its own 8 MB memory card in slot 1, saved with your other game saves."
               TextWrapping="Wrap" />
         </StackPanel>
       </Border>

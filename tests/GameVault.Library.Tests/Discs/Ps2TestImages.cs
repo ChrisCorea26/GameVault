@@ -183,7 +183,7 @@ internal static class Ps2TestImages
         {
             var data = new byte[hunkBytes];
             image.AsSpan(n * hunkBytes, Math.Min(hunkBytes, image.Length - n * hunkBytes)).CopyTo(data);
-            hunks.Add((store(n, data), ChdFile.Crc16(data)));
+            hunks.Add((store(n, data), Crc16(data)));
         }
 
         var file = new MemoryStream();
@@ -279,7 +279,7 @@ internal static class Ps2TestImages
         BinaryPrimitives.WriteUInt32BigEndian(mapHeader, (uint)compressedMap.Length);
         BinaryPrimitives.WriteUInt16BigEndian(mapHeader.AsSpan(4), (ushort)(firstOffset >> 32));
         BinaryPrimitives.WriteUInt32BigEndian(mapHeader.AsSpan(6), (uint)firstOffset);
-        BinaryPrimitives.WriteUInt16BigEndian(mapHeader.AsSpan(10), ChdFile.Crc16(rawMap));
+        BinaryPrimitives.WriteUInt16BigEndian(mapHeader.AsSpan(10), Crc16(rawMap));
         mapHeader[12] = lengthBits;
         mapHeader[13] = selfBits;
         file.Write(mapHeader);
@@ -295,6 +295,22 @@ internal static class Ps2TestImages
         var bytes = file.ToArray();
         header.CopyTo(bytes, 0);
         return bytes;
+    }
+
+    /// <summary>CRC-16/CCITT (0x1021 from 0xFFFF), as CHD uses for its map and hunks.</summary>
+    private static ushort Crc16(ReadOnlySpan<byte> data)
+    {
+        ushort crc = 0xFFFF;
+        foreach (var b in data)
+        {
+            crc ^= (ushort)(b << 8);
+            for (var i = 0; i < 8; i++)
+            {
+                crc = (ushort)((crc & 0x8000) != 0 ? (crc << 1) ^ 0x1021 : crc << 1);
+            }
+        }
+
+        return crc;
     }
 
     public static byte[] Deflate(byte[] data)
