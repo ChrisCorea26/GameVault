@@ -98,6 +98,35 @@ public sealed partial class N64Rdp
         var ditherNeeded = _rgbDither != 3 || _alphaDither != 3;
         var noiseNeeded = _noiseUsed || _alphaDither == 2;
 
+        // Mode bits read for every pixel, kept in locals (fields are reloaded after every store through a reference).
+        var shadeUsed = _shadeUsed;
+        var alphaAsColorUsed = _alphaAsColorUsed;
+        var keyEnable = _keyEnable;
+        var combinedUsed = _combinedUsed;
+        var forceBlend = _forceBlend;
+        var antialias = _antialias;
+        var blendUsesMemoryCoverage = _blendUsesMemoryCoverage;
+        var alphaCompareEnabled = _alphaCompare;
+        var colorOnCvg = _colorOnCvg;
+        var firstPassesThrough = _blendP[0] == 0;
+        var secondPassesThrough = _blendP[1] == 0;
+
+        // The usual first blender cycle in two-cycle mode (P × 0 + M × 1 with M the pixel) returns the pixel unchanged.
+        var firstCycleReturnsPixel = _blendP[0] == 0 && _blendA[0] == 3 && _blendM[0] == 0 && _blendB[0] == 2;
+        var rgbDither = _rgbDither;
+        var alphaDitherSelect = _alphaDither;
+        var zUpdate = _zUpdate;
+        var cvgTimesAlpha = _cvgTimesAlpha;
+        var alphaCvgSelect = _alphaCvgSelect;
+        var swapTexels = _needTex1 || _needNextTex1;
+        var needNextTex1 = _needNextTex1;
+        int correctR = _correctR, correctG = _correctG, correctB = _correctB, correctA = _correctA, correctZ = _correctZ;
+        int dyR = _dyR, dyG = _dyG, dyB = _dyB, dyA = _dyA, dyZ = _dyZ;
+        var zImage = _zImageAddress;
+        var imageAddress = image.Address;
+        var ditherPattern = rgbDither is 0 or 2 ? MagicSquare : Bayer;
+        var ditherRowShift = _scissorField ? 1 : 0;
+
         for (var line = Math.Max(start, 0); line <= end; line++)
         {
             if (!_lineValid[line])
@@ -141,6 +170,7 @@ public sealed partial class N64Rdp
 
             _clock += (uint)Math.Max(0, length + 1);
             var rowIndex = line * image.Width;
+            var ditherRow = ((line >> ditherRowShift) & 3) << 2;
             var x = spanEnd;
             for (var j = 0; j <= length; j++)
             {
@@ -172,17 +202,17 @@ public sealed partial class N64Rdp
                 else
                 {
                     CoverageOffset(mask, out offX, out offY);
-                    pr = (((pr >> 14) << 2) + offX * _correctR + offY * _dyR) >> 4;
-                    pg = (((pg >> 14) << 2) + offX * _correctG + offY * _dyG) >> 4;
-                    pb = (((pb >> 14) << 2) + offX * _correctB + offY * _dyB) >> 4;
-                    pa = (((pa >> 14) << 2) + offX * _correctA + offY * _dyA) >> 4;
+                    pr = (((pr >> 14) << 2) + offX * correctR + offY * dyR) >> 4;
+                    pg = (((pg >> 14) << 2) + offX * correctG + offY * dyG) >> 4;
+                    pb = (((pb >> 14) << 2) + offX * correctB + offY * dyB) >> 4;
+                    pa = (((pa >> 14) << 2) + offX * correctA + offY * dyA) >> 4;
                 }
 
                 var shadeA = Clamp9(pa);
-                if (_shadeUsed)
+                if (shadeUsed)
                 {
                     SetChannels(SlotShade, Clamp9(pr), Clamp9(pg), Clamp9(pb), shadeA);
-                    if (_alphaAsColorUsed)
+                    if (alphaAsColorUsed)
                     {
                         SetGraySlot(SlotShadeAlpha, shadeA);
                     }
@@ -190,7 +220,7 @@ public sealed partial class N64Rdp
 
                 // Depth, corrected the same way.
                 var sz = (pz >> 10) & 0x3FFFFF;
-                sz = coverage == 8 ? sz >> 3 : ((sz << 2) + offX * _correctZ + offY * _dyZ) >> 5;
+                sz = coverage == 8 ? sz >> 3 : ((sz << 2) + offX * correctZ + offY * dyZ) >> 5;
                 sz = ((sz & 0x60000) >> 17) switch
                 {
                     2 => 0x3FFFF,
@@ -214,7 +244,21 @@ public sealed partial class N64Rdp
                 int colorDither = 7, alphaDither = 0;
                 if (ditherNeeded)
                 {
-                    DitherValues(px, line, noise, out colorDither, out alphaDither);
+                    // Set Other Modes' RGB and alpha dither selects; the random colour dither is drawn after the noise.
+                    var pattern = ditherPattern[ditherRow | (px & 3)];
+                    colorDither = rgbDither switch
+                    {
+                        2 => (int)NextRandom(),
+                        3 => 7,
+                        _ => pattern,
+                    };
+                    alphaDither = alphaDitherSelect switch
+                    {
+                        0 => pattern,
+                        1 => ~pattern & 7,
+                        2 => (noise >> 6) & 7,
+                        _ => 0,
+                    };
                 }
 
                 // The combiner.
@@ -223,16 +267,16 @@ public sealed partial class N64Rdp
                 {
                     var first = Combine(cA0, cB0, cM0, cD0);
                     var firstAlpha = (Combine(aA0, aB0, aM0, aD0).GetElement(3) >> 8) & 0x1FF;
-                    alphaCompareValue = FinalAlpha(firstAlpha, alphaDither, ref coverage, updateCoverage: false);
+                    alphaCompareValue = FinalAlpha(firstAlpha, alphaDither, coverage, cvgTimesAlpha, alphaCvgSelect);
                     SetVector(SlotCombined, Vector128.ShiftRightLogical(first, 8).WithElement(3, firstAlpha));
                     SetGraySlot(SlotCombinedAlpha, firstAlpha);
 
                     // The second cycle sees the second texel as TEXEL0 and the next pixel's first texel as TEXEL1.
-                    if (_needTex1 || _needNextTex1)
+                    if (swapTexels)
                     {
                         CopySlot(SlotTex1, SlotTex0);
                         CopySlot(SlotTex1Alpha, SlotTex0Alpha);
-                        if (_needNextTex1)
+                        if (needNextTex1)
                         {
                             SetSlot(SlotTex1, SlotTex1Alpha, _nextTexel);
                         }
@@ -246,7 +290,7 @@ public sealed partial class N64Rdp
                 var full = Combine(cA1, cB1, cM1, cD1);
                 var alpha = (Combine(aA1, aB1, aM1, aD1).GetElement(3) >> 8) & 0x1FF;
                 int fullR = full.GetElement(0), fullG = full.GetElement(1), fullB = full.GetElement(2);
-                if (_keyEnable)
+                if (keyEnable)
                 {
                     pixelR = Clamp9(Input(cA1, 0));
                     pixelG = Clamp9(Input(cA1, 1));
@@ -258,7 +302,11 @@ public sealed partial class N64Rdp
                     pixelR = Clamp9(fullR >> 8);
                     pixelG = Clamp9(fullG >> 8);
                     pixelB = Clamp9(fullB >> 8);
-                    pixelA = FinalAlpha(alpha, alphaDither, ref coverage, updateCoverage: true);
+                    pixelA = FinalAlpha(alpha, alphaDither, coverage, cvgTimesAlpha, alphaCvgSelect);
+                    if (cvgTimesAlpha)
+                    {
+                        coverage = (((Clamp9(alpha) == 0xFF ? 0x100 : Clamp9(alpha)) * coverage + 4) >> 8) & 0xF;
+                    }
                 }
 
                 if (!twoCycle)
@@ -266,7 +314,7 @@ public sealed partial class N64Rdp
                     alphaCompareValue = pixelA;
 
                     // One-cycle mode's COMBINED input is the previous pixel's result.
-                    if (_combinedUsed)
+                    if (combinedUsed)
                     {
                         SetVector(SlotCombined, Vector128.ShiftRightLogical(full, 8).WithElement(3, alpha));
                         SetGraySlot(SlotCombinedAlpha, alpha);
@@ -288,7 +336,7 @@ public sealed partial class N64Rdp
                 }
 
                 // The Z test, which also decides whether anti-aliased edges blend.
-                var zAddress = _zImageAddress + index * 2;
+                var zAddress = zImage + index * 2;
                 bool blendEnable, prewrap;
                 if (typeof(TZCompare) == typeof(On))
                 {
@@ -300,8 +348,8 @@ public sealed partial class N64Rdp
                 else
                 {
                     prewrap = ((memCvg + coverage) & 8) != 0;
-                    blendEnable = _forceBlend || (!prewrap && _antialias);
-                    if (_blendUsesMemoryCoverage)
+                    blendEnable = forceBlend || (!prewrap && antialias);
+                    if (blendUsesMemoryCoverage)
                     {
                         _blendShiftA = 0;
                         _blendShiftB = dzPixEncoded < 0xB ? 4 : 0xF - dzPixEncoded;
@@ -312,18 +360,27 @@ public sealed partial class N64Rdp
                 int outR, outG, outB;
                 if (twoCycle)
                 {
-                    if ((_antialias ? coverage : centerBit) == 0)
+                    if ((antialias ? coverage : centerBit) == 0)
                     {
                         continue;
                     }
 
-                    BlendCycle(0, pixelR, pixelG, pixelB, pixelA, blenderShadeA, memR, memG, memB, memA, 0, 0, 0, true, out var r0, out var g0, out var b0);
-                    if (_alphaCompare && !AlphaCompare(alphaCompareValue))
+                    int r0, g0, b0;
+                    if (firstCycleReturnsPixel)
+                    {
+                        (r0, g0, b0) = (pixelR, pixelG, pixelB);
+                    }
+                    else
+                    {
+                        BlendCycle(0, pixelR, pixelG, pixelB, pixelA, blenderShadeA, memR, memG, memB, memA, 0, 0, 0, true, out r0, out g0, out b0);
+                    }
+
+                    if (alphaCompareEnabled && !AlphaCompare(alphaCompareValue))
                     {
                         continue;
                     }
 
-                    if (!blendEnable && !_colorOnCvg && _blendP[1] == 0)
+                    if (!blendEnable && !colorOnCvg && secondPassesThrough)
                     {
                         // No blending: the first cycle's result passes through.
                         (outR, outG, outB) = (r0, g0, b0);
@@ -336,17 +393,17 @@ public sealed partial class N64Rdp
                 }
                 else
                 {
-                    if (_alphaCompare && !AlphaCompare(alphaCompareValue))
+                    if (alphaCompareEnabled && !AlphaCompare(alphaCompareValue))
                     {
                         continue;
                     }
 
-                    if ((_antialias ? coverage : centerBit) == 0)
+                    if ((antialias ? coverage : centerBit) == 0)
                     {
                         continue;
                     }
 
-                    if (!blendEnable && !_colorOnCvg && _blendP[0] == 0)
+                    if (!blendEnable && !colorOnCvg && firstPassesThrough)
                     {
                         // The common case: no blending, the pixel passes through.
                         (outR, outG, outB) = (pixelR, pixelG, pixelB);
@@ -358,18 +415,27 @@ public sealed partial class N64Rdp
                     }
                 }
 
-                if (_rgbDither != 3)
+                if (rgbDither != 3)
                 {
-                    outR = Dither(outR, colorDither, 0);
-                    outG = Dither(outG, colorDither, 3);
-                    outB = Dither(outB, colorDither, 6);
+                    if (rgbDither == 2)
+                    {
+                        outR = Dither(outR, colorDither & 7);
+                        outG = Dither(outG, (colorDither >> 3) & 7);
+                        outB = Dither(outB, (colorDither >> 6) & 7);
+                    }
+                    else
+                    {
+                        outR = Dither(outR, colorDither);
+                        outG = Dither(outG, colorDither);
+                        outB = Dither(outB, colorDither);
+                    }
                 }
 
                 if (fast16)
                 {
                     var clampedCvg = blendEnable ? coverage + memCvg : coverage - 1;
                     var finalCvg = (clampedCvg & 8) != 0 ? 7 : clampedCvg & 7;
-                    Write16(rdram, image.Address + index * 2,
+                    Write16(rdram, imageAddress + index * 2,
                         (ushort)(((outR & ~7) << 8) | ((outG & ~7) << 3) | ((outB & ~7) >> 2) | (finalCvg >> 2)));
                 }
                 else
@@ -377,7 +443,7 @@ public sealed partial class N64Rdp
                     WriteFramebuffer(rdram, image, index, outR, outG, outB, blendEnable, coverage, memCvg);
                 }
 
-                if (_zUpdate)
+                if (zUpdate)
                 {
                     Write16(rdram, zAddress, (ushort)(CompressZ(sz) << 2 | (dzPixEncoded >> 2)));
                 }
@@ -389,6 +455,7 @@ public sealed partial class N64Rdp
     /// A pixel's texturing: the perspective divide, the LOD and its tiles, and the texels the combiner reads, stored in
     /// its TEXEL0/TEXEL1 slots (and the next pixel's first texel where one-cycle TEXEL1 or two-cycle mode needs it).
     /// </summary>
+    [System.Runtime.CompilerServices.MethodImpl(System.Runtime.CompilerServices.MethodImplOptions.AggressiveInlining)]
     private void TexturePixel(bool twoCycle, int s, int t, int w, int dsInc, int dtInc, int dwInc)
     {
         Divide(s >> 16, t >> 16, w >> 16, out var ss, out var st);
@@ -430,9 +497,21 @@ public sealed partial class N64Rdp
             }
         }
 
-        ss = ClampCoordinate(ss);
-        st = ClampCoordinate(st);
-        SetGraySlot(SlotLodFraction, lodFraction);
+        if (_perspective)
+        {
+            ss = ClampCoordinate(ss);
+            st = ClampCoordinate(st);
+        }
+        else
+        {
+            // Without perspective the coordinate is a 16-bit value, which the clamp leaves as it is.
+            ss &= 0xFFFF;
+            st &= 0xFFFF;
+        }
+        if (_lodFractionUsed)
+        {
+            SetGraySlot(SlotLodFraction, lodFraction);
+        }
         var texel0 = Vector128<int>.Zero;
         if (_needTex0)
         {

@@ -274,44 +274,6 @@ public sealed partial class N64Rdp
         return (_noise >> 16) & 0x7FFF;
     }
 
-    /// <summary>The colour and alpha dither values of a pixel (Set Other Modes' RGB and alpha dither selects).</summary>
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void DitherValues(int x, int y, int noise, out int colorDither, out int alphaDither)
-    {
-        if (_scissorField)
-        {
-            y >>= 1;
-        }
-
-        var index = ((y & 3) << 2) | (x & 3);
-        int pattern;
-        switch (_rgbDither)
-        {
-            case 0:
-                colorDither = pattern = MagicSquare[index];
-                break;
-            case 1:
-                colorDither = pattern = Bayer[index];
-                break;
-            case 2:
-                colorDither = (int)NextRandom();
-                pattern = MagicSquare[index];
-                break;
-            default:
-                colorDither = 7;
-                pattern = Bayer[index];
-                break;
-        }
-
-        alphaDither = _alphaDither switch
-        {
-            0 => pattern,
-            1 => ~pattern & 7,
-            2 => (noise >> 6) & 7,
-            _ => 0,
-        };
-    }
-
     private Vector128<int> _nextTexel;
 
     // Coverage correction steps, set by the edge walker: per pixel and per scanline.
@@ -322,7 +284,8 @@ public sealed partial class N64Rdp
     /// The alpha that leaves the combiner: 255 becomes 256 (full), coverage can replace or scale it, and the alpha
     /// dither is added.
     /// </summary>
-    private int FinalAlpha(int combinedAlpha, int alphaDither, ref int coverage, bool updateCoverage)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int FinalAlpha(int combinedAlpha, int alphaDither, int coverage, bool cvgTimesAlpha, bool alphaCvgSelect)
     {
         var alpha = Clamp9(combinedAlpha);
         if (alpha == 0xFF)
@@ -330,30 +293,13 @@ public sealed partial class N64Rdp
             alpha = 0x100;
         }
 
-        var scaled = 0;
-        if (_cvgTimesAlpha)
-        {
-            scaled = (alpha * coverage + 4) >> 3;
-            if (updateCoverage)
-            {
-                coverage = (scaled >> 5) & 0xF;
-            }
-        }
-
-        if (!_alphaCvgSelect)
+        if (!alphaCvgSelect)
         {
             alpha += alphaDither;
-            if ((alpha & 0x100) != 0)
-            {
-                alpha = 0xFF;
-            }
-        }
-        else
-        {
-            alpha = Math.Min(0xFF, _cvgTimesAlpha ? scaled : coverage << 5);
+            return (alpha & 0x100) != 0 ? 0xFF : alpha;
         }
 
-        return alpha;
+        return Math.Min(0xFF, cvgTimesAlpha ? (alpha * coverage + 4) >> 3 : coverage << 5);
     }
 
     /// <summary>Chroma key: the alpha is how far inside the key's widths the combined colour lies (0–255).</summary>
@@ -382,16 +328,7 @@ public sealed partial class N64Rdp
 
     /// <summary>The colour dither: a channel moves up to the next 5-bit step when its low bits exceed the dither value.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private int Dither(int c, int dither, int shift)
-    {
-        var compare = _rgbDither == 2 ? (dither >> shift) & 7 : dither;
-        if (compare >= (c & 7))
-        {
-            return c;
-        }
-
-        return c > 247 ? 255 : (c & 0xF8) + 8;
-    }
+    private static int Dither(int c, int compare) => compare >= (c & 7) ? c : c > 247 ? 255 : (c & 0xF8) + 8;
 
     /// <summary>The first covered sample of a coverage mask, for the shade and depth centroid correction.</summary>
     private static void CoverageOffset(int mask, out int offX, out int offY)

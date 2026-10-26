@@ -211,19 +211,25 @@ public sealed partial class N64Rdp
             {
                 result = Convert(upper ? FetchTexel(ref tile, si + s1, ti + t1) : FetchTexel(ref tile, si, ti));
             }
-            else if (_midTexel && sFrac == 0x10 && tFrac == 0x10)
-            {
-                result = Center(FetchTexel(ref tile, si, ti), FetchTexel(ref tile, si + s1, ti), FetchTexel(ref tile, si, ti + t1),
-                    FetchTexel(ref tile, si + s1, ti + t1));
-            }
-            else if (upper)
-            {
-                result = Lerp(FetchTexel(ref tile, si + s1, ti + t1), FetchTexel(ref tile, si, ti + t1), FetchTexel(ref tile, si + s1, ti),
-                    0x20 - sFrac, 0x20 - tFrac);
-            }
             else
             {
-                result = Lerp(FetchTexel(ref tile, si, ti), FetchTexel(ref tile, si + s1, ti), FetchTexel(ref tile, si, ti + t1), sFrac, tFrac);
+                int row0 = RowBase(ref tile, ti), swap0 = (ti & 1) << 2;
+                int row1 = RowBase(ref tile, ti + t1), swap1 = ((ti + t1) & 1) << 2;
+                if (_midTexel && sFrac == 0x10 && tFrac == 0x10)
+                {
+                    result = Center(FetchTexel(ref tile, row0, swap0, si), FetchTexel(ref tile, row0, swap0, si + s1),
+                        FetchTexel(ref tile, row1, swap1, si), FetchTexel(ref tile, row1, swap1, si + s1));
+                }
+                else if (upper)
+                {
+                    result = Lerp(FetchTexel(ref tile, row1, swap1, si + s1), FetchTexel(ref tile, row1, swap1, si),
+                        FetchTexel(ref tile, row0, swap0, si + s1), 0x20 - sFrac, 0x20 - tFrac);
+                }
+                else
+                {
+                    result = Lerp(FetchTexel(ref tile, row0, swap0, si), FetchTexel(ref tile, row0, swap0, si + s1),
+                        FetchTexel(ref tile, row1, swap1, si), sFrac, tFrac);
+                }
             }
 
             return result & Low9;
@@ -378,10 +384,17 @@ public sealed partial class N64Rdp
     /// 32-bit words of odd rows are swapped. With the TLUT on, 4- and 8-bit texels (and the high byte of 16-bit ones)
     /// index the palette in the high half of TMEM.
     /// </summary>
-    private Vector128<int> FetchTexel(ref Tile tile, int s, int t)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Vector128<int> FetchTexel(ref Tile tile, int s, int t) => FetchTexel(ref tile, RowBase(ref tile, t), (t & 1) << 2, s);
+
+    /// <summary>The TMEM byte address of a tile's row <paramref name="t"/>.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static int RowBase(ref Tile tile, int t) => ((tile.Line * (t & 0xFF) + tile.Tmem) << 3) & 0xFFF;
+
+    /// <summary>A texel of a row whose base and word swap (4 on odd rows) are already worked out.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Vector128<int> FetchTexel(ref Tile tile, int rowBase, int swap, int s)
     {
-        var rowBase = ((tile.Line * (t & 0xFF) + tile.Tmem) << 3) & 0xFFF;
-        var swap = (t & 1) << 2;
         switch (tile.Size)
         {
             case Size4:
