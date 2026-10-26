@@ -27,4 +27,7 @@ public interface IN64RcpHost
 
     /// <summary>Sets an interrupt flag in MI_INTR (the CPU sees it when its mask bit is set).</summary>
     void RaiseInterrupt(N64Interrupt source);
+
+    /// <summary>Clears an interrupt flag in MI_INTR.</summary>
+    void ClearInterrupt(N64Interrupt source);
 }
