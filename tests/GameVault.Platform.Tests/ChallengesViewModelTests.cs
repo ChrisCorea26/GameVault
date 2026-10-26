@@ -10,10 +10,19 @@ namespace GameVault.Platform.Tests;
 /// <summary>The Player's Challenges flyout (SPEC §7.9) over the sample emulator.</summary>
 public sealed class ChallengesViewModelTests
 {
+    /// <summary>The sample host raises its events directly, not through xUnit's context (see <see cref="NoSynchronizationContext"/>).</summary>
+    private static SampleEmulatorHost HostWithoutContext()
+    {
+        using (NoSynchronizationContext.Enter())
+        {
+            return new SampleEmulatorHost(new FrameSink());
+        }
+    }
+
     [Fact]
     public async Task Making_a_challenge_saves_its_file()
     {
-        using var host = new SampleEmulatorHost(new FrameSink());
+        using var host = HostWithoutContext();
         await host.LoadAsync("sample.nes");
         var files = new InMemoryChallengeFiles();
         var vm = new ChallengesViewModel(host, files);
@@ -38,7 +47,7 @@ public sealed class ChallengesViewModelTests
     [Fact]
     public async Task Bad_numbers_are_explained_and_nothing_is_saved()
     {
-        using var host = new SampleEmulatorHost(new FrameSink());
+        using var host = HostWithoutContext();
         await host.LoadAsync("sample.nes");
         var files = new InMemoryChallengeFiles();
         var vm = new ChallengesViewModel(host, files) { Target = "lots" };
@@ -56,7 +65,7 @@ public sealed class ChallengesViewModelTests
     [Fact]
     public async Task Taking_a_challenge_then_saving_and_checking_the_result()
     {
-        using var host = new SampleEmulatorHost(new FrameSink());
+        using var host = HostWithoutContext();
         await host.LoadAsync("sample.nes");
         var files = new InMemoryChallengeFiles { ToOpen = { [ChallengeFileKind.Challenge] = ChallengeFiles.Save(SampleEmulatorHost.SampleChallenge) } };
         var vm = new ChallengesViewModel(host, files);
@@ -88,7 +97,7 @@ public sealed class ChallengesViewModelTests
     [Fact]
     public async Task Giving_up_ends_the_attempt_without_a_result()
     {
-        using var host = new SampleEmulatorHost(new FrameSink());
+        using var host = HostWithoutContext();
         await host.LoadAsync("sample.nes");
         var files = new InMemoryChallengeFiles { ToOpen = { [ChallengeFileKind.Challenge] = ChallengeFiles.Save(SampleEmulatorHost.SampleChallenge) } };
         var vm = new ChallengesViewModel(host, files);
@@ -109,7 +118,7 @@ public sealed class ChallengesViewModelTests
     [Fact]
     public async Task A_file_that_isnt_a_challenge_is_explained()
     {
-        using var host = new SampleEmulatorHost(new FrameSink());
+        using var host = HostWithoutContext();
         var files = new InMemoryChallengeFiles { ToOpen = { [ChallengeFileKind.Challenge] = "not json" } };
         var vm = new ChallengesViewModel(host, files);
 

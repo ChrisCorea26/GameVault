@@ -54,12 +54,18 @@ public sealed class PasswordCaptureTests : IDisposable
               "groups": [5, 3]
             }
             """);
-        using var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()))
+        EmulatorHost host;
+        PasswordService service;
+        using (NoSynchronizationContext.Enter())
         {
-            PasswordDefinitionResolver = _ => definition,
-        };
-        var store = new PasswordStore(_root);
-        var service = new PasswordService(host, store);
+            host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()))
+            {
+                PasswordDefinitionResolver = _ => definition,
+            };
+            service = new PasswordService(host, new PasswordStore(_root));
+        }
+
+        using var disposeHost = host;
         var captured = new List<string>();
         service.Captured += (_, p) => captured.Add(p);
 
