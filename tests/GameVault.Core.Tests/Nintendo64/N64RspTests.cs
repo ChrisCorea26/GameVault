@@ -3,11 +3,12 @@ using FluentAssertions;
 using GameVault.Core.Nintendo64;
 using GameVault.Core.State;
 using GameVault.Core.Tests.Harness;
+using Xunit.Abstractions;
 
 namespace GameVault.Core.Tests.Nintendo64;
 
 /// <summary>The RSP: its scalar unit, SP registers, DMA and the vector unit.</summary>
-public sealed class N64RspTests
+public sealed class N64RspTests(ITestOutputHelper output)
 {
     private const uint StartRsp = 0xAD; // clear halt, broke, interrupt, single step and interrupt-on-break (PeterLemon's StartSP)
 
@@ -498,6 +499,48 @@ public sealed class N64RspTests
         copy.Dmem.Should().Equal(expected);
         copy.Halted.Should().BeTrue();
         host.Interrupts.Should().Be(N64Interrupt.None);
+    }
+
+    // ---- Speed ---------------------------------------------------------------------------------------------------
+
+    /// <summary>
+    /// Reports how many RSP instructions a second a microcode-like loop runs (half vector instructions). Only with
+    /// <c>GAMEVAULT_RSP_BENCHMARK=1</c>, best in Release; it makes no timing assertion. The real RSP runs 62.5 M/s.
+    /// </summary>
+    [Fact]
+    public void Benchmark_reports_instructions_per_second()
+    {
+        if (Environment.GetEnvironmentVariable("GAMEVAULT_RSP_BENCHMARK") != "1")
+        {
+            return;
+        }
+
+        var (rsp, _) = Create();
+        WriteLanes(rsp.Dmem, 0x00, 0x1234, -2, 300, 0x7FFF, 5, -6, 7, 8);
+        Load(rsp,
+        [
+            Asm.Lqv(1, 0, 0, 0),
+            Asm.Vector(0x07, 2, 1, 1, 0), // VMUDH
+            Asm.Vector(0x0E, 3, 1, 2, 3), // VMADN with a quarter selector
+            Asm.Vector(0x14, 4, 2, 3, 0), // VADDC
+            Asm.LoadStore(0x3A, 0x04, 4, 0, 0, 1), // SQV
+            Asm.Itype(0x08, 1, 1, 1), // ADDI
+            0x08000000, // J 0
+            Asm.Vector(0x27, 5, 4, 1, 0), // VMRG (delay slot)
+        ]);
+        rsp.WriteRegister(N64Rsp.SpStatus, StartRsp);
+        rsp.Run(2_000_000); // warm up
+
+        const int slice = 1000;
+        const long total = 100_000_000;
+        var watch = System.Diagnostics.Stopwatch.StartNew();
+        for (long done = 0; done < total; done += slice)
+        {
+            rsp.Run(slice);
+        }
+
+        watch.Stop();
+        output.WriteLine($"RSP: {total / watch.Elapsed.TotalSeconds / 1e6:F1} M instructions/s");
     }
 
     // ---- Helpers -------------------------------------------------------------------------------------------------
