@@ -185,3 +185,111 @@ The N64 controller maps onto `ControllerState` by position, like the SNES and Pl
 4. The RDP and the `RDP` programs.
 5. AI, SI and the joybus: controllers, EEPROM, the Controller Pak; FlashRAM and SRAM.
 6. Platform: `ControllerState` widening, library, input, saves, settings, RetroAchievements, sample data, docs.
+
+## Results
+**Done when:**
+- The CPU and RSP test programs pass: all of PeterLemon's `CPUTest/CPU` (43 programs), `CPUTest/CP0`, `CPUTest/CP1`
+  (28) and `RSPTest` (55, including every vector instruction, the reserved opcodes and both SP DMA alignment
+  programs), plus the PI DMA alignment programs, recorded on hardware.
+- N64 test programs and homebrew render correctly: PeterLemon's 115 RDP programs run through the whole console (the
+  CPU and RSP send the commands, the RDP draws, the VI shows the framebuffer). 105 are held to their reference
+  pictures and all are pinned as golden images. His larger demos (the N64NICCC polygon demo, the RSP's XBUS and DCT
+  demos, the FPU fractals and the PCM sound demos) run with picture and sound. Real cartridges are the owner's to try
+  (checklist below).
+
+**The VR4300:**
+- the MIPS III set in 64-bit mode, branch-likely, LL/SC, the traps and every exception;
+- COP0 with the 32-entry TLB (refill, invalid and modified exceptions, 32- and 64-bit addressing, user and supervisor
+  modes), Count/Compare, and the values a cold boot leaves (PeterLemon's `COP0Register` and `COP0Cause`, recorded on
+  hardware);
+- **The FPU:** every operation and conversion in all four rounding modes, done exactly (.NET always rounds to nearest,
+  so the other modes correct the result with its exact error), the FCR31 flags, enables and causes, the
+  unimplemented-operation cases and the FR=0 register pairs. 573 unit tests, 522 of them PeterLemon's own vectors.
+- **Timing:** one cycle per instruction, the multiply/divide latencies, and 22 cycles for a read over the RCP's bus.
+  An idle loop (a branch to itself with a NOP in its delay slot) skips to the next event.
+
+**The machine:**
+- MI, VI, AI, PI, SI and RI, with the scheduler of Phase 15: the CPU runs to the next event (a line, a DMA's end, an
+  audio buffer's end, a slice of the RSP) and devices catch up before their registers are read.
+- **PI DMA:** blocks of up to 128 bytes, the first one shortened by an unaligned RDRAM address, the cartridge read a
+  halfword at a time, and the registers as PeterLemon's `DMAAlignment-PI` programs record them. Narrow CPU reads of
+  the ROM return what the hardware does.
+- **Boot:** the PIF's boot is simulated. The cartridge's boot code runs from DMEM with the seed of its CIC (found from
+  the boot code; unknown code is taken as a 6102), RI_SELECT says RDRAM is already set up, and osMemSize is stored as a
+  cold boot would.
+- **The joybus:** controllers, the Controller Pak (32 KB, formatted, CRCs), EEPROM 4/16 Kbit, the CIC-NUS-6105
+  challenge.
+- **Saves:** EEPROM, SRAM and FlashRAM (Mupen64Plus's command set) as raw battery saves; the Controller Pak as its own
+  `.mpk` file.
+- **The IS-Viewer** debug port, for tests and homebrew, only while something listens.
+
+**The RSP:** the scalar unit, every vector instruction with its accumulators and flags, VRCP/VRSQ from computed tables,
+every load and store with its wrapping, SP DMA with count and skip, and the reserved opcodes as the hardware shows them.
+
+**The RDP (in software):**
+- every command; fill, copy, one-cycle and two-cycle modes;
+- the edge walker with the hardware's subpixel rules and 8-sample coverage;
+- TMEM loads with the odd-row swap, every texture format, TLUTs, mask/clamp/mirror, point and bilinear filtering,
+  LOD;
+- the combiner, the blender (with colour-on-coverage), alpha compare, the Z modes on the compressed depth format, and
+  dithering.
+
+**Video and audio:** the VI shows the framebuffer over the area H_VIDEO and V_VIDEO cover at the X and Y scales (so
+320×240, 640×480 and 480i all come out whole), 16- and 32-bit, at 4:3. The AI plays its two-buffer queue at the DAC
+rate through the band-limited resampler.
+
+**Platform:**
+- **Library:** `.z64`, `.v64` and `.n64` in any byte order, hashed big-endian as No-Intro lists them;
+  "Nintendo - Nintendo 64" DATs; ROMs up to 64 MB.
+- **Save types:** the game's profile (`"save"`), then libdragon's homebrew header, then
+  `data/gamedb/n64/saves.json` (by game id, for the owner to check), then a 4 Kbit EEPROM.
+- **Input:** the N64 pad by position, with the analog stick. `ControllerState` grew to 32 bits to carry it; challenge
+  recordings (version 3) and netplay (wire format and protocol version 3) carry all of it, and older recordings still
+  load. On the keyboard the arrows push the stick, I/J/K/L are the C buttons and T/F/G/H the D-pad; on a pad the left
+  stick is the stick and the right stick the C buttons.
+- **Settings:** the Expansion Pak (on by default).
+- **RetroAchievements:** rcheevos' N64 hash (MD5 of the big-endian ROM); memory is RDRAM with each word's bytes in
+  little-endian order.
+- **Sample data:** an N64 game in the sample library.
+- **CI:** a job fetches PeterLemon's programs (cached, about 270 MB) and runs them in Release.
+
+**Changed from the plan:**
+- **RDRAM sizing:** instead of answering the RDRAM registers for IPL3's memory test, the simulated PIF leaves RDRAM
+  set up (as a warm boot does) and stores osMemSize itself, as Mupen64Plus does.
+- **CIC detection:** libdragon's open-source IPL3 isn't told apart; it is treated as a 6102, which it accepts.
+- **The CPU timing programs** (`CPUTIMINGNTSC`, `CP1TIMINGNTSC`) compare loop counts with the hardware's to the
+  iteration; they need a pipeline and cache model and are left for later.
+- **Coverage:** the RDP computes 8-sample coverage per pixel rather than full coverage, but RDRAM's hidden bits
+  aren't kept, so coverage read back from memory is approximate.
+- **n64-systemtest** (MIT) could not be built here (it needs a Rust toolchain); a local test runs it when the owner
+  builds it.
+
+**Left approximate:**
+- CPU and memory timing (no caches or pipeline stalls); RSP, RDP and DMA take no time beyond what the scheduler
+  gives them; the VI's filters (anti-aliasing, divot, gamma dither) aren't applied.
+- The RDP's perspective divide and the blender's division are exact rather than the hardware's tables.
+
+## Left for later
+- **A GPU renderer** (Direct3D), for upscaling and for speed in heavy scenes, with the software RDP as its reference.
+- **A recompiler** for the VR4300 (and the RSP) if the interpreters can't keep up with real games.
+- **Accessories:** the Rumble Pak, the Transfer Pak, the mouse, the VRU; the 64DD.
+- **Timing:** caches and pipeline stalls (the timing programs), RDP and RSP DMA timing.
+- **The VI's filters**, and 32-bit colour shown at full depth.
+- **Save types:** a fuller list of games, checked by the owner.
+- **GameShark codes** for the N64.
+
+## Owner checklist
+- Try your own cartridges as `.z64`, `.v64` or `.n64` dumps, including:
+  - games with each save type: EEPROM (Super Mario 64), SRAM (Ocarina of Time), FlashRAM (Majora's Mask), and a game
+    that saves to the Controller Pak;
+  - a CIC-6105 game (Banjo-Tooie, Majora's Mask) and a CIC-6103 or 6106 game (Banjo-Kazooie, F-Zero X), which check
+    the boot seeds;
+  - a game that uses the TLB (GoldenEye 007, Perfect Dark);
+  - a game with a hi-res (640×480) mode.
+
+  List anything that misbehaves, and check `data/gamedb/n64/saves.json` against your cartridges.
+- **RetroAchievements:** check that an N64 set's memory reads line up (GameVault presents RDRAM with each 32-bit word's
+  bytes in little-endian order, as the emulators the sets were made with do).
+- **Optional local tests:** put cartridges under `n64/` in a folder, and optionally n64-systemtest's ROM (built from
+  [lemmy-64/n64-systemtest](https://github.com/lemmy-64/n64-systemtest)) as `n64/n64-systemtest.z64`. Then run
+  `GAMEVAULT_LOCAL_ROMS=<folder> dotnet test tests/GameVault.Core.Tests --filter N64LocalTests`.

@@ -164,6 +164,37 @@ public sealed class PeterLemonN64RdpTests
             "n64/" + Path.GetFileNameWithoutExtension(program), console.FrameBuffer, console.ScreenWidth, console.ScreenHeight, SnesPpu.Palette);
     }
 
+    /// <summary>
+    /// PeterLemon's demos that use the whole machine: RSP programs that compute pictures (a gradient, DCT decoding,
+    /// strided DMA) or send the RDP its commands over the XBUS, held to their reference pictures; and FPU fractals drawn
+    /// by the CPU, only pinned (the Julia set animates, and the Mandelbrot reference differs along the set's edge, where
+    /// single-precision rounding decides).
+    /// </summary>
+    [N64TestRomTheory]
+    [InlineData("RSP/Gradient/RSPGradient.N64", 30, 99)]
+    [InlineData("RSP/DCT/FastDCTBlockDecode/RSPFastDCTBlockDecode.N64", 30, 99)]
+    [InlineData("RSP/DMAStride/RSPDMAStride.N64", 30, 99)]
+    [InlineData("RSP/XBUS/RSPPlotTriangle/RSPPlotTriangle.N64", 30, 99)]
+    [InlineData("RSP/XBUS/RSPTrans3DRectangle/RSPTrans3DRectangle.N64", 30, 98)]
+    [InlineData("CP1/Fractal/32BPP/320X240/Mandelbrot/Single/Mandelbrot32BPP320X240.N64", 240, 0)]
+    [InlineData("CP1/Fractal/32BPP/320X240/Julia/Double/Julia32BPP320X240.N64", 240, 0)]
+    public void Whole_machine_demos_draw_their_pictures(string program, int frames, int minimumPercent)
+    {
+        var console = PeterLemonN64Tests.Boot(program);
+        for (var frame = 0; frame < frames; frame++)
+        {
+            console.RunFrame();
+        }
+
+        if (minimumPercent > 0)
+        {
+            MatchingPercent(console, Path.ChangeExtension(program, ".png")).Should().BeGreaterThanOrEqualTo(minimumPercent);
+        }
+
+        GoldenImages.AssertMatches(
+            "n64/" + Path.GetFileNameWithoutExtension(program), console.FrameBuffer, console.ScreenWidth, console.ScreenHeight, SnesPpu.Palette);
+    }
+
     /// <summary>The share of the reference's pixels the framebuffer at VI_ORIGIN matches exactly (5-bit colour widened by repeating its top bits).</summary>
     internal static double MatchingPercent(GameVault.Core.Nintendo64.N64Console console, string reference)
     {
