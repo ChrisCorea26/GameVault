@@ -10,9 +10,9 @@ public interface IVideoSink
     public const int Width = 256;
     public const int Height = 240;
 
-    /// <summary>The largest frame any system produces (the Apple II's 560×384).</summary>
+    /// <summary>The largest frame any system produces: 640 wide (the PlayStation, N64 and PS2), 512 lines (the PS2 in PAL).</summary>
     public const int MaxWidth = 640;
-    public const int MaxHeight = 480;
+    public const int MaxHeight = 512;
 
     /// <summary>
     /// Presents one frame: <paramref name="width"/>×<paramref name="height"/> palette indices (256×240 for the NES,

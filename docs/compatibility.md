@@ -250,3 +250,25 @@ Real discs need the owner's BIOS (Settings → PlayStation); real games are the 
 
 Real cartridges are the owner's to try; see `docs/plans/phase-16.md`.
 
+
+## PlayStation 2 (Phase 17)
+
+| Part | State |
+|---|---|
+| R5900: ps2autotests `cpu/ee` (alu, branch, branchdelay, lsu, lsudelay, muldiv), recorded on hardware | ✅ All pass through the whole console, and replayed instruction by instruction |
+| R5900 MMI: ps2autotests `cpu/ee_simd` (6 programs) | ✅ All pass |
+| FPU (non-IEEE: truncation, saturation, the multiplier's dropped carry): ps2autotests `cpu/ee_fpu` (9 programs) | ✅ All pass |
+| COP0: TLB, exceptions, Count/Compare; ps2autotests `cpu/ee_cop0/performance` | ✅ Pass (performance counters approximate) |
+| VU0 macro mode: ps2autotests `cpu/vu0_macro` (2) | ✅ All pass |
+| VU micro mode: ps2autotests `vu/lower` (branch, fdivdelay, integer, random), `vu/upper/clip`, `vu/games/triace` | ✅ All pass |
+| VU1's EFU: ps2autotests `vu/lower/efu` | 🟡 184 of 208 lines exact; 24 differ in the last bit or two (the hardware's series aren't known exactly) |
+| DMAC, scratchpad DMA and VIF: ps2autotests `dma/**` (11 programs) | ✅ All pass |
+| GS: ps2autotests `gs/label`, `gs/signal` | ✅ Pass |
+| GameVault's EE kernel: ps2autotests `kernel/ee/**` (threads and interrupt order, 10 programs), `memory/ee/default` | ✅ All pass |
+| IOP programs (ps2autotests `.irx`, 23) | Not run: they need an IOP kernel (left for later) |
+| GS drawing: GameVault's homebrew (`tests/Ps2Homebrew`: PATH3 primitives, textures with CLUTs, blending and Z, a VU1 microprogram over PATH1 with PATH2) | ✅ Golden images and pixel probes; `mmi-fpu-check` 16/16 |
+| IOP, SIF, CDVD, SIO2 (DualShock 2, 8 MB memory card), SPU2, IPU | ✅ Unit tests; the EE and IOP running a stand-in BIOS together (SIF handshake and DMA both ways, CDVD reads, a GS frame) |
+| Booting the player's BIOS, ELF and disc fast boot | 🟡 Checked with a stand-in BIOS; real BIOSes and discs are the owner's to try |
+| Mipmapping, GS anti-aliasing, the IPU's command timing, PS1 mode, multitap | Not yet |
+
+Real BIOSes and discs are the owner's to try; see `docs/plans/phase-17.md`.

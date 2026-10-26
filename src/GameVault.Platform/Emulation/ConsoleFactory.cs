@@ -4,6 +4,7 @@ using GameVault.Core.Cartridge;
 using GameVault.Core.Genesis;
 using GameVault.Core.Nintendo64;
 using GameVault.Core.PlayStation;
+using GameVault.Core.PlayStation2;
 using GameVault.Core.Sega;
 using GameVault.Core.Snes;
 using GameVault.Core.Systems;
@@ -25,11 +26,17 @@ internal static class ConsoleFactory
         string extension = "",
         AppleRoms? appleRoms = null,
         PlayStationSetup? playStation = null,
-        N64Setup? n64 = null)
+        N64Setup? n64 = null,
+        PlayStation2Setup? playStation2 = null)
     {
         if (system == GameSystem.PlayStation)
         {
             return CreatePlayStation(data, playStation);
+        }
+
+        if (system == GameSystem.PlayStation2)
+        {
+            return CreatePlayStation2(data, playStation2);
         }
 
         if (system == GameSystem.Nintendo64)
@@ -216,6 +223,63 @@ internal static class ConsoleFactory
         }
 
         return new PlayStationConsole(bios, disc, fastBoot: setup!.FastBoot);
+    }
+
+    /// <summary>
+    /// A PlayStation 2 with a formatted memory card in slot 1 (the host loads the game's saved card over it): an ELF
+    /// boots through the player's BIOS when one is set (fast boot at EELOAD) and on GameVault's own kernel otherwise; a disc (for an .m3u, the first in the list) boots
+    /// through the player's BIOS, which it needs.
+    /// </summary>
+    private static Ps2Console CreatePlayStation2(byte[] data, PlayStation2Setup? setup)
+    {
+        var bios = setup?.Bios;
+        if (bios is not null && bios.Length != Ps2Console.BiosSize)
+        {
+            throw new GameLoadException(
+                "The PlayStation 2 BIOS chosen in Settings → PlayStation 2 isn't a 4 MB BIOS file. Choose the BIOS dumped from your own console.");
+        }
+
+        if (!Ps2Discs.TryGetPath(data, out var path))
+        {
+            if (!Ps2Discs.IsPs2Elf(data))
+            {
+                throw new GameLoadException("That file isn't a PlayStation 2 program (ELF) or disc, or it's damaged.");
+            }
+
+            try
+            {
+                return new Ps2Console(Ps2Boot.FromElf(data), bios, Ps2MemoryCard.CreateFormatted());
+            }
+            catch (InvalidDataException ex)
+            {
+                throw new GameLoadException("That file isn't a PlayStation 2 program (ELF), or it's damaged.", ex);
+            }
+        }
+
+        if (bios is null)
+        {
+            throw new GameLoadException(PlayStation2Setup.NeedsBiosMessage);
+        }
+
+        IPs2DiscImage disc;
+        try
+        {
+            disc = Ps2Discs.Open(path);
+        }
+        catch (InvalidDataException ex)
+        {
+            throw new GameLoadException("GameVault couldn't open that disc: " + ex.Message, ex);
+        }
+
+        try
+        {
+            return new Ps2Console(Ps2Boot.FromDisc(disc), bios, Ps2MemoryCard.CreateFormatted(), new Ps2ConsoleOptions { FastBoot = setup!.FastBoot });
+        }
+        catch
+        {
+            disc.Dispose();
+            throw;
+        }
     }
 
     /// <summary>Header corrections and region from the game database (SPEC §4.5, §7.5).</summary>

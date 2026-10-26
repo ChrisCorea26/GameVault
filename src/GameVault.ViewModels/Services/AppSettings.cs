@@ -73,6 +73,15 @@ public sealed record AppSettings
     /// </summary>
     public bool N64ExpansionPak { get; init; } = true;
 
+    /// <summary>
+    /// The player's own PlayStation 2 BIOS (4 MB, such as SCPH-39001), or empty. Discs need it; ELF programs run on
+    /// GameVault's own kernel without it. GameVault never ships, downloads or links to it (SPEC §7.11).
+    /// </summary>
+    public string PlayStation2BiosPath { get; init; } = string.Empty;
+
+    /// <summary>Skip the PlayStation 2 BIOS's startup screens and start the disc's game directly. Off by default.</summary>
+    public bool PlayStation2FastBoot { get; init; }
+
     /// <summary>Game volume, 0–100 (0 mutes).</summary>
     public int Volume { get; init; } = 80;
 

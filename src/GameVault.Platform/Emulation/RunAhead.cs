@@ -22,6 +22,12 @@ public sealed class RunAhead
     /// <summary>How many frames to run ahead, 0–3.</summary>
     public int Frames { get; set; }
 
+    /// <summary>
+    /// False for a system whose states are too large to save and load every frame (the PlayStation 2,
+    /// <see cref="SystemBudgets"/>): run-ahead stays off whatever <see cref="Frames"/> says.
+    /// </summary>
+    public bool Allowed { get; set; } = true;
+
     /// <summary>The time one host frame may take before run-ahead counts as too slow.</summary>
     public TimeSpan Budget { get; set; } = TimeSpan.FromSeconds(1 / EmulatorHost.NtscFrameRate * 0.9);
 
@@ -41,7 +47,7 @@ public sealed class RunAhead
     /// </summary>
     public bool RunFrame(IEmulatedConsole console, Action<IEmulatedConsole> present)
     {
-        var frames = AutoDisabled ? 0 : Math.Clamp(Frames, 0, 3);
+        var frames = AutoDisabled || !Allowed ? 0 : Math.Clamp(Frames, 0, 3);
         if (frames == 0)
         {
             console.RunFrame();

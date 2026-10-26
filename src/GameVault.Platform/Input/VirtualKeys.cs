@@ -16,6 +16,8 @@ public static class VirtualKeys
     public const int Digit2 = 0x32;
     public const int Digit3 = 0x33;
     public const int Digit4 = 0x34;
+    public const int Digit5 = 0x35;
+    public const int Digit6 = 0x36;
     public const int A = 0x41;
     public const int C = 0x43;
     public const int D = 0x44;

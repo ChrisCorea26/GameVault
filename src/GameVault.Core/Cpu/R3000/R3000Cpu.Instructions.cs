@@ -517,7 +517,7 @@ public sealed partial class R3000Cpu
                         value = Epc;
                         break;
                     case 15:
-                        value = ProcessorId;
+                        value = ProcessorIdValue;
                         break;
                     case < 16:
                         value = 0; // The breakpoint registers, which aren't modelled.
@@ -588,7 +588,7 @@ public sealed partial class R3000Cpu
     /// <summary>Raises Coprocessor Unusable unless SR's usable bit for <paramref name="coprocessor"/> is set.</summary>
     private bool CheckCoprocessor(int coprocessor)
     {
-        if ((Sr & (SrCu0 << coprocessor)) != 0)
+        if ((Sr & (SrCu0 << coprocessor)) != 0 && (coprocessor != 2 || HasGte))
         {
             return true;
         }

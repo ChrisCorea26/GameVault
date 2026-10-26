@@ -51,6 +51,55 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task The_playstation_2_bios_is_saved_and_checked()
+    {
+        var folder = Path.Combine(Path.GetTempPath(), "gv-ps2-settings-" + Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(folder);
+        try
+        {
+            var store = new InMemorySettingsStore();
+            var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
+            await vm.LoadCommand.ExecuteAsync(null);
+            vm.HasPlayStation2BiosProblem.Should().BeFalse("nothing is chosen yet");
+            vm.PlayStation2BiosStatus.Should().Contain("BIOS");
+
+            var wrong = Path.Combine(folder, "scph1001.bin");
+            await File.WriteAllBytesAsync(wrong, new byte[512 * 1024]);
+            vm.PlayStation2BiosPath = $"\"{wrong}\"";
+            await vm.SavePlayStation2BiosPathCommand.ExecuteAsync(null);
+
+            store.Current.PlayStation2BiosPath.Should().Be(wrong, "quotes from a pasted path are removed");
+            vm.HasPlayStation2BiosProblem.Should().BeTrue();
+            vm.PlayStation2BiosProblem.Should().Contain("4 MB");
+            vm.PlayStation2BiosStatus.Should().BeEmpty();
+
+            var bios = Path.Combine(folder, "scph39001.bin");
+            var image = new byte[4 * 1024 * 1024];
+            System.Text.Encoding.ASCII.GetBytes("RESET").CopyTo(image, 0x2740);
+            BitConverter.GetBytes(0x2740).CopyTo(image, 0x2740 + 12);
+            System.Text.Encoding.ASCII.GetBytes("ROMDIR").CopyTo(image, 0x2750);
+            BitConverter.GetBytes(0x40).CopyTo(image, 0x2750 + 12);
+            System.Text.Encoding.ASCII.GetBytes("ROMVER").CopyTo(image, 0x2760);
+            BitConverter.GetBytes(0x10).CopyTo(image, 0x2760 + 12);
+            System.Text.Encoding.ASCII.GetBytes("0200JC20040614").CopyTo(image, 0x2740 + 0x40); // after RESET and ROMDIR
+            await File.WriteAllBytesAsync(bios, image);
+            vm.PlayStation2BiosPath = bios;
+            await vm.SavePlayStation2BiosPathCommand.ExecuteAsync(null);
+            vm.PlayStation2FastBoot = true;
+
+            vm.HasPlayStation2BiosProblem.Should().BeFalse();
+            vm.PlayStation2BiosStatus.Should().Be("PlayStation 2 BIOS version 2.00, Japan, 2004-06-14.");
+            store.Current.PlayStation2BiosPath.Should().Be(bios);
+            store.Current.PlayStation2FastBoot.Should().BeTrue();
+            store.Current.PlayStationFastBoot.Should().BeFalse("the PlayStation's own setting is separate");
+        }
+        finally
+        {
+            Directory.Delete(folder, recursive: true);
+        }
+    }
+
+    [Fact]
     public async Task The_n64_expansion_pak_is_on_by_default_and_saved()
     {
         var store = new InMemorySettingsStore();
