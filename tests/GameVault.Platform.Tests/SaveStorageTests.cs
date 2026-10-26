@@ -42,6 +42,28 @@ public sealed class SaveStorageTests : IDisposable
     }
 
     [Fact]
+    public void With_the_opt_in_saves_go_next_to_the_game_file_and_old_saves_are_still_found()
+    {
+        var store = new BatterySaveStore(_paths);
+        store.Save("Quest", 0xABCDEF, [9, 9]); // made before the player opted in
+
+        var games = Directory.CreateDirectory(Path.Combine(_root, "Games"));
+        var beside = store.BesideRom(Path.Combine(games.FullName, "Quest.nes"));
+        Path.GetFileName(beside).Should().Be("Quest.sav");
+
+        var ram = new byte[2];
+        store.TryLoad(0xABCDEF, ram, beside).Should().BeTrue("the Saves folder's copy is used until one sits next to the game");
+        ram.Should().Equal(9, 9);
+
+        store.Save("Quest", 0xABCDEF, [1, 2], beside);
+        File.ReadAllBytes(beside).Should().Equal(1, 2);
+        store.TryLoad(0xABCDEF, ram, beside).Should().BeTrue();
+        ram.Should().Equal(1, 2);
+        store.TryLoad(0xABCDEF, ram).Should().BeTrue();
+        ram.Should().Equal(new byte[] { 9, 9 }, "without the opt-in only the Saves folder is read");
+    }
+
+    [Fact]
     public void Save_state_slots_store_state_and_thumbnail()
     {
         var store = new SaveStateStore(_paths);

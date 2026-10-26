@@ -376,6 +376,31 @@
         </Grid>
       </Border>
 
+      <!-- SPEC §4.5: saves stay in GameVault's folder unless the player opts in (GV-012) -->
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <Grid ColumnSpacing="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="Keep game saves next to the game files" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="Cartridge saves go beside each game as a .sav file with the same name, so other emulators can use them. Off: they stay in GameVault's Saves folder. Saves already there are still found. If a game's folder can't be written to, its save stays in GameVault's folder. Memory cards and Controller Paks always stay there."
+                TextWrapping="Wrap" />
+          </StackPanel>
+          <ToggleSwitch
+              Grid.Column="1"
+              MinWidth="0"
+              AutomationProperties.Name="Keep game saves next to the game files"
+              IsOn="{x:Bind ViewModel.SavesNextToRom, Mode=TwoWay}"
+              OffContent=""
+              OnContent="" />
+        </Grid>
+      </Border>
+
       <!-- Input (docs/design/input.md §9) -->
       <Grid Margin="0,16,0,4">
         <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Controllers" />

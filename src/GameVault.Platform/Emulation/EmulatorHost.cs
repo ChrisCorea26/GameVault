@@ -60,6 +60,10 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     private readonly BatterySaveStore? _memoryCards;
     private readonly BatterySaveStore? _controllerPaks;
     private BatterySaveStore? _batteryStore;
+
+    // GV-012: the game file whose folder the next game's save goes in (set by LoadAsync), and the running game's save there.
+    private string? _nextSaveBesideRom;
+    private string? _batteryBesideRom;
     private readonly BatterySaveStore? _diskSaves;
     private readonly BatterySaveStore? _appleDiskSaves;
 
@@ -920,6 +924,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             _input.AllowOppositeDirections = settings.AllowOppositeDirections;
             RunAheadFrames = settings.RunAheadFrames;
             RewindCapacity = Math.Clamp(settings.RewindMemoryMb, 16, 4096) * 1024L * 1024;
+            _nextSaveBesideRom = settings.SavesNextToRom ? path : null;
             if (_audio is not null)
             {
                 _audio.Volume = Math.Clamp(settings.Volume, 0, 100) / 100f;
@@ -1033,11 +1038,16 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         var battery = console.Battery;
         var batteryStore = console is PlayStationConsole ? _memoryCards : _batteries;
 
+        // Cartridge saves can sit next to the game file when the player opts in (GV-012); memory cards stay put.
+        var besideRom = batteryStore is not null && batteryStore == _batteries && _nextSaveBesideRom is { } romPath
+            ? batteryStore.BesideRom(romPath)
+            : null;
+        _nextSaveBesideRom = null;
         if (battery is not null && batteryStore is not null)
         {
             try
             {
-                batteryStore.TryLoad(console.RomHash, battery.BatteryRam);
+                batteryStore.TryLoad(console.RomHash, battery.BatteryRam, besideRom);
             }
             catch (IOException)
             {
@@ -1132,6 +1142,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
             _battery = battery;
             _batteryStore = batteryStore;
+            _batteryBesideRom = besideRom;
             _batterySaved = battery?.BatteryRam.ToArray() ?? [];
             _batteryTitle = title;
             TrackControllerPak(console);
@@ -1840,12 +1851,13 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _batterySaved = data;
         var title = _batteryTitle;
         var hash = _console!.RomHash;
+        var beside = _batteryBesideRom;
 
         void Write()
         {
             try
             {
-                store.Save(title, hash, data);
+                store.Save(title, hash, data, beside);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {

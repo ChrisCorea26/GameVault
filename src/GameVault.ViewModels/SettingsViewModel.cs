@@ -211,6 +211,12 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial bool AllowOppositeDirections { get; set; }
 
+    /// <summary>Keep cartridge saves next to the game files (SPEC §4.5 opt-in, GV-012).</summary>
+    [ObservableProperty]
+    public partial bool SavesNextToRom { get; set; }
+
+    partial void OnSavesNextToRomChanged(bool value) => SaveIfLoaded();
+
     /// <summary>0–100. Bound to a Slider (double), so it is a double here.</summary>
     [ObservableProperty]
     public partial double Volume { get; set; } = 80;
@@ -228,6 +234,7 @@ public sealed partial class SettingsViewModel(
         PauseWhenInactive = settings.PauseWhenInactive;
         PlayFullScreen = settings.PlayFullScreen;
         AllowOppositeDirections = settings.AllowOppositeDirections;
+        SavesNextToRom = settings.SavesNextToRom;
         Volume = Math.Clamp(settings.Volume, 0, 100);
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
         DumperPath = settings.DumperPath;
@@ -361,6 +368,7 @@ public sealed partial class SettingsViewModel(
             PauseWhenInactive = PauseWhenInactive,
             PlayFullScreen = PlayFullScreen,
             AllowOppositeDirections = AllowOppositeDirections,
+            SavesNextToRom = SavesNextToRom,
             Volume = (int)Math.Round(Math.Clamp(Volume, 0, 100)),
             DumperPath = DumperPath.Trim().Trim('"'),
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),

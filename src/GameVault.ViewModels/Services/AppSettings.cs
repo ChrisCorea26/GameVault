@@ -49,6 +49,12 @@ public sealed record AppSettings
     /// <summary>Pinned controllers as "key=port" entries separated by '|' (input.md §3.5).</summary>
     public string ControllerPins { get; init; } = string.Empty;
 
+    /// <summary>
+    /// Keep battery saves next to the game file ("Game.sav" beside "Game.nes") instead of in GameVault's Saves folder
+    /// (SPEC §4.5: only when the player opts in). Off by default. A save already in the Saves folder is still found.
+    /// </summary>
+    public bool SavesNextToRom { get; init; }
+
     /// <summary>Memory for rewind history in MB (SPEC §7.2: 256 MB by default).</summary>
     public int RewindMemoryMb { get; init; } = 256;
 
