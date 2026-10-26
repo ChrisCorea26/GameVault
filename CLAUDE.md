@@ -33,6 +33,9 @@ Users supply their own ROMs. The app never ships, downloads or links to commerci
   - The emulator thread never touches XAML objects. Marshal through `DispatcherQueue`; frames go straight to the swap chain.
   - Every new screen must render meaningful content under `--sample-data`.
 - Work phase by phase (SPEC §12). Write a plan to `docs/plans/phase-N.md` first. Keep tests green before moving on.
+- **Keep the user manual current.** Every phase that adds a system (and any change to user-visible features,
+  settings, keys or required files) updates the chapters in `docs/manual/` and rebuilds
+  `docs/manual/GameVault-User-Manual.pdf` in the same change. Steps: `docs/manual/README.md`.
 
 ## Conventions
 - C#: nullable enabled, file-scoped namespaces, `TreatWarningsAsErrors` in Core.

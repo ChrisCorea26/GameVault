@@ -42,11 +42,10 @@ body {
 
 /* Title page */
 .title-page {
+  display: block;
+  padding-top: 2.6in;
   break-after: page;
-  height: 8.6in;
-  display: flex;
-  flex-direction: column;
-  justify-content: center;
+  page-break-after: always;
 }
 .title-page h1 {
   font-size: 40pt;

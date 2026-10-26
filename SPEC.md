@@ -426,3 +426,6 @@ Each phase ends with all tests green and a tagged release.
    - Add ViewModel unit tests for new UI logic.
 7. When behavior is ambiguous, prefer documented hardware behavior (for example, NESdev Wiki descriptions) and record the reference in a code comment.
 8. Update `docs/compatibility.md` and this spec's checkboxes when features are completed.
+9. Update the user manual (`docs/manual/`, rebuilt to `GameVault-User-Manual.pdf`) whenever a phase adds a system or
+   changes what the player sees, sets up or must supply. A phase that adds a system isn't done until its manual
+   section is written. See `docs/manual/README.md`.

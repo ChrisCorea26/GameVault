@@ -9,6 +9,9 @@ Accurate emulation, zero-config setup, and a library that tracks the whole NES c
 GameVault is a Windows desktop app written in C# / .NET 10 with a WinUI 3 interface. See [SPEC.md](SPEC.md) for the
 full feature specification and [CLAUDE.md](CLAUDE.md) for the contributor rules.
 
+**Players:** the [User Manual and Setup Guide](docs/manual/GameVault-User-Manual.pdf) covers installation, every
+system, the BIOS and ROM files you must supply, controls, settings and troubleshooting.
+
 ## Status
 
 | Phase | Deliverable | State |
