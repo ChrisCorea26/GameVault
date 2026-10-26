@@ -31,6 +31,9 @@ public sealed unsafe class AchievementsClient : IDisposable
     private readonly IAchievementsServer _server;
     private readonly TimeProvider _clock;
     private readonly long _start;
+    // Every native call holds this (re-entrant) lock, so Dispose can't free the client while the emulation
+    // thread is inside rc_client_do_frame. Callbacks from inside a call run on the same thread and re-enter.
+    private readonly object _sync = new();
     private GCHandle _self;
     private nint _client;
 
@@ -82,23 +85,27 @@ public sealed unsafe class AchievementsClient : IDisposable
     {
         get
         {
-            var buffer = stackalloc byte[128];
-            var length = (int)GetUserAgentClause(Handle, buffer, 128);
-            return System.Text.Encoding.UTF8.GetString(buffer, Math.Clamp(length, 0, 127));
+            return Call(h =>
+            {
+                var buffer = stackalloc byte[128];
+                var length = (int)GetUserAgentClause(h, buffer, 128);
+                return System.Text.Encoding.UTF8.GetString(buffer, Math.Clamp(length, 0, 127));
+            }) ?? string.Empty;
         }
     }
 
     public bool HardcoreEnabled
     {
-        get => GetHardcoreEnabled(Handle) != 0;
-        set => SetHardcoreEnabled(Handle, value ? 1 : 0);
+        get => Call(h => GetHardcoreEnabled(h) != 0);
+        set => Call(h => SetHardcoreEnabled(h, value ? 1 : 0));
     }
 
-    public AchievementsUser? User
+    public AchievementsUser? User => Call(UserOf);
+
+    private static AchievementsUser? UserOf(nint handle)
     {
-        get
         {
-            var user = GetUserInfo(Handle);
+            var user = GetUserInfo(handle);
             return user is null
                 ? null
                 : new AchievementsUser(
@@ -111,16 +118,13 @@ public sealed unsafe class AchievementsClient : IDisposable
     }
 
     /// <summary>The login token to keep (encrypted) instead of the password.</summary>
-    public string? Token
+    public string? Token => Call(h =>
     {
-        get
-        {
-            var user = GetUserInfo(Handle);
-            return user is null ? null : Utf8(user->Token);
-        }
-    }
+        var user = GetUserInfo(h);
+        return user is null ? null : Utf8(user->Token);
+    });
 
-    public bool IsGameLoaded => IsGameLoaded(Handle) != 0;
+    public bool IsGameLoaded => Call(h => RcheevosNative.IsGameLoaded(h) != 0);
 
     public AchievementsGame? Game
     {
@@ -131,14 +135,20 @@ public sealed unsafe class AchievementsClient : IDisposable
                 return null;
             }
 
-            var game = GetGameInfo(Handle);
-            if (game is null)
+            var info = Call(h =>
+            {
+                var game = GetGameInfo(h);
+                return game is null
+                    ? default((uint Id, string Title, string? Badge))
+                    : (Id: game->Id, Title: Utf8(game->Title) ?? string.Empty, Badge: Utf8(game->BadgeUrl));
+            });
+            if (info.Id == 0)
             {
                 return null;
             }
 
             var all = Achievements().SelectMany(g => g.Achievements).DistinctBy(a => a.Id).ToList();
-            return new AchievementsGame(game->Id, Utf8(game->Title) ?? string.Empty, Utf8(game->BadgeUrl), all.Count, all.Count(a => a.Unlocked));
+            return new AchievementsGame(info.Id, info.Title, info.Badge, all.Count, all.Count(a => a.Unlocked));
         }
     }
 
@@ -147,66 +157,109 @@ public sealed unsafe class AchievementsClient : IDisposable
     {
         get
         {
-            var buffer = stackalloc byte[256];
-            var length = (int)GetRichPresenceMessage(Handle, buffer, 256);
-            return length <= 0 ? null : System.Text.Encoding.UTF8.GetString(buffer, Math.Min(length, 255));
+            return Call(h =>
+            {
+                var buffer = stackalloc byte[256];
+                var length = (int)GetRichPresenceMessage(h, buffer, 256);
+                return length <= 0 ? null : System.Text.Encoding.UTF8.GetString(buffer, Math.Min(length, 255));
+            });
         }
     }
 
-    private nint Handle => _client != 0 ? _client : throw new ObjectDisposedException(nameof(AchievementsClient));
+    /// <summary>Runs a native call under the lock; after <see cref="Dispose"/> it does nothing and returns the default.</summary>
+    private T? Call<T>(Func<nint, T> call)
+    {
+        lock (_sync)
+        {
+            return _client == 0 ? default : call(_client);
+        }
+    }
+
+    private void Call(Action<nint> call)
+    {
+        lock (_sync)
+        {
+            if (_client != 0)
+            {
+                call(_client);
+            }
+        }
+    }
+
+    private nint Begin() => _client != 0 ? _client : throw new ObjectDisposedException(nameof(AchievementsClient));
 
     public Task LoginWithPasswordAsync(string userName, string password)
     {
         var (task, userdata) = NewCall();
-        BeginLoginWithPassword(Handle, userName, password, &CompletionCallback, userdata);
+        lock (_sync)
+        {
+            BeginLoginWithPassword(Begin(), userName, password, &CompletionCallback, userdata);
+        }
+
         return task;
     }
 
     public Task LoginWithTokenAsync(string userName, string token)
     {
         var (task, userdata) = NewCall();
-        BeginLoginWithToken(Handle, userName, token, &CompletionCallback, userdata);
+        lock (_sync)
+        {
+            BeginLoginWithToken(Begin(), userName, token, &CompletionCallback, userdata);
+        }
+
         return task;
     }
 
-    public void Logout() => RcheevosNative.Logout(Handle);
+    public void Logout() => Call(RcheevosNative.Logout);
 
     /// <summary>Identifies the game by its RetroAchievements hash and loads its achievements.</summary>
     public Task LoadGameAsync(string hash)
     {
         var (task, userdata) = NewCall();
-        BeginLoadGame(Handle, hash, &CompletionCallback, userdata);
+        lock (_sync)
+        {
+            BeginLoadGame(Begin(), hash, &CompletionCallback, userdata);
+        }
+
         return task;
     }
 
-    public void UnloadGame() => RcheevosNative.UnloadGame(Handle);
+    public void UnloadGame() => Call(RcheevosNative.UnloadGame);
 
     /// <summary>After every emulated frame (emulation thread).</summary>
-    public void DoFrame() => RcheevosNative.DoFrame(Handle);
+    public void DoFrame() => Call(RcheevosNative.DoFrame);
 
     /// <summary>While paused, so pending requests and pings still go out.</summary>
-    public void Idle() => RcheevosNative.Idle(Handle);
+    public void Idle() => Call(RcheevosNative.Idle);
 
     /// <summary>The console was reset.</summary>
-    public void Reset() => RcheevosNative.Reset(Handle);
+    public void Reset() => Call(RcheevosNative.Reset);
 
     /// <summary>Achievement progress for a save state.</summary>
-    public byte[] SerializeProgress()
+    public byte[] SerializeProgress() => Call(h =>
     {
-        var size = (int)ProgressSize(Handle);
+        var size = (int)ProgressSize(h);
         var buffer = new byte[size];
         fixed (byte* p = buffer)
         {
-            return RcheevosNative.SerializeProgress(Handle, p, (nuint)size) == Ok ? buffer : [];
+            return RcheevosNative.SerializeProgress(h, p, (nuint)size) == Ok ? buffer : [];
         }
-    }
+    }) ?? [];
 
     /// <summary>Restores progress from a save state; an empty buffer resets it.</summary>
     public bool DeserializeProgress(ReadOnlySpan<byte> progress)
     {
-        fixed (byte* p = progress)
+        lock (_sync)
         {
-            return RcheevosNative.DeserializeProgress(Handle, progress.IsEmpty ? null : p, (nuint)progress.Length) == Ok;
+            if (_client == 0)
+            {
+                return false;
+            }
+
+            fixed (byte* p = progress)
+            {
+                return RcheevosNative.DeserializeProgress(_client, progress.IsEmpty ? null : p, (nuint)progress.Length) == Ok;
+            }
         }
     }
 
@@ -218,41 +271,47 @@ public sealed unsafe class AchievementsClient : IDisposable
             return [];
         }
 
-        var list = CreateAchievementList(Handle, CategoryCore, ListGroupingProgress);
-        if (list is null)
+        lock (_sync)
         {
-            return [];
-        }
-
-        try
-        {
-            var groups = new List<AchievementGroup>((int)list->NumBuckets);
-            for (var b = 0; b < list->NumBuckets; b++)
+            var list = _client == 0 ? null : CreateAchievementList(_client, CategoryCore, ListGroupingProgress);
+            if (list is null)
             {
-                var bucket = &list->Buckets[b];
-                var items = new List<AchievementInfo>((int)bucket->NumAchievements);
-                for (var i = 0; i < bucket->NumAchievements; i++)
-                {
-                    items.Add(ToInfo(bucket->Achievements[i]));
-                }
-
-                groups.Add(new AchievementGroup(Utf8(bucket->Label) ?? string.Empty, items));
+                return [];
             }
 
-            return groups;
-        }
-        finally
-        {
-            DestroyAchievementList(list);
+            try
+            {
+                var groups = new List<AchievementGroup>((int)list->NumBuckets);
+                for (var b = 0; b < list->NumBuckets; b++)
+                {
+                    var bucket = &list->Buckets[b];
+                    var items = new List<AchievementInfo>((int)bucket->NumAchievements);
+                    for (var i = 0; i < bucket->NumAchievements; i++)
+                    {
+                        items.Add(ToInfo(bucket->Achievements[i]));
+                    }
+
+                    groups.Add(new AchievementGroup(Utf8(bucket->Label) ?? string.Empty, items));
+                }
+
+                return groups;
+            }
+            finally
+            {
+                DestroyAchievementList(list);
+            }
         }
     }
 
     public void Dispose()
     {
-        if (_client != 0)
+        lock (_sync)
         {
-            RcheevosNative.Destroy(_client);
-            _client = 0;
+            if (_client != 0)
+            {
+                RcheevosNative.Destroy(_client);
+                _client = 0;
+            }
         }
 
         if (_self.IsAllocated)

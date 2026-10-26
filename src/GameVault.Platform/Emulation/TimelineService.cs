@@ -51,6 +51,12 @@ public sealed class TimelineService : ITimelineService
             return false;
         }
 
+        if (_host.HardcoreActive)
+        {
+            Raise(() => Notice?.Invoke(this, "Loading save states is off in RetroAchievements hardcore mode"));
+            return false;
+        }
+
         var state = await Locked(() => _store.LoadState(gameKey, id));
         if (state is null)
         {

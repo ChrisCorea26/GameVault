@@ -57,4 +57,10 @@ public sealed record AppSettings
     /// axis wins, like a real pad (docs/design/input.md §6).
     /// </summary>
     public bool AllowOppositeDirections { get; init; }
+
+    /// <summary>
+    /// RetroAchievements hardcore mode (SPEC §7.10): on by default, as RetroAchievements recommends. It turns off
+    /// loading states, rewind, codes, slow motion, netplay and challenge attempts while signed in.
+    /// </summary>
+    public bool RetroAchievementsHardcore { get; init; } = true;
 }

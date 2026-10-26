@@ -26,8 +26,8 @@ The C# side never interprets achievement logic. It provides memory reads, HTTP, 
 ## 2. Native library
 - **Source:** `native/rcheevos/` holds an unmodified copy of rcheevos **v12.5.0** (`include/`, `src/`,
   `LICENSE`). `native/CMakeLists.txt` builds it as a shared library: `rcheevos.dll` on Windows,
-  `librcheevos.so` on Linux. The defines are `RC_SHARED`, `RC_CLIENT_SUPPORTS_HASH` and
-  `RC_CLIENT_SUPPORTS_EXTERNAL` off.
+  `librcheevos.so` on Linux. It builds with `RC_SHARED` and compiles rc_client, the runtime, the API
+  and MD5. rhash isn't compiled: the NES hash is simple enough to compute in C#.
 - **Build:** `GameVault.Platform.csproj` runs CMake before its own build when the library for the
   current platform is missing. The output goes to `native/out/<rid>/` and is copied next to the
   assemblies.
@@ -55,8 +55,10 @@ The C# side never interprets achievement logic. It provides memory reads, HTTP, 
   - calls `rc_client_reset` on a console reset;
   - stores rcheevos' progress in save states (a new optional chunk), so loading a state in softcore
     keeps achievement progress consistent;
-  - loads the game in rcheevos on `Load` with the NES hash (`rc_client_begin_identify_and_load_game`
-    with the ROM bytes; an FDS image uses its own data), and unloads it on `Stop`.
+  - on `Load`, loads the game in rcheevos with the hash computed in C# (`rc_client_begin_load_game`),
+    and unloads it on `Stop`;
+  - leaves background memory reads off, so rcheevos finishes activating a game on the next
+    `do_frame`/`idle` call, on the emulation thread.
 
 ## 4. Hardcore mode
 On by default once signed in, as RetroAchievements recommends. While it's on:

@@ -6,6 +6,7 @@ using GameVault.Core.Cartridge;
 using GameVault.Core.Cartridge.Fds;
 using GameVault.Core.Cheats;
 using GameVault.Core.Ppu;
+using GameVault.Platform.Achievements;
 using GameVault.Platform.Audio;
 using GameVault.Core.Input;
 using GameVault.Core.State;
@@ -85,6 +86,9 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private readonly PasswordWatcher _passwords = new();
     private uint[] _palette = NtscPalette.Argb.ToArray();
     private double _speed = 1.0;
+
+    /// <summary>The game's speed: slow motion from Assist, except in hardcore mode.</summary>
+    private double Speed => _hardcore ? 1.0 : _speed;
     private long _rewindCapacity = RewindBuffer.DefaultCapacity;
     private bool _profileRemovesSpriteLimit;
     private AssistOptions _assist = AssistOptions.Off;
@@ -143,6 +147,74 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     public EmulatorStatus Status { get; private set; }
 
+    // ---------------------------------------------------------------- RetroAchievements (SPEC §7.10)
+
+    private AchievementsClient? _achievements;
+    private volatile bool _hardcore;
+
+    /// <summary>
+    /// rcheevos, when RetroAchievements is set up: it reads memory and processes each real frame on the
+    /// emulation thread, and idles while paused. Set once, before the first game.
+    /// </summary>
+    public AchievementsClient? Achievements
+    {
+        get => _achievements;
+        set
+        {
+            _achievements = value;
+            if (value is not null)
+            {
+                value.ReadMemory = ReadForAchievements;
+            }
+        }
+    }
+
+    /// <summary>The RetroAchievements hash of the running game (MD5 without the 16-byte header); null when idle.</summary>
+    public string? AchievementsHash { get; private set; }
+
+    /// <summary>
+    /// Hardcore mode (SPEC §7.10): no loading states, rewind, codes, slow motion, netplay or challenge attempts.
+    /// Saving states and run-ahead stay allowed. Turning it on clears the running game's codes.
+    /// </summary>
+    public bool HardcoreActive
+    {
+        get => _hardcore;
+        set
+        {
+            _hardcore = value;
+            if (value)
+            {
+                _cheatsActive = false;
+                Post(() =>
+                {
+                    if (_console is { } console && console.Cheats.Count > 0)
+                    {
+                        console.SetCheats([]);
+                        _seenCheats = null; // reported through CheatsChanged on the next frame
+                    }
+                });
+            }
+        }
+    }
+
+    /// <summary>NES CPU addresses $0000–$FFFF, read without side effects (emulation thread only).</summary>
+    private uint ReadForAchievements(uint address, Span<byte> buffer)
+    {
+        if (_console is not { } console)
+        {
+            return 0;
+        }
+
+        var count = 0u;
+        for (var i = 0; i < buffer.Length && address + i <= 0xFFFF; i++)
+        {
+            buffer[i] = console.Bus.Peek((ushort)(address + i));
+            count++;
+        }
+
+        return count;
+    }
+
     public string? GameTitle { get; private set; }
 
     public string? FaultMessage { get; private set; }
@@ -181,9 +253,9 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     public void SetCheats(IReadOnlyList<CheatCode> codes)
     {
-        if (_netplayActive || _challengeActive)
+        if (_netplayActive || _challengeActive || _hardcore)
         {
-            return; // netplay and challenges replay without codes
+            return; // netplay and challenges replay without codes; hardcore allows none
         }
 
         var copy = codes.ToList();
@@ -243,6 +315,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     private void EnsureNetplayPossible()
     {
+        if (_hardcore)
+        {
+            throw new NetplayException("Netplay is off in RetroAchievements hardcore mode. Turn hardcore off in Settings to play together.");
+        }
+
         if (Status is not (EmulatorStatus.Running or EmulatorStatus.Paused) || _romData is null)
         {
             throw new NetplayException("Start the game first. Both players need the same game running.");
@@ -443,6 +520,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         if (_netplayActive)
         {
             throw new ChallengeException("Leave netplay first.");
+        }
+
+        if (_hardcore)
+        {
+            throw new ChallengeException("Challenge attempts load a save state, which hardcore mode doesn't allow. Turn hardcore off in Settings first.");
         }
 
         var state = Convert.FromBase64String(challenge.StartState);
@@ -850,6 +932,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         }
 
         RomHash = console.RomHash;
+        AchievementsHash = AchievementsHashing.Nes(data);
         GameKey = hashes.Key;
         Profile = profile;
         UsesZapper = console.InputSetup == InputSetup.Zapper;
@@ -894,7 +977,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         SetStatus(EmulatorStatus.Running);
     }
 
-    public void Reset() => Post(() => _console?.Reset());
+    public void Reset() => Post(() =>
+    {
+        _console?.Reset();
+        _achievements?.Reset();
+    });
 
     public void Stop()
     {
@@ -916,6 +1003,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         SetAudioPaused(true);
         GameTitle = null;
         RomHash = null;
+        AchievementsHash = null;
         GameKey = null;
         UsesZapper = false;
         UsesFourScore = false;
@@ -963,9 +1051,10 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         var result = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         Post(() =>
         {
-            if (_console is null || _netplay is not null || _challenge is not null)
+            if (_console is null || _netplay is not null || _challenge is not null || _hardcore)
             {
-                result.SetResult(false); // loading a state would put the netplay games out of step, or spoil an attempt
+                // Loading a state would put the netplay games out of step, spoil an attempt, or break hardcore rules.
+                result.SetResult(false);
                 return;
             }
 
@@ -974,6 +1063,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             {
                 _console.LoadSnapshot(state);
                 _watcher.Resync(); // a jump in time isn't a death
+                _achievements?.DeserializeProgress([]); // the state has no achievement progress: start it over
                 _present(_console);
                 result.SetResult(true);
             }
@@ -1064,7 +1154,17 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             {
                 _rateClock = null;
                 _samplesWritten = 0;
-                _wake.WaitOne();
+                if (_achievements is { } achievements)
+                {
+                    // Paused: rcheevos still sends pending unlocks and keeps the session alive.
+                    achievements.Idle();
+                    _wake.WaitOne(250);
+                }
+                else
+                {
+                    _wake.WaitOne();
+                }
+
                 nextFrame = clock.ElapsedTicks;
                 continue;
             }
@@ -1108,7 +1208,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 var consumed = _samplesWritten - _audio!.BufferedSamples;
                 // Slow motion: telling the resampler the CPU runs slower stretches each frame's sound, so the
                 // audio clock paces fewer frames per second and the pitch drops with the speed.
-                console.Audio!.ClockRate = console.CpuClockRate * _speed * _pacing!.ClockRateFactor(consumed, _rateClock.Elapsed.TotalSeconds);
+                console.Audio!.ClockRate = console.CpuClockRate * Speed * _pacing!.ClockRateFactor(consumed, _rateClock.Elapsed.TotalSeconds);
             }
             else
             {
@@ -1140,7 +1240,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 continue;
             }
 
-            nextFrame += fastForward ? frameTicks / MaxFastForward : frameTicks / _speed;
+            nextFrame += fastForward ? frameTicks / MaxFastForward : frameTicks / Speed;
             if (!WaitUntil(clock, nextFrame))
             {
                 // Fell far behind (debugger, system sleep): re-anchor instead of bursting to catch up.
@@ -1191,6 +1291,9 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 AfterChallengeFrame(console, challenge);
             }
 
+            // After run-ahead put the console back on the real frame, so achievements see real memory.
+            _achievements?.DoFrame();
+
             var watch = _watcher.OnFrame(console);
             if (!watch.IsEmpty)
             {
@@ -1229,7 +1332,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     /// </summary>
     private bool UpdateRewinding()
     {
-        var held = _input.IsHotkeyHeld(VirtualKeys.Backspace) && _challenge is null; // no rewinding in an attempt
+        // No rewinding in a challenge attempt or in hardcore mode.
+        var held = _input.IsHotkeyHeld(VirtualKeys.Backspace) && _challenge is null && !_hardcore;
         if (held != _rewinding)
         {
             _rewinding = held;
