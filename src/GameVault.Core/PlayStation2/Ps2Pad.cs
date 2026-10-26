@@ -32,11 +32,13 @@ public readonly record struct Ps2PadInput(ushort Buttons, sbyte LeftX, sbyte Lef
 
     /// <summary>
     /// The buttons and left stick of <paramref name="state"/>, mapped by position as the PlayStation maps them
-    /// (B = Cross, A = Circle, Y = Square, X = Triangle, L/R = L1/R1), with the right stick and L3/R3 given separately.
+    /// (B = Cross, A = Circle, Y = Square, X = Triangle, L/R = L1/R1), with the right stick and L3/R3 from bits 32–49.
     /// </summary>
-    public static Ps2PadInput From(ControllerState state, sbyte rightX = 0, sbyte rightY = 0, bool l3 = false, bool r3 = false)
+    public static Ps2PadInput From(ControllerState state)
     {
         var bits = 0;
+        var l3 = state.HasFlag(ControllerState.L3);
+        var r3 = state.HasFlag(ControllerState.R3);
         bits |= state.HasFlag(ControllerState.Select) ? Select : 0;
         bits |= l3 ? L3 : 0;
         bits |= r3 ? R3 : 0;
@@ -53,7 +55,7 @@ public readonly record struct Ps2PadInput(ushort Buttons, sbyte LeftX, sbyte Lef
         bits |= state.HasFlag(ControllerState.A) ? Circle : 0; // east
         bits |= state.HasFlag(ControllerState.B) ? Cross : 0; // south
         bits |= state.HasFlag(ControllerState.Y) ? Square : 0; // west
-        return new Ps2PadInput((ushort)bits, state.StickX(), state.StickY(), rightX, rightY);
+        return new Ps2PadInput((ushort)bits, state.StickX(), state.StickY(), state.RightStickX(), state.RightStickY());
     }
 }
 

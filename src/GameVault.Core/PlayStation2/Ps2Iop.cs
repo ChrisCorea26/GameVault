@@ -201,12 +201,8 @@ public sealed partial class Ps2Iop : IR3000Bus, IStateful
         Sync();
     }
 
-    /// <summary>The pad's buttons and left stick from <paramref name="state"/>; the right stick centred.</summary>
+    /// <summary>The pad's buttons, both sticks and L3/R3 from <paramref name="state"/>.</summary>
     public void SetControllerState(int port, ControllerState state) => SetPadInput(port, Ps2PadInput.From(state));
-
-    /// <summary>The pad's buttons and left stick from <paramref name="state"/>, with the right stick and L3/R3.</summary>
-    public void SetControllerState(int port, ControllerState state, sbyte rightX, sbyte rightY, bool l3 = false, bool r3 = false) =>
-        SetPadInput(port, Ps2PadInput.From(state, rightX, rightY, l3, r3));
 
     public void SetPadInput(int port, Ps2PadInput input)
     {

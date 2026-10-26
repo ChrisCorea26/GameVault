@@ -61,8 +61,7 @@ public sealed class Sio2Tests
     [Fact]
     public void Config_mode_switches_the_pad_to_dualshock_2_with_sticks_and_pressure()
     {
-        Iop.SetControllerState(
-            0, ControllerState.B.WithStick(127, 127), rightX: -128, rightY: 0, l3: true);
+        Iop.SetControllerState(0, (ControllerState.B | ControllerState.L3).WithStick(127, 127).WithRightStick(-128, 0));
 
         Transfer(0, Padded(5, 0x01, 0x43, 0x00, 0x01)).Should().Equal(0xFF, 0x41, 0x5A, 0xFD, 0xBF);
         Transfer(0, Padded(9, 0x01, 0x45, 0x00)).Should().Equal(0xFF, 0xF3, 0x5A, 0x03, 0x02, 0x00, 0x02, 0x01, 0x00);
