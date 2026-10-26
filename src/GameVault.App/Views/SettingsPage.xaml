@@ -318,7 +318,7 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="Makes controls feel more responsive. Higher settings need a faster PC."
+              Text="Makes controls feel more responsive. Higher settings need a faster PC. Always off for PlayStation 2 games, which are too large to replay every frame."
               TextWrapping="Wrap" />
           <RadioButtons MaxColumns="4" SelectedIndex="{x:Bind ViewModel.RunAheadFrames, Mode=TwoWay}">
             <x:String>Off</x:String>
@@ -363,7 +363,7 @@
             <TextBlock
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{StaticResource CaptionTextBlockStyle}"
-                Text="Hold Backspace or the left shoulder button to rewind. More memory keeps a longer history. Takes effect the next time you start a game."
+                Text="Hold Backspace or the left shoulder button to rewind. More memory keeps a longer history. PlayStation 2 games rewind in half-second steps. Takes effect the next time you start a game."
                 TextWrapping="Wrap" />
           </StackPanel>
           <ComboBox

@@ -24,6 +24,8 @@ public sealed partial class NetplayViewModel(IEmulatorService emulator, IClipboa
 
     public string StatusText => Status switch
     {
+        NetplayStatus.Off when emulator.System == GameVault.Core.Systems.GameSystem.PlayStation2 =>
+            "Netplay isn't available for PlayStation 2 games: the console is too large to rewind and replay every frame.",
         NetplayStatus.Off => "Play with someone on the same network. They need the same game file.",
         NetplayStatus.WaitingForPlayer => "Waiting for player 2. Give them this code; the game starts over when they join.",
         NetplayStatus.Connecting => "Connecting to the other player…",

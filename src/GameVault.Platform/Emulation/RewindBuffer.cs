@@ -6,54 +6,141 @@ using GameVault.Core.State;
 namespace GameVault.Platform.Emulation;
 
 /// <summary>
-/// Rewind history (SPEC §7.2): a snapshot every <see cref="Interval"/> frames, compressed with Brotli. Every
+/// Rewind history (SPEC §7.2): a snapshot every <see cref="CaptureInterval"/> frames, compressed with Brotli. Every
 /// <see cref="KeyframeEvery"/>th entry is stored whole; the ones between are XORed with their keyframe first,
 /// which leaves mostly zeros and compresses to a few hundred bytes. The oldest group (keyframe plus its
 /// deltas) is dropped when the memory cap is reached. Owned by the emulation thread.
 /// </summary>
+/// <remarks>
+/// With <see cref="CompressInBackground"/> (systems with very large states, docs/design/host-budgets.md), only the
+/// snapshot is taken on the emulation thread; the XOR and the compression run on a worker, one capture at a time,
+/// and every other member waits for the capture in flight first.
+/// </remarks>
 public sealed class RewindBuffer(long capacityBytes = RewindBuffer.DefaultCapacity)
 {
     public const long DefaultCapacity = 256L * 1024 * 1024;
+
+    /// <summary>The default <see cref="CaptureInterval"/>: every second frame.</summary>
     public const int Interval = 2;
     public const int KeyframeEvery = 60;
 
     private readonly List<Entry> _entries = [];
-    private readonly StateWriter _writer = new();
+    private StateWriter _writer = new();
+    private StateWriter _spareWriter = new();
+    private Task? _pending;
     private byte[] _keyframe = [];
     private int _keyframeIndex = -1;
     private byte[] _scratch = [];
     private byte[] _compressBuffer = [];
     private long _frames;
+    private long _bytesUsed;
+    private int _captureInterval = Interval;
 
     public long CapacityBytes { get; set; } = capacityBytes;
 
-    public int Count => _entries.Count;
+    /// <summary>Frames between captures (at least 1): <see cref="Interval"/> unless a system needs fewer captures.</summary>
+    public int CaptureInterval
+    {
+        get => _captureInterval;
+        set => _captureInterval = Math.Max(1, value);
+    }
 
-    public long BytesUsed { get; private set; }
+    /// <summary>Compress captures on a worker thread instead of the emulation thread.</summary>
+    public bool CompressInBackground { get; set; }
+
+    public int Count
+    {
+        get
+        {
+            WaitForCapture();
+            return _entries.Count;
+        }
+    }
+
+    public long BytesUsed
+    {
+        get
+        {
+            WaitForCapture();
+            return _bytesUsed;
+        }
+    }
 
     /// <summary>How far back the history reaches.</summary>
-    public TimeSpan Duration => TimeSpan.FromSeconds(_entries.Count * Interval / EmulatorHost.NtscFrameRate);
+    public TimeSpan Duration => TimeSpan.FromSeconds(Count * (double)CaptureInterval / EmulatorHost.NtscFrameRate);
 
     public void Clear()
     {
+        WaitForCapture();
         _entries.Clear();
-        BytesUsed = 0;
+        _bytesUsed = 0;
         _keyframeIndex = -1;
         _frames = 0;
     }
 
-    /// <summary>Call once after every emulated frame; captures every <see cref="Interval"/> frames.</summary>
+    /// <summary>Call once after every emulated frame; captures every <see cref="CaptureInterval"/> frames.</summary>
     public void OnFrame(IEmulatedConsole console)
     {
-        if (_frames++ % Interval != 0)
+        if (_frames++ % CaptureInterval != 0)
         {
             return;
         }
 
+        WaitForCapture();
         _writer.Reset();
         console.SaveSnapshot(_writer);
-        var raw = _writer.WrittenSpan;
+        if (!CompressInBackground)
+        {
+            Store(_writer.WrittenSpan);
+            return;
+        }
 
+        // The worker owns this writer until it finishes; the next capture uses the other one.
+        var writer = _writer;
+        (_writer, _spareWriter) = (_spareWriter, _writer);
+        _pending = Task.Run(() => Store(writer.WrittenSpan));
+    }
+
+    /// <summary>
+    /// Restores the newest entry and removes it, so holding rewind walks back in time. Returns false when the
+    /// history is empty.
+    /// </summary>
+    public bool StepBack(IEmulatedConsole console)
+    {
+        WaitForCapture();
+        if (_entries.Count == 0)
+        {
+            return false;
+        }
+
+        var index = _entries.Count - 1;
+        var entry = _entries[index];
+        var raw = Decode(index);
+        _entries.RemoveAt(index);
+        _bytesUsed -= entry.Data.Length;
+        if (entry.IsKey)
+        {
+            _keyframeIndex = -1; // the next older keyframe is found again when needed
+        }
+
+        console.LoadSnapshot(raw);
+        _frames = 1; // the next capture happens CaptureInterval frames after this point
+        return true;
+    }
+
+    /// <summary>Waits for the background capture in flight, if any (emulation thread).</summary>
+    private void WaitForCapture()
+    {
+        if (_pending is { } pending)
+        {
+            _pending = null;
+            pending.GetAwaiter().GetResult();
+        }
+    }
+
+    /// <summary>Adds one snapshot to the history: XORed with its keyframe unless it is one, then compressed.</summary>
+    private void Store(ReadOnlySpan<byte> raw)
+    {
         var isKey = _entries.Count == 0 || _entries.Count - LastKeyIndex() >= KeyframeEvery || raw.Length != _keyframe.Length;
         ReadOnlySpan<byte> payload;
         if (isKey)
@@ -86,34 +173,8 @@ public sealed class RewindBuffer(long capacityBytes = RewindBuffer.DefaultCapaci
 
         var data = _compressBuffer.AsSpan(0, written).ToArray();
         _entries.Add(new Entry(data, isKey, raw.Length));
-        BytesUsed += data.Length;
+        _bytesUsed += data.Length;
         Evict();
-    }
-
-    /// <summary>
-    /// Restores the newest entry and removes it, so holding rewind walks back in time. Returns false when the
-    /// history is empty.
-    /// </summary>
-    public bool StepBack(IEmulatedConsole console)
-    {
-        if (_entries.Count == 0)
-        {
-            return false;
-        }
-
-        var index = _entries.Count - 1;
-        var entry = _entries[index];
-        var raw = Decode(index);
-        _entries.RemoveAt(index);
-        BytesUsed -= entry.Data.Length;
-        if (entry.IsKey)
-        {
-            _keyframeIndex = -1; // the next older keyframe is found again when needed
-        }
-
-        console.LoadSnapshot(raw);
-        _frames = 1; // the next capture happens Interval frames after this point
-        return true;
     }
 
     private byte[] Decode(int index)
@@ -173,7 +234,7 @@ public sealed class RewindBuffer(long capacityBytes = RewindBuffer.DefaultCapaci
 
     private void Evict()
     {
-        while (BytesUsed > CapacityBytes && _entries.Count > 1)
+        while (_bytesUsed > CapacityBytes && _entries.Count > 1)
         {
             // Drop the oldest keyframe together with the deltas that depend on it.
             var end = 1;
@@ -189,7 +250,7 @@ public sealed class RewindBuffer(long capacityBytes = RewindBuffer.DefaultCapaci
 
             for (var i = 0; i < end; i++)
             {
-                BytesUsed -= _entries[i].Data.Length;
+                _bytesUsed -= _entries[i].Data.Length;
             }
 
             _entries.RemoveRange(0, end);
