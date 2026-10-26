@@ -53,7 +53,9 @@ public sealed partial class Ps2Console
     private long NextEvent()
     {
         var now = Cpu.Cycles;
-        var next = Math.Min(_nextVideoEvent, now + MaxSlice);
+        // While a transfer runs, the EE and the DMAC take short turns, so the DMAC reads memory about when it would beside
+        // the EE (a program may reuse a buffer soon after starting its transfer).
+        var next = Math.Min(_nextVideoEvent, now + (Dmac.Busy ? BusySlice : MaxSlice));
         var timer = Timers.CyclesUntilNextEvent();
         if (timer != long.MaxValue)
         {

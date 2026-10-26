@@ -327,7 +327,10 @@ public sealed partial class R5900Cpu
             var evenBase = entry.EntryHi & entry.CompareMask;
             if (entry.Scratchpad)
             {
-                // The S bit maps the scratchpad over the even page, repeating every 16 KB (ps2tek: "EE COP0 Memory Management").
+                // The S bit maps the scratchpad over the even page, repeating every 16 KB (ps2tek: "EE COP0 Memory Management"),
+                // and always the whole 16 KB: the kernel's entry has a 4 KB page mask, yet programs reach $70003FFF
+                // (ps2autotests memory/ee/default, on hardware).
+                half = Math.Max(half, (uint)ScratchpadSize);
                 RecordRange(evenBase, half);
                 for (uint offset = 0; offset < half; offset += 0x1000)
                 {

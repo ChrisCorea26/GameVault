@@ -85,6 +85,9 @@ public sealed partial class Ps2Console : IEmulatedConsole, IStateful
     /// <summary>The longest stretch the EE runs before the devices catch up (EE cycles).</summary>
     public const int MaxSlice = 2048;
 
+    /// <summary>The stretch the EE runs while a DMA transfer is under way (EE cycles).</summary>
+    public const int BusySlice = 64;
+
     /// <summary>The scratchpad's address in <see cref="PeekMemory"/>'s space (after RDRAM), as RetroAchievements sees it.</summary>
     public const int ScratchpadPeekAddress = 0x0200_0000;
 
