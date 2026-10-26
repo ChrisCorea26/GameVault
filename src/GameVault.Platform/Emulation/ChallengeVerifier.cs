@@ -31,7 +31,7 @@ public static class ChallengeVerifier
             return new ChallengeCheck(false, "This result was played on a different game or version.");
         }
 
-        List<(uint Player1, uint Player2)> inputs;
+        List<(ulong Player1, ulong Player2)> inputs;
         try
         {
             inputs = InputRecording.Decode(Convert.FromBase64String(result.Inputs), result.Version);
@@ -74,7 +74,7 @@ public static class ChallengeVerifier
     }
 
     private static ChallengeCheck Replay(
-        IEmulatedConsole console, ChallengeFile challenge, ChallengeResult result, List<(uint Player1, uint Player2)> inputs)
+        IEmulatedConsole console, ChallengeFile challenge, ChallengeResult result, List<(ulong Player1, ulong Player2)> inputs)
     {
         console.Power();
         try

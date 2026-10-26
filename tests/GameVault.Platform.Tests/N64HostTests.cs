@@ -230,6 +230,55 @@ public sealed class N64HostTests : IDisposable
         input.Sample(0).Should().Be(ControllerState.None);
     }
 
+    [Fact]
+    public void On_the_ps2_pad_the_arrows_push_the_left_stick_and_ijkl_the_right_one()
+    {
+        var input = new InputService(KeyboardMapping.CreateDefault()) { Layout = PadLayout.PlayStation2 };
+
+        input.KeyDown(VirtualKeys.Up);
+        input.KeyDown(VirtualKeys.Left);
+        input.KeyDown(VirtualKeys.L); // right stick right
+        var state = input.Sample(0);
+        state.StickX().Should().Be(-InputService.DualShockStickRange);
+        state.StickY().Should().Be(InputService.DualShockStickRange);
+        state.RightStickX().Should().Be(InputService.DualShockStickRange);
+        state.RightStickY().Should().Be(0);
+        state.Buttons().Should().Be(ControllerState.None, "neither the arrows nor I/J/K/L are the D-pad here");
+        input.KeyUp(VirtualKeys.Up);
+        input.KeyUp(VirtualKeys.Left);
+        input.KeyUp(VirtualKeys.L);
+        input.Sample(0).Should().Be(ControllerState.None);
+
+        // The PlayStation's keys, T/F/G/H as the D-pad and 5/6 as L3/R3.
+        input.KeyDown(VirtualKeys.T);
+        input.KeyDown(VirtualKeys.Z); // Cross
+        input.KeyDown(VirtualKeys.A); // Square (no turbo)
+        input.KeyDown(VirtualKeys.Digit4); // R2
+        input.KeyDown(VirtualKeys.Digit5); // L3
+        input.KeyDown(VirtualKeys.Digit6); // R3
+        input.Sample(0, frame: 2).Should().Be(ControllerState.Up | ControllerState.B | ControllerState.Y | ControllerState.R2 | ControllerState.L3 | ControllerState.R3);
+        foreach (var key in (int[])[VirtualKeys.T, VirtualKeys.Z, VirtualKeys.A, VirtualKeys.Digit4, VirtualKeys.Digit5, VirtualKeys.Digit6])
+        {
+            input.KeyUp(key);
+        }
+
+        // A pad's right stick pushed further than the keys wins, scaled to the DualShock's full byte.
+        input.KeyDown(VirtualKeys.K); // right stick down
+        input.Sample(0).RightStickY().Should().Be(-InputService.DualShockStickRange);
+        input.SetRightStick(1, 0, short.MaxValue, 0);
+        input.Sample(0).RightStickY().Should().Be(-InputService.DualShockStickRange, "the key is all the way, as far as the pad");
+        input.KeyUp(VirtualKeys.K);
+        input.Sample(0).RightStickX().Should().Be(InputService.DualShockStickRange);
+        input.SetRightStick(1, 0, 1000, 1000);
+        input.Sample(0).Should().Be(ControllerState.None, "inside the dead zone");
+
+        // The N64 sees the same keys as its C buttons and never a right stick.
+        input.Layout = PadLayout.Nintendo64;
+        input.SetRightStick(1, 0, short.MaxValue, 0);
+        input.KeyDown(VirtualKeys.Digit5);
+        input.Sample(0).Should().Be(ControllerState.None, "5 isn't an N64 key, and the N64 reads no right stick");
+    }
+
     private static string FindRepoRoot()
     {
         var directory = new DirectoryInfo(AppContext.BaseDirectory);

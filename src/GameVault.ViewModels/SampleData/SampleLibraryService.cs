@@ -59,6 +59,8 @@ public sealed class SampleLibraryService : ILibraryService
             Ownership.Box | Ownership.DigitalDump, PlayStatus.Playing, hours: 3, lastPlayedDaysAgo: 12, system: GameSystem.PlayStation),
         Game(21, "Cloudbreak Rally", GameRegion.Europe, "Polyline Works", 1998, "Racing",
             Ownership.Cartridge | Ownership.DigitalDump, PlayStatus.Unplayed, system: GameSystem.Nintendo64),
+        Game(22, "Skyline Courier", GameRegion.NorthAmerica, "Polyline Works", 2003, "Action",
+            Ownership.Box | Ownership.Manual | Ownership.DigitalDump, PlayStatus.Playing, hours: 6.5, lastPlayedDaysAgo: 2, system: GameSystem.PlayStation2),
     ];
 
     private readonly List<GameEntry> _games;
@@ -216,6 +218,7 @@ public sealed class SampleLibraryService : ILibraryService
                     GameSystem.Snes => $@"C:\Games\Super Nintendo\{title}.sfc",
                     GameSystem.PlayStation => $@"C:\Games\PlayStation\{title}.cue",
                     GameSystem.Nintendo64 => $@"C:\Games\Nintendo 64\{title}.z64",
+                    GameSystem.PlayStation2 => $@"C:\Games\PlayStation 2\{title}.iso",
                     _ => $@"C:\Games\NES\{title}.nes",
                 }
                 : null,
