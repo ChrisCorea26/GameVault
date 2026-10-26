@@ -57,7 +57,10 @@ public sealed record ChallengeFile
 /// </summary>
 public sealed record ChallengeResult
 {
-    /// <summary>2 since Phase 13 (16-bit buttons in <see cref="Inputs"/>); version 1 results still load.</summary>
+    /// <summary>
+    /// The <see cref="InputRecording"/> version of <see cref="Inputs"/>: 4 since Phase 17 (64-bit pads); versions 1-3
+    /// still load.
+    /// </summary>
     public int Version { get; init; } = InputRecording.CurrentVersion;
 
     public required string ChallengeId { get; init; }
@@ -98,14 +101,15 @@ public static class ChallengeFiles
 /// <summary>
 /// Per-frame buttons for players 1 and 2, run-length encoded: repeated (count, player 1, player 2) triples,
 /// the count as a variable-length number. Held buttons make long runs, so an attempt stays small. Version 1
-/// stored each player's buttons in a byte (the NES pad), version 2 in 16 bits (Phase 13), and version 3 stores 32
-/// bits, little-endian, with the N64's analog stick (Phase 16).
+/// stored each player's buttons in a byte (the NES pad), version 2 in 16 bits (Phase 13), version 3 in 32 bits with
+/// the N64's analog stick (Phase 16), and version 4 stores all 64 bits of <c>ControllerState</c>, little-endian, with
+/// the DualShock 2's second stick and L3/R3 (Phase 17).
 /// </summary>
 public static class InputRecording
 {
-    public const int CurrentVersion = 3;
+    public const int CurrentVersion = 4;
 
-    public static byte[] Encode(IReadOnlyList<(uint Player1, uint Player2)> frames)
+    public static byte[] Encode(IReadOnlyList<(ulong Player1, ulong Player2)> frames)
     {
         using var stream = new MemoryStream();
         var i = 0;
@@ -128,9 +132,9 @@ public static class InputRecording
                 stream.WriteByte((byte)(n & 0x7F | 0x80));
             }
 
-            Span<byte> buttons = stackalloc byte[8];
-            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(buttons, frames[i].Player1);
-            System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(buttons[4..], frames[i].Player2);
+            Span<byte> buttons = stackalloc byte[16];
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt64LittleEndian(buttons, frames[i].Player1);
+            System.Buffers.Binary.BinaryPrimitives.WriteUInt64LittleEndian(buttons[8..], frames[i].Player2);
             stream.Write(buttons);
             i += run;
         }
@@ -138,10 +142,10 @@ public static class InputRecording
         return stream.ToArray();
     }
 
-    public static List<(uint Player1, uint Player2)> Decode(ReadOnlySpan<byte> data, int version = CurrentVersion)
+    public static List<(ulong Player1, ulong Player2)> Decode(ReadOnlySpan<byte> data, int version = CurrentVersion)
     {
-        var width = version switch { 1 => 1, 2 => 2, _ => 4 };
-        var frames = new List<(uint, uint)>();
+        var width = version switch { 1 => 1, 2 => 2, 3 => 4, _ => 8 };
+        var frames = new List<(ulong, ulong)>();
         var at = 0;
         while (at < data.Length)
         {
@@ -179,10 +183,11 @@ public static class InputRecording
         return frames;
     }
 
-    private static uint Read(ReadOnlySpan<byte> data, int width) => width switch
+    private static ulong Read(ReadOnlySpan<byte> data, int width) => width switch
     {
         1 => data[0],
         2 => System.Buffers.Binary.BinaryPrimitives.ReadUInt16LittleEndian(data),
-        _ => System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(data),
+        4 => System.Buffers.Binary.BinaryPrimitives.ReadUInt32LittleEndian(data),
+        _ => System.Buffers.Binary.BinaryPrimitives.ReadUInt64LittleEndian(data),
     };
 }

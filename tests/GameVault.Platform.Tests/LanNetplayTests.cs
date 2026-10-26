@@ -58,7 +58,7 @@ public sealed class LanNetplayTests : IDisposable
             Hello = new HelloMessage(0x0123456789ABCDEF, 1, RollbackSession.ProtocolVersion),
             HelloSeen = true,
             FirstFrame = 1234,
-            Inputs = [1, 2, 3, 0xFF, 0xB050_0880], // the last with an N64 stick in the top 16 bits
+            Inputs = [1, 2, 3, 0xFF, 0xB050_0880, 0x0003_80F0_B050_0880], // an N64 stick in bits 16-31; a DualShock 2 right stick and L3/R3 above
             AckFrame = 1200,
             Checksum = new FrameChecksum(1170, 0xDEADBEEF),
         };
@@ -71,6 +71,9 @@ public sealed class LanNetplayTests : IDisposable
         bare.Checksum.Should().BeNull();
 
         NetplayCodec.TryDecode([9, 0, 0], out _).Should().BeFalse("another version");
+        NetplayCodec.Encode(packet)[0].Should().Be(4, "version 4 carries all 64 bits");
+        NetplayCodec.TryDecode([3, 0, 0, 0, 0, 0, 0, 0xFF, 0xFF, 0xFF, 0xFF], out _).Should().BeFalse("version 3 peers can't join");
+        RollbackSession.ProtocolVersion.Should().Be(4);
         NetplayCodec.TryDecode(NetplayCodec.Encode(packet).AsSpan(0, 10), out _).Should().BeFalse("cut short");
     }
 

@@ -83,6 +83,41 @@ public class ControllerManagerTests
     }
 
     [Fact]
+    public void PlayStation_2_games_get_both_sticks_and_the_stick_clicks_as_l3_and_r3()
+    {
+        _manager.OnConnected(Pad(1));
+        _manager.GameHasFocus = true;
+        _input.Layout = PadLayout.PlayStation2;
+
+        _manager.OnButton(1, PadButton.South, true); // Cross
+        _manager.OnButton(1, PadButton.LeftStick, true);
+        _manager.OnButton(1, PadButton.RightStick, true);
+        _manager.OnAxis(1, PadAxis.TriggerLeft, 30000);
+        _manager.OnAxis(1, PadAxis.LeftX, short.MaxValue);
+        _manager.OnAxis(1, PadAxis.RightY, short.MinValue); // pushed up (SDL's +Y is down)
+
+        var state = _input.Sample(0);
+        state.Buttons().Should().Be(ControllerState.B | ControllerState.L3 | ControllerState.R3 | ControllerState.L2,
+            "the left stick drives the analog stick, not the D-pad, and the right stick isn't the N64's C buttons");
+        state.StickX().Should().Be(InputService.DualShockStickRange);
+        state.StickY().Should().Be(0);
+        state.RightStickX().Should().Be(0);
+        state.RightStickY().Should().Be(InputService.DualShockStickRange);
+
+        _manager.OnAxis(1, PadAxis.RightY, 0);
+        _manager.OnButton(1, PadButton.RightStick, false);
+        _input.Sample(0).RightStickY().Should().Be(0);
+        (_input.Sample(0) & ControllerState.R3).Should().Be(ControllerState.None);
+
+        // Other systems never see the stick clicks or the right stick.
+        _input.Layout = PadLayout.PlayStation;
+        _manager.OnAxis(1, PadAxis.LeftX, 0);
+        _manager.OnAxis(1, PadAxis.RightY, short.MinValue);
+        _input.Sample(0).Should().Be(ControllerState.B | ControllerState.L3 | ControllerState.L2,
+            "L3 stays held in the state until released, but PlayStation games read only their 16 bits");
+    }
+
+    [Fact]
     public void Left_stick_drives_the_dpad_in_game()
     {
         _manager.OnConnected(Pad(1));

@@ -3,21 +3,22 @@ using System.Buffers.Binary;
 namespace GameVault.Platform.Netplay;
 
 /// <summary>
-/// The wire format of <see cref="NetplayPacket"/> (version 3, little-endian):
+/// The wire format of <see cref="NetplayPacket"/> (version 4, little-endian):
 /// <c>version, flags (1 = hello, 2 = checksum, 4 = hello seen), [rom hash u64, input delay u8, protocol u16],
-/// first frame i32, input count u8, inputs u32 each, ack frame i32, [checksum frame i32, value u32]</c>.
+/// first frame i32, input count u8, inputs u64 each, ack frame i32, [checksum frame i32, value u32]</c>.
 /// Version 2 widened the inputs to 16 bits for the Genesis pad (Phase 13), version 3 to 32 bits for the N64's
-/// analog stick (Phase 16).
+/// analog stick (Phase 16), and version 4 to all 64 bits of <c>ControllerState</c> for the DualShock 2's second stick
+/// and L3/R3 (Phase 17).
 /// </summary>
 public static class NetplayCodec
 {
-    private const byte Version = 3;
+    private const byte Version = 4;
     private const int MaxInputs = 64;
 
     public static byte[] Encode(NetplayPacket packet)
     {
         var count = Math.Min(packet.Inputs.Length, MaxInputs);
-        var size = 2 + (packet.Hello is null ? 0 : 11) + 5 + count * 4 + 4 + (packet.Checksum is null ? 0 : 8);
+        var size = 2 + (packet.Hello is null ? 0 : 11) + 5 + count * 8 + 4 + (packet.Checksum is null ? 0 : 8);
         var data = new byte[size];
         var span = data.AsSpan();
         span[0] = Version;
@@ -35,10 +36,10 @@ public static class NetplayCodec
         span[at + 4] = (byte)count;
         for (var i = 0; i < count; i++)
         {
-            BinaryPrimitives.WriteUInt32LittleEndian(span[(at + 5 + i * 4)..], packet.Inputs[i]);
+            BinaryPrimitives.WriteUInt64LittleEndian(span[(at + 5 + i * 8)..], packet.Inputs[i]);
         }
 
-        at += 5 + count * 4;
+        at += 5 + count * 8;
         BinaryPrimitives.WriteInt32LittleEndian(span[at..], packet.AckFrame);
         at += 4;
         if (packet.Checksum is { } checksum)
@@ -84,18 +85,18 @@ public static class NetplayCodec
         var first = BinaryPrimitives.ReadInt32LittleEndian(data[at..]);
         var count = data[at + 4];
         at += 5;
-        if (count > MaxInputs || data.Length < at + count * 4 + 4)
+        if (count > MaxInputs || data.Length < at + count * 8 + 4)
         {
             return false;
         }
 
-        var inputs = new uint[count];
+        var inputs = new ulong[count];
         for (var i = 0; i < count; i++)
         {
-            inputs[i] = BinaryPrimitives.ReadUInt32LittleEndian(data[(at + i * 4)..]);
+            inputs[i] = BinaryPrimitives.ReadUInt64LittleEndian(data[(at + i * 8)..]);
         }
 
-        at += count * 4;
+        at += count * 8;
         var ack = BinaryPrimitives.ReadInt32LittleEndian(data[at..]);
         at += 4;
         FrameChecksum? checksum = null;

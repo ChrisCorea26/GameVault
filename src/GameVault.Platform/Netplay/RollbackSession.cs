@@ -38,7 +38,7 @@ public enum NetplayState
 /// </summary>
 public sealed class RollbackSession
 {
-    public const int ProtocolVersion = 3;
+    public const int ProtocolVersion = 4;
     public const int MaxRollbackFrames = 8;
 
     /// <summary>Checksums cover every Nth confirmed frame.</summary>
@@ -50,9 +50,9 @@ public sealed class RollbackSession
     private readonly IEmulatedConsole _console;
     private readonly INetplayLink _link;
     private readonly int _localPort;
-    private readonly Dictionary<int, uint> _localInputs = [];
-    private readonly Dictionary<int, uint> _remoteInputs = [];
-    private readonly Dictionary<int, uint> _predicted = [];
+    private readonly Dictionary<int, ulong> _localInputs = [];
+    private readonly Dictionary<int, ulong> _remoteInputs = [];
+    private readonly Dictionary<int, ulong> _predicted = [];
     private readonly Dictionary<int, byte[]> _states = [];
     private readonly Dictionary<int, uint> _localChecksums = [];
     private readonly Dictionary<int, uint> _remoteChecksums = [];
@@ -148,7 +148,7 @@ public sealed class RollbackSession
 
         State = NetplayState.Running;
         var inputFrame = Frame + InputDelay;
-        _localInputs.TryAdd(inputFrame, (uint)localButtons);
+        _localInputs.TryAdd(inputFrame, (ulong)localButtons);
         SendPacket();
 
         SaveState(Frame);
@@ -246,7 +246,7 @@ public sealed class RollbackSession
     private void RunFrame(int frame, bool silent)
     {
         var local = _localInputs.GetValueOrDefault(frame);
-        uint remote;
+        ulong remote;
         if (_remoteInputs.TryGetValue(frame, out var known))
         {
             remote = known;
@@ -255,7 +255,7 @@ public sealed class RollbackSession
         else
         {
             // Predict that the other player is still holding what they last held.
-            remote = _remoteContiguous >= 0 ? _remoteInputs.GetValueOrDefault(_remoteContiguous) : 0u;
+            remote = _remoteContiguous >= 0 ? _remoteInputs.GetValueOrDefault(_remoteContiguous) : 0UL;
             _predicted[frame] = remote;
         }
 
@@ -306,7 +306,7 @@ public sealed class RollbackSession
     {
         var first = Math.Max(_remoteAck + 1, Frame + InputDelay - MaxInputsPerPacket + 1);
         first = Math.Max(first, 0);
-        var inputs = new List<uint>();
+        var inputs = new List<ulong>();
         for (var frame = first; _localInputs.TryGetValue(frame, out var input) && inputs.Count < MaxInputsPerPacket; frame++)
         {
             inputs.Add(input);

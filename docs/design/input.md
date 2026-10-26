@@ -24,8 +24,22 @@ document fills those gaps.
 - Bit order matches the order the standard controller shifts bits out through `$4016`/`$4017`:
   A, B, Select, Start, Up, Down, Left, Right
   ([NESdev Wiki: Standard controller](https://www.nesdev.org/wiki/Standard_controller)).
-- Since Phase 16 the state is 32 bits: the top 16 hold an analog stick (X in bits 16–23, Y in 24–31, each a
-  signed byte, up positive) for the N64. Recordings and netplay carry all 32 bits.
+- Since Phase 16 the state holds an analog stick (X in bits 16–23, Y in 24–31, each a signed byte, up positive)
+  for the N64.
+- Since Phase 17 the state is 64 bits (`ControllerState : ulong`), for the PlayStation 2's DualShock 2:
+
+  | Bits | Contents |
+  |---|---|
+  | 0–15 | Buttons (NES pad, then C, X, Y, Z, L, R, L2, R2) |
+  | 16–31 | Left stick: X in 16–23, Y in 24–31 (signed bytes, up positive) |
+  | 32–47 | Right stick: X in 32–39, Y in 40–47 (signed bytes, up positive) |
+  | 48, 49 | L3, R3 (the stick clicks) |
+  | 50–63 | Unused (zero) |
+
+  `ControllerStick` has the helpers (`StickX/StickY/WithStick`, `RightStickX/RightStickY/WithRightStick`,
+  `Buttons()` for every bit but the sticks'). Each console reads only its own bits, so the NES, Genesis, SNES,
+  PlayStation and N64 behave as before. Challenge recordings (version 4) and netplay (wire format and protocol
+  version 4) carry all 64 bits; recordings of versions 1–3 still load, and peers on older versions can't connect.
 - The core only ever sees these bytes. Device identity, turbo, remapping and the opposite-direction
   rule (§6) all live in the platform layer. That keeps the core deterministic and makes the per-frame
   input stream recordable for rewind, run-ahead and netplay.
@@ -66,6 +80,7 @@ Player 2"*.
 | L, R (SNES; PlayStation L1, R1; added in Phase 15) | 1, 2 |
 | PlayStation L2, R2 (Phase 15) | 3, 4 |
 | N64 keys (Phase 16, only while an N64 game runs): C buttons; D-pad | I/J/K/L; T/F/G/H |
+| PS2 keys (Phase 17, only while a PS2 game runs): right stick; D-pad; L3, R3 | I/J/K/L; T/F/G/H; 5, 6 |
 
 The turbo keys sit beside Z/X in the same order (B on the left). They repeat at the turbo speed set in
 Settings → Input (§6). The two-player preset (§4.3) uses A and S for Player 2's D-pad, so it has no turbo keys.
@@ -215,6 +230,31 @@ on the C buttons and the D-pad; other systems never see those keys. A pad's left
 stops pressing the D-pad; the strongest of the keyboard and the pads wins. The right stick is the C buttons, pushed
 past half way. Turbo is off, as for the SNES. The Rumble Pak and the Transfer Pak are left for later.
 
+### 6.6 PlayStation 2 (Phase 17)
+The DualShock 2 maps onto the controller state by position, like the PlayStation pad, with both sticks (§2) and the
+stick clicks L3 and R3 (bits 48 and 49). The sticks use the whole signed byte (±127 at full tilt), which the core
+turns into the pad's 0–255 bytes.
+
+| PS2 | Controller state | Pad | Xbox label | Keyboard |
+|---|---|---|---|---|
+| Cross, Circle | B, A | South, East | A, B | Z, X |
+| Square, Triangle | Y, X | West, North | X, Y | A, S (no turbo) |
+| L1, R1 | L, R | Left shoulder, right shoulder | LB, RB | 1, 2 |
+| L2, R2 | L2, R2 | Left trigger, right trigger | LT, RT | 3, 4 |
+| L3, R3 | L3, R3 | Left stick click, right stick click | LS, RS | 5, 6 |
+| Select, Start | Select, Start | Back, Start | View, Menu | Right Shift, Enter |
+| D-pad | Up/Down/Left/Right | D-pad | D-pad | T, G, F, H |
+| Left stick | Left stick bits | Left stick (small round dead zone) | Left stick | Arrow keys (all the way) |
+| Right stick | Right stick bits | Right stick (small round dead zone) | Right stick | I (up), K (down), J (left), L (right) |
+
+While a PS2 game runs, the arrow keys push the left stick instead of pressing the D-pad, I/J/K/L push the right stick,
+T/F/G/H are the D-pad and 5/6 are L3/R3; other systems never see those keys (the PlayStation's own keys, Z/X/A/S,
+1–4, Enter and Right Shift, are unchanged, and none of the new keys was bound on the PlayStation). As for the N64, the
+two-player keyboard preset's F and G (Player 2's B and A) are taken by the D-pad while a PS2 game runs. A pad's left
+stick drives the left stick and stops pressing the D-pad; for each stick the strongest of the keyboard and the pads
+wins. Turbo is off, as for the PlayStation. The pressure-sensitive buttons report full presses; vibration is left for
+later.
+
 ## 7. Game input vs. UI navigation
 
 - **In the Library and other pages:** every connected pad navigates the UI (D-pad and stick move XY
@@ -273,6 +313,8 @@ Controller hotkeys work only from pads assigned to a port.
 | 2 | `ControllerState` and port merging; keyboard on Player 1 (§4.1); focus release (§4.4); opposite-direction rule (§6) |
 | 3 | SDL controllers, default mapping, assignment policy and hot-plug (§3, §5); UI navigation (§7); Settings → Input with sample data (§9); two-player keyboard preset (§4.3) |
 | 5 | Four Score (Players 3–4); per-game overrides; Zapper input type from game profiles |
+| 16 | The N64's analog stick (32-bit state) |
+| 17 | The DualShock 2: 64-bit state, the right stick, L3/R3 (§2, §6.6) |
 
 ## 12. Tests
 

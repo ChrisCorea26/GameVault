@@ -13,7 +13,7 @@ public sealed class InputService
     public const int PortCount = 4;
     public const int KeyboardSource = 0;
 
-    private const int ButtonCount = 16; // every bit of ControllerState, not just the NES pad's eight
+    private const int ButtonCount = 64; // every bit of ControllerState, not just the NES pad's eight
     /// <summary>The default turbo cycle: pressed for 2 frames, released for 2, 15 presses per second at 60 Hz (input.md §6).</summary>
     public const int DefaultTurboPeriodFrames = 4;
 
@@ -200,7 +200,7 @@ public sealed class InputService
             return virtualKey is not (VirtualKeys.Escape or VirtualKeys.F11); // the page handles these
         }
 
-        if (Layout == PadLayout.Nintendo64 && N64Keys.TryGetValue(virtualKey, out var extra))
+        if (LayoutKeys(Layout) is { } layoutKeys && layoutKeys.TryGetValue(virtualKey, out var extra))
         {
             lock (_gate)
             {
@@ -257,7 +257,7 @@ public sealed class InputService
             return virtualKey is not (VirtualKeys.Escape or VirtualKeys.F11); // the page handles these
         }
 
-        if (Layout == PadLayout.Nintendo64 && N64Keys.TryGetValue(virtualKey, out var extra))
+        if (LayoutKeys(Layout) is { } layoutKeys && layoutKeys.TryGetValue(virtualKey, out var extra))
         {
             lock (_gate)
             {
@@ -380,6 +380,7 @@ public sealed class InputService
         if (source == KeyboardSource)
         {
             ReleaseSourceLocked(KeyboardDpadSource);
+            ReleaseSourceLocked(KeyboardRightStickSource);
         }
 
         foreach (var key in _holdCount.Keys.Where(k => k.Source == source).ToList())
@@ -446,12 +447,12 @@ public sealed class InputService
             {
                 if (p == port)
                 {
-                    state |= (ControllerState)(1 << bit);
+                    state |= (ControllerState)(1UL << bit);
                 }
             }
 
             var period = _turboPeriod;
-            if (Layout is PadLayout.Snes or PadLayout.PlayStation or PadLayout.Nintendo64)
+            if (Layout is PadLayout.Snes or PadLayout.PlayStation or PadLayout.Nintendo64 or PadLayout.PlayStation2)
             {
                 // No turbo on SNES or PlayStation pads: those keys are Y (turbo B's key) and X (turbo A's key), the
                 // PlayStation's Square and Triangle.
@@ -459,7 +460,7 @@ public sealed class InputService
                 {
                     if (p == port)
                     {
-                        var button = (ControllerState)(1 << bit);
+                        var button = (ControllerState)(1UL << bit);
                         state |= button == ControllerState.B ? ControllerState.Y : button == ControllerState.A ? ControllerState.X : button;
                     }
                 }
@@ -470,14 +471,14 @@ public sealed class InputService
                 {
                     if (p == port)
                     {
-                        state |= (ControllerState)(1 << bit);
+                        state |= (ControllerState)(1UL << bit);
                     }
                 }
             }
 
-            if (Layout == PadLayout.Nintendo64)
+            if (Layout is PadLayout.Nintendo64 or PadLayout.PlayStation2)
             {
-                return WithStick(state, port);
+                return WithSticks(state, port);
             }
 
             if (!AllowOppositeDirections)
@@ -490,15 +491,48 @@ public sealed class InputService
         }
     }
 
-    // ---------------------------------------------------------------- the N64's analog stick (Phase 16)
+    // ---------------------------------------------------------------- analog sticks (N64, Phase 16; PlayStation 2, Phase 17)
 
-    /// <summary>The keyboard's D-pad keys while an N64 game runs, kept apart from the arrows, which push the stick.</summary>
+    /// <summary>The keyboard's D-pad keys while an N64 or PS2 game runs, kept apart from the arrows, which push the stick.</summary>
     private const int KeyboardDpadSource = -1;
+
+    /// <summary>The keyboard's right-stick keys (I/J/K/L) while a PS2 game runs: held as directions, read as the right stick.</summary>
+    private const int KeyboardRightStickSource = -2;
 
     /// <summary>A real N64 stick reaches about ±80 at full tilt (n64brew: "Joybus Controller").</summary>
     public const int StickRange = 80;
 
-    private readonly Dictionary<(int Source, int Port), (sbyte X, sbyte Y)> _sticks = [];
+    /// <summary>The DualShock 2's sticks use their whole byte (ps2tek: "SIO2 Controllers"), so full tilt is ±127.</summary>
+    public const int DualShockStickRange = 127;
+
+    // Each pad's sticks past the dead zone, as fractions of full tilt (+Y up); scaled to the running pad's range.
+    private readonly Dictionary<(int Source, int Port, bool Right), (double X, double Y)> _sticks = [];
+
+    /// <summary>The keys that belong to the running pad only (they win over the keyboard mapping), or null.</summary>
+    private static Dictionary<int, (int Source, ControllerState Button)>? LayoutKeys(PadLayout layout) => layout switch
+    {
+        PadLayout.Nintendo64 => N64Keys,
+        PadLayout.PlayStation2 => Ps2Keys,
+        _ => null,
+    };
+
+    /// <summary>
+    /// Keys that only mean something on the PS2 pad: I/J/K/L push the right stick (where the N64's C buttons are),
+    /// T/F/G/H are the D-pad, and 5 and 6 are L3 and R3 (after L1, R1, L2, R2 on 1–4).
+    /// </summary>
+    private static readonly Dictionary<int, (int Source, ControllerState Button)> Ps2Keys = new()
+    {
+        [VirtualKeys.I] = (KeyboardRightStickSource, ControllerState.Up),
+        [VirtualKeys.K] = (KeyboardRightStickSource, ControllerState.Down),
+        [VirtualKeys.J] = (KeyboardRightStickSource, ControllerState.Left),
+        [VirtualKeys.L] = (KeyboardRightStickSource, ControllerState.Right),
+        [VirtualKeys.T] = (KeyboardDpadSource, ControllerState.Up),
+        [VirtualKeys.G] = (KeyboardDpadSource, ControllerState.Down),
+        [VirtualKeys.F] = (KeyboardDpadSource, ControllerState.Left),
+        [VirtualKeys.H] = (KeyboardDpadSource, ControllerState.Right),
+        [VirtualKeys.Digit5] = (KeyboardSource, ControllerState.L3),
+        [VirtualKeys.Digit6] = (KeyboardSource, ControllerState.R3),
+    };
 
     /// <summary>Keys that only mean something on the N64 pad: I/J/K/L the C buttons and T/F/G/H the D-pad.</summary>
     private static readonly Dictionary<int, (int Source, ControllerState Button)> N64Keys = new()
@@ -514,46 +548,56 @@ public sealed class InputService
     };
 
     /// <summary>
-    /// A game controller's analog stick (SDL's -32768..32767, +Y down), scaled to the N64's range with a small round
-    /// dead zone. Pads call this whatever the layout; only N64 games read it.
+    /// A game controller's left analog stick (SDL's -32768..32767, +Y down), with a small round dead zone. Pads call
+    /// this whatever the layout; only N64 and PS2 games read it, each scaled to its pad's range.
     /// </summary>
-    public void SetStick(int source, int port, short x, short y, double deadZone = 0.15)
+    public void SetStick(int source, int port, short x, short y, double deadZone = 0.15) =>
+        SetStick(source, port, right: false, x, y, deadZone);
+
+    /// <summary>A game controller's right analog stick, as <see cref="SetStick(int, int, short, short, double)"/>; PS2 games read it.</summary>
+    public void SetRightStick(int source, int port, short x, short y, double deadZone = 0.15) =>
+        SetStick(source, port, right: true, x, y, deadZone);
+
+    private void SetStick(int source, int port, bool right, short x, short y, double deadZone)
     {
         var fx = x / 32768.0;
         var fy = -y / 32768.0;
         var length = Math.Sqrt(fx * fx + fy * fy);
-        (sbyte X, sbyte Y) value = (0, 0);
-        if (length > deadZone)
-        {
-            var scale = Math.Min(1.0, (length - deadZone) / (1 - deadZone)) / length;
-            value = ((sbyte)Math.Round(fx * scale * StickRange), (sbyte)Math.Round(fy * scale * StickRange));
-        }
-
         lock (_gate)
         {
-            if (value == (0, 0))
+            if (length > deadZone)
             {
-                _sticks.Remove((source, port));
+                var scale = Math.Min(1.0, (length - deadZone) / (1 - deadZone)) / length;
+                _sticks[(source, port, right)] = (fx * scale, fy * scale);
             }
             else
             {
-                _sticks[(source, port)] = value;
+                _sticks.Remove((source, port, right));
             }
         }
     }
 
     /// <summary>
-    /// The N64's stick for a port: the keyboard's arrows push it all the way (their direction bits leave the D-pad),
-    /// and the strongest pad stick wins over them. Called with the lock held.
+    /// The sticks for a port: the keyboard's arrows push the left stick all the way (their direction bits leave the
+    /// D-pad), and on the PS2 the right-stick keys push the right one; the strongest pad stick wins over them. Called
+    /// with the lock held.
     /// </summary>
-    private ControllerState WithStick(ControllerState state, int port)
+    private ControllerState WithSticks(ControllerState state, int port)
     {
-        var keyboard = ControllerState.None;
+        var range = Layout == PadLayout.PlayStation2 ? DualShockStickRange : StickRange;
+        ControllerState leftKeys = ControllerState.None, rightKeys = ControllerState.None;
         foreach (var ((source, p, bit), _) in _holdCount)
         {
-            if (p == port && source == KeyboardSource && bit is >= 4 and <= 7)
+            if (p == port && bit is >= 4 and <= 7)
             {
-                keyboard |= (ControllerState)(1 << bit);
+                if (source == KeyboardSource)
+                {
+                    leftKeys |= (ControllerState)(1UL << bit);
+                }
+                else if (source == KeyboardRightStickSource)
+                {
+                    rightKeys |= (ControllerState)(1UL << bit);
+                }
             }
         }
 
@@ -561,25 +605,39 @@ public sealed class InputService
         state &= ~(ControllerState.Up | ControllerState.Down | ControllerState.Left | ControllerState.Right);
         foreach (var ((source, p, bit), _) in _holdCount)
         {
-            if (p == port && source != KeyboardSource && bit is >= 4 and <= 7)
+            if (p == port && source is not (KeyboardSource or KeyboardRightStickSource) && bit is >= 4 and <= 7)
             {
-                state |= (ControllerState)(1 << bit);
+                state |= (ControllerState)(1UL << bit);
             }
         }
 
-        var x = ((keyboard & ControllerState.Right) != 0 ? StickRange : 0) - ((keyboard & ControllerState.Left) != 0 ? StickRange : 0);
-        var y = ((keyboard & ControllerState.Up) != 0 ? StickRange : 0) - ((keyboard & ControllerState.Down) != 0 ? StickRange : 0);
+        var (lx, ly) = Strongest(leftKeys, port, right: false, range);
+        state = state.WithStick(lx, ly);
+        if (Layout == PadLayout.PlayStation2)
+        {
+            var (rx, ry) = Strongest(rightKeys, port, right: true, range);
+            state = state.WithRightStick(rx, ry);
+        }
+
+        return state;
+    }
+
+    /// <summary>One stick: the keys held for it push it all the way, and a pad's stick pushed further wins.</summary>
+    private (sbyte X, sbyte Y) Strongest(ControllerState keys, int port, bool right, int range)
+    {
+        double x = ((keys & ControllerState.Right) != 0 ? 1 : 0) - ((keys & ControllerState.Left) != 0 ? 1 : 0);
+        double y = ((keys & ControllerState.Up) != 0 ? 1 : 0) - ((keys & ControllerState.Down) != 0 ? 1 : 0);
         var strongest = x * x + y * y;
-        foreach (var ((_, p), stick) in _sticks)
+        foreach (var ((_, p, r), stick) in _sticks)
         {
             var magnitude = stick.X * stick.X + stick.Y * stick.Y;
-            if (p == port && magnitude > strongest)
+            if (p == port && r == right && magnitude > strongest)
             {
                 (x, y, strongest) = (stick.X, stick.Y, magnitude);
             }
         }
 
-        return state.WithStick((sbyte)x, (sbyte)y);
+        return ((sbyte)Math.Round(x * range), (sbyte)Math.Round(y * range));
     }
 
     private ControllerState ResolveAxis(ControllerState state, int port, ControllerState a, ControllerState b)
@@ -593,7 +651,7 @@ public sealed class InputService
         return state & ~(aWins ? b : a);
     }
 
-    private static int BitIndex(ControllerState button) => System.Numerics.BitOperations.TrailingZeroCount((int)button);
+    private static int BitIndex(ControllerState button) => System.Numerics.BitOperations.TrailingZeroCount((ulong)button);
 }
 
 /// <summary>Which console's pad the controllers and keyboard stand in for.</summary>
@@ -612,4 +670,11 @@ public enum PadLayout
     /// push the stick, I/J/K/L are the C buttons and T/F/G/H the D-pad.
     /// </summary>
     Nintendo64,
+
+    /// <summary>
+    /// The DualShock 2 (Phase 17): the PlayStation's buttons by position, L3 and R3 on the stick clicks, and both
+    /// sticks as the analog sticks (the left stick no longer presses the D-pad); on the keyboard the arrows push the
+    /// left stick, I/J/K/L the right stick, T/F/G/H are the D-pad and 5/6 are L3/R3.
+    /// </summary>
+    PlayStation2,
 }
