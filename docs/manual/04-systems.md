@@ -269,3 +269,72 @@ modern CPU; heavy 3D scenes may run slower until a GPU renderer is added.
 
 **Not supported yet:** Rumble Pak, Transfer Pak, mouse, voice recognition unit, 64DD, GameShark codes, and the N64's
 video filters.
+
+## Sony PlayStation 2
+
+| | |
+|---|---|
+| **Files** | `.iso` (DVD or CD images); `.chd` (version 5, CD or DVD); `.cue` with its `.bin` tracks (CD games); `.elf` (homebrew programs) |
+| **You supply** | **A PlayStation 2 BIOS**, 4 MB, dumped from your own console (for example SCPH-39001), for discs. Homebrew `.elf` programs run without one. |
+| **Saves** | One 8 MB memory card per game in slot 1, as `.ps2` |
+
+**Setup:**
+
+1. Put the BIOS file anywhere, for example `C:\PlayStation 2\scph39001.bin`.
+2. Open **Settings → PlayStation 2** and paste the path into the box. GameVault checks the file and shows its version,
+   for example *PlayStation 2 BIOS version 1.60, Europe, 2002-02-07.*
+3. Optionally turn on **Skip the startup screens** to start discs straight away instead of showing the console's
+   startup screens and browser. A few games need them; turn it off if one doesn't start.
+4. Open the game's `.iso`, `.chd` or `.cue` file, or an `.elf` program.
+
+GameVault tells PlayStation and PlayStation 2 discs apart by what's on them, so a `.cue`, `.chd` or `.iso` can be
+either; it shows up under the right system in the library.
+
+**Homebrew `.elf` programs** run on GameVault's own built-in system software when no BIOS is set. With a BIOS set
+they start through it instead, which programs that load their own IOP modules need.
+
+**Disc images:** as for the PlayStation, keep a `.cue` with its `.bin` files, and use version 5 CHDs. Discs are read
+from where they are; they're never copied or loaded into memory whole.
+
+**Controls** (DualShock 2):
+
+| PlayStation 2 | Keyboard | Controller (position) | Xbox label |
+|---|---|---|---|
+| Cross, Circle | <kbd>Z</kbd>, <kbd>X</kbd> | Bottom, right | A, B |
+| Square, Triangle | <kbd>A</kbd>, <kbd>S</kbd> | Left, top | X, Y |
+| L1, R1 | <kbd>1</kbd>, <kbd>2</kbd> | Left shoulder, right shoulder | LB, RB |
+| L2, R2 | <kbd>3</kbd>, <kbd>4</kbd> | Left trigger, right trigger | LT, RT |
+| L3, R3 | <kbd>5</kbd>, <kbd>6</kbd> | Click the left stick, click the right stick | LS, RS |
+| Select, Start | <kbd>Right Shift</kbd>, <kbd>Enter</kbd> | Back, Start | View, Menu |
+| D-pad | <kbd>T</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> | D-pad | D-pad |
+| Left stick | Arrow keys (full push) | Left stick | Left stick |
+| Right stick | <kbd>I</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> (full push) | Right stick | Right stick |
+
+The pressure-sensitive buttons report full presses. While a PlayStation 2 game runs the left shoulder button is L1,
+so use <kbd>Backspace</kbd> to rewind.
+
+**Memory cards:** each game gets its own 8 MB card in slot 1, created already formatted and saved with your other game
+saves. Slot 2 is empty.
+
+**Rewind, run-ahead and netplay:** a PlayStation 2 is much larger than the other consoles, so:
+
+- **Rewind** goes back in half-second steps.
+- **Reduce input lag** (run-ahead) is always off for PlayStation 2 games.
+- **Netplay** isn't available for PlayStation 2 games.
+
+**Performance:** the PlayStation 2 is emulated in software, and games run well below full speed on today's PCs.
+Faster emulation and enhanced graphics are planned.
+
+**Not supported yet:** changing discs in multi-disc games (an `.m3u` starts its first disc), vibration, the multitap,
+PlayStation games on the PlayStation 2, USB devices, the network adapter and hard drive, GameShark codes, memory card
+slot 2, and enhanced (upscaled) graphics.
+
+**Messages:**
+
+| Message | What to do |
+|---|---|
+| *This is a PlayStation 2 disc. To play it, choose your own PlayStation 2 BIOS in Settings → PlayStation 2. GameVault doesn't include it.* | Follow the setup above. |
+| *The PlayStation 2 BIOS chosen in Settings → PlayStation 2 isn't a 4 MB BIOS file. Choose the BIOS dumped from your own console.* | Wrong file or bad dump. |
+| *GameVault couldn't open your PlayStation 2 BIOS. Check the file chosen in Settings → PlayStation 2.* | The file was moved, deleted or is locked. |
+| *That file isn't a PlayStation 2 program (ELF) or disc, or it's damaged.* | Check the file; re-dump the disc if needed. |
+| *Netplay isn't available for PlayStation 2 games: its rollback saves and loads the whole console every frame, and a PlayStation 2 is too large for that.* | Play it locally. |

@@ -12,6 +12,7 @@ Two people on the **same local network** (home Wi-Fi or wired network) can play 
 - **The same game file** on both PCs. GameVault checks this and never sends game data over the network.
 - For Apple II games, the same Apple II ROM files on both PCs.
 - RetroAchievements **Hardcore mode** off on both PCs.
+- A game for any system except the PlayStation 2, whose console is too large for netplay's rollback.
 
 **Hosting:**
 

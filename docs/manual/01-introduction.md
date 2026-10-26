@@ -1,5 +1,5 @@
 ---
-edition: "Edition 1 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation and Nintendo 64"
+edition: "Edition 2 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2"
 ---
 
 # Introduction
@@ -24,6 +24,7 @@ homebrew. It never includes, downloads or links to commercial games, BIOS files 
 | Super Nintendo / Super Famicom | `.sfc`, `.smc` | No |
 | Sony PlayStation | `.cue` + `.bin`, `.chd`, `.m3u`, `.exe` | **Yes**: a 512 KB console BIOS such as SCPH-1001 |
 | Nintendo 64 | `.z64`, `.v64`, `.n64` | No |
+| Sony PlayStation 2 | `.iso`, `.chd`, `.cue` + `.bin`, `.elf` | **Yes, for discs**: a 4 MB console BIOS such as SCPH-39001. Homebrew `.elf` programs run without it. |
 
 Cartridge games can also be inside a `.zip` file. Details for each system, including what isn't supported yet, are
 in [Supported systems](#supported-systems).
@@ -38,6 +39,7 @@ GameVault works out of the box, but some things only you can provide. This check
 | **Famicom Disk System BIOS** (`disksys.rom`, 8 KB) | Only for `.fds` games | Settings → Disk System | [Famicom Disk System](#famicom-disk-system) |
 | **Apple II system ROM** (12 KB for II/II+, 16 KB for IIe) and **Disk II boot ROM** (256 bytes) | Only for Apple II | Settings → Apple II | [Apple II](#apple-ii-ii-and-iie) |
 | **PlayStation BIOS** (512 KB, e.g. SCPH-1001) | Only for PlayStation discs | Settings → PlayStation | [PlayStation](#sony-playstation) |
+| **PlayStation 2 BIOS** (4 MB, e.g. SCPH-39001) | Only for PlayStation 2 discs | Settings → PlayStation 2 | [PlayStation 2](#sony-playstation-2) |
 | **Catalog DAT files** (Logiqx XML, such as No-Intro or Redump) | Optional: names your games and gives a complete checklist | Library → Import catalog | [Importing a catalog](#importing-a-catalog) |
 | **Cover pictures** | Optional | Game Details → Choose a picture… | [Game Details](#game-details) |
 | **Game controller** | Optional; the keyboard works | Plug it in | [Controls](#controls) |

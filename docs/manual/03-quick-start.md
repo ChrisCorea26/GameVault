@@ -17,7 +17,7 @@ To play a single file without adding its folder, choose **Open game file**.
 
 - **Name your games and see a complete checklist** by importing a catalog. See
   [Importing a catalog](#importing-a-catalog).
-- **Set up BIOS files** if you play Famicom Disk System, Apple II or PlayStation games. See
+- **Set up BIOS files** if you play Famicom Disk System, Apple II, PlayStation or PlayStation 2 games. See
   [Supported systems](#supported-systems).
 - **Learn the hotkeys**: <kbd>F5</kbd> save state, <kbd>F8</kbd> load it, hold <kbd>Backspace</kbd> to rewind, hold
   <kbd>Tab</kbd> to fast-forward, <kbd>F11</kbd> full screen. See [Hotkeys](#hotkeys).

@@ -89,6 +89,13 @@ The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`.
 | **BIOS** | Path, for example `C:\PlayStation\scph1001.bin` | Empty |
 | **Skip the startup screens** | On / Off | Off |
 
+## PlayStation 2
+
+| Setting | Values | Default |
+|---|---|---|
+| **BIOS** | Path, for example `C:\PlayStation 2\scph39001.bin`. GameVault checks it's a 4 MB BIOS and shows its version. | Empty |
+| **Skip the startup screens** | On / Off | Off |
+
 ## Nintendo 64
 
 | Setting | Values | Default |

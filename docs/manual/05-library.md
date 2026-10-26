@@ -57,6 +57,7 @@ DAT replaces the old entries.
 |---|---|
 | NES, Master System, SG-1000, Genesis, SNES, N64, Apple II | No-Intro DATs (Logiqx XML), from the No-Intro DAT-o-MATIC site |
 | PlayStation | Redump DATs (Logiqx XML), from the Redump site. Discs are matched on their first track. |
+| PlayStation 2 | Redump DATs (*Sony - PlayStation 2*). DVDs are matched on the whole image, CDs on their first track. |
 
 The older text-based clrmamepro DAT format isn't supported; choose the XML download.
 

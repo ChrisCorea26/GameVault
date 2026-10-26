@@ -5,7 +5,7 @@
 | | Minimum |
 |---|---|
 | Operating system | Windows 10 version 1809 or later, or Windows 11 |
-| Processor | x64 (recommended), ARM64 or 32-bit x86. A 4-core CPU from 2018 or later runs the 8- and 16-bit systems comfortably. PlayStation and Nintendo 64 need a faster CPU; heavy N64 3D scenes may run below full speed. |
+| Processor | x64 (recommended), ARM64 or 32-bit x86. A 4-core CPU from 2018 or later runs the 8- and 16-bit systems comfortably. PlayStation and Nintendo 64 need a faster CPU; heavy N64 3D scenes may run below full speed. PlayStation 2 games run below full speed on any current CPU. |
 | Memory | 4 GB. GameVault itself uses under 400 MB with the default rewind memory. |
 | Graphics | Any GPU with Direct3D 11 |
 | Audio | Any Windows audio device |

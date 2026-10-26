@@ -10,7 +10,7 @@ files are read from where you put them.
 |---|---|
 | `settings.json` | Your settings |
 | `library.db` | Library: games found, catalog, ownership, status, ratings, notes, playtime |
-| `Saves\` | Battery saves (`.sav`), Disk System and Apple II disk writes (`.fdssave`, `.a2save`), PlayStation memory cards (`.mcd`), N64 Controller Paks (`.mpk`) |
+| `Saves\` | Battery saves (`.sav`), Disk System and Apple II disk writes (`.fdssave`, `.a2save`), PlayStation memory cards (`.mcd`), N64 Controller Paks (`.mpk`), PlayStation 2 memory cards (`.ps2`) |
 | `States\` | Save states and their thumbnails |
 | `Passwords\` | Captured passwords |
 | `Journal\` | Notes, screenshots and maps |
@@ -59,6 +59,9 @@ The RetroAchievements sign-in is tied to your Windows account, so sign in again 
 | An N64 game won't start | Turn off **Settings → Nintendo 64 → Expansion Pak**. |
 | An N64 game doesn't keep its save | Its save type may be missing from GameVault's database. |
 | A PlayStation game won't start with fast boot | Turn off **Skip the startup screens**. |
+| A PlayStation 2 game won't start with fast boot | Turn off **Settings → PlayStation 2 → Skip the startup screens**. |
+| A PlayStation 2 game runs slowly | Expected for now: the PlayStation 2 is emulated in software and runs below full speed. |
+| A PlayStation 2 game isn't in the library | Discs are recognised by their SYSTEM.CNF file; check the image isn't damaged. A `.bin` must come with its `.cue`. |
 | Settings are greyed out | The family profile is locked. A parent can unlock it with the PIN. |
 | GameVault crashed | Details are in `%LOCALAPPDATA%\GameVault\logs\crash.log`. Include that file when you report the problem. |
 
