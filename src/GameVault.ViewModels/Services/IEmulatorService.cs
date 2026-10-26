@@ -92,6 +92,39 @@ public interface IEmulatorService
     {
     }
 
+    /// <summary>The names of the running game's memory-map values, for building challenge goals.</summary>
+    IReadOnlyList<string> MemoryValueNames => [];
+
+    /// <summary>True while a challenge attempt is running (SPEC §7.9).</summary>
+    bool IsChallengeActive => false;
+
+    /// <summary>
+    /// A challenge starting from this moment of the running game. The goal's named values come from the
+    /// game's memory map. Throws <see cref="ChallengeException"/> with a user-facing message.
+    /// </summary>
+    Task<GameVault.Library.Challenges.ChallengeFile> CreateChallengeAsync(
+        string name, IReadOnlyList<GameVault.Library.Memory.MemoryCondition> goal, int? timeLimitFrames, string? note) =>
+        Task.FromException<GameVault.Library.Challenges.ChallengeFile>(new ChallengeException("Challenges aren't available here."));
+
+    /// <summary>Loads the challenge's start state and records the attempt until the goal holds or time runs out.</summary>
+    Task StartChallengeAsync(GameVault.Library.Challenges.ChallengeFile challenge) =>
+        Task.FromException(new ChallengeException("Challenges aren't available here."));
+
+    void CancelChallenge()
+    {
+    }
+
+    /// <summary>Raised on the UI thread when an attempt ends.</summary>
+    event EventHandler<ChallengeOutcome>? ChallengeFinished
+    {
+        add { }
+        remove { }
+    }
+
+    /// <summary>Replays a result on a fresh console and says whether it really reaches the goal.</summary>
+    Task<ChallengeCheck> VerifyChallengeAsync(GameVault.Library.Challenges.ChallengeFile challenge, GameVault.Library.Challenges.ChallengeResult result) =>
+        Task.FromResult(new ChallengeCheck(false, "Checking results isn't available here."));
+
     /// <summary>True when the running game has a memory map, so stat overlays, maps and death markers work (SPEC §7.9).</summary>
     bool HasMemoryMap => false;
 
@@ -158,6 +191,23 @@ public interface IEmulatorService
     /// <summary>Stops and unloads the game.</summary>
     void Stop();
 }
+
+/// <summary>How a challenge attempt ended.</summary>
+public enum ChallengeOutcomeKind
+{
+    Done,
+    TimeUp,
+    GaveUp,
+}
+
+/// <summary>An attempt's end: with <see cref="Result"/> (ready to save and share) when the goal was reached.</summary>
+public sealed record ChallengeOutcome(ChallengeOutcomeKind Kind, int Frames, GameVault.Library.Challenges.ChallengeResult? Result);
+
+/// <summary>Whether a result checks out, in words for the player.</summary>
+public sealed record ChallengeCheck(bool Verified, string Message);
+
+/// <summary>A challenge action failed. <see cref="Exception.Message"/> is safe to show.</summary>
+public sealed class ChallengeException(string message, Exception? inner = null) : Exception(message, inner);
 
 /// <summary>One value of the stat overlay (SPEC §7.9): "Health" and "3 of 16".</summary>
 public sealed record StatValue(string Label, string Text);

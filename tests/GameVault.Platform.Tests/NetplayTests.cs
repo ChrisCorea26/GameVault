@@ -14,7 +14,7 @@ public class NetplayTests
     /// NROM: reads both controllers into $00/$01 over and over and folds them into $02-$04, so the state
     /// depends on every input of both players.
     /// </summary>
-    private static byte[] TwoPlayerRom()
+    internal static byte[] TwoPlayerRom()
     {
         byte[] program =
         [

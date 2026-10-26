@@ -56,17 +56,20 @@ public sealed record MemoryValue
 public sealed record MemoryCondition
 {
     [JsonConverter(typeof(NullableHexConverter))]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Address { get; init; }
 
     [JsonConverter(typeof(HexConverter))]
     public int Mask { get; init; } = 0xFF;
 
     /// <summary>A value name, or (with <see cref="Address"/>) the number to compare with.</summary>
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingDefault)]
     public JsonElement Value { get; init; }
 
     public string Op { get; init; } = "==";
 
     [JsonConverter(typeof(NullableHexConverter))]
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public int? Target { get; init; }
 
     public bool Holds(MemoryMap? map, Func<int, byte> readRam)

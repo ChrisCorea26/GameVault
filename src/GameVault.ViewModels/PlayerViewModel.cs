@@ -22,7 +22,8 @@ public sealed partial class PlayerViewModel(
     NetplayViewModel netplay,
     IWindowService window,
     RecapViewModel recap,
-    ISessionLog sessions) : ObservableObject
+    ISessionLog sessions,
+    ChallengesViewModel challenges) : ObservableObject
 {
     private byte[]? _passwordScreenshot;
     private bool _updatingDisk;
@@ -93,6 +94,9 @@ public sealed partial class PlayerViewModel(
 
     /// <summary>Game Genie and RAM codes for the running game (SPEC §7.8).</summary>
     public CodesViewModel Codes => codes;
+
+    /// <summary>Verified challenges (SPEC §7.9).</summary>
+    public ChallengesViewModel Challenges => challenges;
 
     /// <summary>"Previously on…" after a break (SPEC §7.9).</summary>
     public RecapViewModel Recap => recap;
@@ -329,6 +333,7 @@ public sealed partial class PlayerViewModel(
             await cheats.ApplyAsync(key); // the codes the player left on for this game
             await codes.ShowAsync(key, (await library.GetGameAsync(key))?.Title ?? Title);
             netplay.Attach();
+            challenges.Attach();
             if (launch?.StateId is { } stateId)
             {
                 await timeline.Service.LoadAsync(key, stateId);
@@ -489,6 +494,7 @@ public sealed partial class PlayerViewModel(
         codes.Detach();
         window.SetFullScreen(false); // leaving the Player always returns to the normal window
         netplay.Detach();
+        challenges.Detach();
         Detach();
     }
 

@@ -28,7 +28,8 @@ public class PlayerViewModelTests
             new AssistViewModel(_emulator), new PracticeViewModel(_emulator, _records),
             new CodesViewModel(_cheats, new SampleCodeFilePicker()), _cheats,
             new NetplayViewModel(_emulator, new InMemoryClipboard()), _window,
-            new RecapViewModel(_sessions, _journal, _passwords, _timeline), _sessions);
+            new RecapViewModel(_sessions, _journal, _passwords, _timeline), _sessions,
+            new ChallengesViewModel(_emulator, new InMemoryChallengeFiles()));
     }
 
     [Fact]

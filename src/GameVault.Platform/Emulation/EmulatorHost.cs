@@ -9,6 +9,7 @@ using GameVault.Core.Ppu;
 using GameVault.Platform.Audio;
 using GameVault.Core.Input;
 using GameVault.Core.State;
+using GameVault.Library.Challenges;
 using GameVault.Library.Hashing;
 using GameVault.Library.Maps;
 using GameVault.Library.Memory;
@@ -64,6 +65,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     private volatile bool _netplayActive;
     private NetplayStatus _netplayStatus;
     private byte[]? _romData;
+
+    // Verified challenges (SPEC §7.9): the attempt in progress, set and cleared on the emulation thread.
+    private ChallengeFile? _challenge;
+    private List<(byte Player1, byte Player2)> _challengeInputs = [];
+    private volatile bool _challengeActive;
 
     // Game-aware features (SPEC §7.9): the memory-map watcher and its latest overlay values.
     private readonly GameWatcher _watcher = new();
@@ -175,9 +181,9 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     public void SetCheats(IReadOnlyList<CheatCode> codes)
     {
-        if (_netplayActive)
+        if (_netplayActive || _challengeActive)
         {
-            return; // both players must run the same game: no codes during netplay
+            return; // netplay and challenges replay without codes
         }
 
         var copy = codes.ToList();
@@ -277,6 +283,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             _cheatsActive = false;
             _rewind.Clear();
             _rewinding = false;
+            _challenge = null;
+            _challengeActive = false;
             _netLink = link;
             _netplay = new RollbackSession(console, link, localPlayer, NetplayInputDelay);
             _netplayActive = true;
@@ -363,6 +371,163 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
 
     /// <summary>F2: go back to before the last life lost. Raised on the UI thread.</summary>
     public event EventHandler? BeforeDeathRequested;
+
+    public IReadOnlyList<string> MemoryValueNames => MemoryMap?.Values.Keys.Order().ToList() ?? [];
+
+    public bool IsChallengeActive => _challengeActive;
+
+    public event EventHandler<ChallengeOutcome>? ChallengeFinished;
+
+    public async Task<ChallengeFile> CreateChallengeAsync(string name, IReadOnlyList<MemoryCondition> goal, int? timeLimitFrames, string? note)
+    {
+        if (GameKey is not { } key || !key.StartsWith("sha1:", StringComparison.Ordinal) || _romData is null || FdsImage.IsFdsImage(_romData))
+        {
+            throw new ChallengeException("Start a cartridge game first; challenges begin from where you are now.");
+        }
+
+        if (_netplayActive || _challengeActive)
+        {
+            throw new ChallengeException("Finish the netplay session or challenge first.");
+        }
+
+        if (goal.Count == 0)
+        {
+            throw new ChallengeException("Choose a goal: what must be true to finish the challenge.");
+        }
+
+        var map = MemoryMap;
+        var names = goal.Where(c => c.Address is null).Select(c => c.Value.GetString()!).Distinct().ToList();
+        if (names.Any(n => map?.Values.ContainsKey(n) != true))
+        {
+            throw new ChallengeException("The goal uses a value this game's memory map doesn't have.");
+        }
+
+        // No codes in the starting point: the check replays without them.
+        var state = await InspectAsync(console =>
+        {
+            if (console.InputSetup != InputSetup.Controllers)
+            {
+                return null;
+            }
+
+            var codes = console.Cheats.ToList();
+            console.SetCheats([]);
+            var snapshot = console.SaveSnapshot();
+            console.SetCheats(codes);
+            return snapshot;
+        }).ConfigureAwait(false) ?? throw new ChallengeException("Challenges work with games played on controllers.");
+
+        return new ChallengeFile
+        {
+            Id = Guid.NewGuid().ToString("N"),
+            RomSha1 = key[5..],
+            GameTitle = GameTitle ?? string.Empty,
+            Name = string.IsNullOrWhiteSpace(name) ? "Challenge" : name.Trim(),
+            Note = string.IsNullOrWhiteSpace(note) ? null : note.Trim(),
+            Goal = goal,
+            Values = names.ToDictionary(n => n, n => map!.Values[n]),
+            TimeLimitFrames = timeLimitFrames,
+            StartState = Convert.ToBase64String(state),
+            CreatedBy = Environment.UserName,
+            Created = DateTimeOffset.Now,
+        };
+    }
+
+    public Task StartChallengeAsync(ChallengeFile challenge)
+    {
+        if (GameKey != "sha1:" + challenge.RomSha1.ToLowerInvariant() && GameKey != "sha1:" + challenge.RomSha1)
+        {
+            throw new ChallengeException($"Open {(challenge.GameTitle.Length > 0 ? challenge.GameTitle : "the challenge's game")} first. Challenges only run on the same game.");
+        }
+
+        if (_netplayActive)
+        {
+            throw new ChallengeException("Leave netplay first.");
+        }
+
+        var state = Convert.FromBase64String(challenge.StartState);
+        var started = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        Post(() =>
+        {
+            if (_console is not { } console)
+            {
+                started.SetException(new ChallengeException("Start the game first."));
+                return;
+            }
+
+            var backup = console.SaveSnapshot();
+            try
+            {
+                console.LoadSnapshot(state);
+            }
+            catch (StateFormatException)
+            {
+                console.LoadSnapshot(backup);
+                started.SetException(new ChallengeException("The challenge's starting point doesn't work with this game."));
+                return;
+            }
+
+            console.SetCheats([]);
+            _seenCheats = console.Bus.Cheats;
+            _cheatsActive = false;
+            _rewind.Clear();
+            _watcher.Resync();
+            _challenge = challenge;
+            _challengeInputs = [];
+            _challengeActive = true;
+            _present(console);
+            started.SetResult();
+        });
+        return started.Task;
+    }
+
+    public void CancelChallenge() => Post(() =>
+    {
+        if (_challenge is not null)
+        {
+            EndChallenge(new ChallengeOutcome(ChallengeOutcomeKind.GaveUp, _challengeInputs.Count, null));
+        }
+    });
+
+    public Task<ChallengeCheck> VerifyChallengeAsync(ChallengeFile challenge, ChallengeResult result)
+    {
+        var rom = _romData;
+        return rom is null
+            ? Task.FromResult(new ChallengeCheck(false, "Open the challenge's game first, to check results against it."))
+            : Task.Run(() => ChallengeVerifier.Verify(rom, challenge, result));
+    }
+
+    /// <summary>Emulation thread: records this frame's buttons and checks the goal and the time limit.</summary>
+    private void AfterChallengeFrame(NesConsole console, ChallengeFile challenge)
+    {
+        _challengeInputs.Add(((byte)console.Controller1.State, (byte)console.Controller2.State));
+        var frames = _challengeInputs.Count;
+        if (challenge.GoalHolds(address => console.Bus.Peek((ushort)address)))
+        {
+            var result = new ChallengeResult
+            {
+                ChallengeId = challenge.Id,
+                RomSha1 = challenge.RomSha1,
+                Player = Environment.UserName,
+                Frames = frames,
+                Inputs = Convert.ToBase64String(InputRecording.Encode(_challengeInputs)),
+                Finished = DateTimeOffset.Now,
+            };
+            EndChallenge(new ChallengeOutcome(ChallengeOutcomeKind.Done, frames, result));
+        }
+        else if (challenge.TimeLimitFrames is { } limit && frames >= limit)
+        {
+            EndChallenge(new ChallengeOutcome(ChallengeOutcomeKind.TimeUp, frames, null));
+        }
+    }
+
+    private void EndChallenge(ChallengeOutcome outcome)
+    {
+        _challenge = null;
+        _challengeInputs = [];
+        _challengeActive = false;
+        Raise(() => ChallengeFinished?.Invoke(this, outcome));
+    }
 
     /// <summary>Emulation thread: reports what the memory-map watcher saw this frame.</summary>
     private void HandleWatch(NesConsole console, WatchResult watch)
@@ -650,6 +815,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         Post(() =>
         {
             EndNetplay();
+            _challenge = null;
+            _challengeActive = false;
             FlushBattery(); // the previous game's
             _console = console;
             _seenCheats = null;
@@ -796,9 +963,9 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         var result = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
         Post(() =>
         {
-            if (_console is null || _netplay is not null)
+            if (_console is null || _netplay is not null || _challenge is not null)
             {
-                result.SetResult(false); // loading a state would put the two netplay games out of step
+                result.SetResult(false); // loading a state would put the netplay games out of step, or spoil an attempt
                 return;
             }
 
@@ -1019,6 +1186,11 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
                 Raise(() => PasswordCaptured?.Invoke(this, new PasswordCapturedEventArgs(password, png)));
             }
 
+            if (_challenge is { } challenge)
+            {
+                AfterChallengeFrame(console, challenge);
+            }
+
             var watch = _watcher.OnFrame(console);
             if (!watch.IsEmpty)
             {
@@ -1057,7 +1229,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     /// </summary>
     private bool UpdateRewinding()
     {
-        var held = _input.IsHotkeyHeld(VirtualKeys.Backspace);
+        var held = _input.IsHotkeyHeld(VirtualKeys.Backspace) && _challenge is null; // no rewinding in an attempt
         if (held != _rewinding)
         {
             _rewinding = held;

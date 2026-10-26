@@ -1,3 +1,5 @@
+using GameVault.Library.Challenges;
+using GameVault.Library.Memory;
 using GameVault.Platform.Video;
 using GameVault.ViewModels.Services;
 
@@ -216,6 +218,94 @@ public sealed class SampleEmulatorHost : IEmulatorService, IDisposable
         else
         {
             _context.Post(_ => StatusChanged?.Invoke(this, EventArgs.Empty), null);
+        }
+    }
+
+    // ---------------------------------------------------------------- challenges (SPEC §7.9), for previewing the flyout
+
+    /// <summary>A challenge for the sample game, offered by the sample challenge files.</summary>
+    public static ChallengeFile SampleChallenge { get; } = new()
+    {
+        Id = "sample-challenge",
+        RomSha1 = "sample:2",
+        GameTitle = "Crystal Caverns",
+        Name = "Crystal sprint",
+        Note = "Grab three crystals before the bats wake up",
+        Goal = [MemoryCondition.Named("crystals", ">=", 3)],
+        Values = new Dictionary<string, MemoryValue> { ["crystals"] = new() { Address = 0x0050 } },
+        TimeLimitFrames = 3606,
+        StartState = string.Empty,
+    };
+
+    public IReadOnlyList<string> MemoryValueNames => GameKey is null ? [] : ["crystals", "health", "lives"];
+
+    public bool IsChallengeActive { get; private set; }
+
+    public event EventHandler<ChallengeOutcome>? ChallengeFinished;
+
+    public Task<ChallengeFile> CreateChallengeAsync(string name, IReadOnlyList<MemoryCondition> goal, int? timeLimitFrames, string? note) =>
+        GameKey is null
+            ? Task.FromException<ChallengeFile>(new ChallengeException("Start a game first."))
+            : Task.FromResult(SampleChallenge with
+            {
+                Id = Guid.NewGuid().ToString("N"),
+                Name = string.IsNullOrWhiteSpace(name) ? "Sample challenge" : name.Trim(),
+                Note = note,
+                Goal = goal,
+                TimeLimitFrames = timeLimitFrames,
+                Created = DateTimeOffset.Now,
+            });
+
+    /// <summary>Pretends the player reaches the goal a few seconds in.</summary>
+    public Task StartChallengeAsync(ChallengeFile challenge)
+    {
+        IsChallengeActive = true;
+        _ = FinishSampleAttemptAsync(challenge);
+        return Task.CompletedTask;
+    }
+
+    private async Task FinishSampleAttemptAsync(ChallengeFile challenge)
+    {
+        await Task.Delay(TimeSpan.FromSeconds(3));
+        if (!IsChallengeActive)
+        {
+            return;
+        }
+
+        IsChallengeActive = false;
+        var result = new ChallengeResult
+        {
+            ChallengeId = challenge.Id,
+            RomSha1 = challenge.RomSha1,
+            Player = "Sample player",
+            Frames = 2154,
+            Inputs = string.Empty,
+            Finished = DateTimeOffset.Now,
+        };
+        RaiseFinished(new ChallengeOutcome(ChallengeOutcomeKind.Done, result.Frames, result));
+    }
+
+    public void CancelChallenge()
+    {
+        if (IsChallengeActive)
+        {
+            IsChallengeActive = false;
+            RaiseFinished(new ChallengeOutcome(ChallengeOutcomeKind.GaveUp, 0, null));
+        }
+    }
+
+    public Task<ChallengeCheck> VerifyChallengeAsync(ChallengeFile challenge, ChallengeResult result) =>
+        Task.FromResult(new ChallengeCheck(true, $"Checked: {result.Player} really did it in {ChallengeVerifier.Time(result.Frames)}."));
+
+    private void RaiseFinished(ChallengeOutcome outcome)
+    {
+        if (_context is null)
+        {
+            ChallengeFinished?.Invoke(this, outcome);
+        }
+        else
+        {
+            _context.Post(_ => ChallengeFinished?.Invoke(this, outcome), null);
         }
     }
 }

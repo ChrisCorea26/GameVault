@@ -1,5 +1,6 @@
 using GameVault.Dumper;
 using GameVault.Library.Data;
+using GameVault.Library.Challenges;
 using GameVault.Library.Cheats;
 using GameVault.Library.Journal;
 using GameVault.Library.Maps;
@@ -113,6 +114,21 @@ public partial class App : Application
             services.AddSingleton<ICheatService, SampleCheatService>();
             services.AddSingleton<ISessionLog, InMemorySessionLog>();
             services.AddSingleton<ICodeFilePicker, SampleCodeFilePicker>();
+            services.AddSingleton<IChallengeFiles>(_ => new InMemoryChallengeFiles
+            {
+                ToOpen =
+                {
+                    [ChallengeFileKind.Challenge] = ChallengeFiles.Save(SampleEmulatorHost.SampleChallenge),
+                    [ChallengeFileKind.Result] = ChallengeFiles.Save(new ChallengeResult
+                    {
+                        ChallengeId = SampleEmulatorHost.SampleChallenge.Id,
+                        RomSha1 = "sample:2",
+                        Player = "Sam",
+                        Frames = 2154,
+                        Inputs = string.Empty,
+                    }),
+                },
+            });
         }
         else
         {
@@ -159,6 +175,7 @@ public partial class App : Application
                     new HttpClient { DefaultRequestHeaders = { { "User-Agent", "GameVault (NES emulator; code lookup on request)" } } },
                     sp.GetRequiredService<AppPaths>().OnlineCodesCacheDirectory)));
             services.AddSingleton<ICodeFilePicker, WinUiCodeFilePicker>();
+            services.AddSingleton<IChallengeFiles, WinUiChallengeFiles>();
             services.AddSingleton<ISessionLog>(sp => new SessionLog(new SessionStore(sp.GetRequiredService<AppPaths>().SessionsDirectory)));
             services.AddSingleton<IDumperService>(sp =>
             {
@@ -201,6 +218,7 @@ public partial class App : Application
         services.AddTransient<NetplayViewModel>();
         services.AddTransient<CodeCollectionsViewModel>();
         services.AddTransient<RecapViewModel>();
+        services.AddTransient<ChallengesViewModel>();
         services.AddTransient<DumpCartridgeViewModel>();
         services.AddTransient<PlayerViewModel>();
 

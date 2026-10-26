@@ -41,6 +41,7 @@
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
 
       <Button
@@ -144,6 +145,59 @@
         </Button.Flyout>
       </Button>
 
+      <!-- SPEC §7.9: verified challenges; shown when the game has a memory map or a challenge is open. -->
+      <Button Grid.Column="13" AccessKey="H" Content="Challenges">
+        <Button.Flyout>
+          <Flyout Closed="Flyout_Closed" Placement="BottomEdgeAlignedRight">
+            <StackPanel Width="380" Spacing="12">
+              <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.Challenges.CanMakeChallenges, Mode=OneWay}">
+                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Make a challenge from this moment" />
+                <TextBox Header="Name" PlaceholderText="Beat the first boss" Text="{x:Bind ViewModel.Challenges.Name, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Grid ColumnSpacing="8">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="80" />
+                  </Grid.ColumnDefinitions>
+                  <ComboBox
+                      HorizontalAlignment="Stretch"
+                      Header="Goal"
+                      ItemsSource="{x:Bind ViewModel.Challenges.GoalValues, Mode=OneWay}"
+                      SelectedIndex="{x:Bind ViewModel.Challenges.GoalValueIndex, Mode=TwoWay}" />
+                  <ComboBox
+                      Grid.Column="1"
+                      VerticalAlignment="Bottom"
+                      AutomationProperties.Name="Comparison"
+                      ItemsSource="{x:Bind ViewModel.Challenges.Ops}"
+                      SelectedIndex="{x:Bind ViewModel.Challenges.OpIndex, Mode=TwoWay}" />
+                  <TextBox
+                      Grid.Column="2"
+                      VerticalAlignment="Bottom"
+                      AutomationProperties.Name="Goal number"
+                      Text="{x:Bind ViewModel.Challenges.Target, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                </Grid>
+                <TextBox
+                    Header="Time limit in seconds (optional)"
+                    InputScope="Number"
+                    Text="{x:Bind ViewModel.Challenges.TimeLimitSeconds, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Button Command="{x:Bind ViewModel.Challenges.MakeCommand}" Content="Save challenge…" Style="{StaticResource AccentButtonStyle}" />
+              </StackPanel>
+              <StackPanel Spacing="8">
+                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Take a challenge" />
+                <Button Command="{x:Bind ViewModel.Challenges.OpenCommand}" Content="Open challenge…" />
+                <TextBlock Text="{x:Bind ViewModel.Challenges.ChallengeSummary, Mode=OneWay}" TextWrapping="Wrap" />
+                <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.Challenges.HasChallenge, Mode=OneWay}">
+                  <Button Command="{x:Bind ViewModel.Challenges.StartCommand}" Content="Start" />
+                  <Button Command="{x:Bind ViewModel.Challenges.GiveUpCommand}" Content="Give up" />
+                  <Button Command="{x:Bind ViewModel.Challenges.SaveResultCommand}" Content="Save result…" />
+                  <Button Command="{x:Bind ViewModel.Challenges.CheckResultCommand}" Content="Check a result…" />
+                </StackPanel>
+              </StackPanel>
+              <TextBlock Text="{x:Bind ViewModel.Challenges.Message, Mode=OneWay}" TextWrapping="Wrap" />
+            </StackPanel>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
       <ToggleButton
           Grid.Column="12"
           AccessKey="T"

@@ -152,8 +152,8 @@ public sealed class GameWatcherTests : IDisposable
         var timeline = new TimelineService(host, new TimelineStore(_root.FullName));
         var lost = 0;
         timeline.Changed += (_, _) => lost++;
-        var stats = new List<string>();
-        host.StatValuesChanged += (_, _) => stats.Add(host.StatValues.Single().Text);
+        var stats = new System.Collections.Concurrent.ConcurrentQueue<string>();
+        host.StatValuesChanged += (_, _) => stats.Enqueue(host.StatValues.Single().Text);
 
         host.Load(LivesAndRoomsRom(), "Lives");
         host.HasMemoryMap.Should().BeTrue();
@@ -162,7 +162,8 @@ public sealed class GameWatcherTests : IDisposable
         var key = host.GameKey!;
         var items = await timeline.GetAsync(key);
         items.Should().Contain(i => i.Kind == TimelineItemKind.BeforeDeath);
-        stats.Should().Contain("2");
+        // The overlay is refreshed a few times a second, so its "2" can trail the life-lost save.
+        await WaitFor(() => stats.Contains("2"), 30);
 
         host.Pause();
         var notices = new List<string>();

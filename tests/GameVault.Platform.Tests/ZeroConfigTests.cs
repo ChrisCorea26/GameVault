@@ -83,7 +83,8 @@ public sealed class ZeroConfigTests : IDisposable
             new SamplePasswordService(), new SampleJournalService(), new AssistViewModel(host), new PracticeViewModel(host, new InMemoryPracticeRecords()),
             new CodesViewModel(new SampleCheatService(), new SampleCodeFilePicker()), new SampleCheatService(),
             new NetplayViewModel(host, new InMemoryClipboard()), new InMemoryWindowService(),
-            new RecapViewModel(new InMemorySessionLog(), new SampleJournalService(), new SamplePasswordService(), timeline), new InMemorySessionLog());
+            new RecapViewModel(new InMemorySessionLog(), new SampleJournalService(), new SamplePasswordService(), timeline), new InMemorySessionLog(),
+            new ChallengesViewModel(host, new InMemoryChallengeFiles()));
         await player.StartCommand.ExecuteAsync(navigation.LastParameter);
         player.HasError.Should().BeFalse(player.ErrorMessage);
         host.Status.Should().Be(EmulatorStatus.Running);
