@@ -45,3 +45,12 @@ All downloads are pinned to commit `95d8f621ae55cee0d09b91519a8989ae0e64753b` of
 | `ppu_read_buffer/test_ppu_read_buffer.nes` | ppu_read_buffer | Joel Yliluoma (Bisqwit) | No explicit redistribution license | Phase 4: $2007 read buffer (CNROM) |
 | `cpu_dummy_reads/cpu_dummy_reads.nes` | cpu_dummy_reads | Shay Green (blargg) | No explicit redistribution license | Phase 4: dummy reads (CNROM) |
 | `cpu_dummy_writes/*.nes` (2) | cpu_dummy_writes | Joel Yliluoma (Bisqwit) | No explicit redistribution license | Phase 4: dummy writes |
+
+### Z80 (Phase 11)
+
+Pinned to commit `1c418fa0d719abab9273131113defbe276101d95` of
+[anotherlin/z80emu](https://github.com/anotherlin/z80emu), which carries the original files.
+
+| Cache path | Suite | Author | Why it isn't committed | Used by |
+|---|---|---|---|---|
+| `z80/zexdoc.com`, `z80/zexall.com` | Z80 instruction exerciser (zexdoc: documented flags; zexall: all flags) | Frank D. Cringle (1994) | GPL v2: redistributable, but kept out of the repository with the other suites | Phase 11: Z80 instructions and flags, run on a minimal CP/M stub |
