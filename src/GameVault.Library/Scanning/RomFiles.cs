@@ -14,7 +14,7 @@ public static class RomFiles
 
     /// <summary>Every extension GameVault opens directly (besides .zip).</summary>
     public static IReadOnlyList<string> Extensions { get; } =
-        [".nes", ".fds", ".sms", ".sg", ".sc", ".dsk", ".do", ".po", ".nib", ".woz", ".md", ".gen", ".smd", ".bin"];
+        [".nes", ".fds", ".sms", ".sg", ".sc", ".dsk", ".do", ".po", ".nib", ".woz", ".md", ".gen", ".smd", ".bin", ".sfc", ".smc"];
 
     /// <summary>The system a file is for, from its extension; null for other files (and .zip, whose content decides).</summary>
     public static GameSystem? SystemOf(string path) => Path.GetExtension(path).ToLowerInvariant() switch
@@ -24,6 +24,7 @@ public static class RomFiles
         ".sg" or ".sc" => GameSystem.Sg1000,
         ".dsk" or ".do" or ".po" or ".nib" or ".woz" => GameSystem.AppleII,
         ".md" or ".gen" or ".smd" or ".bin" => GameSystem.Genesis, // a .bin counts only with a Genesis header (see Read)
+        ".sfc" or ".smc" => GameSystem.Snes,
         _ => null,
     };
 

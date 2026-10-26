@@ -111,7 +111,17 @@ public sealed class InputService
     /// True while a Genesis game runs (Phase 13): controllers use the 6-button layout, with the bottom row A, B, C
     /// on West, South and East and the top row X, Y, Z on the left shoulder, North and the right shoulder.
     /// </summary>
-    public bool SixButtonLayout { get; set; }
+    public bool SixButtonLayout
+    {
+        get => Layout == PadLayout.Genesis;
+        set => Layout = value ? PadLayout.Genesis : PadLayout.Nes;
+    }
+
+    /// <summary>
+    /// The running system's pad (Phase 14). For SNES games controllers map Y and X to West and North and L/R to the
+    /// shoulders, and the keyboard's turbo B and turbo A keys (A and S) become Y and X.
+    /// </summary>
+    public PadLayout Layout { get; set; }
 
     /// <summary>True while any typing key is held (the Apple IIe reads it).</summary>
     public bool AnyTypingKeyHeld
@@ -404,7 +414,19 @@ public sealed class InputService
             }
 
             var period = _turboPeriod;
-            if (frame % period < (period + 1) / 2)
+            if (Layout == PadLayout.Snes)
+            {
+                // No turbo on SNES pads: those keys are Y (turbo B's key) and X (turbo A's key).
+                foreach (var ((_, p, bit), _) in _turboCount)
+                {
+                    if (p == port)
+                    {
+                        var button = (ControllerState)(1 << bit);
+                        state |= button == ControllerState.B ? ControllerState.Y : button == ControllerState.A ? ControllerState.X : button;
+                    }
+                }
+            }
+            else if (frame % period < (period + 1) / 2)
             {
                 foreach (var ((_, p, bit), _) in _turboCount)
                 {
@@ -437,4 +459,12 @@ public sealed class InputService
     }
 
     private static int BitIndex(ControllerState button) => System.Numerics.BitOperations.TrailingZeroCount((int)button);
+}
+
+/// <summary>Which console's pad the controllers and keyboard stand in for.</summary>
+public enum PadLayout
+{
+    Nes,
+    Genesis,
+    Snes,
 }

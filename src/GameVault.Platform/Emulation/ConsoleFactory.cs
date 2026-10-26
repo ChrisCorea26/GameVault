@@ -3,6 +3,7 @@ using GameVault.Core.Apple;
 using GameVault.Core.Cartridge;
 using GameVault.Core.Genesis;
 using GameVault.Core.Sega;
+using GameVault.Core.Snes;
 using GameVault.Core.Systems;
 using GameVault.Library.Profiles;
 using GameVault.ViewModels.Services;
@@ -59,6 +60,28 @@ internal static class ConsoleFactory
             catch (RomFormatException ex)
             {
                 throw new GameLoadException("That Genesis cartridge file is empty or damaged.", ex);
+            }
+        }
+
+        if (system == GameSystem.Snes)
+        {
+            try
+            {
+                var pal = profile.Region?.ToLowerInvariant() switch
+                {
+                    "pal" or "europe" => true,
+                    "ntsc" or "usa" or "japan" => false,
+                    _ => (bool?)null,
+                };
+                return new SnesConsole(new SnesCartridge(data), pal);
+            }
+            catch (UnsupportedChipException ex)
+            {
+                throw new GameLoadException(ex.Message, ex);
+            }
+            catch (RomFormatException ex)
+            {
+                throw new GameLoadException("That Super Nintendo cartridge file is empty or damaged.", ex);
             }
         }
 

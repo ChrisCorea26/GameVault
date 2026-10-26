@@ -53,6 +53,8 @@ public sealed class SampleLibraryService : ILibraryService
             Ownership.DigitalDump, PlayStatus.Playing, hours: 4, lastPlayedDaysAgo: 9, system: GameSystem.AppleII),
         Game(18, "Thunder Circuit", GameRegion.NorthAmerica, "Bitwave", 1991, "Racing",
             Ownership.Cartridge | Ownership.DigitalDump, PlayStatus.Completed, hours: 11, lastPlayedDaysAgo: 30, system: GameSystem.Genesis),
+        Game(19, "Starfall Keep", GameRegion.NorthAmerica, "Quillsoft", 1993, "RPG",
+            Ownership.Cartridge | Ownership.Box | Ownership.DigitalDump, PlayStatus.Playing, rating: 5, hours: 22, lastPlayedDaysAgo: 1, system: GameSystem.Snes),
     ];
 
     private readonly List<GameEntry> _games;
@@ -207,6 +209,7 @@ public sealed class SampleLibraryService : ILibraryService
                     GameSystem.Sg1000 => $@"C:\Games\SG-1000\{title}.sg",
                     GameSystem.AppleII => $@"C:\Games\Apple II\{title}.dsk",
                     GameSystem.Genesis => $@"C:\Games\Genesis\{title}.md",
+                    GameSystem.Snes => $@"C:\Games\Super Nintendo\{title}.sfc",
                     _ => $@"C:\Games\NES\{title}.nes",
                 }
                 : null,

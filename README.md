@@ -27,6 +27,7 @@ full feature specification and [CLAUDE.md](CLAUDE.md) for the contributor rules.
 | 11 | Sega SG-1000 and Master System | ✅ Z80 passes zexdoc/zexall; VDP, PSG, mappers; library system filter. Real-game checks are the owner's ([plan](docs/plans/phase-11.md)) |
 | 12 | Apple II, II+ and IIe | ✅ 6502/65C02 pass Dormann's tests; video, Disk II (DSK/PO/NIB/WOZ) with a two-drive disk menu, keyboard. Needs your own Apple ROMs ([plan](docs/plans/phase-12.md)) |
 | 13 | Sega Genesis / Mega Drive | ✅ 68000 passes the SingleStepTests suite; VDP, YM2612, PSG, Z80, 3/6-button pads, SRAM. Real-game checks are the owner's ([plan](docs/plans/phase-13.md)) |
+| 14 | Super Nintendo | ✅ 65C816 and SPC700 pass their SingleStepTests suites; PPU modes 0–7, DMA/HDMA, S-DSP with GameVault's own boot program. Enhancement-chip games aren't supported yet; real-game checks are the owner's ([plan](docs/plans/phase-14.md)) |
 | 13–19 | More systems | Planned (SPEC §7.11) |
 
 Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md).

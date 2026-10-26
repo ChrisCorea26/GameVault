@@ -101,8 +101,8 @@ The SNES pad has B, Y, Select, Start, the D-pad, A, X, L and R. On `ControllerSt
 - **SNES Y and X** are its new Y and X.
 - **L and R** are L and R.
 
-Keyboard defaults: Z/X stay B/A, and A/S become Y/X for SNES games. Their NES role is turbo B/A, so SNES
-games use the 6-button-style layout (§ input.md): turbo keys don't apply to SNES games.
+Keyboard defaults: Z/X stay B/A, and A/S, whose NES role is turbo B/A, become Y/X for SNES games, which have
+no turbo keys (input.md §6.3).
 
 Controllers are positional, as on the real pad:
 - B south, A east, Y west, X north;
@@ -134,6 +134,56 @@ Controllers are positional, as on the real pad:
     at the pitch its register gives.
   - **Save states:** round-trips and determinism.
 - **Host:** loading and frames.
+
+## Results
+- **65C816:** passes all 5,080,400 tests of the SingleStepTests 65816 suite (native and emulation mode), with
+  every cycle count matching.
+  - Every bus and internal cycle goes through the bus, so the console charges each access its speed.
+  - MVN/MVP move one byte per step, so interrupts can come between bytes; the harness steps a block move to
+    its end.
+  - WAI and STP take 4 cycles, as the suite counts.
+- **SPC700:** passes all 256,000 tests of the SingleStepTests spc700 suite, including cycle counts.
+- **Both suites** are fetched only by the "65816 and SPC700" CI job, which caches the 2.6 GB 65816 download.
+- **Boot program:** GameVault's own boot program replaces Nintendo's IPL ROM. A unit test uploads a program
+  through the documented protocol and runs it.
+- **S-DSP:**
+  - eight voices of BRR with the four filters, 4-point interpolation, ADSR and GAIN;
+  - pitch modulation, noise, and echo (8-tap FIR, feedback, buffer in audio RAM);
+  - mixed to mono at 32,040 Hz.
+- **Machine:**
+  - **Timing:** the 65C816 runs on the master clock with per-address speeds, FastROM, and the DRAM refresh.
+  - **Memory and DMA:** WRAM and its port, eight-channel DMA, and HDMA (direct and indirect, repeat).
+  - **CPU registers:** the multiplier and divider, NMI, H/V IRQ, and joypad auto-read plus the serial port.
+- **Cartridges:**
+  - LoROM, HiROM and ExHiROM by header score, and copier headers skipped;
+  - SRAM from the header, saved when the header says there's a battery;
+  - PAL from the country code.
+  - Enhancement-chip games get a message naming the chip.
+- **PPU:**
+  - modes 0–7 with 8×8/16×16 tiles, mosaic and offset-per-tile;
+  - hi-res and pseudo-hi-res: the frame becomes 512 wide, with other lines doubled;
+  - mode 7 with its matrix, wrap and fill options, EXTBG and direct colour;
+  - 128 sprites with the range and time limits;
+  - windows with their logic, main/sub screens, colour math with clip/prevent, brightness and forced blank;
+  - VRAM remapping, the scroll and mode 7 latches, and the counter latches.
+  - The frame holds BGR555 colours, so the video path's palette mask grew to 32,768 entries.
+- **Platform:**
+  - The library finds `.sfc`/`.smc` files, and headered copies hash like plain ones.
+  - The catalog import recognizes "Super Nintendo" and "Super Famicom" DATs.
+  - Game properties take `region`.
+  - Controllers use the SNES layout, and the keyboard's turbo keys become Y and X.
+  - RetroAchievements: rcheevos' SNES hash (header skipped) and memory (WRAM, then SRAM at $20000).
+  - The sample library has an SNES game.
+- **Tests:** the two suites; cartridge mapping; a boot program; DMA and HDMA; the multiplier, divider and
+  joypads; mode 1 with a sprite; colour math and windows; mode 7; the boot-program upload; a DSP voice's pitch;
+  save-state replay; host loading; and the chip message.
+- **Changed from the plan, or left for later:**
+  - **Rendering and timing:** each line is drawn as it starts, from the registers then. Mid-line changes, exact
+    PPU fetch timing and interlace aren't modeled.
+  - **The DSP:** its interpolation uses a computed Gaussian rather than the chip's table, and the
+    envelope-rate counter offsets aren't modeled.
+  - **Enhancement chips:** left for later phases, as planned.
+  - **`--sample-data`:** the Player shows the standard test pattern for the SNES sample game.
 
 ## Order of work
 1. 65C816 with the single-step harness.

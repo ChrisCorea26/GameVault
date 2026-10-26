@@ -406,6 +406,24 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
 
     private static int SourceOf(int instanceId) => SourceOffset + instanceId;
 
+    /// <summary>The SNES pad's own layout: B south, A east, Y west, X north, L and R on the shoulders.</summary>
+    private static (ControllerState State, bool Turbo) SnesButton(PadButton button) => button switch
+    {
+        PadButton.South => (ControllerState.B, false),
+        PadButton.East => (ControllerState.A, false),
+        PadButton.West => (ControllerState.Y, false),
+        PadButton.North => (ControllerState.X, false),
+        PadButton.LeftShoulder => (ControllerState.L, false),
+        PadButton.RightShoulder => (ControllerState.R, false),
+        PadButton.Back => (ControllerState.Select, false),
+        PadButton.Start => (ControllerState.Start, false),
+        PadButton.DPadUp => (ControllerState.Up, false),
+        PadButton.DPadDown => (ControllerState.Down, false),
+        PadButton.DPadLeft => (ControllerState.Left, false),
+        PadButton.DPadRight => (ControllerState.Right, false),
+        _ => (ControllerState.None, false),
+    };
+
     private static (ControllerState State, bool Turbo) SixButton(PadButton button) => button switch
     {
         PadButton.West => (ControllerState.B, false),
@@ -430,7 +448,7 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
     private void ApplyToGame(int instanceId, int port, PadButton button, bool down)
     {
         var source = SourceOf(instanceId);
-        var (state, turbo) = _input.SixButtonLayout ? SixButton(button) : button switch
+        var (state, turbo) = _input.Layout == PadLayout.Genesis ? SixButton(button) : _input.Layout == PadLayout.Snes ? SnesButton(button) : button switch
         {
             PadButton.South => (ControllerState.B, false),
             PadButton.East => (ControllerState.A, false),

@@ -188,3 +188,19 @@ Real disks need the owner's Apple ROMs (Settings → Apple II) and disk images; 
 | EEPROM saves (I²C), Sega CD, 32X | Not yet |
 
 Real games are the owner's to try; see `docs/plans/phase-13.md`.
+
+## Super Nintendo / Super Famicom (Phase 14)
+
+| Part | State |
+|---|---|
+| 65C816: SingleStepTests 65816 (5,080,400 tests, native and emulation mode) | ✅ All pass, including every cycle count |
+| SPC700: SingleStepTests spc700 (256,000 tests) | ✅ All pass, including cycle counts |
+| Boot program (GameVault's own, not Nintendo's IPL): the upload protocol | ✅ Unit test uploads and runs a program |
+| S-DSP: BRR, envelopes, pitch, noise, echo | 🟡 A voice plays at its register's pitch; not checked against hardware recordings (interpolation uses a computed Gaussian) |
+| Memory map: LoROM, HiROM, ExHiROM; SRAM; copier headers | ✅ Unit tests |
+| DMA and HDMA; multiplier/divider; NMI/IRQ; joypad auto-read and serial | ✅ Unit tests |
+| PPU: modes 0–7, sprites, windows, colour math, brightness, hi-res | 🟡 Mode 1, mode 7, sprites, windows and colour math have pixel tests; other modes are implemented without their own tests |
+| Interlace, mid-line register changes, exact PPU timing | Not yet |
+| Enhancement chips (Super FX, SA-1, DSP-n, Cx4, S-DD1, SPC7110, …) | Not yet: such games get a message naming the chip |
+
+Real games are the owner's to try; see `docs/plans/phase-14.md`.

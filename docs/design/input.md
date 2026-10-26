@@ -162,6 +162,19 @@ While a Genesis game runs, controllers switch to the 6-button layout (positional
 The 6-button protocol is the default; Game properties' `pad: "3"` gives a game the 3-button pad. Netplay
 (protocol 2) and challenge recordings (version 2) carry all 16 bits.
 
+### 6.3 Super Nintendo (Phase 14)
+The SNES pad's buttons are the controller state's own: B, A, Y, X, L, R, Select and Start. Controllers use the
+pad's layout while an SNES game runs:
+
+| SNES | Pad | Xbox label |
+|---|---|---|
+| B, A | South, East | A, B |
+| Y, X | West, North | X, Y |
+| L, R | Left shoulder, right shoulder | LB, RB |
+
+On the keyboard, Z and X stay B and A, and the turbo keys A and S become Y and X (SNES games have no turbo);
+Q/W/E (X, Y, Z for the Genesis) are unused, and L and R have no default key.
+
 ## 7. Game input vs. UI navigation
 
 - **In the Library and other pages:** every connected pad navigates the UI (D-pad and stick move XY
