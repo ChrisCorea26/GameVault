@@ -100,6 +100,10 @@ public sealed class R5900AutotestTests
         AutotestPorts.EeBranchDelay().TrimEnd().Should().Be(expected.TrimEnd());
     }
 
+    [TestRomFact("ps2autotests/cpu/ee_cop0/performance.expected")]
+    public void The_performance_counters_match_the_hardware() =>
+        AutotestPorts.Performance().TrimEnd().Should().Be(Expected("ps2autotests/cpu/ee_cop0/performance.expected").TrimEnd());
+
     [TestRomFact("ps2autotests/cpu/ee/lsudelay.expected")]
     public void Loads_have_no_delay_slot() =>
         AutotestPorts.LsuDelay().TrimEnd().Should().Be(Expected("ps2autotests/cpu/ee/lsudelay.expected").TrimEnd());

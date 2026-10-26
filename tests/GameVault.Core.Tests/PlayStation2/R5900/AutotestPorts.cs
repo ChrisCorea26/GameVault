@@ -350,6 +350,73 @@ internal static partial class AutotestPorts
         return output.ToString();
     }
 
+    /// <summary>cpu/ee_cop0/performance: PCCR and the two counters through MFPS/MTPS/MFPC/MTPC.</summary>
+    public static string Performance()
+    {
+        var m = new R5900TestMachine();
+        var cpu = m.Cpu;
+        var output = new StringBuilder("-- TEST BEGIN\n");
+        uint Mfps(int reg) => 0x4000_C800u | (2u << 16) | (uint)(reg << 1);
+        uint Mtps(int reg) => 0x4080_C800u | (2u << 16) | (uint)(reg << 1);
+        uint Mfpc(int reg) => 0x4000_C801u | (2u << 16) | (uint)(reg << 1);
+        uint Mtpc(int reg) => 0x4080_C801u | (2u << 16) | (uint)(reg << 1);
+
+        void Set(Func<int, uint> encode, int reg, uint value)
+        {
+            cpu.SetGpr64(2, value);
+            m.Run(encode(reg), Ee.R(0x0F));
+        }
+
+        uint Get(Func<int, uint> encode, int reg)
+        {
+            m.Run(encode(reg));
+            return (uint)cpu.GetGpr64(2);
+        }
+
+        string Counters() => string.Concat(Enumerable.Range(0, 32).Select(i => Get(Mfpc, i).ToString()));
+
+        Set(Mtps, 0, 0);
+        Set(Mtpc, 0, 0x89ABCDEF);
+        output.Append($"setting pcr0: {Get(Mfpc, 0):x8}\n");
+        Set(Mtpc, 1, 0x01234567);
+        output.Append($"setting pcr1: {Get(Mfpc, 1):x8}\n");
+        Set(Mtps, 0, 0x7FFFFFFF);
+        output.Append($"setting pccr: {Get(Mfps, 0):x8}\n");
+        Set(Mtpc, 0, 1);
+        Set(Mtpc, 1, 2);
+        output.Append($"reading from even/odd numbered pcr specifier maps to pcr0/pcr1: {Counters()}\n");
+        Set(Mtpc, 30, 4);
+        Set(Mtpc, 31, 5);
+        output.Append($"writing to even/odd numbered pcr specifier maps to pcr0/pcr1: {Counters()}\n");
+        Set(Mtps, 0, (1 << 5) | (1 << 15));
+        output.Append($"reading from any pccr specifier maps to pccr: {Get(Mfps, 31):x8}\n");
+        Set(Mtps, 0, 0);
+        Set(Mtps, 15, (16 << 5) | (16 << 15));
+        output.Append($"writing to any pccr specifier other than 0 is no-op: {Get(Mfps, 0):x8}\n");
+
+        foreach (var (title, specifier) in new (string, uint)[]
+                 {
+                     ("counter 0 (all modes, processor cycles), counter 1 (no modes, 0)", 0x1E | (1 << 5)),
+                     ("counter 0 (no modes, 0), counter 1 (all modes, processor cycles)", (0xFu << 11) | (1 << 15)),
+                     ("counter 0 (all modes, processor cycles), counter 1 (all modes, processor cycles)", 0x1E | (1 << 5) | (0xFu << 11) | (1 << 15)),
+                     ("counter 0 (no modes, processor cycles), counter 1 (no modes, processor cycles)", (1 << 5) | (1 << 15)),
+                 })
+        {
+            Set(Mtps, 0, 0);
+            Set(Mtpc, 0, 0);
+            Set(Mtpc, 1, 0);
+            Set(Mtps, 0, 0x8000_0000 | specifier);
+            m.Run([.. Enumerable.Repeat(0u, 0x300)]);
+            Set(Mtps, 0, 0);
+            var pcr0 = Get(Mfpc, 0);
+            var pcr1 = Get(Mfpc, 1);
+            output.Append($"{title}: pcr0 -> {(pcr0 != 0 ? "changed" : "unchanged")}, pcr1 -> {(pcr1 != 0 ? "changed" : "unchanged")}\n");
+        }
+
+        output.Append("-- TEST END\n");
+        return output.ToString();
+    }
+
     public static string LsuDelay()
     {
         var m = new R5900TestMachine();

@@ -544,10 +544,15 @@ public sealed partial class R5900Cpu
             case 25:
                 if ((op & 1) == 0)
                 {
+                    if ((op & 0x3E) != 0)
+                    {
+                        break; // MTPS to any event specifier but 0 does nothing (ps2autotests cpu/ee_cop0/performance)
+                    }
+
                     _pcr0 = PerfCounter(0);
                     _pcr1 = PerfCounter(1);
                     _pcr0Base = _pcr1Base = Cycles;
-                    _pccr = value;
+                    _pccr = value & 0x800F_FBFE;
                 }
                 else if ((op & 2) == 0)
                 {
@@ -568,15 +573,16 @@ public sealed partial class R5900Cpu
     }
 
     /// <summary>
-    /// PCR0/PCR1: while PCCR's CTE (bit 31) is set and the counter has an event and a mode bit selected, it counts EE
-    /// cycles (approximate: the events aren't told apart).
+    /// PCR0/PCR1: while PCCR's CTE (bit 31) is set and the counter has an event (1–15) and a mode bit (EXL, K, S, U)
+    /// selected, it counts EE cycles. Approximate: the events aren't told apart and the modes aren't checked against
+    /// the CPU's, and the counters' overflow interrupt (a level 2 exception) isn't raised.
     /// </summary>
     private uint PerfCounter(int counter)
     {
         var shift = counter == 0 ? 1 : 11;
         var events = (_pccr >> (shift + 4)) & 0x1F;
         var modes = (_pccr >> shift) & 0xF;
-        var counting = (_pccr & 0x8000_0000) != 0 && events != 0 && modes != 0;
+        var counting = (_pccr & 0x8000_0000) != 0 && events is > 0 and < 16 && modes != 0;
         if (counter == 0)
         {
             return counting ? _pcr0 + (uint)(Cycles - _pcr0Base) : _pcr0;
