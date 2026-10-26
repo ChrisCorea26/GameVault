@@ -30,4 +30,20 @@ public sealed class R5900AutotestTests
     [InlineData("ps2autotests/cpu/ee_simd/shuffle.expected", true, 580)]
     public void Integer_instructions_match_the_hardware(string path, bool simd, int minimumLines) =>
         Replay(path, simd, minimumLines);
+
+    [TestRomTheory("ps2autotests/cpu/ee_fpu/arithmetic.expected")]
+    [InlineData("ps2autotests/cpu/ee_fpu/arithmetic.expected", 273)]
+    [InlineData("ps2autotests/cpu/ee_fpu/muldiv.expected", 340)]
+    [InlineData("ps2autotests/cpu/ee_fpu/sqrt.expected", 60)]
+    [InlineData("ps2autotests/cpu/ee_fpu/compare.expected", 160)]
+    [InlineData("ps2autotests/cpu/ee_fpu/convert.expected", 60)]
+    public void Fpu_instructions_match_the_hardware(string path, int minimumLines)
+    {
+        var autotest = new FpuAutotest();
+        autotest.Run(IntegerAutotest.ReadExpected(path));
+        autotest.Mismatches.Count.Should().Be(0,
+            $"every line of {path} should match the hardware ({autotest.Mismatches.Count} of {autotest.Checked} differ):\n{string.Join("\n", autotest.Mismatches)}");
+        autotest.Skipped.Should().BeEmpty("every result line is replayed");
+        autotest.Checked.Should().Be(autotest.Lines).And.BeGreaterThanOrEqualTo(minimumLines);
+    }
 }

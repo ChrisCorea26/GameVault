@@ -9,7 +9,7 @@ namespace GameVault.Core.Cpu.R5900;
 /// 754: an exponent of 255 is an ordinary number (no infinities or NaNs), denormals read as zero, results that
 /// overflow saturate to ±0x7FFFFFFF with the O flag and results that underflow flush to ±0 with the U flag. ADD/SUB
 /// and MUL truncate (and the multiplier drops one of its Booth partial products' carry-in); DIV and SQRT round to
-/// nearest; RSQRT is a multiply by DIV(1, SQRT). All of it is matched to ps2autotests' hardware results (cpu/ee_fpu).
+/// nearest; RSQRT is fs × DIV(1, SQRT(ft)), truncated. All of it is matched to ps2autotests' hardware results (cpu/ee_fpu).
 /// </summary>
 public sealed partial class R5900Cpu
 {
@@ -323,18 +323,22 @@ public sealed partial class R5900Cpu
 
         var root = Ps2Float.SquareRoot(t & ~SignBit);
         var reciprocal = Ps2Float.Divide(0x3F80_0000, root).Value;
-        return Ps2Float.Multiply(s, reciprocal).Value;
+        return Ps2Float.Multiply(s, reciprocal, booth: false).Value;
     }
 
     private static FloatResult Add(uint a, uint b) => Ps2Float.Add(a, b);
 
     private static FloatResult Multiply(uint a, uint b) => Ps2Float.Multiply(a, b);
 
-    /// <summary>The order MAX/MIN use: sign and magnitude as an integer (no NaNs on the PS2).</summary>
-    private static long OrderKey(uint value) => (value & SignBit) != 0 ? -(long)(value & ~SignBit) : value;
+    /// <summary>
+    /// The order MAX/MIN use: sign and magnitude as an integer (no NaNs on the PS2), with −0 below +0
+    /// (ps2autotests cpu/ee_fpu/arithmetic).
+    /// </summary>
+    private static long OrderKey(uint value) => (value & SignBit) != 0 ? -(long)(value & ~SignBit) - 1 : value;
 
-    /// <summary>The order the compares use: like <see cref="OrderKey"/> with denormals and −0 equal to +0.</summary>
-    private static long CompareKey(uint value) => (value & 0x7F80_0000) == 0 ? 0 : OrderKey(value);
+    /// <summary>The order the compares use: sign and magnitude, with denormals and −0 equal to +0.</summary>
+    private static long CompareKey(uint value) =>
+        (value & 0x7F80_0000) == 0 ? 0 : (value & SignBit) != 0 ? -(long)(value & ~SignBit) : value;
 
     /// <summary>CVT.S.W: truncated toward zero.</summary>
     private static uint IntToFloat(int value)
@@ -504,7 +508,8 @@ internal static class Ps2Float
     /// 0x3FFFFFFF × 1.0 gives 0x3FFFFFFF (ps2autotests cpu/ee_fpu/muldiv). Where the dropped carries of the higher
     /// partial products would show isn't covered by the hardware vectors; this keeps them.
     /// </summary>
-    public static FloatResult Multiply(uint a, uint b)
+    /// <param name="booth">False for RSQRT's multiply, which the hardware vectors show exact before truncation.</param>
+    public static FloatResult Multiply(uint a, uint b, bool booth = true)
     {
         var sign = (a ^ b) & SignBit;
         var aExponent = (int)((a >> 23) & 0xFF);
@@ -517,7 +522,7 @@ internal static class Ps2Float
         var aSignificand = (ulong)((a & MantissaMask) | ImplicitBit);
         var bSignificand = (b & MantissaMask) | ImplicitBit;
         var product = aSignificand * bSignificand;
-        if ((bSignificand & 2) != 0)
+        if (booth && (bSignificand & 2) != 0)
         {
             product--;
         }
