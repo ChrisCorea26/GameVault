@@ -1,4 +1,6 @@
+using System.Buffers.Binary;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using GameVault.Core.State;
 
 namespace GameVault.Core.Nintendo64;
@@ -54,6 +56,10 @@ public sealed partial class N64Rsp : IStateful
     private readonly IN64RcpHost _host;
     private readonly IN64DpRegisters _dp;
     private readonly uint[] _gpr = new uint[32];
+
+    /// <summary>A scalar register without a bounds check: every index comes from a 5-bit instruction field.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private ref uint G(int index) => ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_gpr), index);
 
     private uint _pc;
     private uint _nextPc = 4;
@@ -116,14 +122,25 @@ public sealed partial class N64Rsp : IStateful
     /// <summary>Runs up to <paramref name="cycles"/> instructions, stopping when the RSP halts (BREAK, or a halt written to SP_STATUS).</summary>
     public void Run(int cycles)
     {
-        while (cycles-- > 0 && (_status & StatusHalt) == 0)
+        ref var imem = ref MemoryMarshal.GetArrayDataReference(Imem);
+        var executed = 0L;
+        while (executed < cycles && (_status & StatusHalt) == 0)
         {
-            Step();
+            var pc = _pc;
+            var word = Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref imem, pc)); // pc is word-aligned and below 4096
+            var instruction = BitConverter.IsLittleEndian ? BinaryPrimitives.ReverseEndianness(word) : word;
+            _pc = _nextPc;
+            _nextPc = (_nextPc + 4) & 0xFFC;
+            executed++;
+            Execute(instruction, pc);
+            G(0) = 0;
             if ((_status & StatusSingleStep) != 0)
             {
                 _status |= StatusHalt;
             }
         }
+
+        Cycles += executed;
     }
 
     public uint ReadRegister(uint address)
@@ -283,17 +300,6 @@ public sealed partial class N64Rsp : IStateful
         }
     }
 
-    private void Step()
-    {
-        var pc = _pc;
-        var instruction = (uint)(Imem[pc] << 24 | Imem[pc + 1] << 16 | Imem[pc + 2] << 8 | Imem[pc + 3]);
-        _pc = _nextPc;
-        _nextPc = (_nextPc + 4) & 0xFFC;
-        Cycles++;
-        Execute(instruction, pc);
-        _gpr[0] = 0;
-    }
-
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Branch(uint pc, uint instruction, bool taken)
     {
@@ -315,12 +321,12 @@ public sealed partial class N64Rsp : IStateful
                 break;
             case 0x01: // REGIMM
                 {
-                    var value = (int)_gpr[rs];
+                    var value = (int)G(rs);
                     var op = rt & 0x1F;
                     var taken = (op & 1) == 0 ? value < 0 : value >= 0;
                     if ((op & 0x10) != 0)
                     {
-                        _gpr[31] = (pc + 8) & 0xFFF;
+                        G(31) = (pc + 8) & 0xFFF;
                     }
 
                     Branch(pc, instruction, taken);
@@ -331,32 +337,32 @@ public sealed partial class N64Rsp : IStateful
                 _nextPc = (instruction << 2) & 0xFFC;
                 break;
             case 0x03: // JAL
-                _gpr[31] = (pc + 8) & 0xFFF;
+                G(31) = (pc + 8) & 0xFFF;
                 _nextPc = (instruction << 2) & 0xFFC;
                 break;
-            case 0x04: Branch(pc, instruction, _gpr[rs] == _gpr[rt]); break; // BEQ
-            case 0x05: Branch(pc, instruction, _gpr[rs] != _gpr[rt]); break; // BNE
-            case 0x06: Branch(pc, instruction, (int)_gpr[rs] <= 0); break; // BLEZ
-            case 0x07: Branch(pc, instruction, (int)_gpr[rs] > 0); break; // BGTZ
+            case 0x04: Branch(pc, instruction, G(rs) == G(rt)); break; // BEQ
+            case 0x05: Branch(pc, instruction, G(rs) != G(rt)); break; // BNE
+            case 0x06: Branch(pc, instruction, (int)G(rs) <= 0); break; // BLEZ
+            case 0x07: Branch(pc, instruction, (int)G(rs) > 0); break; // BGTZ
             case 0x08: // ADDI (the RSP has no overflow exception)
-            case 0x09: _gpr[rt] = _gpr[rs] + immediate; break; // ADDIU
-            case 0x0A: _gpr[rt] = (int)_gpr[rs] < (int)immediate ? 1u : 0u; break; // SLTI
-            case 0x0B: _gpr[rt] = _gpr[rs] < immediate ? 1u : 0u; break; // SLTIU
-            case 0x0C: _gpr[rt] = _gpr[rs] & (immediate & 0xFFFF); break; // ANDI
-            case 0x0D: _gpr[rt] = _gpr[rs] | (immediate & 0xFFFF); break; // ORI
-            case 0x0E: _gpr[rt] = _gpr[rs] ^ (immediate & 0xFFFF); break; // XORI
-            case 0x0F: _gpr[rt] = instruction << 16; break; // LUI
+            case 0x09: G(rt) = G(rs) + immediate; break; // ADDIU
+            case 0x0A: G(rt) = (int)G(rs) < (int)immediate ? 1u : 0u; break; // SLTI
+            case 0x0B: G(rt) = G(rs) < immediate ? 1u : 0u; break; // SLTIU
+            case 0x0C: G(rt) = G(rs) & (immediate & 0xFFFF); break; // ANDI
+            case 0x0D: G(rt) = G(rs) | (immediate & 0xFFFF); break; // ORI
+            case 0x0E: G(rt) = G(rs) ^ (immediate & 0xFFFF); break; // XORI
+            case 0x0F: G(rt) = instruction << 16; break; // LUI
             case 0x10: ExecuteCop0(instruction, rs, rt); break;
             case 0x12: ExecuteCop2(instruction, rs, rt); break;
-            case 0x20: _gpr[rt] = (uint)(sbyte)Dmem[(_gpr[rs] + immediate) & 0xFFF]; break; // LB
-            case 0x21: _gpr[rt] = (uint)(short)ReadHalf(_gpr[rs] + immediate); break; // LH
+            case 0x20: G(rt) = (uint)(sbyte)Dmem[(G(rs) + immediate) & 0xFFF]; break; // LB
+            case 0x21: G(rt) = (uint)(short)ReadHalf(G(rs) + immediate); break; // LH
             case 0x23: // LW
-            case 0x27: _gpr[rt] = ReadWord(_gpr[rs] + immediate); break; // LWU (behaves as LW)
-            case 0x24: _gpr[rt] = Dmem[(_gpr[rs] + immediate) & 0xFFF]; break; // LBU
-            case 0x25: _gpr[rt] = ReadHalf(_gpr[rs] + immediate); break; // LHU
-            case 0x28: Dmem[(_gpr[rs] + immediate) & 0xFFF] = (byte)_gpr[rt]; break; // SB
-            case 0x29: WriteHalf(_gpr[rs] + immediate, _gpr[rt]); break; // SH
-            case 0x2B: WriteWord(_gpr[rs] + immediate, _gpr[rt]); break; // SW
+            case 0x27: G(rt) = ReadWord(G(rs) + immediate); break; // LWU (behaves as LW)
+            case 0x24: G(rt) = Dmem[(G(rs) + immediate) & 0xFFF]; break; // LBU
+            case 0x25: G(rt) = ReadHalf(G(rs) + immediate); break; // LHU
+            case 0x28: Dmem[(G(rs) + immediate) & 0xFFF] = (byte)G(rt); break; // SB
+            case 0x29: WriteHalf(G(rs) + immediate, G(rt)); break; // SH
+            case 0x2B: WriteWord(G(rs) + immediate, G(rt)); break; // SW
             case 0x32: LoadVector(instruction, rs, rt); break; // LWC2
             case 0x3A: StoreVector(instruction, rs, rt); break; // SWC2
             default: break; // everything else does nothing on the RSP
@@ -369,17 +375,17 @@ public sealed partial class N64Rsp : IStateful
         var sa = (int)((instruction >> 6) & 31);
         switch (instruction & 0x3F)
         {
-            case 0x00: _gpr[rd] = _gpr[rt] << sa; break; // SLL
-            case 0x02: _gpr[rd] = _gpr[rt] >> sa; break; // SRL
-            case 0x03: _gpr[rd] = (uint)((int)_gpr[rt] >> sa); break; // SRA
-            case 0x04: _gpr[rd] = _gpr[rt] << (int)(_gpr[rs] & 31); break; // SLLV
-            case 0x06: _gpr[rd] = _gpr[rt] >> (int)(_gpr[rs] & 31); break; // SRLV
-            case 0x07: _gpr[rd] = (uint)((int)_gpr[rt] >> (int)(_gpr[rs] & 31)); break; // SRAV
-            case 0x08: _nextPc = _gpr[rs] & 0xFFC; break; // JR
+            case 0x00: G(rd) = G(rt) << sa; break; // SLL
+            case 0x02: G(rd) = G(rt) >> sa; break; // SRL
+            case 0x03: G(rd) = (uint)((int)G(rt) >> sa); break; // SRA
+            case 0x04: G(rd) = G(rt) << (int)(G(rs) & 31); break; // SLLV
+            case 0x06: G(rd) = G(rt) >> (int)(G(rs) & 31); break; // SRLV
+            case 0x07: G(rd) = (uint)((int)G(rt) >> (int)(G(rs) & 31)); break; // SRAV
+            case 0x08: _nextPc = G(rs) & 0xFFC; break; // JR
             case 0x09: // JALR
                 {
-                    var target = _gpr[rs] & 0xFFC;
-                    _gpr[rd] = (pc + 8) & 0xFFF;
+                    var target = G(rs) & 0xFFC;
+                    G(rd) = (pc + 8) & 0xFFF;
                     _nextPc = target;
                     break;
                 }
@@ -393,15 +399,15 @@ public sealed partial class N64Rsp : IStateful
 
                 break;
             case 0x20: // ADD
-            case 0x21: _gpr[rd] = _gpr[rs] + _gpr[rt]; break; // ADDU
+            case 0x21: G(rd) = G(rs) + G(rt); break; // ADDU
             case 0x22: // SUB
-            case 0x23: _gpr[rd] = _gpr[rs] - _gpr[rt]; break; // SUBU
-            case 0x24: _gpr[rd] = _gpr[rs] & _gpr[rt]; break; // AND
-            case 0x25: _gpr[rd] = _gpr[rs] | _gpr[rt]; break; // OR
-            case 0x26: _gpr[rd] = _gpr[rs] ^ _gpr[rt]; break; // XOR
-            case 0x27: _gpr[rd] = ~(_gpr[rs] | _gpr[rt]); break; // NOR
-            case 0x2A: _gpr[rd] = (int)_gpr[rs] < (int)_gpr[rt] ? 1u : 0u; break; // SLT
-            case 0x2B: _gpr[rd] = _gpr[rs] < _gpr[rt] ? 1u : 0u; break; // SLTU
+            case 0x23: G(rd) = G(rs) - G(rt); break; // SUBU
+            case 0x24: G(rd) = G(rs) & G(rt); break; // AND
+            case 0x25: G(rd) = G(rs) | G(rt); break; // OR
+            case 0x26: G(rd) = G(rs) ^ G(rt); break; // XOR
+            case 0x27: G(rd) = ~(G(rs) | G(rt)); break; // NOR
+            case 0x2A: G(rd) = (int)G(rs) < (int)G(rt) ? 1u : 0u; break; // SLT
+            case 0x2B: G(rd) = G(rs) < G(rt) ? 1u : 0u; break; // SLTU
             default: break;
         }
     }
@@ -413,17 +419,17 @@ public sealed partial class N64Rsp : IStateful
         var address = rd < 8 ? SpDmaSpAddr + (uint)(rd * 4) : DpRegisterBase + (uint)((rd - 8) * 4);
         if (rs == 0x00)
         {
-            _gpr[rt] = rd < 8 ? ReadRegister(address) : _dp.ReadRegister(address);
+            G(rt) = rd < 8 ? ReadRegister(address) : _dp.ReadRegister(address);
         }
         else if (rs == 0x04)
         {
             if (rd < 8)
             {
-                WriteRegister(address, _gpr[rt]);
+                WriteRegister(address, G(rt));
             }
             else
             {
-                _dp.WriteRegister(address, _gpr[rt]);
+                _dp.WriteRegister(address, G(rt));
             }
         }
     }
@@ -482,7 +488,7 @@ public sealed partial class N64Rsp : IStateful
         reader.BeginChunk(Tag);
         for (var i = 0; i < _gpr.Length; i++)
         {
-            _gpr[i] = reader.ReadUInt32();
+            G(i) = reader.ReadUInt32();
         }
 
         _pc = reader.ReadUInt32() & 0xFFC;
