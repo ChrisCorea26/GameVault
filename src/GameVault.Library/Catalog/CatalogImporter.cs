@@ -75,6 +75,8 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
                         ? GameVault.Core.Systems.GameSystem.Genesis
                         : datName.Contains("Super Nintendo", StringComparison.OrdinalIgnoreCase) || datName.Contains("Super Famicom", StringComparison.OrdinalIgnoreCase)
                             ? GameVault.Core.Systems.GameSystem.Snes
+                            : datName.Contains("PlayStation 2", StringComparison.OrdinalIgnoreCase)
+                                ? GameVault.Core.Systems.GameSystem.PlayStation2
                             : datName.Contains("PlayStation", StringComparison.OrdinalIgnoreCase)
                                 ? GameVault.Core.Systems.GameSystem.PlayStation
                                 : datName.Contains("Nintendo 64", StringComparison.OrdinalIgnoreCase)
@@ -134,8 +136,9 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
                 switch (reader.Name)
                 {
                     case "rom" when crc is null:
-                        // A Redump disc lists its .cue first, then its tracks: discs are matched on track 1.
-                        if (datSystem == GameVault.Core.Systems.GameSystem.PlayStation)
+                        // A Redump disc lists its .cue first, then its tracks: discs are matched on track 1. A PS2 DVD
+                        // lists its one .iso, matched on the whole image.
+                        if (datSystem is GameVault.Core.Systems.GameSystem.PlayStation or GameVault.Core.Systems.GameSystem.PlayStation2)
                         {
                             if (reader.GetAttribute("name")?.EndsWith(".cue", StringComparison.OrdinalIgnoreCase) == true)
                             {

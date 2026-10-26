@@ -22,7 +22,8 @@ public static class RomHasher
 
     /// <summary>
     /// Hashes for <paramref name="system"/>. Sega cartridges have no header, but copier dumps can carry a 512-byte
-    /// one, which No-Intro leaves out too. A PlayStation disc reference hashes the disc's first track. N64 ROMs are
+    /// one, which No-Intro leaves out too. A PlayStation disc reference hashes the disc's first track, and a PlayStation 2
+    /// disc reference the whole DVD image (or a CD's first track), as Redump lists them. N64 ROMs are
     /// hashed big-endian (.z64), as No-Intro lists them, whatever byte order the file uses.
     /// </summary>
     public static RomHashes Hash(ReadOnlySpan<byte> image, GameSystem system)
@@ -31,6 +32,12 @@ public static class RomHasher
         {
             // A disc: its first track, as Redump lists it.
             var (discCrc, discSha1) = GameVault.Library.Discs.PlayStationGames.HashReference(disc);
+            return new RomHashes(discCrc, discSha1);
+        }
+
+        if (system == GameSystem.PlayStation2 && GameVault.Library.Discs.Ps2Discs.TryGetPath(image, out var ps2Disc))
+        {
+            var (discCrc, discSha1) = GameVault.Library.Discs.Ps2Discs.HashReference(ps2Disc);
             return new RomHashes(discCrc, discSha1);
         }
 

@@ -113,6 +113,7 @@ public static class InputRecording
     {
         using var stream = new MemoryStream();
         var i = 0;
+        Span<byte> buttons = stackalloc byte[16];
         while (i < frames.Count)
         {
             var run = 1;
@@ -132,7 +133,6 @@ public static class InputRecording
                 stream.WriteByte((byte)(n & 0x7F | 0x80));
             }
 
-            Span<byte> buttons = stackalloc byte[16];
             System.Buffers.Binary.BinaryPrimitives.WriteUInt64LittleEndian(buttons, frames[i].Player1);
             System.Buffers.Binary.BinaryPrimitives.WriteUInt64LittleEndian(buttons[8..], frames[i].Player2);
             stream.Write(buttons);
