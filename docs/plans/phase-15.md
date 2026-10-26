@@ -140,8 +140,9 @@ They map onto `ControllerState` by position, as in Phase 14:
 - **Shoulders:** L1/R1 are L/R.
 - **L2/R2:** two new bits (14 and 15), which still fit the 16-bit netplay and recording formats.
 
-Keyboard defaults follow input.md: Z/X are Cross/Circle, A/S are Square/Triangle, Q/W are L1/R1, and the new
-keys 1/2 are L2/R2.
+Keyboard defaults follow input.md: Z/X are Cross/Circle, A/S are Square/Triangle, and the number row has the
+shoulders: 1/2 are L1/R1 (also the SNES's L/R) and 3/4 are L2/R2. (The plan first had Q/W, but those are the
+Genesis pad's X/Y.)
 
 ## 9. Platform, library and UI
 - **The library system:** `PlayStation`, named "PlayStation".
@@ -209,24 +210,105 @@ keys 1/2 are L2/R2.
 7. MDEC.
 8. Platform: library, input, settings, RetroAchievements, multi-disc, sample data, docs; then CHD.
 
-## Progress
-- **Step 1 (done):**
-  - **R3000A:** the MIPS I set with both delay slots, the LWL/LWR merge, the exceptions, COP0, the
-    multiplier/divider timing, cache isolation and the instruction cache.
-    - Coprocessor accesses follow the hardware log of ps1-tests `cpu/cop`.
-    - Byte and halfword stores carry the CPU register's whole value, so 32-bit device registers receive all
-      of it, as ps1-tests `cpu/io-access-bitwidth` shows.
-  - **Machine:** the memory map, the interrupt controller and PS-EXE loading.
-  - **GPU so far:** fill, the three VRAM copies, the draw environment, GP1 and GPUSTAT, and command
-    lengths for every GP0 packet.
-  - **Results:** all 31 `CPUTest` programs pass. A deliberately broken NOR shows the harness catches FAIL.
-- **Step 2 (GTE):** every command and register quirk is written, with unit tests for the registers, RTPS,
-  AVSZ3, NCLIP and the division overflow; the two GTE programs pass.
-  - Checking every command against hardware waits on ps1-tests `gte/test-all`, which ships only as a
-    release binary (CI job to come).
-- **Memory timing is approximate for now:**
-  - RAM reads cost 4 cycles, BIOS reads 20 and I/O 2; writes are buffered.
-  - The memory-control delay registers aren't read yet.
+## Results
+**Done when:**
+- The CPU test suites pass: all 29 of PeterLemon's R3000A programs and both GTE programs.
+- The GPU tests pass: the rasterizer matches four VRAM dumps from a real console pixel for pixel, and 25
+  drawing programs are pinned as golden images.
+- Homebrew runs: PS-EXEs run without a BIOS (bare metal) or after the BIOS's boot, and PeterLemon's `printgpu`
+  demo runs through the frame loop. Booting discs through the player's BIOS works with a stand-in BIOS in the
+  tests. Real BIOSes and discs are the owner's to try (checklist below).
+
+**R3000A and GTE:**
+- **The CPU:**
+  - the MIPS I set with both delay slots, the LWL/LWR merge, the exceptions and COP0;
+  - the multiplier/divider timing, cache isolation and the instruction cache.
+  - Coprocessor accesses follow the hardware log of ps1-tests `cpu/cop`.
+  - Byte and halfword stores carry the CPU register's whole value, so 32-bit device registers receive all of
+    it (ps1-tests `cpu/io-access-bitwidth`).
+- **The GTE:**
+  - every command with its 44-bit accumulators, saturation flags, the UNR divider and the register quirks;
+  - unit tests, plus PeterLemon's AVSZ and NCLIP programs.
+
+**The machine:**
+- **Timing:** the scheduler runs the CPU to the next device event, and devices catch up before their
+  registers are read.
+- **Video:** NTSC and PAL timing from the GPU's mode, with V-blank and H-blank.
+- **DMA:** all seven channels in block, request and linked-list modes, plus OTC and DICR.
+- **Timers:** the three timers with their sources and sync modes.
+
+**GPU:**
+- **Drawing:**
+  - polygons, lines, polylines and rectangles;
+  - 4/8/15-bit textures with CLUTs, texture windows and flips;
+  - the four blending modes, dithering and the mask bits;
+  - the top-left fill rule.
+- **Interpolation:** Mednafen's fixed-point model, with gradients from the leftmost vertex. It matches the
+  ps1-tests `triangle`, `quad`, `uv-interpolation` and `lines` VRAM dumps exactly. Flat lines dither too, as
+  the hardware shows.
+- **Output:** the frame is the displayed part of VRAM at every width, with 24-bit mode rounded to 15 bits.
+- **PeterLemon's GPU programs:** kept as golden images. Their reference PNGs went through a gamma curve, and
+  their polygon edges sit a pixel left of the hardware dumps, so they weren't used as the reference.
+
+**CD-ROM:**
+- every command with first and second responses at fixed delays, and seek time by distance;
+- reading at single or double speed, by register or DMA;
+- XA-ADPCM (resampled linearly) and CD-DA into the SPU through the volume matrix;
+- GetID's region from the licence sector;
+- the shell, for changing discs.
+
+**SPU and MDEC:**
+- **SPU:** 24 voices, ADSR, pitch modulation, noise, reverb, CD input, capture, IRQ and transfers.
+- **MDEC:** decoding at 4, 8, 15 and 24 bits, within ±1 of the ps1-tests hardware logs.
+
+**Controllers and memory cards:**
+- the digital pad on both ports;
+- one memory card in slot 1, which comes formatted and is saved as a raw `.mcd` image;
+- slot 2 stays empty.
+
+**Booting:**
+- **With the player's BIOS:** the region comes from its version string. Fast boot loads the disc's boot
+  executable at the shell, and PS-EXEs load there too.
+- **Without a BIOS:** a disc gets a message naming Settings → PlayStation, and PS-EXEs start straight away.
+- **TTY:** an opt-in hook prints what programs send to the BIOS's putchar, for tests and homebrew debugging.
+
+**Platform:**
+- **Disc images:** `.cue/.bin`, `.chd` (cdzl, cdlz and cdfl, checked against chdman's output) and `.m3u`.
+  - The readers live in GameVault.Library, which hashes and scans discs, not in Platform.
+  - A disc game's data is a reference to its image, which the console opens.
+- **Library:** discs hash their first track as Redump does (a `.cue/.bin` and a `.chd` hash alike).
+  Redump DATs match on track 1, and only PS-EXEs count among `.exe` files.
+- **Settings:** the BIOS path and "Skip the startup screens".
+- **Multi-disc:** the Player's disk picker lists an `.m3u`'s discs ("No disc" opens the shell), and F4
+  changes to the next disc.
+- **Pads:** the PlayStation layout: SNES positions, with the triggers as L2/R2.
+  - Fixing this turned up an old bug: the input service only had room for the NES pad's 8 buttons, so a
+    key bound to a Genesis X/Y/Z (or any later button) went out of bounds.
+- **RetroAchievements:**
+  - rcheevos' `rc_hash_psx`: the MD5 of the boot executable's name and contents;
+  - memory is RAM, then the scratchpad at $200000.
+- **Sample data:** a PlayStation game in the sample library.
+
+**Performance (Release, on the build machine):**
+- **Speed:**
+  - The CPU interpreter runs about 8 times real time on simple programs.
+  - The `printgpu` demo takes about 2 ms a frame.
+- **Save states:** a state is 3.8 MB; saving takes 0.26 ms and loading 0.25 ms through a reused writer.
+- **Rewind:** adds about 3 ms a frame. Its XOR deltas compress well: 10 seconds take 0.3 MB.
+- **Netplay rollback:** allocates a snapshot each frame. That works, but it's heavy at this state size.
+
+**Changed from the plan:**
+- **ps1-tests in CI:** dropped. The programs print through the BIOS, so they can't run without one.
+  - `[LocalRomFact]` tests instead run them with the owner's BIOS and compare with the hardware logs, and
+    boot the BIOS to its shell.
+  - The GPU's hardware dumps from the same repository are downloaded and used in CI.
+- **Memory cards:** one card per game, not two; the second slot is left for later.
+- **Multi-disc:** the Disk System's side picker became a disc picker, instead of a separate menu.
+
+**Left approximate:**
+- **Memory and GPU timing:** memory wait states are approximate, and the GPU takes no time for commands.
+- **XA resampling:** XA audio is resampled linearly rather than with the hardware's filter.
+- **MDEC:** its IDCT rounding is approximate.
 
 ## Left for later
 - **Controllers and peripherals:** the DualShock (analog sticks and vibration), the multitap, the mouse,
@@ -236,14 +318,20 @@ keys 1/2 are L2/R2.
 - **Codes:** GameShark-style cheat codes.
 - **Memory cards:** a memory card manager screen, and shared cards.
 - **BIOS:** a GameVault-written replacement kernel, so homebrew that calls the BIOS can run without one.
+- **Memory card slot 2**, and memory card files shared between games.
+- **Timing:** GPU command timing, exact memory wait states (the memory-control delay registers), and the
+  hardware's XA resampling filter.
 
 ## Owner checklist
-- Set your own BIOS file in Settings (for example SCPH-1001 for NTSC-U, SCPH-7502 for PAL, SCPH-5500 for
-  NTSC-J).
-- Try your own discs as `.cue/.bin`, including:
+- Set your own BIOS in Settings → PlayStation (for example SCPH-1001 for NTSC-U, SCPH-7502 for PAL, SCPH-5500
+  for NTSC-J).
+- Try your own discs as `.cue/.bin` or `.chd`, including:
   - a game with CD-DA music;
   - a game with FMV;
-  - a multi-disc game;
-  - a game that saves to a memory card.
+  - a multi-disc game through an `.m3u`;
+  - a game that saves to its memory card.
 
   List anything that misbehaves.
+- **Optional local tests:** put the BIOS at `psx/bios.bin` under a folder, and the ps1-tests release's `.exe`
+  files (with each test's `psx.log` from the repository) under `ps1-tests/`. Then run
+  `GAMEVAULT_LOCAL_ROMS=<folder> dotnet test tests/GameVault.Core.Tests --filter PlayStationLocal`.
