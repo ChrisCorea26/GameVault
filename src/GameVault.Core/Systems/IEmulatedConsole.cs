@@ -14,6 +14,7 @@ public enum GameSystem
     AppleII,
     Genesis,
     Snes,
+    PlayStation,
 }
 
 /// <summary>

@@ -84,6 +84,12 @@ public sealed partial class PsGpu : IStateful
 
     public bool Interlaced => (_displayMode & 0x24) == 0x24;
 
+    /// <summary>The field being shown in interlaced mode (GPUSTAT bit 13), set by the console each frame.</summary>
+    internal bool OddField { get; set; }
+
+    /// <summary>Whether the current line is odd (GPUSTAT bit 31): the field in interlaced mode, else each line; 0 in V-blank.</summary>
+    internal bool OddLine { get; set; }
+
     public void Reset()
     {
         _commandWords = _commandLength = 0;
@@ -122,7 +128,7 @@ public sealed partial class PsGpu : IStateful
             status |= (_drawMode & 0x800) << 4; // texture disable → bit 15
             status |= _setMask ? 1u << 11 : 0;
             status |= _checkMask ? 1u << 12 : 0;
-            status |= 1u << 13; // interlace field (not modelled)
+            status |= !Interlaced || OddField ? 1u << 13 : 0; // interlace field (always 1 when not interlaced)
             status |= (_displayMode & 0x40) << 10; // horizontal resolution 2 → bit 16
             status |= (_displayMode & 0x3F) << 17;
             status |= (_displayMode & 0x80) << 7; // "reverse" flag → bit 14
@@ -132,6 +138,7 @@ public sealed partial class PsGpu : IStateful
             status |= 1u << 27; // ready to send VRAM to the CPU
             status |= 1u << 28; // ready for a DMA block
             status |= _dmaDirection << 29;
+            status |= OddLine ? 1u << 31 : 0;
 
             // Bit 25 is the DMA request, which depends on the direction.
             status |= _dmaDirection switch

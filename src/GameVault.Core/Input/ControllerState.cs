@@ -3,7 +3,8 @@ namespace GameVault.Core.Input;
 /// <summary>
 /// One controller's buttons. The low byte is the NES pad, in the order the hardware shifts them out through
 /// $4016/$4017 (docs/design/input.md §2; NESdev Wiki: "Standard controller"). The high byte holds the buttons
-/// other systems add: C, X, Y, Z and Mode for the Genesis 6-button pad (Phase 13), L and R for later pads.
+/// other systems add: C, X, Y, Z and Mode for the Genesis 6-button pad (Phase 13), L and R for the SNES (Phase 14),
+/// and L2 and R2 for the PlayStation (Phase 15).
 /// </summary>
 /// <remarks>
 /// Each console maps these to its own pad. On the Genesis, B is the pad's A button, A is its B button and Select
@@ -27,4 +28,6 @@ public enum ControllerState : ushort
     Z = 1 << 11,
     L = 1 << 12,
     R = 1 << 13,
+    L2 = 1 << 14,
+    R2 = 1 << 15,
 }
