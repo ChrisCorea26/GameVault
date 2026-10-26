@@ -204,3 +204,27 @@ Real games are the owner's to try; see `docs/plans/phase-13.md`.
 | Enhancement chips (Super FX, SA-1, DSP-n, Cx4, S-DD1, SPC7110, …) | Not yet: such games get a message naming the chip |
 
 Real games are the owner's to try; see `docs/plans/phase-14.md`.
+
+## Sony PlayStation (Phase 15)
+
+| Part | State |
+|---|---|
+| R3000A: PeterLemon `CPUTest` (29 programs: ALU, shifts, MULT/DIV, loads and stores) | ✅ All pass |
+| R3000A: delay slots, exceptions, COP0, cache isolation, instruction cache | ✅ Unit tests; coprocessor rules follow the ps1-tests `cpu/cop` hardware log |
+| GTE: every command and register quirk | 🟡 PeterLemon's AVSZ and NCLIP programs pass, plus unit tests; ps1-tests `gte/test-all` (hardware log) not run yet |
+| GPU rasterizer: Gouraud triangles (with dithering), quads and seams, texture and colour interpolation, lines | ✅ Pixel for pixel with ps1-tests VRAM dumps from a real console (`triangle`, `quad`, `uv-interpolation`, `lines`) |
+| GPU: PeterLemon's 25 drawing programs (textures at each depth, windows, clipping, mask, rectangles, transfers) | ✅ Golden images. PeterLemon's own reference PNGs are captures with a gamma curve, and their polygon edges sit one pixel left of the hardware dumps above, so they aren't used as references |
+| GPU timing (GPUSTAT busy bits, command time) | Not yet: commands finish at once |
+| DMA (block, request, linked list, OTC, DICR); timers; interrupts | ✅ Unit tests |
+| CD-ROM: commands, responses and interrupts, reading by DMA, GetID region, TOC | ✅ Unit tests with discs built in the tests |
+| XA-ADPCM and CD-DA | 🟡 Decoding and playback have unit tests; XA is resampled by linear interpolation, not the hardware's filter |
+| SPU: ADPCM voices, ADSR, pitch, noise, reverb, CD input, IRQ, transfers | 🟡 Unit tests; transfers match the ps1-tests `memory-transfer` data; reverb runs without the hardware's resampling filters |
+| MDEC: 4/8/15/24-bit decoding | 🟡 Within ±1 of the ps1-tests hardware logs (the IDCT's rounding isn't documented) |
+| Controllers: digital pad; memory cards (read, write, ID) | ✅ Unit tests; a new card comes formatted |
+| Disc images: .cue/.bin, .chd (cdzl, cdlz, cdfl), .m3u | ✅ Unit tests; CHD verified against chdman's output |
+| Fast boot and PS-EXE loading | ✅ Unit tests with a stand-in BIOS |
+| Whole machine: PeterLemon's `printgpu` demo through the frame loop | ✅ Golden image |
+| DualShock, multitap, mouse, light guns; GameShark codes | Not yet |
+
+Real discs need the owner's BIOS (Settings → PlayStation); real games are the owner's to try. See
+`docs/plans/phase-15.md`.

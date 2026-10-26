@@ -61,6 +61,8 @@ Player 2"*.
 | Start | Enter |
 | Turbo B | A |
 | Turbo A | S |
+| L, R (SNES; PlayStation L1, R1; added in Phase 15) | 1, 2 |
+| PlayStation L2, R2 (Phase 15) | 3, 4 |
 
 The turbo keys sit beside Z/X in the same order (B on the left). They repeat at the turbo speed set in
 Settings → Input (§6). The two-player preset (§4.3) uses A and S for Player 2's D-pad, so it has no turbo keys.
@@ -173,7 +175,22 @@ pad's layout while an SNES game runs:
 | L, R | Left shoulder, right shoulder | LB, RB |
 
 On the keyboard, Z and X stay B and A, and the turbo keys A and S become Y and X (SNES games have no turbo);
-Q/W/E (X, Y, Z for the Genesis) are unused, and L and R have no default key.
+Q/W/E (X, Y, Z for the Genesis) are unused. Since Phase 15, 1 and 2 are L and R.
+
+### 6.4 PlayStation (Phase 15)
+The digital pad (SCPH-1080) maps onto the controller state by position, like the SNES pad, with two new bits
+(14 and 15) for L2 and R2. Netplay and challenge recordings already carry all 16 bits.
+
+| PlayStation | Controller state | Pad | Xbox label | Keyboard |
+|---|---|---|---|---|
+| Cross, Circle | B, A | South, East | A, B | Z, X |
+| Square, Triangle | Y, X | West, North | X, Y | A, S (no turbo, as for the SNES) |
+| L1, R1 | L, R | Left shoulder, right shoulder | LB, RB | 1, 2 |
+| L2, R2 | L2, R2 | Left trigger, right trigger | LT, RT | 3, 4 |
+| Select, Start | Select, Start | Back, Start | View, Menu | Right Shift, Enter |
+
+A trigger counts as pressed past half way and released below a quarter, so a resting trigger never flickers.
+The DualShock's sticks and vibration are left for later.
 
 ## 7. Game input vs. UI navigation
 
@@ -199,7 +216,7 @@ These keys never reach the game, so game bindings can't use them:
 | Fast-forward (hold) | Tab | Right shoulder |
 | Back to before the last life lost (SPEC §7.9, Phase 9) | F2 | — |
 | All codes off (SPEC §7.8, added in Phase 8) | F3 | — |
-| Next disk side (Famicom Disk System, added in Phase 7) | F4 | — |
+| Next disk side (Famicom Disk System, added in Phase 7); next disc (PlayStation .m3u games, Phase 15) | F4 | — |
 | Quick save / quick load | F5 / F8 | — |
 | Practice: retry / split (SPEC §7.6, added in Phase 6) | F6 / F7 | — |
 | Capture password (SPEC §7.3, added in Phase 6) | F9 | — |

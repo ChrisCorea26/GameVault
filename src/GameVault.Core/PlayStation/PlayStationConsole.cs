@@ -181,6 +181,12 @@ public sealed partial class PlayStationConsole : IEmulatedConsole, IR3000Bus
     /// <summary>Characters the program writes to the debug port at $1F802023 (DUART channel A) or $1F802080.</summary>
     public Action<char>? DebugOutput { get; set; }
 
+    /// <summary>
+    /// Characters the program prints through the BIOS (putchar: A0h function 3Ch, B0h function 3Dh, which printf
+    /// uses), for tests and homebrew debugging. Watching costs speed, so leave it null in play.
+    /// </summary>
+    public Action<char>? TtyOutput { get; set; }
+
     public BandLimitedResampler EnableAudio(int sampleRate = 48000)
     {
         Audio ??= new BandLimitedResampler(PsSpu.SampleRate, sampleRate) { ApplyNesFilters = false };
@@ -260,9 +266,9 @@ public sealed partial class PlayStationConsole : IEmulatedConsole, IR3000Bus
         var guard = Cpu.Cycles + (long)(CpuClock / 10); // a frame never takes longer than a tenth of a second
         while (!_frameDone && Cpu.Cycles < guard)
         {
-            if (_bootHook)
+            if (_bootHook || TtyOutput is not null)
             {
-                RunWithBootHook();
+                RunWatched(_nextSync);
             }
             else
             {
@@ -305,9 +311,9 @@ public sealed partial class PlayStationConsole : IEmulatedConsole, IR3000Bus
         var end = Cpu.Cycles + cycles;
         while (Cpu.Cycles < end)
         {
-            if (_bootHook)
+            if (_bootHook || TtyOutput is not null)
             {
-                RunWithBootHook();
+                RunWatched(Math.Min(end, _nextSync));
             }
             else
             {
@@ -322,12 +328,13 @@ public sealed partial class PlayStationConsole : IEmulatedConsole, IR3000Bus
         }
     }
 
-    /// <summary>Steps until the next sync, watching for the BIOS reaching its shell.</summary>
-    private void RunWithBootHook()
+    /// <summary>Steps until <paramref name="stop"/>, watching for the BIOS reaching its shell and for BIOS putchar calls.</summary>
+    private void RunWatched(long stop)
     {
-        while (Cpu.Cycles < _nextSync)
+        while (Cpu.Cycles < stop)
         {
-            if (Cpu.Pc == ShellEntry)
+            var pc = Cpu.Pc;
+            if (_bootHook && pc == ShellEntry)
             {
                 _bootHook = false;
                 if (_exe is not null)
@@ -339,7 +346,17 @@ public sealed partial class PlayStationConsole : IEmulatedConsole, IR3000Bus
                     LoadExe(PsExe.Parse(boot));
                 }
 
-                return;
+                continue;
+            }
+
+            if (TtyOutput is { } tty)
+            {
+                var function = Cpu.GetRegister(9);
+                var vector = pc & 0x1FFFFFFF;
+                if ((vector == 0xA0 && function == 0x3C) || (vector == 0xB0 && function == 0x3D))
+                {
+                    tty((char)(Cpu.GetRegister(4) & 0xFF));
+                }
             }
 
             Cpu.Step();

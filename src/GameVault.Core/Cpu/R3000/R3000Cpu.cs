@@ -424,19 +424,41 @@ public sealed partial class R3000Cpu : IStateful
         writer.WriteUInt32(CacheControl);
         writer.WriteInt64(Cycles);
         writer.WriteInt64(_hiLoReady);
-        foreach (var t in _icacheTags)
-        {
-            writer.WriteUInt32(t);
-        }
-
+        WriteWords(writer, _icacheTags);
         writer.WriteBytes(_icacheValid);
-        foreach (var d in _icacheData)
-        {
-            writer.WriteUInt32(d);
-        }
+        WriteWords(writer, _icacheData);
 
         Gte.SaveState(writer);
         writer.EndChunk();
+    }
+
+    /// <summary>Words as little-endian bytes, in one go where the host is little-endian too.</summary>
+    private static void WriteWords(StateWriter writer, uint[] words)
+    {
+        if (BitConverter.IsLittleEndian)
+        {
+            writer.WriteBytes(System.Runtime.InteropServices.MemoryMarshal.AsBytes(words.AsSpan()));
+            return;
+        }
+
+        foreach (var word in words)
+        {
+            writer.WriteUInt32(word);
+        }
+    }
+
+    private static void ReadWords(StateReader reader, uint[] words)
+    {
+        if (BitConverter.IsLittleEndian)
+        {
+            reader.ReadBytes(System.Runtime.InteropServices.MemoryMarshal.AsBytes(words.AsSpan()));
+            return;
+        }
+
+        for (var i = 0; i < words.Length; i++)
+        {
+            words[i] = reader.ReadUInt32();
+        }
     }
 
     public void LoadState(StateReader reader)
@@ -466,16 +488,9 @@ public sealed partial class R3000Cpu : IStateful
         CacheControl = reader.ReadUInt32();
         Cycles = reader.ReadInt64();
         _hiLoReady = reader.ReadInt64();
-        for (var i = 0; i < _icacheTags.Length; i++)
-        {
-            _icacheTags[i] = reader.ReadUInt32();
-        }
-
+        ReadWords(reader, _icacheTags);
         reader.ReadBytes(_icacheValid);
-        for (var i = 0; i < _icacheData.Length; i++)
-        {
-            _icacheData[i] = reader.ReadUInt32();
-        }
+        ReadWords(reader, _icacheData);
 
         Gte.LoadState(reader);
         reader.EndChunk();

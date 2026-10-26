@@ -373,6 +373,39 @@ public sealed class PlayStationMachineTests
         console.Cpu.GetRegister(29).Should().Be(PsExe.DefaultStack);
     }
 
+    [Fact]
+    public void Bios_putchar_calls_reach_the_tty_hook()
+    {
+        // putchar('H') through A0h and putchar('i') through B0h; a stub at $A0/$B0 returns at once.
+        var exe = PlayStationConsoleTests.Exe(
+            Mips.Ori(9, 0, 0x3C),
+            Mips.Ori(4, 0, 'H'),
+            Mips.Ori(10, 0, 0xA0),
+            Mips.R(0x09, rs: 10, rd: 31), // jalr t2
+            Mips.Nop,
+            Mips.Ori(9, 0, 0x3D),
+            Mips.Ori(4, 0, 'i'),
+            Mips.Ori(10, 0, 0xB0),
+            Mips.R(0x09, rs: 10, rd: 31),
+            Mips.Nop,
+            0x1000FFFF,
+            Mips.Nop);
+        var console = new PlayStationConsole(exe: PsExe.Parse(exe));
+        console.Power();
+        uint[] stub = [Mips.R(0x08, rs: 31), Mips.Nop]; // jr ra
+        for (var i = 0; i < 2; i++)
+        {
+            SetWord(console, 0xA0 + (uint)i * 4, stub[i]);
+            SetWord(console, 0xB0 + (uint)i * 4, stub[i]);
+        }
+
+        var text = new System.Text.StringBuilder();
+        console.TtyOutput = c => text.Append(c);
+        console.RunCycles(1000);
+
+        text.ToString().Should().Be("Hi");
+    }
+
     // ---- Controllers and memory cards ----
 
     /// <summary>Selects a port, exchanges <paramref name="bytes"/> and returns what came back and which bytes were acknowledged.</summary>

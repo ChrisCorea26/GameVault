@@ -1,3 +1,4 @@
+using System.Runtime.InteropServices;
 using GameVault.Core.State;
 
 namespace GameVault.Core.PlayStation;
@@ -490,9 +491,17 @@ public sealed partial class PsGpu : IStateful
     public void SaveState(StateWriter writer)
     {
         writer.BeginChunk(Tag, 1);
-        foreach (var pixel in _vram)
+        // VRAM is half the state: written as bytes in one go (little-endian, as the state format is).
+        if (BitConverter.IsLittleEndian)
         {
-            writer.WriteUInt16(pixel);
+            writer.WriteBytes(MemoryMarshal.AsBytes(_vram.AsSpan()));
+        }
+        else
+        {
+            foreach (var pixel in _vram)
+            {
+                writer.WriteUInt16(pixel);
+            }
         }
 
         foreach (var word in _command)
@@ -541,9 +550,16 @@ public sealed partial class PsGpu : IStateful
     public void LoadState(StateReader reader)
     {
         reader.BeginChunk(Tag);
-        for (var i = 0; i < _vram.Length; i++)
+        if (BitConverter.IsLittleEndian)
         {
-            _vram[i] = reader.ReadUInt16();
+            reader.ReadBytes(MemoryMarshal.AsBytes(_vram.AsSpan()));
+        }
+        else
+        {
+            for (var i = 0; i < _vram.Length; i++)
+            {
+                _vram[i] = reader.ReadUInt16();
+            }
         }
 
         for (var i = 0; i < _command.Length; i++)
