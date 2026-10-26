@@ -9,7 +9,7 @@ namespace GameVault.ViewModels;
 /// Settings → Codes (SPEC §7.8): the code collections the player has imported, such as a spreadsheet of
 /// published Game Genie codes. They stay in the player's own app folder; GameVault doesn't include any.
 /// </summary>
-public sealed partial class CodeCollectionsViewModel(ICheatService service, ICodeFilePicker picker) : ObservableObject
+public sealed partial class CodeCollectionsViewModel(ICheatService service, ICodeFilePicker picker, IConfirmationService? confirm = null) : ObservableObject
 {
     public ObservableCollection<CodeCollectionItemViewModel> Items { get; } = [];
 
@@ -62,6 +62,14 @@ public sealed partial class CodeCollectionsViewModel(ICheatService service, ICod
 
     internal async Task RemoveAsync(CodeCollectionItemViewModel item)
     {
+        if (!await (confirm ?? FixedConfirmation.Yes).ConfirmAsync(
+            "Remove this code collection?",
+            $"\"{item.Name}\" is removed from GameVault, and its codes no longer appear for your games. Codes you already added to a game stay. You can import the file again later.",
+            "Remove"))
+        {
+            return;
+        }
+
         await service.RemoveCollectionAsync(item.Name);
         Message = $"Removed \"{item.Name}\".";
         await LoadAsync();

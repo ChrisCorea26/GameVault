@@ -10,7 +10,7 @@ namespace GameVault.ViewModels;
 /// The game journal (SPEC §7.4): notes in rich text, screenshots taken with F12, and maps the player imports.
 /// The page moves the selected note's RTF in and out of its RichEditBox; this ViewModel saves it.
 /// </summary>
-public sealed partial class JournalViewModel(IJournalService service, IGameFilePicker picker) : ObservableObject
+public sealed partial class JournalViewModel(IJournalService service, IGameFilePicker picker, IConfirmationService? confirm = null) : ObservableObject
 {
     private string? _gameKey;
     private bool _attached;
@@ -129,7 +129,9 @@ public sealed partial class JournalViewModel(IJournalService service, IGameFileP
     [RelayCommand(CanExecute = nameof(HasSelectedNote))]
     private async Task DeleteNoteAsync()
     {
-        if (_gameKey is null || SelectedNote is null)
+        if (_gameKey is null || SelectedNote is null
+            || !await (confirm ?? FixedConfirmation.Yes).ConfirmAsync(
+                "Delete this note?", $"\"{SelectedNote.Title}\" is removed from the journal. This can't be undone.", "Delete"))
         {
             return;
         }
@@ -157,8 +159,15 @@ public sealed partial class JournalViewModel(IJournalService service, IGameFileP
         }
     }
 
-    internal Task DeleteImageAsync(JournalImageViewModel image) =>
-        _gameKey is { } key ? service.DeleteImageAsync(key, image.Id) : Task.CompletedTask;
+    internal async Task DeleteImageAsync(JournalImageViewModel image)
+    {
+        if (_gameKey is { } key
+            && await (confirm ?? FixedConfirmation.Yes).ConfirmAsync(
+                "Delete this picture?", $"\"{image.Title}\" is removed from the journal. This can't be undone.", "Delete"))
+        {
+            await service.DeleteImageAsync(key, image.Id);
+        }
+    }
 
     async partial void OnSelectedNoteChanged(JournalNoteItem? value)
     {

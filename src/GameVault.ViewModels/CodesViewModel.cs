@@ -12,7 +12,7 @@ namespace GameVault.ViewModels;
 /// import/export, and suggestions: from the bundled database, from the player's own code collections, and
 /// from GameGenie.com on request, each shown with where it came from.
 /// </summary>
-public sealed partial class CodesViewModel(ICheatService service, ICodeFilePicker picker) : ObservableObject
+public sealed partial class CodesViewModel(ICheatService service, ICodeFilePicker picker, IConfirmationService? confirm = null) : ObservableObject
 {
     private string? _gameKey;
     private string? _title;
@@ -266,7 +266,8 @@ public sealed partial class CodesViewModel(ICheatService service, ICodeFilePicke
 
     internal async Task DeleteAsync(CodeItemViewModel item)
     {
-        if (_gameKey is not null)
+        if (_gameKey is not null
+            && await (confirm ?? FixedConfirmation.Yes).ConfirmAsync("Delete this code?", "The code is removed from this game. This can't be undone.", "Delete"))
         {
             await service.DeleteAsync(_gameKey, item.Id);
             await RefreshAsync();

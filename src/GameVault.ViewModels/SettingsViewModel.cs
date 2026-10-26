@@ -10,9 +10,76 @@ public sealed partial class SettingsViewModel(
     InputSettingsViewModel input,
     LibrarySettingsViewModel library,
     FamilyViewModel? family = null,
-    RetroAchievementsSettingsViewModel? retroAchievements = null)
+    RetroAchievementsSettingsViewModel? retroAchievements = null,
+    IGameFilePicker? picker = null)
     : ObservableObject
 {
+    // "Choose…" next to each path box (GV-009): a picker works with a mouse or a controller; typing still works too.
+    // Extensions are what the files are usually called; any file can be chosen, as dumps are named many ways.
+
+    [RelayCommand]
+    private async Task ChooseDumperAsync()
+    {
+        if (await PickAsync(".exe") is { } path)
+        {
+            DumperPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChooseFdsBiosAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            FdsBiosPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChooseAppleRomAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            AppleIIRomPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChooseAppleDiskRomAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            AppleIIDiskRomPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChoosePlayStationBiosAsync()
+    {
+        if (await PickAsync(".bin", ".rom") is { } path)
+        {
+            PlayStationBiosPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChoosePlayStation2BiosAsync()
+    {
+        if (await PickAsync(".bin", ".rom") is { } path)
+        {
+            PlayStation2BiosPath = path;
+            await SavePlayStation2BiosPathAsync();
+        }
+    }
+
+    private Task<string?> PickAsync(params string[] extensions) =>
+        picker is null ? Task.FromResult<string?>(null) : picker.PickSystemFileAsync([.. extensions, "*"]);
+
     /// <summary>Settings → Family: profiles, daily limits and the parent PIN (SPEC §7.9).</summary>
     public FamilyViewModel? Family { get; } = family;
 
