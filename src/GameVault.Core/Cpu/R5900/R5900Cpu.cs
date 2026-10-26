@@ -82,6 +82,9 @@ public sealed partial class R5900Cpu : IStateful
     /// <summary>Where the current <see cref="Run"/> slice ends; an idle loop skips ahead to it.</summary>
     private long _sliceEnd;
 
+    private uint _breakpoint;
+    private bool _breakpointArmed;
+
     public R5900Cpu(IR5900Bus bus, IR5900Cop2? cop2 = null)
     {
         _bus = bus;
@@ -106,6 +109,33 @@ public sealed partial class R5900Cpu : IStateful
     /// <see cref="Jump"/>), as may the registers. GameVault's high-level kernel hooks SYSCALL here.
     /// </summary>
     public Func<R5900Exception, bool>? ExceptionHook;
+
+    /// <summary>
+    /// The EE stopped at the breakpoint (<see cref="SetBreakpoint"/>): <see cref="Pc"/> is its address and the instruction
+    /// there hasn't run. Cleared by <see cref="SetBreakpoint"/> and <see cref="ClearBreakpoint"/>.
+    /// </summary>
+    public bool AtBreakpoint { get; private set; }
+
+    /// <summary>
+    /// Stops the EE just before it executes the instruction at the virtual address <paramref name="address"/>:
+    /// <see cref="Run"/> returns with <see cref="AtBreakpoint"/> set, no cycle charged for it. The machine's boot hook
+    /// uses it (the BIOS reaching its EE loader). While it is set, fetches from its 4 KB page skip the fetch cache, so the
+    /// rest of the code runs at full speed. One breakpoint at a time; it isn't part of the saved state.
+    /// </summary>
+    public void SetBreakpoint(uint address)
+    {
+        _breakpoint = address;
+        _breakpointArmed = true;
+        AtBreakpoint = false;
+        InvalidateFetch();
+    }
+
+    /// <summary>Removes the breakpoint (the EE may then run the instruction it stopped at).</summary>
+    public void ClearBreakpoint()
+    {
+        _breakpointArmed = false;
+        AtBreakpoint = false;
+    }
 
     /// <summary>The 16 KB scratchpad (SPR), which TLB entries with the S bit map. The DMAC's SPR channels use it too.</summary>
     public byte[] Scratchpad { get; } = new byte[ScratchpadSize];
@@ -388,6 +418,22 @@ public sealed partial class R5900Cpu : IStateful
             return false;
         }
 
+        // The breakpoint's page is never cached, so every fetch from it comes here.
+        var cache = true;
+        if (_breakpointArmed && ((address ^ _breakpoint) & 0xFFFF_F000) == 0)
+        {
+            if (address == _breakpoint)
+            {
+                AtBreakpoint = true;
+                StopRequested = true;
+                _nextIsDelaySlot = _inDelaySlot;
+                Cycles--; // the instruction didn't run
+                return false;
+            }
+
+            cache = false;
+        }
+
         if (!Translate(address, Access.Fetch, out var physical, out var scratch))
         {
             return false;
@@ -396,6 +442,12 @@ public sealed partial class R5900Cpu : IStateful
         if (scratch)
         {
             instruction = MemoryMarshal.Read<uint>(Scratchpad.AsSpan((int)(physical & 0x3FFC)));
+            return true;
+        }
+
+        if (!cache)
+        {
+            instruction = _bus.Read32(physical);
             return true;
         }
 

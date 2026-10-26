@@ -13,7 +13,7 @@ namespace GameVault.Core.Tests.PlayStation2.Console;
 public sealed class Ps2ConsoleTests(ITestOutputHelper log)
 {
     /// <summary>A tiny kernel-mode ELF: the code at $80100000 (physical $100000), with a BSS.</summary>
-    private static byte[] MakeElf(uint[] code, uint bss = 0x100, uint entry = 0x8010_0000, uint paddr = 0x0010_0000)
+    internal static byte[] MakeElf(uint[] code, uint bss = 0x100, uint entry = 0x8010_0000, uint paddr = 0x0010_0000)
     {
         var elf = new byte[0x100 + code.Length * 4];
         var s = elf.AsSpan();
