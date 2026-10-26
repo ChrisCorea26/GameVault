@@ -368,10 +368,10 @@ public sealed class Ps2VifTests
         vu.Running = true;
         var data = new UInt128[20];
         data[0] = Op(0x14, 0);
-        vif.Write(data).Should().Be(16, "VIF1's FIFO holds 16 quadwords");
-        (vif.ReadRegister(Stat) >> 24).Should().Be(16);
+        vif.Write(data).Should().Be(18, "VIF1's FIFO holds 16 quadwords, behind the decoder's buffer of 2");
+        (vif.ReadRegister(Stat) >> 24).Should().Be(15, "FQC counts the FIFO's whole quadwords, not the decoder's buffer (MSCAL, waiting for the VU, left it)");
         vu.Running = false;
-        vif.Write(data.AsSpan(16)).Should().Be(4);
+        vif.Write(data.AsSpan(18)).Should().Be(2);
         vif.FifoCount.Should().Be(0);
     }
 

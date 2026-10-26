@@ -19,7 +19,7 @@ public sealed class Ps2AutotestsTests
         "cpu/ee_simd/shuffle",
         "cpu/vu0_macro/integer", "cpu/vu0_macro/transfer",
         "dma/dmac/cpcond", "dma/dmac/tagintr", "dma/spr/chain", "dma/spr/interleave", "dma/spr/normal",
-        "dma/vif/basic", "dma/vif/mskpath3", "dma/vif/stcycl", "dma/vif/stmod", "dma/vif/unpack",
+        "dma/vif/basic", "dma/vif/intstall", "dma/vif/mskpath3", "dma/vif/stcycl", "dma/vif/stmod", "dma/vif/unpack",
         "gs/label", "gs/signal",
         "kernel/ee/interrupt/dmac_order", "kernel/ee/interrupt/intc_order",
         "kernel/ee/thread/delete", "kernel/ee/thread/exit", "kernel/ee/thread/resume", "kernel/ee/thread/sleep",
@@ -34,9 +34,6 @@ public sealed class Ps2AutotestsTests
     /// </summary>
     public static readonly Dictionary<string, (string Reason, int DifferingLines, string OutputHash)> KnownDifferences = new()
     {
-        ["dma/vif/intstall"] = (
-            "VIFn_STAT.FQC: after the I-bit stall the hardware reads 0 quadwords in the FIFO, GameVault the ones left there",
-            4, "C7C77491E375E84C"),
         ["vu/lower/efu"] = (
             "the EFU's series (EATAN, EEXP, ESIN, ELENG...) differ in the last bits; their exact algorithms aren't published",
             24, "1EC10F50D2F9D0F1"),

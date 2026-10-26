@@ -9,7 +9,8 @@ namespace GameVault.Core.PlayStation2;
 /// $10003C00 (VIF1).
 /// </summary>
 /// <remarks>
-/// The FIFO holds 8 quadwords on VIF0 and 16 on VIF1 (ps2tek's FQC) as 32-bit words. Commands run as soon as their data
+/// The FIFO holds 8 quadwords on VIF0 and 16 on VIF1 (ps2tek's FQC) as 32-bit words, behind the decoder's own buffer of
+/// two quadwords (<see cref="DecodeBufferWords"/>), which STAT.FQC doesn't count. Commands run as soon as their data
 /// is in the FIFO (no per-word timing). A command that has to wait — for its data, for the VU to finish (FLUSHE, MSCAL,
 /// MPG…), for the GIF (DIRECT, FLUSH…) — leaves the rest of the FIFO in place; <see cref="Write"/> then accepts only what
 /// fits and the DMAC retries later. The console calls <see cref="Resume"/> when a VU stops or the GIF frees PATH2 so
@@ -40,6 +41,15 @@ public sealed partial class Ps2Vif : IStateful
     // VIFn_ERR bits.
     private const uint ErrMii = 1 << 0;
     private const uint ErrMe1 = 1 << 2;
+
+    /// <summary>
+    /// The decoder's input buffer in front of the FIFO: 8 words, refilled from the FIFO as the decoder takes words, and not
+    /// counted by FQC. ps2autotests (dma/vif/intstall) recorded FQC = 0 on hardware after a 3-quadword packet stalled on
+    /// an I bit in its first quadword, its transfer complete: the 9 words left fit in this buffer and the FIFO's one
+    /// word isn't a whole quadword. (The size is DobieStation's model of the VIF, read for facts only; it is the one that
+    /// matches the recorded result.)
+    /// </summary>
+    public const int DecodeBufferWords = 8;
 
     private readonly int _index;
     private readonly IPs2VectorUnit _vu;
@@ -99,7 +109,7 @@ public sealed partial class Ps2Vif : IStateful
         _intc = intc;
         _gif = gif;
         _tag = StateTag.From(index == 0 ? "VIF0" : "VIF1");
-        _fifo = new uint[FifoQuadwords * 4];
+        _fifo = new uint[FifoQuadwords * 4 + DecodeBufferWords];
         Reset();
     }
 
@@ -112,8 +122,11 @@ public sealed partial class Ps2Vif : IStateful
     /// <summary>ITOP, for the VU's XITOP.</summary>
     public uint Itop => _itop;
 
-    /// <summary>The quadwords waiting in the FIFO (rounded up).</summary>
+    /// <summary>The quadwords waiting in the FIFO and the decoder's buffer (rounded up).</summary>
     public int FifoCount => (_fifoCount + 3) / 4;
+
+    /// <summary>STAT.FQC: the whole quadwords in the FIFO behind the decoder's buffer.</summary>
+    public int FifoQuadwordCount => Math.Max(0, _fifoCount - DecodeBufferWords) / 4;
 
     /// <summary>
     /// The VIF can't go on by itself: it is waiting for the VU or the GIF, or is stalled (I bit, STOP, force break, an
@@ -330,7 +343,7 @@ public sealed partial class Ps2Vif : IStateful
             value &= ~(StatDbf | StatFdr);
         }
 
-        return value | ((uint)FifoCount << 24);
+        return value | ((uint)FifoQuadwordCount << 24);
     }
 
     private void WriteFbrst(uint value)

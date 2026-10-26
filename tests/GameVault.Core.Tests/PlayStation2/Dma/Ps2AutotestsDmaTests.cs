@@ -763,8 +763,8 @@ public sealed class Ps2AutotestsDmaTests
     }
 
     /// <remarks>
-    /// One known difference: on hardware STAT's FQC reads 0 after these transfers, though the stalled VIF hasn't run
-    /// the rest of the packet; here FQC counts the quadwords still waiting in the FIFO, so it is masked out.
+    /// STAT's FQC reads 0 after these transfers though the stalled VIF hasn't run the rest of the packet: the words left
+    /// sit in the decoder's buffer, which FQC doesn't count (<see cref="GameVault.Core.PlayStation2.Ps2Vif.DecodeBufferWords"/>).
     /// </remarks>
     [TestRomFact("ps2autotests/dma/vif/intstall.expected")]
     public void VifInterruptStall()
@@ -790,7 +790,7 @@ public sealed class Ps2AutotestsDmaTests
                 code.Stmask(0xCCCCCCCC);
                 rig.SendSimple(ch, code.Start, 48, P);
                 P($"{name}:\n");
-                P($"  Status after transfer - MASK: {vif.ReadRegister(0x70):x8}, STAT: {vif.ReadRegister(0) & 0x00FFFFFF:x8}\n");
+                P($"  Status after transfer - MASK: {vif.ReadRegister(0x70):x8}, STAT: {vif.ReadRegister(0):x8}\n");
             }
 
             Test("NOP (I)", c => c.Nop(0x8000_0000));
