@@ -41,6 +41,35 @@ public class RewindBufferTests
     }
 
     [Fact]
+    public void A_longer_interval_compressed_in_the_background_restores_the_same_states()
+    {
+        // The PlayStation 2's settings (SystemBudgets): a capture every 30 frames, compressed on a worker.
+        var console = NewConsole();
+        var rewind = new RewindBuffer { CaptureInterval = 30, CompressInBackground = true };
+        var snapshots = new List<byte[]>();
+        for (var frame = 0; frame < 3000; frame++)
+        {
+            if (frame % 30 == 0)
+            {
+                snapshots.Add(console.SaveSnapshot());
+            }
+
+            rewind.OnFrame(console);
+            console.RunFrame();
+        }
+
+        rewind.Count.Should().Be(100, "one capture every 30 frames, past a keyframe group of 60");
+        rewind.Duration.TotalSeconds.Should().BeApproximately(3000 / EmulatorHost.NtscFrameRate, 0.01);
+        for (var i = snapshots.Count - 1; i >= 0; i--)
+        {
+            rewind.StepBack(console).Should().BeTrue();
+            console.SaveSnapshot().Should().Equal(snapshots[i], $"entry {i}");
+        }
+
+        rewind.StepBack(console).Should().BeFalse();
+    }
+
+    [Fact]
     public void Capturing_resumes_cleanly_after_rewinding()
     {
         var console = NewConsole();

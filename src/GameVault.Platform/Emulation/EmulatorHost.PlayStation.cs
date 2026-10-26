@@ -94,5 +94,7 @@ public sealed partial class EmulatorHost
         {
             (ps.CdRom.Disc as IDisposable)?.Dispose();
         }
+
+        ReleasePs2Disc(console);
     }
 }

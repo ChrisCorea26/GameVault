@@ -157,6 +157,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _appleDiskSaves = paths is null ? null : new BatterySaveStore(paths, ".a2save");
         _memoryCards = paths is null ? null : new BatterySaveStore(paths, ".mcd");
         _controllerPaks = paths is null ? null : new BatterySaveStore(paths, ".mpk");
+        _ps2Cards = paths is null ? null : new Ps2MemoryCardStore(paths);
         _context = SynchronizationContext.Current;
         _present = console => _video.Present(console.FrameBuffer, PaletteFor(console), console.ScreenWidth, console.ScreenHeight, console.PixelAspect);
     }
@@ -233,7 +234,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     }
 
     /// <summary>NES CPU addresses $0000–$FFFF, read without side effects (emulation thread only).</summary>
-    private uint ReadForAchievements(uint address, Span<byte> buffer)
+    internal uint ReadForAchievements(uint address, Span<byte> buffer)
     {
         if (_console is not { } console)
         {
@@ -246,6 +247,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             AppleConsole or GenesisConsole => 0x1FFFF,
             SnesConsole => 0x9FFFF,
             PlayStationConsole => 0x2003FF,
+            Core.PlayStation2.Ps2Console => AchievementsHashing.PlayStation2MemoryLimit, // RDRAM, then the scratchpad
             N64Console n64 => (uint)n64.Rdram.Length - 1,
             _ => 0xFFFF,
         };
@@ -377,6 +379,11 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             throw new NetplayException("Start the game first. Both players need the same game running.");
         }
 
+        if (!SystemBudgets.AllowsNetplay(_romSystem))
+        {
+            throw new NetplayException(SystemBudgets.PlayStation2NetplayMessage);
+        }
+
         if (FdsImage.IsFdsImage(_romData))
         {
             throw new NetplayException("Netplay works with cartridge games for now, not Disk System games.");
@@ -391,7 +398,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     {
         var data = _romData!;
         var profile = Profile ?? new GameProfile { Sha1 = string.Empty };
-        var console = ConsoleFactory.Create(data, _romSystem, profile, fdsBios: null, _romExtension, _appleRoms, _playStation, _n64);
+        var console = ConsoleFactory.Create(data, _romSystem, profile, fdsBios: null, _romExtension, _appleRoms, _playStation, _n64, _playStation2);
         if (_audioActive && _audio is not null)
         {
             console.EnableAudio(_audio.SampleRate);
@@ -409,6 +416,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             _console = console;
             _battery = null;
             _pak = null;
+            _ps2Card = null;
             _diskOriginal = null;
             _seenCheats = null;
             _cheatsActive = false;
@@ -640,7 +648,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         var system = _romSystem;
         return rom is null
             ? Task.FromResult(new ChallengeCheck(false, "Open the challenge's game first, to check results against it."))
-            : Task.Run(() => ChallengeVerifier.Verify(rom, challenge, result, system, _playStation, _n64));
+            : Task.Run(() => ChallengeVerifier.Verify(rom, challenge, result, system, _playStation, _n64, _playStation2));
     }
 
     /// <summary>Emulation thread: records this frame's buttons and checks the goal and the time limit.</summary>
@@ -873,7 +881,10 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             ? await LoadPlayStationSetupAsync(cancellationToken).ConfigureAwait(false)
             : null;
         var n64 = IsNintendo64(rom.System) ? await LoadN64SetupAsync(cancellationToken).ConfigureAwait(false) : null;
-        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation, n64);
+        var playStation2 = rom.System == GameSystem.PlayStation2
+            ? await LoadPlayStation2SetupAsync(cancellationToken).ConfigureAwait(false)
+            : null;
+        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation, n64, playStation2);
     }
 
     /// <summary>The player's Apple II ROMs from Settings, or null when they aren't set yet.</summary>
@@ -901,7 +912,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
     /// <summary>
     /// Loads a game from bytes already in memory. Famicom Disk System images also need the player's own
-    /// 8 KB BIOS in <paramref name="fdsBios"/>.
+    /// 8 KB BIOS in <paramref name="fdsBios"/>; PlayStation 2 discs need the player's BIOS in <paramref name="playStation2"/>.
     /// </summary>
     public void Load(
         byte[] data,
@@ -911,7 +922,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         string extension = "",
         AppleRoms? appleRoms = null,
         PlayStationSetup? playStation = null,
-        N64Setup? n64 = null)
+        N64Setup? n64 = null,
+        PlayStation2Setup? playStation2 = null)
     {
         RomHashes hashes;
         try
@@ -925,7 +937,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
         var profile = ProfileResolver?.Invoke(hashes.Sha1) ?? new GameProfile { Sha1 = hashes.Sha1 };
         n64 ??= IsNintendo64(system) ? new N64Setup(SaveTypes: N64SaveTypes) : null;
-        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation, n64);
+        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation, n64, playStation2);
         var nes = console as NesConsole;
 
         if (_audio is not null)
@@ -962,7 +974,9 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _appleRoms = appleRoms;
         _playStation = playStation;
         _n64 = n64;
+        _playStation2 = playStation2;
         LoadControllerPak(console);
+        LoadPs2MemoryCard(console);
         SetUpDiscs(data, system);
         _input.TypingMode = console is AppleConsole;
         _input.Layout = console switch
@@ -971,6 +985,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             SnesConsole => PadLayout.Snes,
             PlayStationConsole => PadLayout.PlayStation,
             N64Console => PadLayout.Nintendo64,
+            Core.PlayStation2.Ps2Console => PadLayout.PlayStation2,
             _ => PadLayout.Nes,
         };
         var appleBoot = console is AppleConsole { Disk: var drives } && drives.DiskIn(0) is { } bootDisk
@@ -1036,9 +1051,10 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             _batterySaved = battery?.BatteryRam.ToArray() ?? [];
             _batteryTitle = title;
             TrackControllerPak(console);
+            TrackPs2MemoryCard(console);
             _running = true;
             _runAhead.ResetAutoDisable();
-            _rewind.Clear();
+            ApplySystemBudgets(system); // clears the rewind history
             _rewinding = false;
             _playedFrames = 0;
             _passwords.Definition = passwordDefinition;
@@ -1126,6 +1142,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             _console = null;
             _battery = null;
             _pak = null;
+            _ps2Card = null;
             _running = false;
             _rewind.Clear();
         });
@@ -1658,6 +1675,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     {
         FlushBatteryRam(background);
         FlushControllerPak(background);
+        FlushPs2MemoryCard(background);
         FlushDisk(background);
         FlushAppleDisks(background);
     }
