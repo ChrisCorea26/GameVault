@@ -11,6 +11,7 @@ public enum GameSystem
     Nes,
     Sg1000,
     MasterSystem,
+    AppleII,
 }
 
 /// <summary>
