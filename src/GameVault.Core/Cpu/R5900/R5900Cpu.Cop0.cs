@@ -293,10 +293,20 @@ public sealed partial class R5900Cpu
         TlbException(address, access, refill: true, modified: false);
     }
 
+    // The page-table ranges the last rebuild filled (two per entry at most), so the next one clears only those.
+    private readonly uint[] _mappedFirstPage = new uint[TlbEntries * 2];
+    private readonly uint[] _mappedPageCount = new uint[TlbEntries * 2];
+    private int _mappedRanges;
+
     /// <summary>Rebuilds the flattened page table from the TLB (after a TLB write or an ASID change).</summary>
     private void RebuildPageTable()
     {
-        Array.Clear(_pageTable);
+        for (var i = 0; i < _mappedRanges; i++)
+        {
+            Array.Clear(_pageTable, (int)_mappedFirstPage[i], (int)_mappedPageCount[i]);
+        }
+
+        _mappedRanges = 0;
         InvalidateFetch();
         var asid = _entryHi & 0xFF;
 
@@ -314,6 +324,7 @@ public sealed partial class R5900Cpu
             if (entry.Scratchpad)
             {
                 // The S bit maps the scratchpad over the even page, repeating every 16 KB (ps2tek: "EE COP0 Memory Management").
+                RecordRange(evenBase, half);
                 for (uint offset = 0; offset < half; offset += 0x1000)
                 {
                     _pageTable[(evenBase + offset) >> 12] = (offset & 0x3000) | PageValid | PageDirty | PageScratch;
@@ -327,6 +338,13 @@ public sealed partial class R5900Cpu
         }
     }
 
+    private void RecordRange(uint virtualBase, uint size)
+    {
+        _mappedFirstPage[_mappedRanges] = virtualBase >> 12;
+        _mappedPageCount[_mappedRanges] = Math.Min(size >> 12, (uint)_pageTable.Length - (virtualBase >> 12));
+        _mappedRanges++;
+    }
+
     private void MapHalf(uint virtualBase, uint size, uint lo)
     {
         if ((lo & 2) == 0)
@@ -334,6 +352,7 @@ public sealed partial class R5900Cpu
             return;
         }
 
+        RecordRange(virtualBase, size);
         var physicalBase = ((lo >> 6) & 0xF_FFFF) << 12 & ~(size - 1);
         var flags = PageValid | ((lo & 4) != 0 ? PageDirty : 0);
         for (uint offset = 0; offset < size; offset += 0x1000)
