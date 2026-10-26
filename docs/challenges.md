@@ -45,5 +45,6 @@ Both files are indented JSON (web casing). A challenge:
 }
 ```
 
-A result: `challengeId`, `romSha1`, `player`, `frames`, `inputs` (base64 of a run-length list of
-`(count, player-1 buttons, player-2 buttons)` varints) and `finished`.
+A result: `version` (3; versions 1 and 2 still load), `challengeId`, `romSha1`, `player`, `frames`, `inputs` (base64
+of repeated `(count, player-1 buttons, player-2 buttons)` runs: the count is a varint, and each player's buttons are a
+32-bit little-endian value, 8 bits in version 1 and 16 in version 2) and `finished`.

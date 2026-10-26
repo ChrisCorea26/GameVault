@@ -1,13 +1,18 @@
 # GameVault
 
-**The NES emulator built for players and collectors, not tinkerers.**
-Accurate emulation, zero-config setup, and a library that tracks the whole NES catalog. You supply the games yourself.
+**The retro game emulator built for players and collectors, not tinkerers.**
+Accurate emulation, zero-config setup, and a library that tracks your whole collection. It started as an NES
+emulator and now also plays the Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive,
+Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2. You supply the games yourself.
 
 > GameVault never ships, downloads or links to commercial games. It plays files you provide, such as dumps
 > of cartridges you own, or freely licensed homebrew.
 
 GameVault is a Windows desktop app written in C# / .NET 10 with a WinUI 3 interface. See [SPEC.md](SPEC.md) for the
 full feature specification and [CLAUDE.md](CLAUDE.md) for the contributor rules.
+
+**Players:** the [User Manual and Setup Guide](docs/manual/GameVault-User-Manual.pdf) covers installation, every
+system, the BIOS and ROM files you must supply, controls, settings and troubleshooting.
 
 ## Status
 
@@ -30,9 +35,11 @@ full feature specification and [CLAUDE.md](CLAUDE.md) for the contributor rules.
 | 14 | Super Nintendo | ✅ 65C816 and SPC700 pass their SingleStepTests suites; PPU modes 0–7, DMA/HDMA, S-DSP with GameVault's own boot program. Enhancement-chip games aren't supported yet; real-game checks are the owner's ([plan](docs/plans/phase-14.md)) |
 | 15 | Sony PlayStation | ✅ R3000A passes PeterLemon's CPU tests; the GPU matches hardware VRAM dumps pixel for pixel; GTE, SPU, MDEC, CD-ROM (XA, CD-DA), pads and memory cards; .cue/.bin, .chd and .m3u. Needs your own BIOS; real-game checks are the owner's ([plan](docs/plans/phase-15.md)) |
 | 16 | Nintendo 64 | ✅ VR4300, FPU and RSP pass PeterLemon's test programs; a software RDP draws PeterLemon's 115 RDP programs; audio, controllers with the analog stick, Controller Pak, EEPROM, SRAM and FlashRAM; .z64, .v64 and .n64. the RDP is software-only, so heavy 3D scenes may run below full speed until the GPU renderer (left for later); real-game checks are the owner's ([plan](docs/plans/phase-16.md)) |
-| 16–19 | More systems | Planned (SPEC §7.11) |
+| 17 | Sony PlayStation 2 | ✅ 54 of ps2autotests' 55 EE programs match the hardware's output; EE, VU0/VU1, GS (software), IOP, SPU2, IPU, DualShock 2 and 8 MB memory cards; .iso, .chd, .cue/.bin and .elf. Discs need your own BIOS (ELF homebrew runs without one); interpreters and a software GS, so games run below full speed; real-game checks are the owner's ([plan](docs/plans/phase-17.md)) |
+| 18–19 | More systems | Planned (SPEC §7.11) |
 
-Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md).
+Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md). Known bugs and missing features are
+tracked in [`docs/bugs.md`](docs/bugs.md).
 
 Phase plans are in [`docs/plans/`](docs/plans).
 
@@ -49,10 +56,14 @@ Phase plans are in [`docs/plans/`](docs/plans).
 ```powershell
 dotnet build GameVault.sln -c Debug
 dotnet test GameVault.sln
-dotnet run --project src/GameVault.App                      # real (empty) library; "Open game file" plays .nes, .fds, .sms, .sg, .sc, .dsk, .po, .woz
+dotnet run --project src/GameVault.App                      # real (empty) library; "Open game file" plays any supported file (see below)
 dotnet run --project src/GameVault.App -- --sample-data     # fake library for UI previews
 dotnet run --project src/GameVault.App -- --sample-data --page=player   # Player with a test pattern
 ```
+
+Supported files (`src/GameVault.Library/Scanning/RomFiles.cs`): `.nes` `.fds` (NES), `.sms` `.sg` `.sc` (Sega 8-bit),
+`.dsk` `.do` `.po` `.nib` `.woz` (Apple II), `.md` `.gen` `.smd` `.bin` (Genesis), `.sfc` `.smc` (SNES), `.cue` `.chd` `.m3u`
+`.exe` (PlayStation), `.z64` `.v64` `.n64` (N64) and `.iso` `.elf` (PlayStation 2; its `.cue`/`.chd` discs are told apart from the PlayStation's by SYSTEM.CNF), plus a `.zip` holding one cartridge game.
 
 Keyboard (Player 1): arrows, **Z** = B, **X** = A, **Enter** = Start, **Right Shift** = Select, **Esc** = pause.
 See [`docs/design/input.md`](docs/design/input.md) for the full input design.

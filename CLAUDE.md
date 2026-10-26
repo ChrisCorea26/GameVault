@@ -3,7 +3,7 @@
 The full feature spec is in `SPEC.md`. Read it before starting any task, and follow §13, "Instructions for Claude Code".
 
 ## Project in one paragraph
-GameVault is a Windows NES emulator in C# / .NET 10 with a **WinUI 3** UI (Windows App SDK, unpackaged, MVVM). It has five main parts:
+GameVault is a Windows multi-system emulator (NES first, then Sega 8-bit, Apple II, Genesis, SNES, PlayStation, N64 and PlayStation 2; SPEC §7.11) in C# / .NET 10 with a **WinUI 3** UI (Windows App SDK, unpackaged, MVVM). It has five main parts:
 - a deterministic, cycle-stepped emulation core (`src/GameVault.Core`)
 - a platform layer for audio, video and input (`src/GameVault.Platform`)
 - a metadata-only game catalog and collection tracker (`src/GameVault.Library`)
@@ -16,7 +16,7 @@ Users supply their own ROMs. The app never ships, downloads or links to commerci
 - Build: `dotnet build GameVault.sln -c Debug`
 - Test: `dotnet test GameVault.sln`
 - Core tests only: `dotnet test tests/GameVault.Core.Tests`
-- Fetch downloaded test ROMs (nestest, blargg) before testing: `tests/TestRoms/fetch-test-roms.sh` (or `.ps1` on Windows)
+- Fetch downloaded test ROMs (nestest, blargg and the other suites in `tests/TestRoms/manifest.tsv`) before testing: `tests/TestRoms/fetch-test-roms.sh` (or `.ps1` on Windows)
 - Linux/macOS (no WinUI): `dotnet test GameVault.CrossPlatform.slnf`
 - Run app: `dotnet run --project src/GameVault.App`
 - Run with fake data (UI preview, no ROMs needed): `dotnet run --project src/GameVault.App -- --sample-data`
@@ -33,6 +33,11 @@ Users supply their own ROMs. The app never ships, downloads or links to commerci
   - The emulator thread never touches XAML objects. Marshal through `DispatcherQueue`; frames go straight to the swap chain.
   - Every new screen must render meaningful content under `--sample-data`.
 - Work phase by phase (SPEC §12). Write a plan to `docs/plans/phase-N.md` first. Keep tests green before moving on.
+- **Keep the user manual current.** Every phase that adds a system (and any change to user-visible features,
+  settings, keys or required files) updates the chapters in `docs/manual/` and rebuilds
+  `docs/manual/GameVault-User-Manual.pdf` in the same change. Steps: `docs/manual/README.md`.
+- **Known gaps** between the app and the spec are tracked in `docs/bugs.md`. File new ones there, and mark entries
+  Fixed (with the commit) when you fix them.
 
 ## Conventions
 - C#: nullable enabled, file-scoped namespaces, `TreatWarningsAsErrors` in Core.

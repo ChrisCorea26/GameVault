@@ -49,7 +49,7 @@ Memory maps are JSON files in `data/gamedb/memory/`, one per game, keyed by the 
 
 | Field | Required | Meaning |
 |---|---|---|
-| `address` | yes | CPU address: RAM `$0000-$07FF` or cartridge RAM `$6000-$7FFF`. |
+| `address` | yes | An address in the system's memory as GameVault reads it (`IEmulatedConsole.PeekMemory`). On the NES: RAM `$0000-$07FF` or cartridge RAM `$6000-$7FFF`. |
 | `size` | no | 1 (default) or 2 bytes, low byte first. |
 | `encoding` | no | `binary` (default) or `bcd` (each 4 bits is a decimal digit). |
 | `mask`, `shift` | no | Keep only some bits, then shift right: `(raw & mask) >> shift`. |
@@ -81,8 +81,8 @@ Numbers can be JSON numbers, `"0x1F"` or `"$1F"`.
 1. Use a debugger with a RAM viewer (for example Mesen's) on **your own** copy of the game.
 2. Find each value by watching memory while it changes in the game (lose a life, change rooms, take a hit).
 3. Find something that tells gameplay apart from the title screen, demo and menus, and use it for `playing`.
-4. Get the headerless SHA-1 from GameVault (the library stores it) or any tool that skips the 16-byte iNES
-   header.
+4. Get the headerless SHA-1 from GameVault (the library stores it). For the NES, any tool that skips the 16-byte
+   iNES header gives the same hash; other systems follow `RomHasher`'s rules (see `data/gamedb/README.md`).
 5. Put the file in `data/gamedb/memory/` and run the tests. `tests/GameVault.Library.Tests/MemoryMapTests.cs`
    shows the format in use.
 

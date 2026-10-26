@@ -19,8 +19,9 @@ To test against your own dumps, set `GAMEVAULT_LOCAL_ROMS` to a local folder. Te
 
 ## Downloaded at test time
 
-All downloads are pinned to commit `95d8f621ae55cee0d09b91519a8989ae0e64753b` of the community mirror
-[christopherpow/nes-test-roms](https://github.com/christopherpow/nes-test-roms). Hashes are in `manifest.tsv`.
+The NES suites below are pinned to commit `95d8f621ae55cee0d09b91519a8989ae0e64753b` of the community mirror
+[christopherpow/nes-test-roms](https://github.com/christopherpow/nes-test-roms); the other suites list their own pins
+in their sections. Hashes are in `manifest.tsv` and the other `manifest-*.tsv` files.
 
 | Cache path | Suite | Author | Why it isn't committed | Used by |
 |---|---|---|---|---|
