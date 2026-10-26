@@ -10,8 +10,9 @@ public sealed partial class ShellViewModel : ObservableObject
     private readonly INavigationService _navigation;
     private readonly AppEnvironment _environment;
 
-    public ShellViewModel(INavigationService navigation, AppEnvironment environment)
+    public ShellViewModel(INavigationService navigation, AppEnvironment environment, FamilyViewModel? family = null)
     {
+        Family = family;
         _navigation = navigation;
         _environment = environment;
         IsSampleData = environment.IsSampleData;
@@ -19,6 +20,9 @@ public sealed partial class ShellViewModel : ObservableObject
     }
 
     public string Title => "GameVault";
+
+    /// <summary>The title bar's profile switcher (SPEC §7.9); null in tests that don't need it.</summary>
+    public FamilyViewModel? Family { get; }
 
     /// <summary>Shows a "Sample data" badge in the title bar so previews are never mistaken for a real library.</summary>
     public bool IsSampleData { get; }

@@ -395,6 +395,44 @@
       </StackPanel>
     </Border>
 
+    <!-- SPEC §7.9: the family profile's daily limit — a warning, then a stop that needs the parent PIN -->
+    <InfoBar
+        Grid.Row="2"
+        Margin="12"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Top"
+        IsClosable="True"
+        IsOpen="{x:Bind ViewModel.Limit.HasWarning, Mode=OneWay}"
+        Message="{x:Bind ViewModel.Limit.Warning, Mode=OneWay}"
+        Severity="Warning" />
+    <Border
+        Grid.Row="2"
+        MaxWidth="480"
+        Margin="24"
+        Padding="20"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center"
+        Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
+        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1"
+        CornerRadius="8"
+        Visibility="{x:Bind ViewModel.Limit.IsLimitReached, Mode=OneWay}">
+      <StackPanel Spacing="12">
+        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="Time's up for today" />
+        <TextBlock Text="{x:Bind ViewModel.Limit.LimitMessage, Mode=OneWay}" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="8">
+          <PasswordBox
+              Width="160"
+              AutomationProperties.Name="Parent PIN"
+              InputScope="NumericPin"
+              Password="{x:Bind ViewModel.Limit.PinEntry, Mode=TwoWay}"
+              PlaceholderText="Parent PIN" />
+          <Button Command="{x:Bind ViewModel.Limit.ContinueCommand}" Content="Keep playing" />
+        </StackPanel>
+        <TextBlock Foreground="{ThemeResource SystemFillColorCriticalBrush}" Text="{x:Bind ViewModel.Limit.PinMessage, Mode=OneWay}" />
+      </StackPanel>
+    </Border>
+
     <!-- SPEC §7.9: stat overlay from the game's memory map; drawn over the picture, never into screenshots -->
     <Border
         Grid.Row="2"

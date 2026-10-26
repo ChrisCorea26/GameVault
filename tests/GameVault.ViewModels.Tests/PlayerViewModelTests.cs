@@ -29,7 +29,8 @@ public class PlayerViewModelTests
             new CodesViewModel(_cheats, new SampleCodeFilePicker()), _cheats,
             new NetplayViewModel(_emulator, new InMemoryClipboard()), _window,
             new RecapViewModel(_sessions, _journal, _passwords, _timeline), _sessions,
-            new ChallengesViewModel(_emulator, new InMemoryChallengeFiles()));
+            new ChallengesViewModel(_emulator, new InMemoryChallengeFiles()),
+            new PlayLimitViewModel(_emulator, new InMemoryFamilyService(withSamples: false), _timeline));
     }
 
     [Fact]
@@ -411,6 +412,70 @@ public class PlayerViewModelTests
         _vm.Assist.PaletteIndex = 1;
         _vm.Assist.RemoveFlicker = true;
         _emulator.Assist.Should().Be(new AssistOptions(50, false, true, ColorVision.Deuteranopia));
+    }
+
+    [Fact]
+    public async Task The_daily_limit_warns_then_saves_pauses_and_needs_the_pin()
+    {
+        var clock = new ManualClock(new DateTimeOffset(2026, 10, 26, 16, 0, 0, TimeSpan.Zero));
+        var family = new InMemoryFamilyService(clock);
+        family.SwitchTo("sample-kid"); // 60 minutes a day
+        var limit = new PlayLimitViewModel(_emulator, family, _timeline);
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+        limit.Attach();
+
+        _emulator.RaisePlaytime(TimeSpan.FromMinutes(54));
+        limit.HasWarning.Should().BeFalse();
+        _emulator.RaisePlaytime(TimeSpan.FromMinutes(1));
+        limit.Warning.Should().Be("5 minutes of play left today.");
+
+        _emulator.RaisePlaytime(TimeSpan.FromMinutes(5));
+        limit.IsLimitReached.Should().BeTrue();
+        limit.LimitMessage.Should().StartWith("That's 1 hour of play for today, Sam.");
+        _emulator.Status.Should().Be(EmulatorStatus.Paused);
+        (await _timeline.GetResumePointAsync("sample:2")).Should().NotBeNull("the resume point was saved");
+
+        _emulator.Resume();
+        _emulator.Status.Should().Be(EmulatorStatus.Paused, "unpausing can't get past the limit");
+
+        limit.PinEntry = "9999";
+        limit.ContinueCommand.Execute(null);
+        limit.PinMessage.Should().Be("That PIN isn't right.");
+        _emulator.Status.Should().Be(EmulatorStatus.Paused);
+
+        limit.PinEntry = "1234";
+        limit.ContinueCommand.Execute(null);
+        limit.IsLimitReached.Should().BeFalse();
+        _emulator.Status.Should().Be(EmulatorStatus.Running);
+        _emulator.RaisePlaytime(TimeSpan.FromMinutes(30));
+        limit.IsLimitReached.Should().BeFalse("a parent let them keep going today");
+
+        clock.Now = clock.Now.AddDays(1);
+        limit.Remaining.Should().Be(TimeSpan.FromMinutes(60), "a new day starts over");
+        limit.Detach();
+    }
+
+    [Fact]
+    public async Task Profiles_without_a_limit_are_never_stopped()
+    {
+        var limit = new PlayLimitViewModel(_emulator, new InMemoryFamilyService(), _timeline);
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+        limit.Attach();
+
+        _emulator.RaisePlaytime(TimeSpan.FromHours(5));
+        limit.Remaining.Should().BeNull();
+        limit.IsLimitReached.Should().BeFalse();
+        _emulator.Status.Should().Be(EmulatorStatus.Running);
+        limit.Detach();
+    }
+
+    private sealed class ManualClock(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = now;
+
+        public override DateTimeOffset GetUtcNow() => Now;
+
+        public override TimeZoneInfo LocalTimeZone => TimeZoneInfo.Utc;
     }
 
     private sealed class FakeEmulator : IEmulatorService

@@ -1,5 +1,6 @@
 using GameVault.Dumper;
 using GameVault.Library.Data;
+using GameVault.Library.Family;
 using GameVault.Library.Challenges;
 using GameVault.Library.Cheats;
 using GameVault.Library.Journal;
@@ -92,6 +93,22 @@ public partial class App : Application
         }
     }
 
+    /// <summary>
+    /// Restarts GameVault as another family profile: the game is closed and saved first (leaving the Player
+    /// saves the resume point; disposing the emulator writes it), then a new GameVault starts and this one exits.
+    /// </summary>
+    private static void Restart(string profileId)
+    {
+        GetService<INavigationService>().NavigateTo(AppPage.Library);
+        TryGetService<EmulatorHost>()?.Dispose();
+        System.Diagnostics.Process.Start(new System.Diagnostics.ProcessStartInfo(Environment.ProcessPath!)
+        {
+            ArgumentList = { AppEnvironment.ProfileArgumentPrefix + profileId },
+            UseShellExecute = false,
+        });
+        Current.Exit();
+    }
+
     private static ServiceProvider ConfigureServices(AppEnvironment environment)
     {
         var services = new ServiceCollection();
@@ -114,6 +131,7 @@ public partial class App : Application
             services.AddSingleton<ICheatService, SampleCheatService>();
             services.AddSingleton<ISessionLog, InMemorySessionLog>();
             services.AddSingleton<ICodeFilePicker, SampleCodeFilePicker>();
+            services.AddSingleton<IFamilyService>(_ => new InMemoryFamilyService());
             services.AddSingleton<IChallengeFiles>(_ => new InMemoryChallengeFiles
             {
                 ToOpen =
@@ -132,7 +150,11 @@ public partial class App : Application
         }
         else
         {
-            services.AddSingleton(_ => new AppPaths());
+            // Family profiles (SPEC §7.9): the main profile uses GameVault's own folder, the others Profiles/<id>.
+            var familyStore = new FamilyStore(new AppPaths().Root);
+            var family = new FamilyService(familyStore, environment.ProfileId ?? FamilyProfile.MainId, Restart);
+            services.AddSingleton<IFamilyService>(family);
+            services.AddSingleton(_ => new AppPaths(familyStore.DataRootFor(family.Current.Id)));
             services.AddSingleton(sp => new LibraryDatabase(sp.GetRequiredService<AppPaths>().LibraryDatabase));
             services.AddSingleton(_ => new GameProfiles(Path.Combine(AppContext.BaseDirectory, "data", "gamedb")));
             services.AddSingleton<LibraryService>();
@@ -219,6 +241,8 @@ public partial class App : Application
         services.AddTransient<CodeCollectionsViewModel>();
         services.AddTransient<RecapViewModel>();
         services.AddTransient<ChallengesViewModel>();
+        services.AddTransient<PlayLimitViewModel>();
+        services.AddSingleton<FamilyViewModel>();
         services.AddTransient<DumpCartridgeViewModel>();
         services.AddTransient<PlayerViewModel>();
 

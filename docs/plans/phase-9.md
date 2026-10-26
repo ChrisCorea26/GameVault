@@ -75,7 +75,8 @@
   `Profiles/<id>/`: library, saves, timeline, journal, passwords, codes, practice and settings.
 - **Parent PIN:** stored as a PBKDF2 hash with a salt. It is needed to edit profiles and limits, and to
   keep playing past a limit.
-- **Switching** is done from the title bar. The app restarts into the chosen profile (`--profile=<id>`), so
+- **Switching** is done from the navigation pane's footer (the custom title bar is a drag region, so a
+  button there wouldn't take clicks). The app restarts into the chosen profile (`--profile=<id>`), so
   every service opens the right folders.
 - **Daily limit:**
   - Today's play time is counted from the emulator's playtime reports.
@@ -132,6 +133,21 @@
 6. Recap.
 7. Challenges.
 8. Profiles.
+
+## Results
+All eight parts are done. The full Linux suite passes: Core 411, Library 48, ViewModels 134,
+Platform 151 and Dumper 6.
+- **Challenges:** file format in `docs/challenges.md`. The Player's *Challenges* flyout makes a
+  challenge from the current moment (goal values from the memory map), takes one, saves the result and
+  checks a friend's result by replaying it.
+- **Profiles:**
+  - `profiles.json` holds the profiles, a PBKDF2-SHA256 PIN hash (100,000 iterations, random salt) and
+    each profile's play for today.
+  - Settings → Family adds and removes profiles and sets the PIN. A profile that can't change
+    settings sees them locked until a parent unlocks them.
+  - The daily limit warns at 5 minutes left. At the limit it saves the resume point and pauses, and
+    unpausing is blocked until the PIN is entered (then there are no more stops that day).
+- **Sample data:** two profiles, Alex and Sam (PIN 1234), and a sample challenge and result.
 
 ## Owner checklist (later, with real games)
 1. Choose about 5 launch games (for example, a platformer with lives, an overworld adventure, and a game

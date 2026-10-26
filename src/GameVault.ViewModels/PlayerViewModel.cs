@@ -23,7 +23,8 @@ public sealed partial class PlayerViewModel(
     IWindowService window,
     RecapViewModel recap,
     ISessionLog sessions,
-    ChallengesViewModel challenges) : ObservableObject
+    ChallengesViewModel challenges,
+    PlayLimitViewModel limit) : ObservableObject
 {
     private byte[]? _passwordScreenshot;
     private bool _updatingDisk;
@@ -97,6 +98,9 @@ public sealed partial class PlayerViewModel(
 
     /// <summary>Verified challenges (SPEC §7.9).</summary>
     public ChallengesViewModel Challenges => challenges;
+
+    /// <summary>The family profile's daily limit (SPEC §7.9).</summary>
+    public PlayLimitViewModel Limit => limit;
 
     /// <summary>"Previously on…" after a break (SPEC §7.9).</summary>
     public RecapViewModel Recap => recap;
@@ -334,6 +338,7 @@ public sealed partial class PlayerViewModel(
             await codes.ShowAsync(key, (await library.GetGameAsync(key))?.Title ?? Title);
             netplay.Attach();
             challenges.Attach();
+            limit.Attach();
             if (launch?.StateId is { } stateId)
             {
                 await timeline.Service.LoadAsync(key, stateId);
@@ -495,6 +500,7 @@ public sealed partial class PlayerViewModel(
         window.SetFullScreen(false); // leaving the Player always returns to the normal window
         netplay.Detach();
         challenges.Detach();
+        limit.Detach();
         Detach();
     }
 

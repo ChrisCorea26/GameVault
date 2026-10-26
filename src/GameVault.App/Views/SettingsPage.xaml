@@ -12,6 +12,92 @@
     <StackPanel MaxWidth="760" Padding="32,16,32,32" HorizontalAlignment="Left" Spacing="8">
       <TextBlock Margin="0,0,0,8" Style="{StaticResource TitleTextBlockStyle}" Text="Settings" />
 
+      <!-- Family (SPEC §7.9): profiles, daily limits and the parent PIN -->
+      <InfoBar
+          IsClosable="False"
+          IsOpen="{x:Bind ViewModel.Family.SettingsLocked, Mode=OneWay, FallbackValue=False}"
+          Message="A parent can unlock Settings with the PIN below."
+          Severity="Informational"
+          Title="Settings are locked for this profile" />
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Family" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="12">
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Each person gets their own library, saves and settings. A daily limit saves and pauses the game when time's up; a parent's PIN lets them keep going."
+              TextWrapping="Wrap" />
+          <ItemsRepeater ItemsSource="{x:Bind ViewModel.Family.Profiles, Mode=OneWay}">
+            <ItemsRepeater.ItemTemplate>
+              <DataTemplate x:DataType="vm:FamilyProfileItem">
+                <Grid Padding="0,4" ColumnSpacing="12">
+                  <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                  </Grid.ColumnDefinitions>
+                  <FontIcon FontSize="20" Glyph="{x:Bind Icon}" />
+                  <StackPanel Grid.Column="1">
+                    <TextBlock Text="{x:Bind Name}" />
+                    <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Style="{StaticResource CaptionTextBlockStyle}" Text="{x:Bind Details}" />
+                  </StackPanel>
+                  <Button Grid.Column="2" Command="{x:Bind RemoveCommand}" Content="Remove" IsEnabled="{x:Bind CanRemove}" />
+                </Grid>
+              </DataTemplate>
+            </ItemsRepeater.ItemTemplate>
+          </ItemsRepeater>
+
+          <!-- The PIN unlocks profile changes (and Settings for a locked profile). -->
+          <StackPanel Orientation="Horizontal" Spacing="8" Visibility="{x:Bind ViewModel.Family.ManageLocked, Mode=OneWay, FallbackValue=Collapsed}">
+            <PasswordBox
+                Width="160"
+                AutomationProperties.Name="Parent PIN"
+                InputScope="NumericPin"
+                Password="{x:Bind ViewModel.Family.PinEntry, Mode=TwoWay}"
+                PlaceholderText="Parent PIN" />
+            <Button Command="{x:Bind ViewModel.Family.UnlockCommand}" Content="Unlock" />
+          </StackPanel>
+
+          <StackPanel Spacing="12" Visibility="{x:Bind ViewModel.Family.CanManage, Mode=OneWay, FallbackValue=Collapsed}">
+            <Grid ColumnSpacing="8">
+              <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="160" />
+                <ColumnDefinition Width="Auto" />
+              </Grid.ColumnDefinitions>
+              <TextBox Header="New profile" PlaceholderText="Name" Text="{x:Bind ViewModel.Family.NewName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+              <TextBox
+                  Grid.Column="1"
+                  Header="Minutes a day"
+                  InputScope="Number"
+                  PlaceholderText="No limit"
+                  Text="{x:Bind ViewModel.Family.NewLimitMinutes, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+              <Button Grid.Column="2" VerticalAlignment="Bottom" Command="{x:Bind ViewModel.Family.AddProfileCommand}" Content="Add" />
+            </Grid>
+            <CheckBox Content="Can change settings" IsChecked="{x:Bind ViewModel.Family.NewCanChangeSettings, Mode=TwoWay}" />
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <PasswordBox
+                  Width="160"
+                  AutomationProperties.Name="New parent PIN"
+                  InputScope="NumericPin"
+                  Password="{x:Bind ViewModel.Family.NewPin, Mode=TwoWay}"
+                  PlaceholderText="4 to 12 digits" />
+              <Button Command="{x:Bind ViewModel.Family.SetPinCommand}" Content="Set parent PIN" />
+              <Button Command="{x:Bind ViewModel.Family.RemovePinCommand}" Content="Remove PIN" Visibility="{x:Bind ViewModel.Family.HasPin, Mode=OneWay, FallbackValue=Collapsed}" />
+              <Button Command="{x:Bind ViewModel.Family.LockCommand}" Content="Lock" Visibility="{x:Bind ViewModel.Family.IsUnlocked, Mode=OneWay, FallbackValue=Collapsed}" />
+            </StackPanel>
+          </StackPanel>
+          <TextBlock Text="{x:Bind ViewModel.Family.Message, Mode=OneWay}" TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <!-- Everything below is off for a locked profile until a parent unlocks it. -->
+      <ContentControl
+          HorizontalContentAlignment="Stretch"
+          IsEnabled="{x:Bind ViewModel.Family.CanChangeSettings, Mode=OneWay, FallbackValue=True}"
+          IsTabStop="False">
+        <StackPanel Spacing="8">
+
       <!-- Library (SPEC §6.2) -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Library" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
@@ -453,6 +539,8 @@
           Margin="0,16,0,0"
           Command="{x:Bind ViewModel.ResetToDefaultsCommand}"
           Content="Restore defaults" />
+        </StackPanel>
+      </ContentControl>
     </StackPanel>
   </ScrollViewer>
 </Page>
