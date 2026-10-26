@@ -14,7 +14,7 @@ To test against your own dumps, set `GAMEVAULT_LOCAL_ROMS` to a local folder. Te
 
 | File / folder | Suite | Author | Source URL | License / permission | Added in |
 |---|---|---|---|---|---|
-| _(none yet)_ | | | | | |
+| `tests/GameVault.Core.Tests/Nintendo64/Fixtures/rsp-vector-tests.json` | The RSP code, inputs and hardware results of 33 `RSPTest/CP2` programs (vector instructions, including the reserved opcodes), taken from the ROMs and their `.asm` tables | Peter Lemon (krom) | [PeterLemon/N64](https://github.com/PeterLemon/N64) at commit `7085543e4a19d8c539fc9e0a4d2869e788b4ed4b` | Public domain (Unlicense) | Phase 16 |
 
 ## Downloaded at test time
 
