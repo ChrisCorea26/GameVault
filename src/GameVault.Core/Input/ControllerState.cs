@@ -4,14 +4,15 @@ namespace GameVault.Core.Input;
 /// One controller's buttons. The low byte is the NES pad, in the order the hardware shifts them out through
 /// $4016/$4017 (docs/design/input.md §2; NESdev Wiki: "Standard controller"). The high byte holds the buttons
 /// other systems add: C, X, Y, Z and Mode for the Genesis 6-button pad (Phase 13), L and R for the SNES (Phase 14),
-/// and L2 and R2 for the PlayStation (Phase 15).
+/// and L2 and R2 for the PlayStation (Phase 15). The top 16 bits hold an analog stick for the Nintendo 64
+/// (Phase 16): X in bits 16–23 and Y in bits 24–31, each a signed byte (up is positive, as the N64 reports it).
 /// </summary>
 /// <remarks>
 /// Each console maps these to its own pad. On the Genesis, B is the pad's A button, A is its B button and Select
 /// is Mode, so the keyboard keys sit in the same places (Z, X, then C).
 /// </remarks>
 [Flags]
-public enum ControllerState : ushort
+public enum ControllerState : uint
 {
     None = 0,
     A = 1 << 0,
@@ -30,4 +31,24 @@ public enum ControllerState : ushort
     R = 1 << 13,
     L2 = 1 << 14,
     R2 = 1 << 15,
+}
+
+/// <summary>The analog stick packed into <see cref="ControllerState"/>'s top 16 bits.</summary>
+public static class ControllerStick
+{
+    public const int StickShift = 16;
+
+    /// <summary>The bits that hold the stick.</summary>
+    public const ControllerState StickMask = (ControllerState)0xFFFF_0000;
+
+    public static sbyte StickX(this ControllerState state) => (sbyte)((uint)state >> 16);
+
+    public static sbyte StickY(this ControllerState state) => (sbyte)((uint)state >> 24);
+
+    /// <summary>The buttons only (the low 16 bits).</summary>
+    public static ControllerState Buttons(this ControllerState state) => state & ~StickMask;
+
+    /// <summary>The same buttons with the stick at (<paramref name="x"/>, <paramref name="y"/>).</summary>
+    public static ControllerState WithStick(this ControllerState state, sbyte x, sbyte y) =>
+        (state & ~StickMask) | (ControllerState)(((uint)(byte)x << 16) | ((uint)(byte)y << 24));
 }

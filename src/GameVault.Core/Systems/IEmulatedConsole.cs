@@ -15,6 +15,7 @@ public enum GameSystem
     Genesis,
     Snes,
     PlayStation,
+    Nintendo64,
 }
 
 /// <summary>
