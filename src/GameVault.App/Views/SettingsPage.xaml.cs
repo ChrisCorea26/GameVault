@@ -12,7 +12,7 @@ public sealed partial class SettingsPage : Page
         Codes = App.GetService<CodeCollectionsViewModel>();
         InitializeComponent();
         Loaded += OnLoaded;
-        Unloaded += (_, _) => ViewModel.RetroAchievements?.Detach();
+        Unloaded += OnUnloaded;
     }
 
     public SettingsViewModel ViewModel { get; }
@@ -24,7 +24,16 @@ public sealed partial class SettingsPage : Page
     {
         ViewModel.LoadCommand.Execute(null);
         Codes.LoadCommand.Execute(null);
+        ViewModel.Input.Attach();
         ViewModel.RetroAchievements?.Attach();
+    }
+
+    // The view model outlives the page (the controller manager holds its event subscriptions), so it has to stop
+    // listening here: refreshing the port cards once this page is gone fails inside the ItemsRepeaters (SPEC §9.1).
+    private void OnUnloaded(object sender, RoutedEventArgs e)
+    {
+        ViewModel.Input.Detach();
+        ViewModel.RetroAchievements?.Detach();
     }
 
     private void DumperPath_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveDumperPathCommand.Execute(null);
