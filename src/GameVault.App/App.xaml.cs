@@ -4,6 +4,7 @@ using GameVault.Library.Cheats;
 using GameVault.Library.Journal;
 using GameVault.Library.Maps;
 using GameVault.Library.Memory;
+using GameVault.Library.Sessions;
 using GameVault.Library.Passwords;
 using GameVault.Library.Practice;
 using GameVault.Library.Profiles;
@@ -110,6 +111,7 @@ public partial class App : Application
             services.AddSingleton<IDumperService, SampleDumperService>();
             services.AddSingleton<IClipboardService, InMemoryClipboard>();
             services.AddSingleton<ICheatService, SampleCheatService>();
+            services.AddSingleton<ISessionLog, InMemorySessionLog>();
             services.AddSingleton<ICodeFilePicker, SampleCodeFilePicker>();
         }
         else
@@ -157,6 +159,7 @@ public partial class App : Application
                     new HttpClient { DefaultRequestHeaders = { { "User-Agent", "GameVault (NES emulator; code lookup on request)" } } },
                     sp.GetRequiredService<AppPaths>().OnlineCodesCacheDirectory)));
             services.AddSingleton<ICodeFilePicker, WinUiCodeFilePicker>();
+            services.AddSingleton<ISessionLog>(sp => new SessionLog(new SessionStore(sp.GetRequiredService<AppPaths>().SessionsDirectory)));
             services.AddSingleton<IDumperService>(sp =>
             {
                 // The dumper is optional (SPEC §8): only set up when its program is configured.
@@ -197,6 +200,7 @@ public partial class App : Application
         services.AddTransient<CodesViewModel>();
         services.AddTransient<NetplayViewModel>();
         services.AddTransient<CodeCollectionsViewModel>();
+        services.AddTransient<RecapViewModel>();
         services.AddTransient<DumpCartridgeViewModel>();
         services.AddTransient<PlayerViewModel>();
 

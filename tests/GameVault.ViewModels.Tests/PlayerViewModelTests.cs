@@ -16,6 +16,7 @@ public class PlayerViewModelTests
     private readonly InMemoryPracticeRecords _records = new();
     private readonly SampleCheatService _cheats = new();
     private readonly InMemoryWindowService _window = new();
+    private readonly InMemorySessionLog _sessions = new();
     private readonly PlayerViewModel _vm;
 
     public PlayerViewModelTests()
@@ -26,7 +27,8 @@ public class PlayerViewModelTests
             _emulator, _navigation, _settings, _devices, new TimelineViewModel(_timeline), _library, _passwords, _journal,
             new AssistViewModel(_emulator), new PracticeViewModel(_emulator, _records),
             new CodesViewModel(_cheats, new SampleCodeFilePicker()), _cheats,
-            new NetplayViewModel(_emulator, new InMemoryClipboard()), _window);
+            new NetplayViewModel(_emulator, new InMemoryClipboard()), _window,
+            new RecapViewModel(_sessions, _journal, _passwords, _timeline), _sessions);
     }
 
     [Fact]

@@ -20,7 +20,9 @@ public sealed partial class PlayerViewModel(
     CodesViewModel codes,
     ICheatService cheats,
     NetplayViewModel netplay,
-    IWindowService window) : ObservableObject
+    IWindowService window,
+    RecapViewModel recap,
+    ISessionLog sessions) : ObservableObject
 {
     private byte[]? _passwordScreenshot;
     private bool _updatingDisk;
@@ -91,6 +93,13 @@ public sealed partial class PlayerViewModel(
 
     /// <summary>Game Genie and RAM codes for the running game (SPEC §7.8).</summary>
     public CodesViewModel Codes => codes;
+
+    /// <summary>"Previously on…" after a break (SPEC §7.9).</summary>
+    public RecapViewModel Recap => recap;
+
+    private string? _sessionKey;
+    private DateTimeOffset _sessionStart;
+    private TimeSpan _sessionPlayed;
 
     /// <summary>Two-player netplay on the local network (SPEC §7.7).</summary>
     public NetplayViewModel Netplay => netplay;
@@ -313,6 +322,10 @@ public sealed partial class PlayerViewModel(
             devices.SetPlayerCount(emulator.UsesFourScore ? 4 : 2);
             timeline.CanSave = true;
             await timeline.ShowAsync(key);
+            await recap.ShowAsync(key, (await library.GetGameAsync(key))?.Title ?? Title, DateTimeOffset.Now);
+            _sessionKey = key;
+            _sessionStart = DateTimeOffset.Now;
+            _sessionPlayed = TimeSpan.Zero;
             await cheats.ApplyAsync(key); // the codes the player left on for this game
             await codes.ShowAsync(key, (await library.GetGameAsync(key))?.Title ?? Title);
             netplay.Attach();
@@ -330,6 +343,7 @@ public sealed partial class PlayerViewModel(
     [RelayCommand]
     private async Task ResumeAsync()
     {
+        recap.Dismiss();
         if (ResumeOffer is { } offer && emulator.GameKey is { } key)
         {
             ResumeOffer = null;
@@ -463,6 +477,14 @@ public sealed partial class PlayerViewModel(
         }
 
         emulator.Stop();
+        if (_sessionKey is { } sessionKey)
+        {
+            // The emulator reports the last stretch of playtime when it stops, just before this.
+            _ = sessions.RecordAsync(sessionKey, new PlaySession(_sessionStart, _sessionPlayed));
+            _sessionKey = null;
+        }
+
+        recap.Dismiss();
         timeline.Detach();
         codes.Detach();
         window.SetFullScreen(false); // leaving the Player always returns to the normal window
@@ -582,6 +604,11 @@ public sealed partial class PlayerViewModel(
     {
         if (emulator.GameKey is { } key)
         {
+            if (key == _sessionKey)
+            {
+                _sessionPlayed += played;
+            }
+
             await library.AddPlaytimeAsync(key, played);
         }
     }

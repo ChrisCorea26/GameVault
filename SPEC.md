@@ -301,6 +301,7 @@ GameVault grows from an NES emulator into a multi-system one, one system (or fam
 | 16 | Nintendo 64 | MIPS R4300i, RSP, RDP | GPU-accelerated graphics through Direct3D 11/12; a recompiling or optimized interpreter CPU core. |
 | 17 | PlayStation 2 | Emotion Engine (MIPS R5900 + VU0/VU1), GS, IOP, SPU2 | Player-supplied BIOS. Needs dynamic recompilation and a GPU renderer; by far the largest effort so far. |
 | 18 | GameCube / Wii | PowerPC Gekko/Broadway, Flipper/Hollywood GPU, DSP | Needs dynamic recompilation and a GPU renderer; Wii adds remotes and motion. Comparable to Phase 17. |
+| 19 | Atari 2600 and Atari 5200 | 2600: 6507 (a 6502), TIA, RIOT. 5200: 6502C, ANTIC, GTIA, POKEY | Reuses GameVault's 6502 core. The 2600 has no BIOS but must race the beam cycle by cycle, with many cartridge bank-switching schemes. The 5200 needs the player's own BIOS and an analog joystick and keypad mapping. |
 
 Rules that carry over to every system:
 - The player supplies all games, BIOS and system ROM files. GameVault never ships, downloads or links to them.
@@ -407,6 +408,7 @@ Each phase ends with all tests green and a tagged release.
 | **16. Nintendo 64** | R4300i, RSP, RDP (GPU-accelerated) | CPU/RSP test ROMs pass; N64 test ROMs and homebrew render correctly |
 | **17. PlayStation 2** | EE + VUs (recompiled), GS renderer, IOP, SPU2 | Scoped in its plan: a first playable milestone with test programs and homebrew |
 | **18. GameCube / Wii** | Gekko/Broadway (recompiled), Flipper/Hollywood renderer, DSP, controllers | Scoped in its plan: a first playable milestone with test programs and homebrew |
+| **19. Atari 2600 / 5200** | 2600 (6507, TIA, RIOT, bank-switching schemes, paddles) and 5200 (6502C, ANTIC, GTIA, POKEY, analog controller, player BIOS) | 2600 and 5200 test ROMs and homebrew run correctly; the common bank-switching schemes are covered by tests |
 
 ---
 

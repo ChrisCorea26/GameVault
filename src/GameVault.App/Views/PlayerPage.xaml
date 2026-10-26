@@ -301,6 +301,46 @@
 
     <controls:GameView x:Name="Game" Grid.Row="2" ZapperEnabled="{x:Bind ViewModel.UsesZapper, Mode=OneWay}" />
 
+    <!-- SPEC §7.9: "Previously on…" after a break of a day or more -->
+    <Border
+        Grid.Row="2"
+        MaxWidth="560"
+        Margin="24"
+        Padding="20"
+        HorizontalAlignment="Center"
+        VerticalAlignment="Center"
+        Background="{ThemeResource AcrylicInAppFillColorDefaultBrush}"
+        BorderBrush="{ThemeResource CardStrokeColorDefaultBrush}"
+        BorderThickness="1"
+        CornerRadius="8"
+        Visibility="{x:Bind ViewModel.Recap.IsVisible, Mode=OneWay}">
+      <StackPanel Spacing="10">
+        <TextBlock Style="{StaticResource SubtitleTextBlockStyle}" Text="{x:Bind ViewModel.Recap.Heading, Mode=OneWay}" TextWrapping="Wrap" />
+        <TextBlock Text="{x:Bind ViewModel.Recap.LastSession, Mode=OneWay}" TextWrapping="Wrap" />
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <Image Height="120" Visibility="{x:Bind ViewModel.Recap.HasScreenshot, Mode=OneWay}">
+            <Image.Source>
+              <BitmapImage DecodePixelHeight="240" UriSource="{x:Bind ViewModel.Recap.ScreenshotUri, Mode=OneWay}" />
+            </Image.Source>
+          </Image>
+          <Image Height="120" Visibility="{x:Bind ViewModel.Recap.HasMap, Mode=OneWay}">
+            <Image.Source>
+              <BitmapImage DecodePixelHeight="240" UriSource="{x:Bind ViewModel.Recap.MapUri, Mode=OneWay}" />
+            </Image.Source>
+          </Image>
+        </StackPanel>
+        <TextBlock Text="{x:Bind ViewModel.Recap.Note, Mode=OneWay}" TextWrapping="Wrap" />
+        <TextBlock FontFamily="Consolas" IsTextSelectionEnabled="True" Text="{x:Bind ViewModel.Recap.Password, Mode=OneWay}" />
+        <StackPanel HorizontalAlignment="Right" Orientation="Horizontal" Spacing="8">
+          <Button
+              Command="{x:Bind ViewModel.ResumeCommand}"
+              Content="Resume where I left off"
+              Visibility="{x:Bind ViewModel.HasResumeOffer, Mode=OneWay}" />
+          <Button Command="{x:Bind ViewModel.Recap.DismissCommand}" Content="Continue" Style="{StaticResource AccentButtonStyle}" />
+        </StackPanel>
+      </StackPanel>
+    </Border>
+
     <!-- SPEC §7.9: stat overlay from the game's memory map; drawn over the picture, never into screenshots -->
     <Border
         Grid.Row="2"
