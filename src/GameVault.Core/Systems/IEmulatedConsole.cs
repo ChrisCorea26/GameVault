@@ -13,6 +13,7 @@ public enum GameSystem
     MasterSystem,
     AppleII,
     Genesis,
+    Snes,
 }
 
 /// <summary>
