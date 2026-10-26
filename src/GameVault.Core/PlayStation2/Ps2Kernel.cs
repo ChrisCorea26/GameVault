@@ -103,7 +103,9 @@ public sealed partial class Ps2Kernel : IStateful
         elf?.Load(_ram);
         _cpu.Status = entry >= 0x8000_0000 ? KernelStatus : UserStatus;
         var argv = WriteArguments(ArgumentBlock, arguments);
-        _cpu.SetGpr64(4, (ulong)arguments.Count + 1); // a0: argc (argv[0] is the path)
+        // ps2sdk's crt0 keeps $a0 as a loader's argument block (ps2link's) and clears a word through it at exit; the
+        // BIOS passes none, so $a0 is 0. The arguments reach the program through SetupThread; $a1 points at argv too.
+        _cpu.SetGpr64(4, 0);
         _cpu.SetGpr64(5, argv); // a1: argv (ps2sdk's crt0 takes its arguments from SetupThread instead)
         _cpu.SetGpr64(28, gp);
         _cpu.Jump(entry);

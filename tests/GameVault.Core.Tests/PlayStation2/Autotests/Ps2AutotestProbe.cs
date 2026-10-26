@@ -20,5 +20,10 @@ public sealed class Ps2AutotestProbe(ITestOutputHelper log)
             Environment.GetEnvironmentVariable("PS2_TRACE") is null ? null : log.WriteLine,
             Environment.GetEnvironmentVariable("PS2_DUMP"));
         log.WriteLine(result.ToString());
+        if (Environment.GetEnvironmentVariable("PS2_OUT") is { } dir)
+        {
+            File.WriteAllText(Path.Combine(dir, "out.txt"), result.Output);
+            File.WriteAllText(Path.Combine(dir, "exp.txt"), result.Expected);
+        }
     }
 }
