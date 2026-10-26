@@ -9,7 +9,9 @@ document fills those gaps.
 ## 1. Model
 
 - **Ports.** The console has two controller ports, **Player 1** and **Player 2**. The Four Score
-  (Phase 5) adds Player 3 and Player 4; everything below extends to four ports unchanged.
+  (Phase 5) adds Player 3 and Player 4 in the core; everything below extends to four ports unchanged.
+  *Current state:* the assignment policy and Settings → Input handle only Players 1 and 2, so players 3 and
+  4 can't be given a device yet (`docs/bugs.md`).
 - **Sources.** An input source is either **the keyboard** or **one SDL game controller**.
 - **Many-to-one.** A port can have several sources. Their buttons are OR-ed together, so a player can
   switch between keyboard and pad at any time without changing settings.
@@ -144,6 +146,9 @@ SDL's GameController API reports buttons by **position**, so the defaults are po
   turns this off.
 - Remaps are stored per controller model (SDL GUID) and per player. Per-game overrides arrive with
   game profiles (Phase 5, SPEC §7.5).
+- *Current state:* remapping isn't implemented. The keyboard layouts (`GameVault.Platform/Input/KeyboardMapping.cs`)
+  and pad layouts (`ControllerManager.ApplyToGame`) are fixed, and there are no per-player, per-game or
+  one-handed overrides (`docs/bugs.md`).
 
 ### 6.1 Other systems (Phase 11)
 Sega SG-1000 and Master System pads use the same bindings. **B** (keyboard Z) is **Button 1**, **A**
@@ -250,9 +255,11 @@ Controller hotkeys work only from pads assigned to a port.
 ## 9. Settings → Input
 
 - One card per port listing its sources (*Keyboard*, *Xbox Wireless Controller*), with
-  **Swap players**, **Remap…**, **Pin to this player**, and **Two players, one keyboard**.
-- A list of unassigned controllers, each with **Use for Player N**.
-- The same port cards appear in the in-game overlay, so a player can swap without leaving the game.
+  **Pin to this player** / **Unpin** on each controller. **Swap players** sits above the cards.
+- A list of unassigned controllers (**Other controllers**), each with **Use for Player 1** / **Use for Player 2**.
+- **Two players, one keyboard** and **Turbo speed** below the cards.
+- *Not built yet* (`docs/bugs.md`): **Remap…**, and the same port cards in the in-game overlay; today players
+  swap or reassign controllers only in Settings.
 - Under `--sample-data`: the keyboard and an *Xbox Wireless Controller* on Player 1, an *8BitDo SN30 Pro*
   on Player 2, and one unassigned *DualSense Wireless Controller*.
 
@@ -272,7 +279,7 @@ Controller hotkeys work only from pads assigned to a port.
 |---|---|
 | 2 | `ControllerState` and port merging; keyboard on Player 1 (§4.1); focus release (§4.4); opposite-direction rule (§6) |
 | 3 | SDL controllers, default mapping, assignment policy and hot-plug (§3, §5); UI navigation (§7); Settings → Input with sample data (§9); two-player keyboard preset (§4.3) |
-| 5 | Four Score (Players 3–4); per-game overrides; Zapper input type from game profiles |
+| 5 | Four Score (Players 3–4); per-game overrides; Zapper input type from game profiles. *Built:* the Four Score in the core and the Zapper/Four Score input type from profiles and Game Details → Properties. *Not built:* devices for Players 3–4 and per-game remaps (`docs/bugs.md`) |
 
 ## 12. Tests
 

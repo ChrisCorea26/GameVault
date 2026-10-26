@@ -3,7 +3,7 @@
 The full feature spec is in `SPEC.md`. Read it before starting any task, and follow §13, "Instructions for Claude Code".
 
 ## Project in one paragraph
-GameVault is a Windows NES emulator in C# / .NET 10 with a **WinUI 3** UI (Windows App SDK, unpackaged, MVVM). It has five main parts:
+GameVault is a Windows multi-system emulator (NES first, then Sega 8-bit, Apple II, Genesis, SNES, PlayStation and N64; SPEC §7.11) in C# / .NET 10 with a **WinUI 3** UI (Windows App SDK, unpackaged, MVVM). It has five main parts:
 - a deterministic, cycle-stepped emulation core (`src/GameVault.Core`)
 - a platform layer for audio, video and input (`src/GameVault.Platform`)
 - a metadata-only game catalog and collection tracker (`src/GameVault.Library`)
@@ -16,7 +16,7 @@ Users supply their own ROMs. The app never ships, downloads or links to commerci
 - Build: `dotnet build GameVault.sln -c Debug`
 - Test: `dotnet test GameVault.sln`
 - Core tests only: `dotnet test tests/GameVault.Core.Tests`
-- Fetch downloaded test ROMs (nestest, blargg) before testing: `tests/TestRoms/fetch-test-roms.sh` (or `.ps1` on Windows)
+- Fetch downloaded test ROMs (nestest, blargg and the other suites in `tests/TestRoms/manifest.tsv`) before testing: `tests/TestRoms/fetch-test-roms.sh` (or `.ps1` on Windows)
 - Linux/macOS (no WinUI): `dotnet test GameVault.CrossPlatform.slnf`
 - Run app: `dotnet run --project src/GameVault.App`
 - Run with fake data (UI preview, no ROMs needed): `dotnet run --project src/GameVault.App -- --sample-data`

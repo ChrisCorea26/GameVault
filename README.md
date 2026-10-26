@@ -1,7 +1,9 @@
 # GameVault
 
-**The NES emulator built for players and collectors, not tinkerers.**
-Accurate emulation, zero-config setup, and a library that tracks the whole NES catalog. You supply the games yourself.
+**The retro game emulator built for players and collectors, not tinkerers.**
+Accurate emulation, zero-config setup, and a library that tracks your whole collection. It started as an NES
+emulator and now also plays the Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive,
+Super Nintendo, PlayStation and Nintendo 64. You supply the games yourself.
 
 > GameVault never ships, downloads or links to commercial games. It plays files you provide, such as dumps
 > of cartridges you own, or freely licensed homebrew.
@@ -52,10 +54,14 @@ Phase plans are in [`docs/plans/`](docs/plans).
 ```powershell
 dotnet build GameVault.sln -c Debug
 dotnet test GameVault.sln
-dotnet run --project src/GameVault.App                      # real (empty) library; "Open game file" plays .nes, .fds, .sms, .sg, .sc, .dsk, .po, .woz
+dotnet run --project src/GameVault.App                      # real (empty) library; "Open game file" plays any supported file (see below)
 dotnet run --project src/GameVault.App -- --sample-data     # fake library for UI previews
 dotnet run --project src/GameVault.App -- --sample-data --page=player   # Player with a test pattern
 ```
+
+Supported files (`src/GameVault.Library/Scanning/RomFiles.cs`): `.nes` `.fds` (NES), `.sms` `.sg` `.sc` (Sega 8-bit),
+`.dsk` `.do` `.po` `.nib` `.woz` (Apple II), `.md` `.gen` `.smd` `.bin` (Genesis), `.sfc` `.smc` (SNES), `.cue` `.chd` `.m3u`
+`.exe` (PlayStation) and `.z64` `.v64` `.n64` (N64), plus a `.zip` holding one cartridge game.
 
 Keyboard (Player 1): arrows, **Z** = B, **X** = A, **Enter** = Start, **Right Shift** = Select, **Esc** = pause.
 See [`docs/design/input.md`](docs/design/input.md) for the full input design.
