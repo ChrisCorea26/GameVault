@@ -1,6 +1,7 @@
 using GameVault.Core;
 using GameVault.Core.Apple;
 using GameVault.Core.Cartridge;
+using GameVault.Core.Genesis;
 using GameVault.Core.Sega;
 using GameVault.Core.Systems;
 using GameVault.Library.Profiles;
@@ -39,6 +40,25 @@ internal static class ConsoleFactory
             catch (RomFormatException ex)
             {
                 throw new GameLoadException(ex.Message, ex);
+            }
+        }
+
+        if (system == GameSystem.Genesis)
+        {
+            try
+            {
+                var region = profile.Region?.ToLowerInvariant() switch
+                {
+                    "usa" or "ntsc" => GenesisRegion.Americas,
+                    "japan" => GenesisRegion.Japan,
+                    "europe" or "pal" => GenesisRegion.Europe,
+                    _ => (GenesisRegion?)null,
+                };
+                return new GenesisConsole(new GenesisCartridge(data), region, sixButton: profile.Pad != "3");
+            }
+            catch (RomFormatException ex)
+            {
+                throw new GameLoadException("That Genesis cartridge file is empty or damaged.", ex);
             }
         }
 

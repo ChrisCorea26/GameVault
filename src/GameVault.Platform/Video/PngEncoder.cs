@@ -48,7 +48,7 @@ public static class PngEncoder
         var argb = new uint[frame.Length];
         for (var i = 0; i < frame.Length; i++)
         {
-            argb[i] = palette[frame[i] & 0x1FF];
+            argb[i] = palette[frame[i] & 0x7FF];
         }
 
         return argb;
@@ -64,7 +64,7 @@ public static class PngEncoder
             var row = y * sourceHeight / height * sourceWidth;
             for (var x = 0; x < width; x++)
             {
-                argb[y * width + x] = palette[frame[row + x * sourceWidth / width] & 0x1FF];
+                argb[y * width + x] = palette[frame[row + x * sourceWidth / width] & 0x7FF];
             }
         }
 

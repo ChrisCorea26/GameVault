@@ -156,7 +156,7 @@ public sealed class D3D11FrameRenderer : IDisposable
         var count = width * height;
         for (var i = 0; i < count; i++)
         {
-            _pixels[i] = palette[frame[i] & 0x1FF];
+            _pixels[i] = palette[frame[i] & 0x7FF];
         }
 
         var mapped = _context.Map(_frameTexture, 0, MapMode.WriteDiscard);

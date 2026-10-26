@@ -13,7 +13,7 @@ public static class AchievementsHashing
     public static string ForSystem(ReadOnlySpan<byte> file, GameVault.Core.Systems.GameSystem system) =>
         system == GameVault.Core.Systems.GameSystem.Nes
             ? Nes(file)
-            : Convert.ToHexStringLower(MD5.HashData(file)); // SMS, SG-1000 and Apple II: the whole file (rc_hash_buffer)
+            : Convert.ToHexStringLower(MD5.HashData(file)); // SMS, SG-1000, Apple II and Genesis: the whole file (rc_hash_buffer)
 
     public static string Nes(ReadOnlySpan<byte> file)
     {

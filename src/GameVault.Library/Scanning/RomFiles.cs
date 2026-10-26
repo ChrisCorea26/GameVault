@@ -13,7 +13,8 @@ public static class RomFiles
     public const long MaxRomBytes = 16 * 1024 * 1024;
 
     /// <summary>Every extension GameVault opens directly (besides .zip).</summary>
-    public static IReadOnlyList<string> Extensions { get; } = [".nes", ".fds", ".sms", ".sg", ".sc", ".dsk", ".do", ".po", ".nib", ".woz"];
+    public static IReadOnlyList<string> Extensions { get; } =
+        [".nes", ".fds", ".sms", ".sg", ".sc", ".dsk", ".do", ".po", ".nib", ".woz", ".md", ".gen", ".smd", ".bin"];
 
     /// <summary>The system a file is for, from its extension; null for other files (and .zip, whose content decides).</summary>
     public static GameSystem? SystemOf(string path) => Path.GetExtension(path).ToLowerInvariant() switch
@@ -22,6 +23,7 @@ public static class RomFiles
         ".sms" => GameSystem.MasterSystem,
         ".sg" or ".sc" => GameSystem.Sg1000,
         ".dsk" or ".do" or ".po" or ".nib" or ".woz" => GameSystem.AppleII,
+        ".md" or ".gen" or ".smd" or ".bin" => GameSystem.Genesis, // a .bin counts only with a Genesis header (see Read)
         _ => null,
     };
 
@@ -42,11 +44,15 @@ public static class RomFiles
             using var stream = entries[0].Open();
             using var buffer = new MemoryStream((int)entries[0].Length);
             stream.CopyTo(buffer);
-            return new RomFile(buffer.ToArray(), SystemOf(entries[0].FullName)!.Value, Path.GetExtension(entries[0].FullName).ToLowerInvariant());
+            return Checked(new RomFile(buffer.ToArray(), SystemOf(entries[0].FullName)!.Value, Path.GetExtension(entries[0].FullName).ToLowerInvariant()));
         }
 
         return SystemOf(path) is { } system && new FileInfo(path).Length <= MaxRomBytes
-            ? new RomFile(File.ReadAllBytes(path), system, Path.GetExtension(path).ToLowerInvariant())
+            ? Checked(new RomFile(File.ReadAllBytes(path), system, Path.GetExtension(path).ToLowerInvariant()))
             : null;
     }
+
+    /// <summary>".bin" is used by many systems: only a raw Genesis ROM (with "SEGA" in its header) is taken.</summary>
+    private static RomFile? Checked(RomFile file) =>
+        file.Extension == ".bin" && !GameVault.Core.Genesis.GenesisCartridge.LooksLikeGenesis(file.Data) ? null : file;
 }

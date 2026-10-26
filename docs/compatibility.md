@@ -164,8 +164,27 @@ Real-game results need the owner's cartridges or ROMs (see `docs/plans/phase-11.
 | Video: text (GameVault's own font), lo-res, hi-res artifact colour, 80 columns, double hi-res, mixed | ✅ Unit tests |
 | Disk II: DSK/DO/PO (6-and-2), NIB, WOZ 1/2; reads, writes, stepper | ✅ Unit tests |
 | Speaker, keyboard, paddles and buttons | ✅ Unit tests |
-| Disk 2 / disk swapping in the Player | Not yet |
+| Disk menu (drives 1 and 2, insert and eject); disk writes saved as patches | ✅ Host and ViewModel tests |
 | Mid-frame video changes, floating bus | Not yet |
 
 Real disks need the owner's Apple ROMs (Settings → Apple II) and disk images; see
 `docs/plans/phase-12.md`.
+
+## Sega Genesis / Mega Drive (Phase 13)
+
+| Part | State |
+|---|---|
+| 68000: SingleStepTests 680x0 (1,000,057 tests: registers, SR, memory, address-error frames) | ✅ All pass; 3 tests excluded as inconsistent with the rest of the suite |
+| 68000 cycle counts | 🟡 98.8% match; the rest are address-error and odd-jump paths |
+| 68000 reset, interrupts, STOP, trace, privilege, save states | ✅ Unit tests |
+| VDP: planes, priority, scrolling (line, cell, 2-cell columns), window, sprites, shadow/highlight | ✅ Unit tests with tiles written in the tests |
+| VDP: DMA (68000, fill, copy), status, H/V interrupts, HV counter | ✅ Unit tests |
+| VDP: interlace mode 2 (double resolution), Master System mode | Not yet |
+| YM2612: pitch, envelopes, timers, DAC, panning | ✅ Unit tests (440 Hz check) |
+| YM2612: SSG-EG, LFO, channel 3 special mode | 🟡 Implemented, not checked against hardware recordings |
+| SN76489, Z80 sound CPU, bus request/reset, bank window | ✅ Unit tests |
+| Cartridges: raw and .smd, header region, SRAM (odd/even/word), SSF2 mapper | ✅ Unit tests |
+| 3- and 6-button pads | ✅ Unit tests |
+| EEPROM saves (I²C), Sega CD, 32X | Not yet |
+
+Real games are the owner's to try; see `docs/plans/phase-13.md`.

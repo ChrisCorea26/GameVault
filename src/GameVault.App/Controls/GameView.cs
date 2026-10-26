@@ -402,7 +402,7 @@ public sealed partial class GameView : Control
                     var pixels = frame.Span;
                     for (var i = 0; i < pixels.Length; i++)
                     {
-                        _pixels[i] = palette[pixels[i] & 0x1FF];
+                        _pixels[i] = palette[pixels[i] & 0x7FF]; // up to 2,048 colours (the Genesis uses 1,536)
                     }
 
                     // ARGB as little-endian uint is BGRA in memory, which is the bitmap's format.

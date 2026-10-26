@@ -25,7 +25,8 @@ full feature specification and [CLAUDE.md](CLAUDE.md) for the contributor rules.
 | 9 | Game-aware features | ✅ Memory maps, before-death states, auto maps, recap, family profiles, verified challenges, stat overlays |
 | 10 | RetroAchievements | 🟡 Built and tested offline with rcheevos; the owner's account and RetroAchievements' approval pending ([plan](docs/plans/phase-10.md#8-owner-tasks)) |
 | 11 | Sega SG-1000 and Master System | ✅ Z80 passes zexdoc/zexall; VDP, PSG, mappers; library system filter. Real-game checks are the owner's ([plan](docs/plans/phase-11.md)) |
-| 12 | Apple II, II+ and IIe | 🟡 6502/65C02 pass Dormann's tests; video, Disk II (DSK/PO/NIB/WOZ), keyboard. Needs your own Apple ROMs; the disk menu is still to come ([plan](docs/plans/phase-12.md)) |
+| 12 | Apple II, II+ and IIe | ✅ 6502/65C02 pass Dormann's tests; video, Disk II (DSK/PO/NIB/WOZ) with a two-drive disk menu, keyboard. Needs your own Apple ROMs ([plan](docs/plans/phase-12.md)) |
+| 13 | Sega Genesis / Mega Drive | ✅ 68000 passes the SingleStepTests suite; VDP, YM2612, PSG, Z80, 3/6-button pads, SRAM. Real-game checks are the owner's ([plan](docs/plans/phase-13.md)) |
 | 13–19 | More systems | Planned (SPEC §7.11) |
 
 Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md).

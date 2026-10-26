@@ -145,6 +145,23 @@ Sega SG-1000 and Master System pads use the same bindings. **B** (keyboard Z) is
 (keyboard X) is **Button 2**, and **Start** (keyboard Enter) is the console's **Pause** button, which is
 an NMI on both consoles. Select does nothing on these systems.
 
+### 6.2 Genesis / Mega Drive (Phase 13)
+The controller state is 16 bits: the NES pad's 8 buttons, then C, X, Y, Z (and L, R for later systems).
+On the Genesis, **B is the pad's A**, **A is its B** and **Select is Mode**, so the keyboard keeps the pad's
+order: Z, X, C are A, B, C, and Q, W, E are X, Y, Z (new defaults; the NES ignores them).
+
+While a Genesis game runs, controllers switch to the 6-button layout (positional):
+
+| Genesis | Pad | Xbox label |
+|---|---|---|
+| A, B, C | West, South, East | X, A, B |
+| X, Y, Z | Left shoulder, North, right shoulder | LB, Y, RB |
+| Mode | Back | View |
+| Start | Start | Menu |
+
+The 6-button protocol is the default; Game properties' `pad: "3"` gives a game the 3-button pad. Netplay
+(protocol 2) and challenge recordings (version 2) carry all 16 bits.
+
 ## 7. Game input vs. UI navigation
 
 - **In the Library and other pages:** every connected pad navigates the UI (D-pad and stick move XY

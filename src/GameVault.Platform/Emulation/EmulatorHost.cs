@@ -10,6 +10,7 @@ using GameVault.Platform.Achievements;
 using GameVault.Platform.Audio;
 using GameVault.Core.Input;
 using GameVault.Core.Apple;
+using GameVault.Core.Genesis;
 using GameVault.Core.Sega;
 using GameVault.Core.State;
 using GameVault.Core.Systems;
@@ -230,13 +231,14 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         }
 
         var count = 0u;
-        var limit = console is AppleConsole ? 0x1FFFF : 0xFFFF;
+        var limit = console is AppleConsole or GenesisConsole ? 0x1FFFF : 0xFFFF;
         for (var i = 0; i < buffer.Length && address + i <= limit; i++)
         {
             buffer[i] = console switch
             {
                 SegaConsole sega => sega.ReadAchievementMemory((int)(address + i)),
                 AppleConsole apple => apple.ReadAchievementMemory((int)(address + i)),
+                GenesisConsole genesis => genesis.ReadAchievementMemory((int)(address + i)),
                 _ => console.PeekMemory((int)(address + i)),
             };
             count++;
@@ -907,6 +909,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _romExtension = extension;
         _appleRoms = appleRoms;
         _input.TypingMode = console is AppleConsole;
+        _input.SixButtonLayout = console is GenesisConsole;
         var appleBoot = console is AppleConsole { Disk: var drives } && drives.DiskIn(0) is { } bootDisk
             ? WithSavedWrites(bootDisk, AppleConsole.HashDisk(data), title)
             : null;
@@ -1045,6 +1048,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         }
 
         _input.TypingMode = false;
+        _input.SixButtonLayout = false;
 
         Post(() =>
         {

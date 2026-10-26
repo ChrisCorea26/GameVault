@@ -30,6 +30,8 @@ public static class RomHasher
         {
             GameSystem.Nes => StripHeader(image),
             GameSystem.Sg1000 or GameSystem.MasterSystem when image.Length % 0x4000 == 512 => image[512..],
+            GameSystem.Genesis when GameVault.Core.Genesis.GenesisCartridge.IsInterleaved(image) =>
+                GameVault.Core.Genesis.GenesisCartridge.Deinterleave(image), // .smd: No-Intro hashes the plain ROM
             _ => image,
         };
         var crc = Crc32.HashToUInt32(body);

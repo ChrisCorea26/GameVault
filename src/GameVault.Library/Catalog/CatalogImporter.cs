@@ -71,7 +71,9 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
                 ? GameVault.Core.Systems.GameSystem.Sg1000
                 : datName.Contains("Apple II", StringComparison.OrdinalIgnoreCase)
                     ? GameVault.Core.Systems.GameSystem.AppleII
-                    : GameVault.Core.Systems.GameSystem.Nes;
+                    : datName.Contains("Mega Drive", StringComparison.OrdinalIgnoreCase) || datName.Contains("Genesis", StringComparison.OrdinalIgnoreCase)
+                        ? GameVault.Core.Systems.GameSystem.Genesis
+                        : GameVault.Core.Systems.GameSystem.Nes;
 
     public static string KeyFor(CatalogGame game) => game.Sha1 is { } sha1 ? "sha1:" + sha1 : "crc:" + game.Crc32;
 

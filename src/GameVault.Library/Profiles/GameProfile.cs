@@ -53,8 +53,11 @@ public sealed record GameProfile
     /// <summary>True to recommend drawing more than 8 sprites per line (removes flicker).</summary>
     public bool? RemoveSpriteLimit { get; init; }
 
-    /// <summary>"ntsc", "pal" or "dendy".</summary>
+    /// <summary>"ntsc", "pal" or "dendy"; Genesis games also take "usa", "japan" and "europe".</summary>
     public string? Region { get; init; }
+
+    /// <summary>Genesis games: "3" for the 3-button pad (a few older games misread the 6-button one), else "6".</summary>
+    public string? Pad { get; init; }
 
     /// <summary>Apple II games: the machine to run on, "ii+", "iie" or "iie-enhanced" (the default for 16 KB ROMs).</summary>
     public string? Model { get; init; }
@@ -71,6 +74,7 @@ public sealed record GameProfile
         RemoveSpriteLimit = overrides.RemoveSpriteLimit ?? RemoveSpriteLimit,
         Region = overrides.Region ?? Region,
         Model = overrides.Model ?? Model,
+        Pad = overrides.Pad ?? Pad,
         PasswordDefinition = overrides.PasswordDefinition ?? PasswordDefinition,
     };
 

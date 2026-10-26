@@ -148,6 +148,64 @@ sound.
 - **Cartridges:** SMD de-interleaving, header parsing, the SRAM mapping and the SSF2 banks.
 - **State:** save-state round trips and determinism across replays. Host loading and 320×224 frames.
 
+## Results
+- **68000:** passes all 1,000,057 tests in the SingleStepTests 680x0 suite: registers, SR, memory, and
+  address-error frames.
+  - **Excluded tests:** three, listed in the test with the reason. Two are byte shifts that change all 32
+    bits of the register, and one is a divide by zero that pushes a different PC from every other.
+  - **Where the suite disagrees with the manuals, GameVault follows the suite:**
+    - ASR past the operand's width clears C and X;
+    - DIVU/DIVS overflow leaves N and Z alone;
+    - ADDQ.L to An takes 6 cycles.
+  - **Cycle counts:** 98.8% match. The rest are on address-error and odd-jump paths, which working games
+    don't reach.
+  - **Unit tests:** reset, interrupts (autovectored and device vectors), STOP, trace, privilege and save
+    states.
+- **Input:** `ControllerState` is now 16 bits. It adds C, X, Y and Z, plus L and R for later systems.
+  - Netplay moved to protocol 2, and challenge recordings to version 2 (version 1 still loads).
+  - Controllers switch to the 6-button layout while a Genesis game runs, and the keyboard adds C and
+    Q/W/E. (`docs/design/input.md` §6.2.)
+- **The machine:** `GenesisConsole` runs everything from the master clock.
+  - The Z80 keeps in step after each 68000 instruction.
+  - It has the Z80's bus request and reset, the bank window, and the version register (no TMSS).
+  - Pads: 3- and 6-button, with the TH counter and timeout.
+- **VDP:**
+  - Mode 5, drawn line by line, so changes made in an H-interrupt show from the next line.
+  - Both planes and the window; scrolling per screen, cell or line, and per 2-cell column.
+  - Sprites with the link list, per-line limits, masking, collision and overflow; shadow/highlight.
+  - DMA: 68000 to VRAM/CRAM/VSRAM (the 68000 is stalled for an estimate of the transfer time), fill and
+    copy.
+  - The status register, the HV counter (with its NTSC/PAL jumps), H-interrupts every N lines and the
+    V-interrupt.
+  - Output is 320 or 256 wide and 224 or 240 high, shown at 4:3.
+  - The palette has 1,536 entries (shadow, normal and highlight), so the video path's palette mask grew
+    from 512 to 2,048 entries.
+- **YM2612:**
+  - Six channels and eight algorithms, with feedback, detune and multiple.
+  - Envelopes from the OPN rate tables, SSG-EG, the LFO, channel 3's special mode, timers A and B, the
+    DAC, and the busy flag.
+  - A 440 Hz test note lands within 2%.
+  - Output is quantized to 9 bits.
+- **Sound:** the FM is mixed with the PSG (the PSG at about half an FM channel's level), stamped in master
+  clocks.
+- **Platform:**
+  - The library finds `.md`, `.gen`, `.smd` and Genesis `.bin` files; a `.bin` without "SEGA" in its header
+    is skipped.
+  - `.smd` images hash like the plain ROM, so No-Intro DATs match.
+  - The catalog import recognizes "Mega Drive" and "Genesis" DATs.
+  - Game properties take `region` ("usa", "japan", "europe") and `pad` ("3" or "6").
+  - Battery SRAM saves like NES battery RAM.
+  - RetroAchievements: the MD5 of the whole file, as rcheevos hashes Mega Drive games. Memory is work RAM
+    with each 16-bit word byte-swapped (as the reference core exposes it), then SRAM at $10000.
+  - The sample library has a Genesis game.
+- **Changed from the plan, or left for later:**
+  - **Audio is mono:** panning is computed, then left and right are averaged, because GameVault's audio path
+    is mono.
+  - **YM2612 details:** the DAC "ladder" offsets aren't modeled (only the 9-bit quantization), and LFO pitch
+    modulation is a close approximation of the chip's table.
+  - **Not yet:** interlace mode 2, the Master System mode, EEPROM saves, and the Sega CD and 32X.
+  - **`--sample-data`:** the Player shows the standard test pattern for the Genesis sample game.
+
 ## Order of work
 1. 68000 core with unit tests, then the SingleStepTests harness and fixes until it passes.
 2. Cartridge, bus, work RAM, the Z80 subsystem, the I/O ports and pads.
@@ -160,3 +218,5 @@ sound.
 ## Owner checklist
 - Try a few of your own cartridge dumps (3- and 6-button games, a game with SRAM saves, a PAL game) and
   list anything that misbehaves.
+- With a RetroAchievements account, open a Genesis game that has achievements and check they trigger. That
+  confirms the byte-swapped memory layout.
