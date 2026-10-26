@@ -101,6 +101,9 @@ public sealed class AppleHostTests : IDisposable
             host.Stop();
         }
 
+        // Ejecting saves the disk's writes on a background task.
+        await WaitFor(() => Task.FromResult(
+            Directory.Exists(paths.SavesDirectory) && Directory.EnumerateFiles(paths.SavesDirectory, "Side 2 - *.a2save").Any()));
         Directory.EnumerateFiles(paths.SavesDirectory, "Side 2 - *.a2save").Should().ContainSingle("ejecting saves the disk's writes");
 
         using (var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), settings, paths: paths))
