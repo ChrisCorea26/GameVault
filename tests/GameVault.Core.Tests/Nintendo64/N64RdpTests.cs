@@ -544,5 +544,7 @@ public sealed class N64RdpTests
         public Span<byte> Dmem => _dmem;
 
         public void RaiseInterrupt(N64Interrupt source) => Raised.Add(source);
+
+        public void ClearInterrupt(N64Interrupt source) => Raised.Remove(source);
     }
 }

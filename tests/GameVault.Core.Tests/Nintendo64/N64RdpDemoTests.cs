@@ -177,5 +177,9 @@ public sealed class N64RdpDemoTests(ITestOutputHelper output)
         public void RaiseInterrupt(N64Interrupt source)
         {
         }
+
+        public void ClearInterrupt(N64Interrupt source)
+        {
+        }
     }
 }
