@@ -1,0 +1,185 @@
+#!/usr/bin/env python3
+"""Builds the synthetic CHD fixtures in ChdFixtures.cs (run from this folder; needs chdman from MAME's tools).
+
+The discs hold only generated patterns (no game data). SyntheticDisc.cs in the tests builds the same bytes, and the
+tests check its SHA-256 against the one recorded here, so the two generators can't drift apart.
+
+    python3 -I make_chd_fixtures.py > ../ChdFixtures.cs
+"""
+import base64
+import hashlib
+import os
+import subprocess
+import sys
+import tempfile
+
+SYNC = bytes([0x00] + [0xFF] * 10 + [0x00])
+
+
+def bcd(v):
+    return ((v // 10) << 4) | (v % 10)
+
+
+def msf(lba):
+    return bytes([bcd(lba // 4500), bcd(lba // 75 % 60), bcd(lba % 75)])
+
+
+def edc(data):
+    table = []
+    for i in range(256):
+        e = i
+        for _ in range(8):
+            e = (e >> 1) ^ (0xD8018001 if e & 1 else 0)
+        table.append(e)
+    crc = 0
+    for b in data:
+        crc = (crc >> 8) ^ table[(crc ^ b) & 0xFF]
+    return crc
+
+
+# GF(2^8) tables for the CD's Reed-Solomon product code (ECMA-130 Annex A).
+FWD = [0] * 256
+BWD = [0] * 256
+for i in range(256):
+    j = ((i << 1) ^ (0x11D if i & 0x80 else 0)) & 0xFF
+    FWD[i] = j
+    BWD[i ^ j] = i
+
+
+def ecc_pair(values):
+    a = b = 0
+    for v in values:
+        a ^= v
+        b ^= v
+        a = FWD[a]
+    a = BWD[FWD[a] ^ b]
+    b ^= a
+    return a, b
+
+
+def add_ecc(s):
+    for byte in range(86):
+        a, b = ecc_pair([s[12 + byte + 86 * i] for i in range(24)])
+        s[0x81C + byte] = a
+        s[0x81C + 86 + byte] = b
+    for byte in range(52):
+        plane, diag = byte & 1, byte >> 1
+        a, b = ecc_pair([s[12 + 2 * ((43 * diag + 44 * j) % 1118) + plane] for j in range(43)])
+        s[0x8C8 + byte] = a
+        s[0x8C8 + 52 + byte] = b
+
+
+def user_data(lba, size):
+    return bytes(((lba * 3 + (i >> 6)) & 0xFF) for i in range(size))
+
+
+def mode1_raw(lba):
+    s = bytearray(2352)
+    s[0:12] = SYNC
+    s[12:15] = msf(lba)
+    s[15] = 1
+    s[16:16 + 2048] = user_data(lba, 2048)
+    s[0x810:0x814] = edc(s[0:0x810]).to_bytes(4, "little")
+    add_ecc(s)
+    return bytes(s)
+
+
+def mode2_raw(lba):
+    s = bytearray(2352)
+    s[0:12] = SYNC
+    s[12:15] = msf(lba)
+    s[15] = 2
+    s[16:24] = bytes([0, 0, 8, 0, 0, 0, 8, 0])
+    s[24:2352] = user_data(lba, 2328)
+    return bytes(s)
+
+
+def audio(n, silent):
+    out = bytearray()
+    for k in range(588):
+        if silent:
+            out += bytes(4)
+            continue
+        t = n * 588 + k
+        left = (t * 37) % 2000 - 1000
+        right = 700 - (t * 23) % 1400
+        out += (left & 0xFFFF).to_bytes(2, "little") + (right & 0xFFFF).to_bytes(2, "little")
+    return bytes(out)
+
+
+def mixed_disc():
+    """Track 1: 16 mode 1 sectors. Track 2: audio, 10 stored pregap + 22 frames (the last 16 silent).
+    Track 3: mode 2, PREGAP 5 (not stored) + 8 sectors."""
+    data = bytearray()
+    for i in range(16):
+        data += mode1_raw(150 + i)
+    for n in range(32):
+        data += audio(n, silent=n >= 16)
+    track3 = 150 + 16 + 32 + 5
+    for i in range(8):
+        data += mode2_raw(track3 + i)
+    cue = (
+        'FILE "mixed disc.bin" BINARY\n'
+        "  TRACK 01 MODE1/2352\n    INDEX 01 00:00:00\n"
+        "  TRACK 02 AUDIO\n    INDEX 00 00:00:16\n    INDEX 01 00:00:26\n"
+        "  TRACK 03 MODE2/2352\n    PREGAP 00:00:05\n    INDEX 01 00:00:48\n"
+    )
+    return "mixed disc.bin", bytes(data), cue
+
+
+def cooked_disc():
+    data = b"".join(user_data(150 + i, 2048) for i in range(20))
+    cue = 'FILE "cooked.bin" BINARY\n  TRACK 01 MODE1/2048\n    INDEX 01 00:00:00\n'
+    return "cooked.bin", data, cue
+
+
+def make(disc, codecs, workdir):
+    name, data, cue = disc
+    with open(os.path.join(workdir, name), "wb") as f:
+        f.write(data)
+    cue_path = os.path.join(workdir, "disc.cue")
+    with open(cue_path, "w") as f:
+        f.write(cue)
+    out = os.path.join(workdir, "disc.chd")
+    if os.path.exists(out):
+        os.remove(out)
+    subprocess.run(["chdman", "createcd", "-i", cue_path, "-o", out, "-c", codecs], check=True, capture_output=True)
+    # chdman must be able to read back what it wrote (version 0.264 writes unreadable one-hunk CHDs).
+    subprocess.run(["chdman", "verify", "-i", out], check=True, capture_output=True)
+    with open(out, "rb") as f:
+        return f.read()
+
+
+def main():
+    version = subprocess.run(["chdman"], capture_output=True, text=True).stdout.splitlines()[0]
+    fixtures = []
+    with tempfile.TemporaryDirectory() as work:
+        mixed = mixed_disc()
+        cooked = cooked_disc()
+        for label, disc, codecs in [
+            ("MixedCdzl", mixed, "cdzl"),
+            ("MixedCdlz", mixed, "cdlz"),
+            ("MixedCdfl", mixed, "cdfl"),
+            ("MixedDefault", mixed, "cdlz,cdzl,cdfl"),
+            ("CookedCdzl", cooked, "cdzl"),
+        ]:
+            fixtures.append((label, make(disc, codecs, work), codecs))
+    out = sys.stdout
+    out.write("// Generated by Fixtures/make_chd_fixtures.py with " + version.strip() + ". Do not edit.\n")
+    out.write("// Synthetic discs only (generated patterns), built by SyntheticDisc.cs as well.\n\n")
+    out.write("namespace GameVault.Platform.Tests.Discs;\n\n")
+    out.write("internal static class ChdFixtures\n{\n")
+    out.write('    public const string MixedBinSha256 = "' + hashlib.sha256(mixed_disc()[1]).hexdigest() + '";\n\n')
+    out.write('    public const string CookedBinSha256 = "' + hashlib.sha256(cooked_disc()[1]).hexdigest() + '";\n')
+    for label, chd, codecs in fixtures:
+        encoded = base64.b64encode(chd).decode()
+        out.write("\n    /// <summary>chdman createcd -c " + codecs + " (" + str(len(chd)) + " bytes).</summary>\n")
+        out.write("    public static readonly byte[] " + label + " = Convert.FromBase64String(\n")
+        for i in range(0, len(encoded), 100):
+            sep = " +" if i + 100 < len(encoded) else ");"
+            out.write('        "' + encoded[i:i + 100] + '"' + sep + "\n")
+    out.write("}\n")
+
+
+if __name__ == "__main__":
+    main()
