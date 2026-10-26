@@ -14,6 +14,7 @@ To test against your own dumps, set `GAMEVAULT_LOCAL_ROMS` to a local folder. Te
 
 | File / folder | Suite | Author | Source URL | License / permission | Added in |
 |---|---|---|---|---|---|
+| `tests/Ps2Homebrew/**` (sources and built `elf/*.elf`) | GameVault's PS2 homebrew test programs: GS drawing over PATH1/2/3, textures and CLUTs, a VU1 microprogram, MMI/FPU self-checks | GameVault | This repository | GameVault's own code | Phase 17 |
 | `tests/GameVault.Core.Tests/Nintendo64/Fixtures/rsp-vector-tests.json` | The RSP code, inputs and hardware results of 33 `RSPTest/CP2` programs (vector instructions, including the reserved opcodes), taken from the ROMs and their `.asm` tables | Peter Lemon (krom) | [PeterLemon/N64](https://github.com/PeterLemon/N64) at commit `7085543e4a19d8c539fc9e0a4d2869e788b4ed4b` | Public domain (Unlicense) | Phase 16 |
 
 ## Downloaded at test time
@@ -118,3 +119,12 @@ small.
 | `n64-peterlemon/RSPTest/**/*.N64` | The RSP's scalar and vector instructions, its memories and SP DMA alignment, as PASS/FAIL programs | Peter Lemon (krom) | As above | Phase 16: the RSP (`PeterLemonN64Tests`) |
 | `n64-peterlemon/RDPTest/**/*.N64`, `n64-peterlemon/RDP/**/*.{N64,png}` (115 programs, 105 reference pictures) | The RDP's registers (PASS/FAIL), and drawing demos: fill, copy, one-cycle and two-cycle modes, triangles, rectangles, lines, every texture format, TLUTs, mask/clamp/mirror, the combiner, blender, alpha compare and Z buffer | Peter Lemon (krom) | As above | Phase 16: the RDP through the whole console, held to each reference picture and pinned as golden images (`PeterLemonN64RdpTests`) |
 | `n64-peterlemon/RSP/**/*.{N64,png}` (5 demos), `n64-peterlemon/CP1/Fractal/**/*.N64` (2) | Demos that use the whole machine: RSP programs (a gradient, DCT decoding, strided DMA, RDP commands over the XBUS) and FPU fractals | Peter Lemon (krom) | As above | Phase 16: the RSP's demos held to their reference pictures, all pinned as golden images |
+
+### PlayStation 2 (Phase 17)
+
+Pinned to commit `97469ffbed8631277b94e28d01dabd702aa97ef3` of [jpd002/ps2autotests](https://github.com/jpd002/ps2autotests),
+listed in `manifest.tsv` (about 6 MB), so every test run fetches them.
+
+| Cache path | Suite | Author | Why it isn't committed | Used by |
+|---|---|---|---|---|
+| `ps2autotests/**/*.elf`, `*.irx` and `*.expected` (78 programs) | Test programs for the EE (integer, FPU, MMI, COP0), VU0 macro and VU micro mode, DMA (DMAC, scratchpad, VIF), the GS, memory and the EE and IOP kernels, each with its output recorded on a real PS2 | ps2autotests project contributors | ISC: redistributable, but kept with the other downloads | Phase 17: the EE, the VUs, DMA and GameVault's kernel, through the whole console |

@@ -18,7 +18,7 @@ public static class ChallengeVerifier
 {
     public static ChallengeCheck Verify(
         byte[] romImage, ChallengeFile challenge, ChallengeResult result, GameSystem system = GameSystem.Nes, PlayStationSetup? playStation = null,
-        N64Setup? n64 = null)
+        N64Setup? n64 = null, PlayStation2Setup? playStation2 = null)
     {
         if (result.ChallengeId != challenge.Id)
         {
@@ -31,7 +31,7 @@ public static class ChallengeVerifier
             return new ChallengeCheck(false, "This result was played on a different game or version.");
         }
 
-        List<(uint Player1, uint Player2)> inputs;
+        List<(ulong Player1, ulong Player2)> inputs;
         try
         {
             inputs = InputRecording.Decode(Convert.FromBase64String(result.Inputs), result.Version);
@@ -55,7 +55,8 @@ public static class ChallengeVerifier
         try
         {
             console = ConsoleFactory.Create(
-                romImage, system, new GameVault.Library.Profiles.GameProfile { Sha1 = challenge.RomSha1 }, fdsBios: null, playStation: playStation, n64: n64);
+                romImage, system, new GameVault.Library.Profiles.GameProfile { Sha1 = challenge.RomSha1 }, fdsBios: null, playStation: playStation, n64: n64,
+                playStation2: playStation2);
         }
         catch (GameLoadException)
         {
@@ -68,13 +69,15 @@ public static class ChallengeVerifier
         }
         finally
         {
-            // A PlayStation's replay opened its own copy of the disc.
+            // A PlayStation's (or PlayStation 2's) replay opened its own copy of the disc; the start state doesn't
+            // hold the disc, so the new console's own copy is the one the replay reads.
             ((console as GameVault.Core.PlayStation.PlayStationConsole)?.CdRom.Disc as IDisposable)?.Dispose();
+            ((console as GameVault.Core.PlayStation2.Ps2Console)?.Iop.Disc as IDisposable)?.Dispose();
         }
     }
 
     private static ChallengeCheck Replay(
-        IEmulatedConsole console, ChallengeFile challenge, ChallengeResult result, List<(uint Player1, uint Player2)> inputs)
+        IEmulatedConsole console, ChallengeFile challenge, ChallengeResult result, List<(ulong Player1, ulong Player2)> inputs)
     {
         console.Power();
         try

@@ -57,6 +57,26 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial bool N64ExpansionPak { get; set; } = true;
 
+    /// <summary>The player's own PlayStation 2 BIOS (SPEC §7.11, Phase 17). Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string PlayStation2BiosPath { get; set; } = string.Empty;
+
+    /// <summary>What the chosen PlayStation 2 BIOS is (its version), or a hint when none is chosen; empty when it has a problem.</summary>
+    [ObservableProperty]
+    public partial string PlayStation2BiosStatus { get; set; } = string.Empty;
+
+    /// <summary>What's wrong with the chosen PlayStation 2 BIOS (missing, not 4 MB, unreadable); empty when it's fine.</summary>
+    [ObservableProperty]
+    public partial string PlayStation2BiosProblem { get; set; } = string.Empty;
+
+    /// <summary>True while <see cref="PlayStation2BiosProblem"/> has something to say (Settings shows it as a warning).</summary>
+    [ObservableProperty]
+    public partial bool HasPlayStation2BiosProblem { get; set; }
+
+    /// <summary>Skip the PlayStation 2 BIOS's startup screens.</summary>
+    [ObservableProperty]
+    public partial bool PlayStation2FastBoot { get; set; }
+
     /// <summary>Index into <see cref="RewindMemoryOptions"/>.</summary>
     [ObservableProperty]
     public partial int RewindMemoryIndex { get; set; } = 2;
@@ -115,6 +135,9 @@ public sealed partial class SettingsViewModel(
         PlayStationBiosPath = settings.PlayStationBiosPath;
         PlayStationFastBoot = settings.PlayStationFastBoot;
         N64ExpansionPak = settings.N64ExpansionPak;
+        PlayStation2BiosPath = settings.PlayStation2BiosPath;
+        PlayStation2FastBoot = settings.PlayStation2FastBoot;
+        await CheckPlayStation2BiosAsync();
         _isLoaded = true;
         await Library.LoadCommand.ExecuteAsync(null);
     }
@@ -185,6 +208,26 @@ public sealed partial class SettingsViewModel(
 
     partial void OnN64ExpansionPakChanged(bool value) => SaveIfLoaded();
 
+    /// <summary>Called when the PS2 BIOS path box loses focus: saves it and checks the file (size and version).</summary>
+    [RelayCommand]
+    private async Task SavePlayStation2BiosPathAsync()
+    {
+        SaveIfLoaded();
+        await CheckPlayStation2BiosAsync();
+    }
+
+    partial void OnPlayStation2FastBootChanged(bool value) => SaveIfLoaded();
+
+    private async Task CheckPlayStation2BiosAsync()
+    {
+        var path = PlayStation2BiosPath;
+        var check = await Task.Run(() => GameVault.Library.Bios.Ps2Bios.Check(path));
+        var fine = check.IsValid || path.Trim().Trim('"').Length == 0;
+        PlayStation2BiosStatus = fine ? check.Message : string.Empty;
+        PlayStation2BiosProblem = fine ? string.Empty : check.Message;
+        HasPlayStation2BiosProblem = !fine;
+    }
+
     partial void OnRewindMemoryIndexChanged(int value)
     {
         if (value >= 0 && value < RewindMemoryValues.Length)
@@ -222,6 +265,8 @@ public sealed partial class SettingsViewModel(
             PlayStationBiosPath = PlayStationBiosPath.Trim().Trim('"'),
             PlayStationFastBoot = PlayStationFastBoot,
             N64ExpansionPak = N64ExpansionPak,
+            PlayStation2BiosPath = PlayStation2BiosPath.Trim().Trim('"'),
+            PlayStation2FastBoot = PlayStation2FastBoot,
             RewindMemoryMb = RewindMemoryIndex >= 0 && RewindMemoryIndex < RewindMemoryValues.Length
                 ? RewindMemoryValues[RewindMemoryIndex]
                 : current.RewindMemoryMb,

@@ -2,12 +2,15 @@ using GameVault.Core.PlayStation;
 
 namespace GameVault.Library.Discs;
 
-/// <summary>Opens the disc image formats GameVault reads for CD systems: .cue/.bin, .chd, and .m3u playlists of discs.</summary>
+/// <summary>
+/// Opens the disc image formats GameVault reads for CD systems: .cue/.bin, .chd, .iso (Phase 17) and .m3u playlists of
+/// discs. PlayStation 2 discs open through <see cref="Ps2Discs.Open"/> instead.
+/// </summary>
 public static class DiscImages
 {
-    public static bool IsDiscImage(string path) => Path.GetExtension(path).ToLowerInvariant() is ".cue" or ".chd" or ".m3u";
+    public static bool IsDiscImage(string path) => Path.GetExtension(path).ToLowerInvariant() is ".cue" or ".chd" or ".m3u" or ".iso";
 
-    /// <summary>Opens one disc (.cue or .chd). The result is also <see cref="IDisposable"/>: dispose it to close the files.</summary>
+    /// <summary>Opens one disc (.cue, .chd or .iso) as a CD. The result is also <see cref="IDisposable"/>: dispose it to close the files.</summary>
     /// <exception cref="InvalidDataException">The image is malformed, missing files, or in a format GameVault doesn't read.</exception>
     public static ICdImage Open(string path)
     {
@@ -20,8 +23,9 @@ public static class DiscImages
         {
             ".cue" => CueImage.Open(path),
             ".chd" => ChdImage.Open(path),
+            ".iso" => IsoCdImage.Open(path),
             ".m3u" => throw new InvalidDataException($"'{Path.GetFileName(path)}' is a playlist: open one of its discs."),
-            _ => throw new InvalidDataException($"'{Path.GetFileName(path)}' isn't a disc image (.cue or .chd)."),
+            _ => throw new InvalidDataException($"'{Path.GetFileName(path)}' isn't a disc image (.cue, .chd or .iso)."),
         };
     }
 

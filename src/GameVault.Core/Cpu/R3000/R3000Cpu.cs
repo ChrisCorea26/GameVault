@@ -60,6 +60,9 @@ public sealed partial class R3000Cpu : IStateful
     /// <summary>COP0 register 15: the R3000A's processor id on the PlayStation.</summary>
     public const uint ProcessorId = 0x00000002;
 
+    /// <summary>COP0 register 15 on the PlayStation 2's I/O processor (ps2tek: "IOP"), which BIOS code tests to tell the two apart.</summary>
+    public const uint IopProcessorId = 0x0000001F;
+
     // SR bits.
     public const uint SrIsolateCache = 1 << 16;
     public const uint SrBev = 1 << 22;
@@ -107,16 +110,29 @@ public sealed partial class R3000Cpu : IStateful
 
     private long _hiLoReady;
 
-    public R3000Cpu(IR3000Bus bus)
+    /// <param name="bus">The memory and devices.</param>
+    /// <param name="processorId">COP0's PRId: <see cref="ProcessorId"/> on the PlayStation, <see cref="IopProcessorId"/> on the
+    /// PlayStation 2's I/O processor.</param>
+    /// <param name="hasGte">Whether coprocessor 2 is the GTE. Without it (the PS2's IOP), every COP2 instruction raises
+    /// Coprocessor Unusable whatever SR's CU2 bit says.</param>
+    public R3000Cpu(IR3000Bus bus, uint processorId = ProcessorId, bool hasGte = true)
     {
         _bus = bus;
         Gte = new Gte();
+        ProcessorIdValue = processorId;
+        HasGte = hasGte;
     }
 
     /// <summary>CPU cycles since power-on. The bus adds wait states here.</summary>
     public long Cycles;
 
     public Gte Gte { get; }
+
+    /// <summary>What MFC0 reads from PRId (COP0 register 15).</summary>
+    public uint ProcessorIdValue { get; }
+
+    /// <summary>Coprocessor 2 is the GTE (false on the PS2's IOP, which has none).</summary>
+    public bool HasGte { get; }
 
     public uint Pc => _pc;
 
@@ -197,7 +213,7 @@ public sealed partial class R3000Cpu : IStateful
         {
             // A GTE command at the interrupted address has already run on the real CPU, so the BIOS's handler
             // skips it (psx-spx: "COP0 - Interrupt Handling"). Run it here to match.
-            if ((instruction & 0xFE000000) == 0x4A000000 && (Sr & SrCu2) != 0)
+            if ((instruction & 0xFE000000) == 0x4A000000 && (Sr & SrCu2) != 0 && HasGte)
             {
                 Gte.Execute(instruction);
             }

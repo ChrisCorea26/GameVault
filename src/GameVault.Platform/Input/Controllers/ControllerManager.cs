@@ -339,8 +339,8 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
             (x, y) = AppActive ? (pad.StickX, pad.StickY) : ((short)0, (short)0);
         }
 
-        // N64 games read the stick itself (Phase 16); it doesn't press the D-pad.
-        var analog = _input.Layout == PadLayout.Nintendo64;
+        // N64 and PS2 games read the stick itself (Phases 16 and 17); it doesn't press the D-pad.
+        var analog = _input.Layout is PadLayout.Nintendo64 or PadLayout.PlayStation2;
         if (port is { } stickPort)
         {
             _input.SetStick(SourceOf(instanceId), stickPort, GameHasFocus ? x : (short)0, GameHasFocus ? y : (short)0);
@@ -440,6 +440,14 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         _ => (ControllerState.None, false),
     };
 
+    /// <summary>The DualShock 2: the PlayStation's buttons by position (as the SNES pad's), with the stick clicks as L3 and R3.</summary>
+    private static (ControllerState State, bool Turbo) DualShock2Button(PadButton button) => button switch
+    {
+        PadButton.LeftStick => (ControllerState.L3, false),
+        PadButton.RightStick => (ControllerState.R3, false),
+        _ => SnesButton(button),
+    };
+
     private static (ControllerState State, bool Turbo) SixButton(PadButton button) => button switch
     {
         PadButton.West => (ControllerState.B, false),
@@ -464,7 +472,7 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
     private void ApplyToGame(int instanceId, int port, PadButton button, bool down)
     {
         var source = SourceOf(instanceId);
-        var (state, turbo) = _input.Layout == PadLayout.Genesis ? SixButton(button) : _input.Layout is PadLayout.Snes or PadLayout.PlayStation or PadLayout.Nintendo64 ? SnesButton(button) : button switch
+        var (state, turbo) = _input.Layout == PadLayout.Genesis ? SixButton(button) : _input.Layout == PadLayout.PlayStation2 ? DualShock2Button(button) : _input.Layout is PadLayout.Snes or PadLayout.PlayStation or PadLayout.Nintendo64 ? SnesButton(button) : button switch
         {
             PadButton.South => (ControllerState.B, false),
             PadButton.East => (ControllerState.A, false),
@@ -505,11 +513,15 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         }
     }
 
-    /// <summary>The right stick is the N64's C buttons (Phase 16): pushed past half way, like the left stick's directions.</summary>
+    /// <summary>
+    /// The right stick is the N64's C buttons (Phase 16), pushed past half way like the left stick's directions, and
+    /// the DualShock 2's right stick (Phase 17).
+    /// </summary>
     private void OnRightStick(int instanceId, PadAxis axis, short value)
     {
         ControllerState previous, current;
         int? port;
+        short x, y;
         lock (_gate)
         {
             if (!_pads.TryGetValue(instanceId, out var pad))
@@ -530,6 +542,12 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
             current = AppActive && _input.Layout == PadLayout.Nintendo64 ? CButtons(StickInput.ToDirections(pad.RightX, pad.RightY)) : ControllerState.None;
             pad.CButtons = current;
             port = _model.Policy.PortOf(instanceId);
+            (x, y) = AppActive && GameHasFocus ? (pad.RightX, pad.RightY) : ((short)0, (short)0);
+        }
+
+        if (port is { } stickPort)
+        {
+            _input.SetRightStick(SourceOf(instanceId), stickPort, x, y);
         }
 
         if (current == previous || port is not { } p)
@@ -558,7 +576,7 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         | ((directions & ControllerState.Right) != 0 ? ControllerState.Z : 0);
 
     /// <summary>
-    /// The analog triggers are the PlayStation's L2 and R2 while a PlayStation game runs: pressed past half way,
+    /// The analog triggers are the PlayStation's L2 and R2 while a PlayStation (or PS2) game runs: pressed past half way,
     /// released below a quarter, so a resting trigger never flickers.
     /// </summary>
     private void OnTrigger(int instanceId, ControllerState button, short value)
@@ -573,7 +591,7 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
             }
 
             var held = (pad.Triggers & button) != 0;
-            down = _input.Layout is PadLayout.PlayStation or PadLayout.Nintendo64 && AppActive && (held ? value > 8000 : value > 16000);
+            down = _input.Layout is PadLayout.PlayStation or PadLayout.Nintendo64 or PadLayout.PlayStation2 && AppActive && (held ? value > 8000 : value > 16000);
             changed = held != down;
             pad.Triggers = down ? pad.Triggers | button : pad.Triggers & ~button;
             port = _model.Policy.PortOf(instanceId);
