@@ -57,6 +57,7 @@ public sealed partial class R5900Cpu : IStateful
     private readonly IR5900Cop2? _cop2;
     private readonly byte[] _rdram;
     private readonly uint _rdramSize;
+    private readonly byte[]? _bios;
 
     /// <summary>The GPRs: register <c>r</c>'s low 64 bits at <c>2r</c>, its high 64 bits at <c>2r + 1</c>.</summary>
     private readonly ulong[] _gpr = new ulong[64];
@@ -87,6 +88,8 @@ public sealed partial class R5900Cpu : IStateful
         _cop2 = cop2;
         _rdram = bus.Rdram;
         _rdramSize = (uint)_rdram.Length;
+        _bios = bus.Bios;
+        _fetchMemory = _rdram;
         Reset();
     }
 
@@ -237,9 +240,8 @@ public sealed partial class R5900Cpu : IStateful
                 CompareReached();
             }
 
-            var stop = Math.Min(untilCycle, _compareCycle);
-            _sliceEnd = stop;
-            while (Cycles < stop && !StopRequested)
+            _sliceEnd = Math.Min(untilCycle, _compareCycle);
+            while (Cycles < _sliceEnd && !StopRequested)
             {
                 if (_interruptPending)
                 {
@@ -269,6 +271,8 @@ public sealed partial class R5900Cpu : IStateful
         {
             CompareReached();
         }
+
+        _sliceEnd = 0; // outside Run, an idle loop doesn't skip ahead
     }
 
     // ---- Address translation ----
@@ -282,9 +286,12 @@ public sealed partial class R5900Cpu : IStateful
 
     private readonly uint[] _pageTable = new uint[1 << 20];
 
-    /// <summary>The page (virtual) the fetch cache holds, and its translation.</summary>
+    /// <summary>The page (virtual) the fetch cache holds, and where it is in <see cref="_fetchMemory"/> (RDRAM or the BIOS).</summary>
     private uint _fetchPage = 1;
     private uint _fetchEntry;
+    private byte[] _fetchMemory;
+
+    private const uint BiosBase = 0x1FC0_0000;
 
     private enum Access
     {
@@ -365,7 +372,7 @@ public sealed partial class R5900Cpu : IStateful
         if (page == _fetchPage)
         {
             var offset = (_fetchEntry & 0xFFFF_F000) | (address & 0xFFF);
-            instruction = Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_rdram), (nint)offset));
+            instruction = Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_fetchMemory), (nint)offset));
             return true;
         }
 
@@ -397,7 +404,17 @@ public sealed partial class R5900Cpu : IStateful
             // Cache the page so the next fetches skip translation.
             _fetchPage = address & 0xFFFF_F000;
             _fetchEntry = physical & 0xFFFF_F000;
+            _fetchMemory = _rdram;
             instruction = Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_rdram), (nint)physical));
+            return true;
+        }
+
+        if (_bios is { } bios && physical - BiosBase < (uint)bios.Length)
+        {
+            _fetchPage = address & 0xFFFF_F000;
+            _fetchEntry = (physical - BiosBase) & 0xFFFF_F000;
+            _fetchMemory = bios;
+            instruction = MemoryMarshal.Read<uint>(bios.AsSpan((int)(physical - BiosBase)));
             return true;
         }
 

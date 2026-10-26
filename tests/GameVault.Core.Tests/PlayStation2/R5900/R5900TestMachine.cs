@@ -8,13 +8,21 @@ internal sealed class FlatR5900Bus : IR5900Bus
 {
     public byte[] Rdram { get; } = new byte[4 * 1024 * 1024];
 
+    public byte[]? Bios { get; set; }
+
+    public int Reads32;
+
     public readonly List<(uint Address, ulong Value)> IoWrites = [];
 
     public byte Read8(uint address) => 0;
 
     public ushort Read16(uint address) => 0;
 
-    public uint Read32(uint address) => 0;
+    public uint Read32(uint address)
+    {
+        Reads32++;
+        return 0;
+    }
 
     public ulong Read64(uint address) => 0;
 

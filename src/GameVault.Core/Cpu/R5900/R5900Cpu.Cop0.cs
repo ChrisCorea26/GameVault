@@ -206,6 +206,10 @@ public sealed partial class R5900Cpu
     {
         var delta = _compare - Count;
         _compareCycle = Cycles + (delta == 0 ? 1L << 32 : delta);
+        if (_compareCycle < _sliceEnd)
+        {
+            _sliceEnd = _compareCycle; // a running slice stops at the new compare
+        }
     }
 
     private void CompareReached()

@@ -489,6 +489,31 @@ public sealed class R5900Tests
     }
 
     [Fact]
+    public void Instructions_are_fetched_straight_from_the_bios_when_the_bus_offers_it()
+    {
+        var bus = new FlatR5900Bus { Bios = new byte[4 * 1024 * 1024] };
+        BitConverter.TryWriteBytes(bus.Bios.AsSpan(0), Ee.Ori(1, 0, 0x1234));
+        BitConverter.TryWriteBytes(bus.Bios.AsSpan(4), Ee.Addiu(2, 1, 1));
+        var cpu = new R5900Cpu(bus);
+        cpu.Step();
+        cpu.Step();
+        cpu.GetGpr64(2).Should().Be(0x1235);
+        bus.Reads32.Should().Be(0);
+    }
+
+    [Fact]
+    public void A_compare_written_inside_a_slice_still_interrupts_on_time()
+    {
+        // MTC0 Compare = Count + 10 inside a long Run: the interrupt comes 10 cycles later, not at the slice's end.
+        _machine.Load(Origin, [Ee.Mfc0(1, 9), Ee.Addiu(1, 1, 10), Ee.Mtc0(1, 11), .. Enumerable.Repeat(0u, 64)]);
+        Cpu.Jump(Origin);
+        EnableInterrupts(R5900Cpu.StatusIm7);
+        Cpu.WriteCop0(11, 0xFFFF_0000);
+        Cpu.Run(Cpu.Cycles + 40);
+        Cpu.Epc.Should().BeInRange(Origin + 8 + 4 * 9, Origin + 8 + 4 * 11);
+    }
+
+    [Fact]
     public void Save_and_load_round_trip_the_whole_cpu()
     {
         Cpu.WriteTlbEntry(1, 0x0000_6000, 0x7000_0000, 0x8000_0007, 0x0000_0007);

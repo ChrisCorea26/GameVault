@@ -830,7 +830,8 @@ public sealed partial class R5900Cpu
         }
 
         var offset = (_fetchEntry & 0xFFFF_F000) | (_pc & 0xFFF);
-        if (Unsafe.ReadUnaligned<uint>(ref RdramAt(offset)) == 0 && _sliceEnd - 2 > Cycles && !_interruptPending)
+        var delaySlot = Unsafe.ReadUnaligned<uint>(ref Unsafe.Add(ref MemoryMarshal.GetArrayDataReference(_fetchMemory), (nint)offset));
+        if (delaySlot == 0 && _sliceEnd - 2 > Cycles && !_interruptPending)
         {
             Cycles = _sliceEnd - 2;
         }
