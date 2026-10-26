@@ -11,6 +11,12 @@ public interface IR5900Bus
     /// <summary>The 32 MB of RDRAM at physical address 0, which the CPU reads and writes directly on its fast path.</summary>
     byte[] Rdram { get; }
 
+    /// <summary>
+    /// The BIOS ROM at physical $1FC00000, if instructions may be fetched from it directly (the BIOS runs fast that
+    /// way); null, the default, fetches them through <see cref="Read32"/>.
+    /// </summary>
+    byte[]? Bios => null;
+
     byte Read8(uint address);
 
     ushort Read16(uint address);
