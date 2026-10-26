@@ -128,6 +128,37 @@ public sealed class RewindBuffer(long capacityBytes = RewindBuffer.DefaultCapaci
         return true;
     }
 
+    /// <summary>Seconds of play between two entries.</summary>
+    public double SecondsPerEntry => CaptureInterval / EmulatorHost.NtscFrameRate;
+
+    /// <summary>
+    /// Restores entry <paramref name="index"/> (0 is the oldest) without removing anything, so the scrub bar can move
+    /// both ways through the history (SPEC §7.2). <see cref="TruncateAfter"/> drops the newer entries once a point is
+    /// chosen.
+    /// </summary>
+    public void Restore(int index, IEmulatedConsole console)
+    {
+        WaitForCapture();
+        ArgumentOutOfRangeException.ThrowIfNegative(index);
+        ArgumentOutOfRangeException.ThrowIfGreaterThanOrEqual(index, _entries.Count);
+        console.LoadSnapshot(Decode(index));
+    }
+
+    /// <summary>Drops every entry newer than <paramref name="index"/>: play continues from that point.</summary>
+    public void TruncateAfter(int index)
+    {
+        WaitForCapture();
+        var keep = Math.Clamp(index + 1, 0, _entries.Count);
+        for (var i = keep; i < _entries.Count; i++)
+        {
+            _bytesUsed -= _entries[i].Data.Length;
+        }
+
+        _entries.RemoveRange(keep, _entries.Count - keep);
+        _keyframeIndex = -1; // found again (with its bytes) by the next capture
+        _frames = 1;
+    }
+
     /// <summary>Waits for the background capture in flight, if any (emulation thread).</summary>
     private void WaitForCapture()
     {

@@ -27,7 +27,7 @@ public class D3D11FrameRendererTests
         Array.Fill(frame, (ushort)0x30); // white
         renderer.UploadFrame(frame, NtscPalette.Argb);
 
-        renderer.RenderWithoutPresent(preset, cropOverscan: true, tvPixelShape: false);
+        renderer.RenderWithoutPresent(preset, cropLines: 8, tvPixelShape: false);
 
         var center = renderer.ReadPixel(640, 360);
         var corner = renderer.ReadPixel(2, 2);

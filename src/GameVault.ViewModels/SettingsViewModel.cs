@@ -87,7 +87,41 @@ public sealed partial class SettingsViewModel(
     private bool _isLoaded;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OverscanIndex))]
     public partial bool CropOverscan { get; set; } = true;
+
+    /// <summary>Lines hidden at the top and at the bottom while <see cref="CropOverscan"/> is on.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OverscanIndex))]
+    public partial int OverscanCropLines { get; set; } = 8;
+
+    /// <summary>How much of the screen edges to hide (SPEC §5.2), matching <see cref="OverscanIndex"/>.</summary>
+    public IReadOnlyList<string> OverscanOptions { get; } =
+        ["Show the whole picture", "4 lines", "8 lines, like most TVs (default)", "12 lines", "16 lines"];
+
+    private static readonly int[] OverscanValues = [0, 4, 8, 12, 16];
+
+    /// <summary>Settings → Video → Hide screen edges, as an index into <see cref="OverscanOptions"/> (GV-020).</summary>
+    public int OverscanIndex
+    {
+        get => CropOverscan ? Math.Max(1, Array.IndexOf(OverscanValues, OverscanCropLines)) : 0;
+        set
+        {
+            if (value < 0 || value >= OverscanValues.Length || value == OverscanIndex)
+            {
+                return;
+            }
+
+            if (value > 0)
+            {
+                OverscanCropLines = OverscanValues[value];
+            }
+
+            CropOverscan = value > 0;
+            OnPropertyChanged();
+            SaveIfLoaded();
+        }
+    }
 
     /// <summary>A <see cref="Services.DisplayPreset"/> as an index, for a RadioButtons group.</summary>
     [ObservableProperty]
@@ -120,6 +154,7 @@ public sealed partial class SettingsViewModel(
         _isLoaded = false;
         var settings = await settingsStore.LoadAsync(cancellationToken);
         CropOverscan = settings.CropOverscan;
+        OverscanCropLines = Array.IndexOf(OverscanValues, settings.OverscanCropLines) > 0 ? settings.OverscanCropLines : 8;
         DisplayPresetIndex = (int)settings.DisplayPreset;
         TvPixelShape = settings.TvPixelShape;
         RunAheadFrames = Math.Clamp(settings.RunAheadFrames, 0, AppSettings.MaxRunAheadFrames);
@@ -148,6 +183,7 @@ public sealed partial class SettingsViewModel(
         var defaults = new AppSettings();
         _isLoaded = false;
         CropOverscan = defaults.CropOverscan;
+        OverscanCropLines = defaults.OverscanCropLines;
         DisplayPresetIndex = (int)defaults.DisplayPreset;
         TvPixelShape = defaults.TvPixelShape;
         RunAheadFrames = defaults.RunAheadFrames;
@@ -251,6 +287,7 @@ public sealed partial class SettingsViewModel(
         await settingsStore.SaveAsync(current with
         {
             CropOverscan = CropOverscan,
+            OverscanCropLines = OverscanCropLines,
             DisplayPreset = Enum.IsDefined((DisplayPreset)DisplayPresetIndex) ? (DisplayPreset)DisplayPresetIndex : current.DisplayPreset,
             TvPixelShape = TvPixelShape,
             RunAheadFrames = Math.Clamp(RunAheadFrames, 0, AppSettings.MaxRunAheadFrames),

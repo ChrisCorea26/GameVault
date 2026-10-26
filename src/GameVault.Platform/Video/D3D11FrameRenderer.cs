@@ -179,15 +179,15 @@ public sealed class D3D11FrameRenderer : IDisposable
     }
 
     /// <summary>Draws the last uploaded frame and presents, waiting for vertical sync.</summary>
-    public void Render(DisplayPreset preset, bool cropOverscan, bool tvPixelShape)
+    public void Render(DisplayPreset preset, int cropLines, bool tvPixelShape)
     {
-        Draw(preset, cropOverscan, tvPixelShape);
+        Draw(preset, cropLines, tvPixelShape);
         _swapChain.Present(1, PresentFlags.None);
     }
 
-    private void Draw(DisplayPreset preset, bool cropOverscan, bool tvPixelShape)
+    private void Draw(DisplayPreset preset, int cropLines, bool tvPixelShape)
     {
-        var rect = DisplayLayout.Compute(_width, _height, preset, cropOverscan, tvPixelShape, _frameWidth, _frameHeight, _framePixelAspect);
+        var rect = DisplayLayout.Compute(_width, _height, preset, cropLines, tvPixelShape, _frameWidth, _frameHeight, _framePixelAspect);
 
         var constants = new Constants
         {
@@ -239,8 +239,8 @@ public sealed class D3D11FrameRenderer : IDisposable
     }
 
     /// <summary>Draws without presenting (tests read the back buffer before it is flipped away).</summary>
-    internal void RenderWithoutPresent(DisplayPreset preset, bool cropOverscan, bool tvPixelShape) =>
-        Draw(preset, cropOverscan, tvPixelShape);
+    internal void RenderWithoutPresent(DisplayPreset preset, int cropLines, bool tvPixelShape) =>
+        Draw(preset, cropLines, tvPixelShape);
 
     public void Dispose()
     {

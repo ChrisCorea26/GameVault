@@ -67,6 +67,53 @@
         <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind ViewModel.Subtitle, Mode=OneWay}" />
         <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.Details, Mode=OneWay}" TextWrapping="Wrap" />
         <TextBlock Foreground="{ThemeResource TextFillColorSecondaryBrush}" Text="{x:Bind ViewModel.PlaytimeText, Mode=OneWay}" />
+        <!-- SPEC §6.2: unknown / homebrew games' details can be edited, so they can be filtered and grouped (GV-011) -->
+        <Expander
+            HorizontalAlignment="Stretch"
+            HorizontalContentAlignment="Stretch"
+            Header="Edit details"
+            Visibility="{x:Bind ViewModel.CanEditTitle, Mode=OneWay}">
+          <Grid ColumnSpacing="12" RowSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+              <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <TextBox Header="Publisher" LostFocus="Text_LostFocus" Text="{x:Bind ViewModel.Publisher, Mode=TwoWay}" />
+            <TextBox Grid.Column="1" Header="Developer" LostFocus="Text_LostFocus" Text="{x:Bind ViewModel.Developer, Mode=TwoWay}" />
+            <TextBox
+                Grid.Row="1"
+                Header="Year"
+                InputScope="Number"
+                LostFocus="Text_LostFocus"
+                PlaceholderText="1990"
+                Text="{x:Bind ViewModel.ReleaseYearText, Mode=TwoWay}" />
+            <TextBox
+                Grid.Row="1"
+                Grid.Column="1"
+                Header="Genre"
+                LostFocus="Text_LostFocus"
+                PlaceholderText="Platformer"
+                Text="{x:Bind ViewModel.Genre, Mode=TwoWay}" />
+            <ComboBox
+                Grid.Row="2"
+                HorizontalAlignment="Stretch"
+                Header="Region"
+                ItemsSource="{x:Bind ViewModel.GameRegionOptions}"
+                SelectedIndex="{x:Bind ViewModel.GameRegionIndex, Mode=TwoWay}" />
+            <ComboBox
+                Grid.Row="2"
+                Grid.Column="1"
+                HorizontalAlignment="Stretch"
+                Header="Players"
+                ItemsSource="{x:Bind ViewModel.PlayerCountOptions}"
+                SelectedIndex="{x:Bind ViewModel.PlayerCountIndex, Mode=TwoWay}" />
+          </Grid>
+        </Expander>
         <StackPanel Margin="0,8,0,0" Orientation="Horizontal" Spacing="12">
           <Button
               x:Name="PlayButton"
@@ -134,9 +181,63 @@
             Style="{StaticResource CaptionTextBlockStyle}"
             Text="Automatic uses what GameVault knows about this game. Changes apply the next time it starts."
             TextWrapping="Wrap" />
-        <ComboBox Header="Controls" ItemsSource="{x:Bind ViewModel.InputOptions}" SelectedIndex="{x:Bind ViewModel.InputIndex, Mode=TwoWay}" />
+        <!-- Only the properties the game's system uses are shown (GV-004, GV-016) -->
+        <ComboBox
+            Header="Controls"
+            ItemsSource="{x:Bind ViewModel.InputOptions}"
+            SelectedIndex="{x:Bind ViewModel.InputIndex, Mode=TwoWay}"
+            Visibility="{x:Bind ViewModel.IsNes, Mode=OneWay}" />
         <ComboBox Header="Reduce input lag" ItemsSource="{x:Bind ViewModel.AutoOnOffOptions}" SelectedIndex="{x:Bind ViewModel.RunAheadIndex, Mode=TwoWay}" />
-        <ComboBox Header="Reduce flicker (more sprites per line)" ItemsSource="{x:Bind ViewModel.AutoOnOffOptions}" SelectedIndex="{x:Bind ViewModel.SpriteLimitIndex, Mode=TwoWay}" />
+        <ComboBox
+            Header="Reduce flicker (more sprites per line)"
+            ItemsSource="{x:Bind ViewModel.AutoOnOffOptions}"
+            SelectedIndex="{x:Bind ViewModel.SpriteLimitIndex, Mode=TwoWay}"
+            Visibility="{x:Bind ViewModel.IsNes, Mode=OneWay}" />
+        <ComboBox
+            Header="Region (speed)"
+            ItemsSource="{x:Bind ViewModel.RegionOptions, Mode=OneWay}"
+            SelectedIndex="{x:Bind ViewModel.RegionIndex, Mode=TwoWay}"
+            ToolTipService.ToolTip="A European game running too fast, or a US game too slow, needs the other setting"
+            Visibility="{x:Bind ViewModel.HasRegionChoice, Mode=OneWay}" />
+        <ComboBox
+            Header="Apple II model"
+            ItemsSource="{x:Bind ViewModel.AppleModelOptions}"
+            SelectedIndex="{x:Bind ViewModel.AppleModelIndex, Mode=TwoWay}"
+            Visibility="{x:Bind ViewModel.IsAppleII, Mode=OneWay}" />
+        <ComboBox
+            Header="Controller"
+            ItemsSource="{x:Bind ViewModel.GenesisPadOptions}"
+            SelectedIndex="{x:Bind ViewModel.GenesisPadIndex, Mode=TwoWay}"
+            ToolTipService.ToolTip="A few older games misread the 6-button pad"
+            Visibility="{x:Bind ViewModel.IsGenesis, Mode=OneWay}" />
+        <ComboBox
+            Header="Save type"
+            ItemsSource="{x:Bind ViewModel.N64SaveOptions}"
+            SelectedIndex="{x:Bind ViewModel.N64SaveIndex, Mode=TwoWay}"
+            ToolTipService.ToolTip="If the game can't save, try the save type its cartridge uses"
+            Visibility="{x:Bind ViewModel.IsN64, Mode=OneWay}" />
+        <Expander
+            HorizontalAlignment="Stretch"
+            HorizontalContentAlignment="Stretch"
+            Header="Header corrections"
+            Visibility="{x:Bind ViewModel.IsNes, Mode=OneWay}">
+          <StackPanel Spacing="8">
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="For a file whose header is wrong or missing. Leave these on Automatic unless the game shows garbage or won't start."
+                TextWrapping="Wrap" />
+            <TextBox
+                Header="Mapper"
+                InputScope="Number"
+                LostFocus="Mapper_LostFocus"
+                PlaceholderText="From the file"
+                Text="{x:Bind ViewModel.MapperText, Mode=TwoWay}" />
+            <TextBlock Foreground="{ThemeResource SystemFillColorCriticalBrush}" Text="{x:Bind ViewModel.MapperError, Mode=OneWay}" TextWrapping="Wrap" />
+            <ComboBox Header="Mirroring" ItemsSource="{x:Bind ViewModel.MirroringOptions}" SelectedIndex="{x:Bind ViewModel.MirroringIndex, Mode=TwoWay}" />
+            <ComboBox Header="Battery-backed save" ItemsSource="{x:Bind ViewModel.AutoOnOffOptions}" SelectedIndex="{x:Bind ViewModel.BatteryIndex, Mode=TwoWay}" />
+          </StackPanel>
+        </Expander>
       </StackPanel>
 
       <!-- SPEC §7.3: passwords -->
@@ -170,7 +271,12 @@
       </StackPanel>
 
       <!-- SPEC §7.8: Game Genie and RAM codes -->
-      <StackPanel Grid.Row="5" Grid.Column="0" Grid.ColumnSpan="2" Spacing="8">
+      <StackPanel
+          Grid.Row="5"
+          Grid.Column="0"
+          Grid.ColumnSpan="2"
+          Spacing="8"
+          Visibility="{x:Bind ViewModel.IsNes, Mode=OneWay}">
         <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Codes" />
         <controls:CodesPanel MaxWidth="720" HorizontalAlignment="Left" ViewModel="{x:Bind ViewModel.Codes}" />
       </StackPanel>

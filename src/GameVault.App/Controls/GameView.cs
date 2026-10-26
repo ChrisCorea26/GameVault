@@ -33,6 +33,9 @@ public sealed partial class GameView : Control
     private const int FrameHeight = 240;
     private const int OverscanLines = 8;
 
+    /// <summary>Lines hidden at the top and at the bottom while <see cref="CropOverscan"/> is on (Settings → Video, GV-020).</summary>
+    private int _cropAmount = OverscanLines;
+
     private CanvasSwapChainPanel? _panel;
     private SwapChainPanel? _d3dPanel;
     private FrameSink? _frames;
@@ -55,6 +58,9 @@ public sealed partial class GameView : Control
         get => (bool)GetValue(CropOverscanProperty);
         set => SetValue(CropOverscanProperty, value);
     }
+
+    /// <summary>The lines hidden at the top and at the bottom: 0 when <see cref="CropOverscan"/> is off.</summary>
+    private int CropLines => CropOverscan ? _cropAmount : 0;
 
     public bool ZapperEnabled
     {
@@ -117,7 +123,7 @@ public sealed partial class GameView : Control
             (int)(ActualWidth * scale),
             (int)(ActualHeight * scale),
             _settings.DisplayPreset,
-            CropOverscan,
+            CropLines,
             _settings.TvPixelShape);
         var px = point.Position.X * scale - rect.X;
         var py = point.Position.Y * scale - rect.Y;
@@ -206,6 +212,7 @@ public sealed partial class GameView : Control
         }
 
         CropOverscan = _settings.CropOverscan;
+        _cropAmount = Math.Clamp(_settings.OverscanCropLines, 0, DisplayLayout.MaxCropLines);
         SizeChanged += OnSizeChanged;
         if (_d3dPanel is not null && TryStartDirect3D(_d3dPanel))
         {
@@ -223,7 +230,7 @@ public sealed partial class GameView : Control
             var renderer = new D3D11FrameRenderer(width, height);
             SwapChainPanelInterop.SetSwapChain(panel, renderer.SwapChainPointer);
             renderer.SetCompositionScale(panel.CompositionScaleX, panel.CompositionScaleY);
-            _d3d = new D3DRenderLoop(renderer, _frames!, _settings.DisplayPreset, CropOverscan, _settings.TvPixelShape);
+            _d3d = new D3DRenderLoop(renderer, _frames!, _settings.DisplayPreset, CropLines, _settings.TvPixelShape);
             panel.CompositionScaleChanged += OnCompositionScaleChanged;
             return true;
         }
@@ -246,7 +253,7 @@ public sealed partial class GameView : Control
         var swapChain = new CanvasSwapChain(device, (float)size.Width, (float)size.Height, dpi);
         _panel.SwapChain = swapChain;
 
-        _renderer = new Renderer(swapChain, _frames!, size, dpi, CropOverscan, _settings.DisplayPreset == DisplayPreset.SharpPixels);
+        _renderer = new Renderer(swapChain, _frames!, size, dpi, CropLines, _settings.DisplayPreset == DisplayPreset.SharpPixels);
     }
 
     private static (int Width, int Height) PhysicalSize(SwapChainPanel panel, Size size) =>
@@ -302,7 +309,7 @@ public sealed partial class GameView : Control
         }
 
         var dpi = (float)(96 * (XamlRoot?.RasterizationScale ?? 1.0));
-        _renderer?.Resize(new Size(Math.Max(1, e.NewSize.Width), Math.Max(1, e.NewSize.Height)), dpi, CropOverscan);
+        _renderer?.Resize(new Size(Math.Max(1, e.NewSize.Width), Math.Max(1, e.NewSize.Height)), dpi, CropLines);
     }
 
     /// <summary>Owns the render thread. Only this thread draws to and presents the swap chain.</summary>
@@ -321,10 +328,10 @@ public sealed partial class GameView : Control
         private Size _size;
         private float _dpi;
         private readonly bool _sharp;
-        private bool _crop;
+        private int _crop;
         private bool _resizePending;
 
-        public Renderer(CanvasSwapChain swapChain, FrameSink frames, Size size, float dpi, bool crop, bool sharp)
+        public Renderer(CanvasSwapChain swapChain, FrameSink frames, Size size, float dpi, int crop, bool sharp)
         {
             _sharp = sharp;
             _swapChain = swapChain;
@@ -336,7 +343,7 @@ public sealed partial class GameView : Control
             _thread.Start();
         }
 
-        public void Resize(Size size, float dpi, bool crop)
+        public void Resize(Size size, float dpi, int crop)
         {
             lock (_layoutGate)
             {
@@ -371,7 +378,7 @@ public sealed partial class GameView : Control
 
                 Size size;
                 float dpi;
-                bool crop;
+                int crop;
                 lock (_layoutGate)
                 {
                     if (_resizePending)
@@ -424,7 +431,7 @@ public sealed partial class GameView : Control
         }
 
         /// <summary>Placement from <see cref="DisplayLayout"/> in physical pixels, converted to DIPs.</summary>
-        private (Rect Destination, Rect Source) Layout(Size size, float dpi, bool crop)
+        private (Rect Destination, Rect Source) Layout(Size size, float dpi, int crop)
         {
             var pixelsPerDip = dpi / 96.0;
             var rect = DisplayLayout.Compute(
@@ -449,14 +456,14 @@ public sealed partial class GameView : Control
         private readonly D3D11FrameRenderer _renderer;
         private readonly FrameSink _frames;
         private readonly DisplayPreset _preset;
-        private readonly bool _crop;
+        private readonly int _crop;
         private readonly bool _tvPixelShape;
         private readonly Thread _thread;
         private readonly CancellationTokenSource _stop = new();
         private readonly Lock _layoutGate = new();
         private (int Width, int Height, float ScaleX, float ScaleY)? _pendingResize;
 
-        public D3DRenderLoop(D3D11FrameRenderer renderer, FrameSink frames, DisplayPreset preset, bool crop, bool tvPixelShape)
+        public D3DRenderLoop(D3D11FrameRenderer renderer, FrameSink frames, DisplayPreset preset, int crop, bool tvPixelShape)
         {
             _renderer = renderer;
             _frames = frames;

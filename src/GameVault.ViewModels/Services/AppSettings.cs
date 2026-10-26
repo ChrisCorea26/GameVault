@@ -5,8 +5,20 @@ public sealed record AppSettings
 {
     public const int MaxRunAheadFrames = 3;
 
-    /// <summary>Hide the top and bottom 8 lines, like most TVs did (SPEC §5.2).</summary>
+    /// <summary>Hide the top and bottom of the picture, like most TVs did (SPEC §5.2). How much is <see cref="OverscanCropLines"/>.</summary>
     public bool CropOverscan { get; init; } = true;
+
+    /// <summary>The largest crop Settings → Video offers, in lines at the top and at the bottom.</summary>
+    public const int MaxOverscanCropLines = 16;
+
+    /// <summary>
+    /// Lines hidden at the top and at the bottom while <see cref="CropOverscan"/> is on: 8 by default, like most TVs
+    /// (SPEC §5.2); Settings → Video offers 4 to 16.
+    /// </summary>
+    public int OverscanCropLines { get; init; } = 8;
+
+    /// <summary>The lines to hide at the top and at the bottom: 0 when cropping is off.</summary>
+    public int CropLines() => CropOverscan ? Math.Clamp(OverscanCropLines, 0, MaxOverscanCropLines) : 0;
 
     /// <summary>Picture style (SPEC §5.2).</summary>
     public DisplayPreset DisplayPreset { get; init; } = DisplayPreset.SharpPixels;

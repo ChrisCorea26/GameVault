@@ -163,7 +163,7 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="GameVault looks for .nes, .fds and .zip files in these folders and notices when you add or remove games."
+              Text="GameVault looks in these folders for games for every system it plays (NES and Disk System, SG-1000, Master System, Apple II, Genesis, Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2), including games inside .zip files, and notices when you add or remove them."
               TextWrapping="Wrap" />
           <ItemsRepeater ItemsSource="{x:Bind ViewModel.Library.Folders}">
             <ItemsRepeater.ItemTemplate>
@@ -207,15 +207,16 @@
             <TextBlock
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{StaticResource CaptionTextBlockStyle}"
-                Text="Crops the top and bottom of the picture, like most TVs did."
+                Text="Crops the top and bottom of the picture, like most TVs did. Some games draw flickering lines or garbage at the edges; hide more to cover them."
                 TextWrapping="Wrap" />
           </StackPanel>
-          <ToggleSwitch
+          <ComboBox
               Grid.Column="1"
-              MinWidth="0"
-              IsOn="{x:Bind ViewModel.CropOverscan, Mode=TwoWay}"
-              OffContent=""
-              OnContent="" />
+              MinWidth="220"
+              VerticalAlignment="Center"
+              AutomationProperties.Name="Hide screen edges"
+              ItemsSource="{x:Bind ViewModel.OverscanOptions}"
+              SelectedIndex="{x:Bind ViewModel.OverscanIndex, Mode=TwoWay}" />
         </Grid>
       </Border>
 

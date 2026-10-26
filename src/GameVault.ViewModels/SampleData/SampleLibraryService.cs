@@ -42,7 +42,7 @@ public sealed class SampleLibraryService : ILibraryService
         Game(13, "Byte Garden (Homebrew)", GameRegion.World, "Community", 2021, "Puzzle",
             Ownership.DigitalDump, PlayStatus.Playing, hours: 1.25, lastPlayedDaysAgo: 1, licensed: false),
         Game(14, "Pixel Pilgrim (Homebrew)", GameRegion.World, "Community", 2023, "Adventure",
-            Ownership.DigitalDump, PlayStatus.Unplayed, licensed: false),
+            Ownership.DigitalDump, PlayStatus.Unplayed, licensed: false, cataloged: false),
 
         // Phase 11: other systems, so the system filter and badges show in previews.
         Game(15, "Coral Coast", GameRegion.Europe, "Tidewave", 1989, "Platformer",
@@ -190,11 +190,12 @@ public sealed class SampleLibraryService : ILibraryService
         int? lastPlayedDaysAgo = null,
         int players = 1,
         bool licensed = true,
-        GameSystem system = GameSystem.Nes) => new()
+        GameSystem system = GameSystem.Nes,
+        bool cataloged = true) => new()
         {
             System = system,
             Key = $"sample:{id}",
-            IsCataloged = true,
+            IsCataloged = cataloged,
             Title = title,
             Region = region,
             Publisher = publisher,

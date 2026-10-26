@@ -179,6 +179,12 @@ public sealed partial class PlayerViewModel(
     /// <summary>True when the game has a memory map, so the Stats toggle is offered.</summary>
     public bool HasMemoryMap => emulator.HasMemoryMap;
 
+    /// <summary>
+    /// The Challenges button is offered when the game has a memory map (to make challenges) or a challenge is open
+    /// (docs/bugs.md GV-017). A challenge is made from a game with a memory map, so without one there is nothing to take.
+    /// </summary>
+    public bool ShowChallenges => HasMemoryMap || challenges.HasChallenge;
+
     /// <summary>The stat overlay is on for this game (remembered per game).</summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(StatsVisible))]
@@ -280,11 +286,53 @@ public sealed partial class PlayerViewModel(
     public bool HasResumeOffer => ResumeOffer is not null;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowRewindBar))]
     public partial bool IsRewinding { get; private set; }
 
-    /// <summary>The scrub bar: 0–1 of the available history, shown while rewinding.</summary>
+    /// <summary>The scrub bar's position: seconds from the start of the rewind history (SPEC §7.2).</summary>
     [ObservableProperty]
     public partial double RewindSeconds { get; private set; }
+
+    /// <summary>The scrub bar's length: all the history there was when rewinding started, however long (GV-019).</summary>
+    [ObservableProperty]
+    public partial double RewindMaxSeconds { get; private set; } = 1;
+
+    /// <summary>True while the player holds the scrub bar; the game holds still until it is let go.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowRewindBar))]
+    public partial bool IsScrubbing { get; private set; }
+
+    /// <summary>The scrub bar shows while rewinding and while it is being dragged.</summary>
+    public bool ShowRewindBar => IsRewinding || IsScrubbing;
+
+    /// <summary>The scrub bar was grabbed (pointer pressed on it).</summary>
+    public void BeginScrub()
+    {
+        if (!IsScrubbing && IsRewinding)
+        {
+            IsScrubbing = true;
+            emulator.BeginScrub();
+        }
+    }
+
+    /// <summary>The scrub bar moved to <paramref name="seconds"/> from the start of the history.</summary>
+    public void ScrubTo(double seconds)
+    {
+        if (IsScrubbing && Math.Abs(seconds - RewindSeconds) > 0.001)
+        {
+            emulator.ScrubTo(seconds);
+        }
+    }
+
+    /// <summary>The scrub bar was let go: play continues from there.</summary>
+    public void EndScrub()
+    {
+        if (IsScrubbing)
+        {
+            IsScrubbing = false;
+            emulator.EndScrub();
+        }
+    }
 
     /// <summary>False for other systems' games: the Codes panel (Game Genie) is NES-only (SPEC §7.11).</summary>
     [ObservableProperty]
@@ -377,6 +425,7 @@ public sealed partial class PlayerViewModel(
             ShowStats = emulator.GameKey is { } statsKey && settings.StatOverlayGames.Split('|').Contains(statsKey);
             _loadingStats = false;
             OnPropertyChanged(nameof(HasMemoryMap));
+            OnPropertyChanged(nameof(ShowChallenges));
         }
         catch (GameLoadException ex)
         {
@@ -591,6 +640,7 @@ public sealed partial class PlayerViewModel(
             devices.ControllerDisconnected += OnControllerDisconnected;
             devices.Changed += OnDevicesChanged;
             devices.Notice += OnNotice;
+            challenges.PropertyChanged += OnChallengesChanged;
             devices.SetGameRunning(true);
             _attached = true;
         }
@@ -616,6 +666,7 @@ public sealed partial class PlayerViewModel(
             devices.ControllerDisconnected -= OnControllerDisconnected;
             devices.Changed -= OnDevicesChanged;
             devices.Notice -= OnNotice;
+            challenges.PropertyChanged -= OnChallengesChanged;
             devices.SetGameRunning(false);
             devices.SetPlayerCount(2);
             _attached = false;
@@ -672,6 +723,7 @@ public sealed partial class PlayerViewModel(
     private void OnRewindChanged(object? sender, EventArgs e)
     {
         IsRewinding = emulator.IsRewinding;
+        RewindMaxSeconds = Math.Max(1, emulator.RewindMaxSeconds);
         RewindSeconds = emulator.RewindSeconds;
         if (IsRewinding)
         {
@@ -689,6 +741,14 @@ public sealed partial class PlayerViewModel(
             }
 
             await library.AddPlaytimeAsync(key, played);
+        }
+    }
+
+    private void OnChallengesChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ChallengesViewModel.HasChallenge))
+        {
+            OnPropertyChanged(nameof(ShowChallenges));
         }
     }
 

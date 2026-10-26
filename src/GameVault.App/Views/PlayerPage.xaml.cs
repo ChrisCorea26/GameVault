@@ -43,6 +43,11 @@ public sealed partial class PlayerPage : Page
             controllers.PauseRequested += OnPauseRequested;
         }
 
+        // The Slider handles its own pointer events, so listen for handled ones too (view-only glue).
+        RewindSlider.AddHandler(PointerPressedEvent, new PointerEventHandler((_, _) => ViewModel.BeginScrub()), handledEventsToo: true);
+        RewindSlider.AddHandler(PointerReleasedEvent, new PointerEventHandler((_, _) => EndScrub()), handledEventsToo: true);
+        RewindSlider.AddHandler(PointerCaptureLostEvent, new PointerEventHandler((_, _) => EndScrub()), handledEventsToo: true);
+
         ViewModel.StartCommand.Execute(_launch);
         Game.Focus(FocusState.Programmatic);
 
@@ -77,6 +82,18 @@ public sealed partial class PlayerPage : Page
             {
                 Game.Focus(FocusState.Programmatic);
             }
+        }
+    }
+
+    private void RewindSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e) =>
+        ViewModel.ScrubTo(e.NewValue);
+
+    private void EndScrub()
+    {
+        if (ViewModel.IsScrubbing)
+        {
+            ViewModel.EndScrub();
+            ReturnFocusToGame();
         }
     }
 
