@@ -100,3 +100,35 @@ public interface IPs2Gif
     /// </summary>
     int ReadDownload(Span<UInt128> destination);
 }
+
+/// <summary>
+/// The SPU2 as the IOP drives it (ps2tek: "SPU2"): its registers at $1F900000, the DMA channels of its two cores
+/// (IOP channels 4 and 7) and its 48 kHz sample clock (one sample every 768 IOP cycles).
+/// </summary>
+public interface IPs2Spu2 : GameVault.Core.State.IStateful
+{
+    /// <summary>The IOP cycles between output samples (36.864 MHz / 48 kHz).</summary>
+    public const int CyclesPerSample = 768;
+
+    /// <summary>A register read; <paramref name="offset"/> is from $1F900000 (core 0 at 0, core 1 at $400, shared ones at $760).</summary>
+    ushort Read16(uint offset);
+
+    void Write16(uint offset, ushort value);
+
+    /// <summary>DMA into the core's transfer address, or its AutoDMA buffer in ADMA mode; returns the halfwords taken.</summary>
+    int DmaWrite(int core, ReadOnlySpan<ushort> data);
+
+    /// <summary>DMA out of sound RAM from the core's transfer address; returns the halfwords supplied.</summary>
+    int DmaRead(int core, Span<ushort> data);
+
+    /// <summary>Produces one 48 kHz output sample (through <see cref="SampleReady"/>).</summary>
+    void Tick();
+
+    /// <summary>Each output sample, left and right.</summary>
+    Action<short, short>? SampleReady { get; set; }
+
+    /// <summary>Raised when an IRQ address is reached or a DMA completes with its interrupt (IOP IRQ 9).</summary>
+    Action? Irq { get; set; }
+
+    void Reset();
+}
