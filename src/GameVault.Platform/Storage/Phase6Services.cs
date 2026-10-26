@@ -138,6 +138,22 @@ public sealed class JournalService(JournalStore store) : IJournalService
         return new JournalImageItem(image.Id, true, image.Created, image.Caption, store.ImagePath(gameKey, image.Id));
     }
 
+    /// <summary>
+    /// Adds an image in place of an older one (automatic maps redraw their journal image). Returns the new id.
+    /// Runs on the caller's thread; <see cref="Changed"/> is raised on the UI thread.
+    /// </summary>
+    public string ReplaceImage(string gameKey, string? oldImageId, JournalImageKind kind, byte[] png, string caption)
+    {
+        if (oldImageId is not null && store.Images(gameKey).Any(i => i.Id == oldImageId))
+        {
+            store.DeleteImage(gameKey, oldImageId);
+        }
+
+        var image = store.AddImage(gameKey, kind, png, ".png", DateTimeOffset.Now, caption);
+        RaiseChanged(gameKey);
+        return image.Id;
+    }
+
     public async Task DeleteImageAsync(string gameKey, string imageId)
     {
         await Task.Run(() => store.DeleteImage(gameKey, imageId));

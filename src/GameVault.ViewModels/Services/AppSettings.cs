@@ -19,6 +19,9 @@ public sealed record AppSettings
 
     public bool PauseWhenInactive { get; init; } = true;
 
+    /// <summary>Games whose stat overlay is on (SPEC §7.9), as game keys separated by '|'.</summary>
+    public string StatOverlayGames { get; init; } = string.Empty;
+
     /// <summary>Start games in full screen (F11 or Alt+Enter switches while playing).</summary>
     public bool PlayFullScreen { get; init; }
 

@@ -54,6 +54,22 @@ public static class PngEncoder
         return argb;
     }
 
+    /// <summary>A small picture of a frame (nearest pixel), as ARGB pixels: the rooms of automatic maps.</summary>
+    public static uint[] Downscale(ReadOnlySpan<ushort> frame, ReadOnlySpan<uint> palette, int width, int height)
+    {
+        var argb = new uint[width * height];
+        for (var y = 0; y < height; y++)
+        {
+            var row = y * 240 / height * 256;
+            for (var x = 0; x < width; x++)
+            {
+                argb[y * width + x] = palette[frame[row + x * 256 / width] & 0x1FF];
+            }
+        }
+
+        return argb;
+    }
+
     /// <summary>A half-size thumbnail (128×120) of a frame, for save-state slots.</summary>
     public static byte[] Thumbnail(ReadOnlySpan<ushort> frame, ReadOnlySpan<uint> palette)
     {

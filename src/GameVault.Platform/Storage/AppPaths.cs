@@ -43,6 +43,9 @@ public sealed class AppPaths
     /// <summary>Pages fetched from GameGenie.com when the player asked for a game's codes.</summary>
     public string OnlineCodesCacheDirectory => Path.Combine(Root, "Cheats", "GameGenie.com");
 
+    /// <summary>Rooms visited, for automatic maps (SPEC §7.9).</summary>
+    public string MapsDirectory => Path.Combine(Root, "Maps");
+
     /// <summary>Practice personal bests (SPEC §7.6).</summary>
     public string PracticeDirectory => Path.Combine(Root, "Practice");
 

@@ -2,6 +2,8 @@ using GameVault.Dumper;
 using GameVault.Library.Data;
 using GameVault.Library.Cheats;
 using GameVault.Library.Journal;
+using GameVault.Library.Maps;
+using GameVault.Library.Memory;
 using GameVault.Library.Passwords;
 using GameVault.Library.Practice;
 using GameVault.Library.Profiles;
@@ -68,6 +70,9 @@ public partial class App : Application
         _window = _services.GetRequiredService<MainWindow>();
         _window.Activate();
 
+        // Automatic maps listen to the emulator from the start (SPEC §7.9); not used with --sample-data.
+        _ = _services.GetService<MapService>();
+
         // Housekeeping off the UI thread: states deleted last session are removed for good (SPEC §7.1 undo).
         if (_services.GetService<TimelineStore>() is { } timeline)
         {
@@ -124,6 +129,7 @@ public partial class App : Application
             {
                 ProfileResolver = sp.GetRequiredService<LibraryService>().ResolveProfile,
                 PasswordDefinitionResolver = new PasswordDefinitions(Path.Combine(AppContext.BaseDirectory, "data", "gamedb", "passwords")).For,
+                MemoryMapResolver = new MemoryMaps(Path.Combine(AppContext.BaseDirectory, "data", "gamedb", "memory")).For,
             });
             services.AddSingleton<IEmulatorService>(sp => sp.GetRequiredService<EmulatorHost>());
             services.AddSingleton(sp => new TimelineStore(sp.GetRequiredService<AppPaths>().StatesDirectory));
@@ -134,7 +140,12 @@ public partial class App : Application
                 sp.GetRequiredService<LibraryService>().PlaytimeOf));
             services.AddSingleton<IPasswordService>(sp => new PasswordService(
                 sp.GetRequiredService<EmulatorHost>(), new PasswordStore(sp.GetRequiredService<AppPaths>().PasswordsDirectory)));
-            services.AddSingleton<IJournalService>(sp => new JournalService(new JournalStore(sp.GetRequiredService<AppPaths>().JournalDirectory)));
+            services.AddSingleton(sp => new JournalService(new JournalStore(sp.GetRequiredService<AppPaths>().JournalDirectory)));
+            services.AddSingleton<IJournalService>(sp => sp.GetRequiredService<JournalService>());
+            services.AddSingleton(sp => new MapService(
+                sp.GetRequiredService<EmulatorHost>(),
+                new MapStore(sp.GetRequiredService<AppPaths>().MapsDirectory),
+                sp.GetRequiredService<JournalService>()));
             services.AddSingleton<IPracticeRecords>(sp => new PracticeRecords(new PracticeStore(sp.GetRequiredService<AppPaths>().PracticeDirectory)));
             services.AddSingleton<IClipboardService, WinUiClipboard>();
             services.AddSingleton<ICheatService>(sp => new CheatService(

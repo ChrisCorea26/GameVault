@@ -10,6 +10,7 @@ using GameVault.Platform.Audio;
 using GameVault.Core.Input;
 using GameVault.Core.State;
 using GameVault.Library.Hashing;
+using GameVault.Library.Maps;
 using GameVault.Library.Memory;
 using GameVault.Library.Scanning;
 using GameVault.Platform.Netplay;
@@ -345,7 +346,10 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
     /// <summary>Finds a game's memory map (SPEC §7.9) by headerless SHA-1.</summary>
     public Func<string, MemoryMap?>? MemoryMapResolver { get; set; }
 
-    public bool HasMemoryMap { get; private set; }
+    public bool HasMemoryMap => MemoryMap is not null;
+
+    /// <summary>The running game's memory map, or null.</summary>
+    public MemoryMap? MemoryMap { get; private set; }
 
     public IReadOnlyList<StatValue> StatValues => _statValues;
 
@@ -379,7 +383,8 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
             var key = GameKey;
             _ = Task.Run(() =>
             {
-                var args = new RoomEnteredEventArgs(key, room.Area, room.Room, PngEncoder.Thumbnail(frame, NtscPalette.Argb));
+                var args = new RoomEnteredEventArgs(
+                    key, room.Area, room.Room, PngEncoder.Downscale(frame, NtscPalette.Argb, MapStore.TileWidth, MapStore.TileHeight));
                 Raise(() => RoomEntered?.Invoke(this, args));
             });
         }
@@ -683,7 +688,7 @@ public sealed class EmulatorHost : IEmulatorService, IDisposable
         UsesZapper = console.InputSetup == InputSetup.Zapper;
         UsesFourScore = console.InputSetup == InputSetup.FourScore;
         DiskSideCount = console.Fds?.SideCount ?? 0;
-        HasMemoryMap = memoryMap is not null;
+        MemoryMap = memoryMap;
         _insertedDiskSide = console.Fds is null ? -1 : 0;
         SetAudioPaused(false);
 
@@ -1389,4 +1394,4 @@ public sealed class PasswordCapturedEventArgs(string password, byte[] screenshot
 }
 
 /// <summary>A room or screen the player entered, for automatic maps (SPEC §7.9).</summary>
-public sealed record RoomEnteredEventArgs(string? GameKey, int Area, int Room, byte[] ThumbnailPng);
+public sealed record RoomEnteredEventArgs(string? GameKey, int Area, int Room, uint[] Tile);

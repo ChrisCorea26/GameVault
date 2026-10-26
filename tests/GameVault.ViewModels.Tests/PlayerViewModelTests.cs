@@ -48,6 +48,28 @@ public class PlayerViewModelTests
     }
 
     [Fact]
+    public async Task The_stat_overlay_shows_the_games_values_and_is_remembered_per_game()
+    {
+        _emulator.HasMemoryMap = true;
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+        _vm.HasMemoryMap.Should().BeTrue();
+        _vm.ShowStats.Should().BeFalse("off until the player turns it on");
+
+        _emulator.SetStats(new StatValue("Health", "3 of 16"));
+        _vm.StatsVisible.Should().BeFalse();
+
+        _vm.ShowStats = true;
+        _vm.Stats.Should().Equal(new StatValue("Health", "3 of 16"));
+        _vm.StatsVisible.Should().BeTrue();
+
+        _emulator.SetStats(new StatValue("Health", "2 of 16"), new StatValue("Boss", "12"));
+        _vm.Stats.Select(s => s.Text).Should().Equal("2 of 16", "12");
+
+        await Task.Delay(50);
+        (await _settings.LoadAsync()).StatOverlayGames.Should().Be(_emulator.GameKey);
+    }
+
+    [Fact]
     public async Task Games_can_start_in_full_screen()
     {
         await _settings.SaveAsync(new AppSettings { PlayFullScreen = true });
@@ -446,6 +468,18 @@ public class PlayerViewModelTests
         public event EventHandler? PracticeSplitRequested;
 
         public bool CheatsActive { get; set; }
+
+        public bool HasMemoryMap { get; set; }
+
+        public IReadOnlyList<StatValue> StatValues { get; private set; } = [];
+
+        public event EventHandler? StatValuesChanged;
+
+        public void SetStats(params StatValue[] values)
+        {
+            StatValues = values;
+            StatValuesChanged?.Invoke(this, EventArgs.Empty);
+        }
 
         public int DiskSideCount { get; set; }
 

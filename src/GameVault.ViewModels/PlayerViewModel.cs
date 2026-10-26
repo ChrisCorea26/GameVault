@@ -95,6 +95,56 @@ public sealed partial class PlayerViewModel(
     /// <summary>Two-player netplay on the local network (SPEC §7.7).</summary>
     public NetplayViewModel Netplay => netplay;
 
+    /// <summary>The stat overlay's values (SPEC §7.9), while it is on.</summary>
+    public System.Collections.ObjectModel.ObservableCollection<StatValue> Stats { get; } = [];
+
+    /// <summary>True when the game has a memory map, so the Stats toggle is offered.</summary>
+    public bool HasMemoryMap => emulator.HasMemoryMap;
+
+    /// <summary>The stat overlay is on for this game (remembered per game).</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(StatsVisible))]
+    public partial bool ShowStats { get; set; }
+
+    public bool StatsVisible => ShowStats && Stats.Count > 0;
+
+    private bool _loadingStats;
+
+    partial void OnShowStatsChanged(bool value)
+    {
+        RefreshStats();
+        if (!_loadingStats && emulator.GameKey is { } key)
+        {
+            _ = SaveStatOverlayAsync(key, value);
+        }
+    }
+
+    private async Task SaveStatOverlayAsync(string key, bool on)
+    {
+        var settings = await settingsStore.LoadAsync();
+        var games = settings.StatOverlayGames.Split('|', StringSplitOptions.RemoveEmptyEntries).ToHashSet();
+        if (on ? games.Add(key) : games.Remove(key))
+        {
+            await settingsStore.SaveAsync(settings with { StatOverlayGames = string.Join('|', games.Order()) });
+        }
+    }
+
+    private void OnStatValuesChanged(object? sender, EventArgs e) => RefreshStats();
+
+    private void RefreshStats()
+    {
+        Stats.Clear();
+        if (ShowStats)
+        {
+            foreach (var value in emulator.StatValues)
+            {
+                Stats.Add(value);
+            }
+        }
+
+        OnPropertyChanged(nameof(StatsVisible));
+    }
+
     /// <summary>Full-screen play: the toolbar and the app's frame are hidden.</summary>
     public bool IsFullScreen => window.IsFullScreen;
 
@@ -240,6 +290,11 @@ public sealed partial class PlayerViewModel(
             {
                 window.SetFullScreen(true);
             }
+
+            _loadingStats = true;
+            ShowStats = emulator.GameKey is { } statsKey && settings.StatOverlayGames.Split('|').Contains(statsKey);
+            _loadingStats = false;
+            OnPropertyChanged(nameof(HasMemoryMap));
         }
         catch (GameLoadException ex)
         {
@@ -424,6 +479,7 @@ public sealed partial class PlayerViewModel(
             emulator.RewindChanged += OnRewindChanged;
             emulator.DiskChanged += OnDiskChanged;
             window.FullScreenChanged += OnFullScreenChanged;
+            emulator.StatValuesChanged += OnStatValuesChanged;
             emulator.PlaytimeElapsed += OnPlaytimeElapsed;
             emulator.ManualPasswordRequested += OnManualPasswordRequested;
             emulator.ScreenshotRequested += OnScreenshotRequested;
@@ -448,6 +504,7 @@ public sealed partial class PlayerViewModel(
             emulator.RewindChanged -= OnRewindChanged;
             emulator.DiskChanged -= OnDiskChanged;
             window.FullScreenChanged -= OnFullScreenChanged;
+            emulator.StatValuesChanged -= OnStatValuesChanged;
             emulator.PlaytimeElapsed -= OnPlaytimeElapsed;
             emulator.ManualPasswordRequested -= OnManualPasswordRequested;
             emulator.ScreenshotRequested -= OnScreenshotRequested;

@@ -7,6 +7,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:helpers="using:GameVault.App.Helpers"
+    xmlns:svc="using:GameVault.ViewModels.Services"
     xmlns:vm="using:GameVault.ViewModels"
     mc:Ignorable="d">
 
@@ -29,6 +30,7 @@
       <Grid.ColumnDefinitions>
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="*" />
+        <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
@@ -142,6 +144,14 @@
         </Button.Flyout>
       </Button>
 
+      <ToggleButton
+          Grid.Column="12"
+          AccessKey="T"
+          AllowFocusOnInteraction="False"
+          Content="Stats"
+          IsChecked="{x:Bind ViewModel.ShowStats, Mode=TwoWay}"
+          ToolTipService.ToolTip="Show values from the game, such as exact health"
+          Visibility="{x:Bind ViewModel.HasMemoryMap, Mode=OneWay}" />
       <Button
           Grid.Column="11"
           AccessKey="F"
@@ -290,6 +300,29 @@
     </StackPanel>
 
     <controls:GameView x:Name="Game" Grid.Row="2" ZapperEnabled="{x:Bind ViewModel.UsesZapper, Mode=OneWay}" />
+
+    <!-- SPEC §7.9: stat overlay from the game's memory map; drawn over the picture, never into screenshots -->
+    <Border
+        Grid.Row="2"
+        Margin="12"
+        Padding="10,6"
+        HorizontalAlignment="Left"
+        VerticalAlignment="Top"
+        Background="#B0000000"
+        CornerRadius="6"
+        IsHitTestVisible="False"
+        Visibility="{x:Bind ViewModel.StatsVisible, Mode=OneWay}">
+      <ItemsRepeater ItemsSource="{x:Bind ViewModel.Stats}">
+        <ItemsRepeater.ItemTemplate>
+          <DataTemplate x:DataType="svc:StatValue">
+            <StackPanel Orientation="Horizontal" Spacing="8">
+              <TextBlock Foreground="#FFCCCCCC" Text="{x:Bind Label}" />
+              <TextBlock FontWeight="SemiBold" Foreground="White" Text="{x:Bind Text}" />
+            </StackPanel>
+          </DataTemplate>
+        </ItemsRepeater.ItemTemplate>
+      </ItemsRepeater>
+    </Border>
 
     <!-- SPEC §7.3 manual fallback: F9 pauses and lets the player type the password -->
     <Border
