@@ -29,6 +29,7 @@
   "ppu_vbl_nmi/10-even_odd_timing": "dc554dd5fa12c5b9",
   "psx/MemoryTransfer16BPP": "e237f2ffa2f17e58",
   "psx/MemoryTransfer24BPP": "33f9a00901e88b2b",
+  "psx/printgpu": "75c46d09e502dd61",
   "psx/RenderLine16BPP": "c0d2b9ef8358bd93",
   "psx/RenderPolygon16BPP": "2ee4dff09729f2f5",
   "psx/RenderPolygonClip16BPP": "1e155ed04899d538",

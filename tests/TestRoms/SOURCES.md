@@ -97,5 +97,6 @@ listed in `manifest.tsv` (about 3 MB), so every test run fetches them.
 | Cache path | Suite | Author | Why it isn't committed | Used by |
 |---|---|---|---|---|
 | `psx-peterlemon/CPUTest/**/*.exe` (31 PS-EXE programs: 29 CPU, 2 GTE) | Bare-metal tests that draw PASS (green font) or FAIL (red font) for each check; no BIOS needed | Peter Lemon (krom) | No licence file in the repository | Phase 15: R3000A ALU, shifts, MULT/DIV, loads and stores; GTE AVSZ3/AVSZ4 and NCLIP |
+| `psx-peterlemon/Demo/printgpu/PRINTGPU.exe` | A bare-metal demo: Gouraud background and text sent by DMA and by the CPU | Peter Lemon (krom) | No licence file in the repository | Phase 15: the whole machine through the frame loop (golden image) |
 | `psx-peterlemon/GPU/**/*.exe` (25 PS-EXE programs) | Bare-metal drawing demos: polygons, lines, rectangles, textures at each depth, texture windows, clipping, dithering and VRAM transfers | Peter Lemon (krom) | No licence file in the repository | Phase 15: GPU golden images (regression hashes, reviewed against the repository's PNGs) |
 | `ps1-tests/gpu/{triangle,quad,lines,uv-interpolation}/vram.png` | VRAM dumps from a real console after each test program | Jakub Czekański (ps1-tests) | MIT: redistributable, but kept with the other downloads | Phase 15: the rasterizer, pixel for pixel (coverage, seams, interpolation, dithering, lines) |

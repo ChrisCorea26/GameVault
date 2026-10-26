@@ -47,4 +47,21 @@ public sealed class PeterLemonGpuTests
 
         GoldenImages.AssertMatches("psx/" + Path.GetFileNameWithoutExtension(program), frame, gpu.DisplayWidth, gpu.DisplayHeight, SnesPpu.Palette);
     }
+
+    /// <summary>
+    /// A whole bare-metal program through the frame loop: a Gouraud background, then text sent by DMA and by the CPU
+    /// (PeterLemon's <c>printgpu</c> demo, which needs no BIOS).
+    /// </summary>
+    [TestRomFact("psx-peterlemon/Demo/printgpu/PRINTGPU.exe")]
+    public void A_demo_runs_frame_by_frame()
+    {
+        var console = new PlayStationConsole(exe: PsExe.Parse(TestRomLocator.ReadCached("psx-peterlemon/Demo/printgpu/PRINTGPU.exe")));
+        console.Power();
+        for (var i = 0; i < 120; i++)
+        {
+            console.RunFrame();
+        }
+
+        GoldenImages.AssertMatches("psx/printgpu", console.FrameBuffer, console.ScreenWidth, console.ScreenHeight, SnesPpu.Palette);
+    }
 }
