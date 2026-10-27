@@ -64,7 +64,8 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
     private bool _joypadLatch;
     private int _wramAddress;
     private int _samples;
-    private float _lastSample;
+    private float _lastLeft;
+    private float _lastRight;
 
     public SnesConsole(SnesCartridge cartridge, bool? pal = null)
     {
@@ -293,18 +294,20 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
         }
     }
 
-    private void OnSample(short left, short right)
+    internal void OnSample(short left, short right)
     {
         if (Audio is not { } audio)
         {
             return;
         }
 
-        var level = (left + right) * (0.9f / 65536);
-        if (level != _lastSample)
+        var l = left * (0.9f / 32768);
+        var r = right * (0.9f / 32768);
+        if (l != _lastLeft || r != _lastRight)
         {
-            audio.AddDelta(_samples, level - _lastSample);
-            _lastSample = level;
+            audio.AddDelta(_samples, l - _lastLeft, r - _lastRight);
+            _lastLeft = l;
+            _lastRight = r;
         }
 
         _samples++;
