@@ -10,10 +10,11 @@ resampler's two channels), so its entry is just removed.
   the header's product code at $183 (and the header checksum at $18E where the code is shared). Each entry gives the
   chip (X24C01, 24C02–24C16 or 24C65: size and page size from the data sheets) and its wiring: which address and
   bit the game drives SCL and SDA through, and where SDA reads back.
-  - **EA:** SDA and SCL on bits 7 and 6 of $200000, SDA read back on bit 7 (X24C01): Rings of Power, NHLPA Hockey
-    '93, John Madden Football '93 (and the Championship Edition), Bill Walsh College Football.
+  - **EA:** as Sega's boards (the odd byte of $200000–$3FFFFF), with SDA on bit 7 and SCL on bit 6 (X24C01): Rings
+    of Power, NHLPA Hockey '93, John Madden Football '93 (and the Championship Edition), Bill Walsh College Football.
   - **Acclaim, first board:** SDA bit 0 and SCL bit 1 written at $200000, SDA read on bit 1 (24C02): NBA Jam.
-  - **Acclaim, later boards:** SDA on bit 0 of $200001 (both ways), SCL on bit 0 of $200000: NFL Quarterback Club
+  - **Acclaim, later boards:** SDA on bit 0 of $200001 (both ways), SCL on bit 0 of $200000, and a word write there
+    choosing whether the ROM or the EEPROM reads at $200000–$2FFFFF: NFL Quarterback Club
     (24C02), NBA Jam Tournament Edition (24C04), NFL Quarterback Club '96 (24C16), College Slam and Frank Thomas
     Big Hurt Baseball (24C65).
   - **Codemasters:** SDA bit 0 and SCL bit 1 written at $300000, SDA read on bit 7 of $380001: Micro Machines 2,
@@ -21,8 +22,9 @@ resampler's two channels), so its entry is just removed.
     Shane Warne Cricket (24C65).
   - **Sega's own** boards also cover the games whose header doesn't declare the chip (Wonder Boy in Monster World,
     Mega Man: The Wily Wars, Evander Holyfield's Boxing, Greatest Heavyweights, Sports Talk Baseball and others).
-- `GenesisCartridge` looks the game up first, then falls back to the header's "RA" $E8 $40. Other bits of a read
-  are the ROM's, as before. The table is the board wiring Genesis Plus GX's eeprom_i2c.c documents, read for
+- `GenesisCartridge` looks the game up first, then falls back to the header's "RA" $E8 (or a save range under two
+  bytes), as Genesis Plus GX does. A read of the EEPROM's address gives only the SDA bit; the J-Cart's pad lines on
+  Codemasters' boards read as idle (the J-Cart's extra pads aren't emulated). The table is the board wiring Genesis Plus GX's eeprom_i2c.c documents, read for
   behaviour only.
 - **Tests:** each wiring writes a byte and reads it back through the cartridge's addresses; a 24C65 uses its two
   address bytes; the EEPROM's contents are the battery save; a save-state round trip.
