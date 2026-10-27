@@ -210,6 +210,14 @@ differential tests.
 Make PS2 save states small and fast enough (dirty-page tracking for the 32 MB of RAM and the GS's 4 MB), then
 enable run-ahead and rollback netplay.
 
+**Measured: not possible yet.** A PS2 state is 51 MB. Saving it into a reused writer takes 7.2 ms and loading it
+9.1 ms (Release, the Linux build machine, after the `gs-basic` homebrew's tenth frame), against a 16.7 ms frame.
+Rollback saves a state every frame and replays several frames after a late input, and run-ahead saves, runs two
+frames and loads every frame; on top of a PS2 frame, which already takes most of the frame's time in real games, either
+would roughly halve the speed. Dirty-page tracking could make the save cheaper but not the replays. This waits until
+the PS2 runs well above full speed (the GPU renderer, item 14); `SystemBudgets` keeps both off with a message until
+then.
+
 ## 17. Sega CD and 32X
 The Sega CD (a second 68000, the CD drive, PCM and the ASIC's scaling) with the player's own BIOS; the 32X (two
 SH-2s and its VDP). Its own plan file first.
