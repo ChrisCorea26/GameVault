@@ -128,3 +128,15 @@ listed in `manifest.tsv` (about 6 MB), so every test run fetches them.
 | Cache path | Suite | Author | Why it isn't committed | Used by |
 |---|---|---|---|---|
 | `ps2autotests/**/*.elf`, `*.irx` and `*.expected` (78 programs) | Test programs for the EE (integer, FPU, MMI, COP0), VU0 macro and VU micro mode, DMA (DMAC, scratchpad, VIF), the GS, memory and the EE and IOP kernels, each with its output recorded on a real PS2 | ps2autotests project contributors | ISC: redistributable, but kept with the other downloads | Phase 17: the EE, the VUs, DMA and GameVault's kernel, through the whole console |
+
+### Bundled homebrew (GV-008)
+
+Not downloads: these are committed in `data/homebrew/`, which ships with the app (SPEC §6.4), and the tests read them
+from there. Sources, licenses and hashes are in each folder's `README.md`.
+
+| Path | Game | Author | License | Used by |
+|---|---|---|---|---|
+| `data/homebrew/thwaite/thwaite.nes` | Thwaite v0.04 | Damian Yerrick | GPL-3.0-or-later (source included) | `BundledHomebrewTests`: each game starts and draws; the library lists it by name |
+| `data/homebrew/concentration-room/croom.nes` | Concentration Room v0.02a | Damian Yerrick | GPL-3.0-or-later with an exception for exact copies | As above |
+| `data/homebrew/rhde/rhde.nes` | RHDE: Furniture Fight v0.07 | Damian Yerrick | GNU All-Permissive | As above |
+| `data/homebrew/robotfindskitten/robotfindskitten.nes` | robotfindskitten v0.10 | Damian Yerrick | zlib | As above |

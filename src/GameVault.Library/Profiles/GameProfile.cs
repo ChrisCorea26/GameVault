@@ -10,6 +10,12 @@ public enum InputType
     Controller,
     Zapper,
     FourScore,
+
+    /// <summary>The Power Pad (Family Trainer) mat in port 2, played on the keyboard (SPEC §4.7).</summary>
+    PowerPad,
+
+    /// <summary>The Arkanoid (Vaus) paddle in port 2, turned with the mouse (SPEC §4.7).</summary>
+    ArkanoidPaddle,
 }
 
 /// <summary>Corrections for a wrong or missing iNES header. Null fields keep the header's value.</summary>

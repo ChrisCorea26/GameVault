@@ -1,0 +1,12 @@
+{
+  "sha1": "fdbfc7871962f72a1ef57e5a7e456164fb93430b",
+  "title": "Metroid (USA)",
+  "detect": [
+    { "address": "0x001D", "value": "0x01" },
+    { "address": "0x001F", "value": "0x1A" }
+  ],
+  "stableFrames": 30,
+  "source": { "from": "ram", "address": "0x699A", "length": 24 },
+  "alphabet": "0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz?-",
+  "groups": [6, 6, 6, 6]
+}

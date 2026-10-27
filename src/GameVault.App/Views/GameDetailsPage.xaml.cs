@@ -66,4 +66,6 @@ public sealed partial class GameDetailsPage : Page
     }
 
     private void Text_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveTextCommand.Execute(null);
+
+    private void Mapper_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveMapperCommand.Execute(null);
 }

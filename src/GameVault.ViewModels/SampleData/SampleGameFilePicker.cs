@@ -20,4 +20,8 @@ public sealed class SampleGameFilePicker : IGameFilePicker
     public Task<string?> PickImageAsync() => Task.FromResult<string?>(null);
 
     public Task<string?> PickDiskImageAsync() => Task.FromResult<string?>(@"C:\Games\Apple II\Sample Disk 2.dsk");
+
+    /// <summary>A made-up path in the sample BIOS folder, named for the first extension asked for.</summary>
+    public Task<string?> PickSystemFileAsync(IReadOnlyList<string> extensions) =>
+        Task.FromResult<string?>($@"C:\Games\BIOS\sample{(extensions.Count > 0 ? extensions[0] : ".bin")}");
 }

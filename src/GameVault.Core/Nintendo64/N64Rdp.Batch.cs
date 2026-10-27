@@ -288,7 +288,12 @@ public sealed partial class N64Rdp
     /// <summary>Starts a recording: every replica takes this RDP's state.</summary>
     private void BeginRecording()
     {
-        _replicas ??= CreateReplicas();
+        var bands = Math.Clamp(ParallelWork?.Concurrency ?? 1, 1, MaxBands);
+        if (_replicas is null || _replicas.Length != bands)
+        {
+            _replicas = CreateReplicas(bands); // one per band, synced at every recording
+        }
+
         _syncWriter.Reset();
         SaveState(_syncWriter);
         var state = _syncWriter.ToArray();
@@ -304,15 +309,15 @@ public sealed partial class N64Rdp
         _segmentWrittenSlots = 0;
     }
 
-    private N64Rdp[] CreateReplicas()
+    private N64Rdp[] CreateReplicas(int count)
     {
-        var replicas = new N64Rdp[MaxBands];
+        var replicas = new N64Rdp[count];
         for (var i = 0; i < replicas.Length; i++)
         {
             replicas[i] = new N64Rdp(_host, replica: true);
         }
 
-        _replicaAt = new int[MaxBands];
+        _replicaAt = new int[count];
         _replicaWork = band =>
         {
             var replica = replicas[band];
@@ -332,7 +337,7 @@ public sealed partial class N64Rdp
         }
 
         var replicas = _replicas!;
-        var bands = Math.Clamp(ParallelWork?.Concurrency ?? 1, 1, MaxBands);
+        var bands = replicas.Length;
         var i = 0;
         while (i < _recordedCount)
         {

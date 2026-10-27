@@ -43,6 +43,22 @@ public sealed class AppleHostTests : IDisposable
     }
 
     [Fact]
+    public async Task Without_the_disk_boot_rom_the_player_is_told_where_to_choose_it()
+    {
+        var disk = Path.Combine(_root.FullName, "Game.dsk");
+        await File.WriteAllBytesAsync(disk, new byte[AppleDisk.DiskBytes]);
+        var settings = new InMemorySettingsStore(new AppSettings { AppleIIRomPath = WriteRoms() });
+        using var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), settings);
+        var notices = new List<string>();
+        host.Notice += (_, notice) => notices.Add(notice);
+
+        await host.LoadAsync(disk);
+
+        notices.Should().Contain(EmulatorHost.MissingDiskRomNotice);
+        EmulatorHost.MissingDiskRomNotice.Should().Contain("Settings → Apple II");
+    }
+
+    [Fact]
     public async Task A_disk_runs_with_the_roms_and_the_keyboard_types_into_it()
     {
         var disk = Path.Combine(_root.FullName, "Game.dsk");

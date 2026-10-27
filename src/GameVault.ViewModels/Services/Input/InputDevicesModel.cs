@@ -47,7 +47,7 @@ public sealed class InputDevicesModel
 
             if (Policy.AssignedTo(port) is { } pad)
             {
-                sources.Add(new InputSourceInfo(IdOf(pad), pad.Name, IsKeyboard: false, Policy.IsPinned(pad.Key)));
+                sources.Add(new InputSourceInfo(IdOf(pad), pad.Name, IsKeyboard: false, Policy.IsPinned(pad.Key), ModelOf(pad)));
             }
 
             ports.Add(new InputPortInfo(port, sources, Policy.WaitingFor(port)));
@@ -57,7 +57,10 @@ public sealed class InputDevicesModel
     }
 
     public IReadOnlyList<InputSourceInfo> BuildUnassigned() =>
-        Policy.Unassigned.Select(c => new InputSourceInfo(IdOf(c), c.Name, IsKeyboard: false, Policy.IsPinned(c.Key))).ToList();
+        Policy.Unassigned.Select(c => new InputSourceInfo(IdOf(c), c.Name, IsKeyboard: false, Policy.IsPinned(c.Key), ModelOf(c))).ToList();
+
+    /// <summary>A controller's model: the SDL GUID part of its key ("guid|serial"), so remaps follow the model (input.md §6).</summary>
+    public static string ModelOf(ControllerInfo controller) => controller.Key.Split('|')[0];
 
     public string? AssignToPort(string sourceId, int port) =>
         TryGetController(sourceId, out var controller) ? Policy.AssignToPort(controller.InstanceId, port) : null;

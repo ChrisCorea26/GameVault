@@ -3,7 +3,7 @@ using GameVault.Library.Bios;
 
 namespace GameVault.Library.Tests;
 
-/// <summary>Settings → "Choose BIOS file…": the file is checked, then copied into GameVault's bios folder.</summary>
+/// <summary>Settings → Choose… for a BIOS: the file is checked, then copied into GameVault's bios folder.</summary>
 public sealed class BiosImporterTests : IDisposable
 {
     private readonly string _folder = Path.Combine(Path.GetTempPath(), "gv-bios-import-" + Guid.NewGuid().ToString("N"));

@@ -64,7 +64,7 @@ public sealed class N64RdpParallelTests(Xunit.Abstractions.ITestOutputHelper out
             AddTriangle(words, random, 320);
             words.Add(0x2FUL << 56 | (3UL << 52)); // fill
             words.Add(0x37UL << 56 | (uint)random.Next());
-            words.Add(0x36UL << 56 | (ulong)(random.Next(160, 320) * 4) << 44 | (ulong)(random.Next(120, 240) * 4) << 32 | (ulong)(random.Next(0, 100) * 4) << 12 | (ulong)(random.Next(0, 100) * 4));
+            words.Add(0x36UL << 56 | (ulong)(uint)(random.Next(160, 320) * 4) << 44 | (ulong)(uint)(random.Next(120, 240) * 4) << 32 | (ulong)(uint)(random.Next(0, 100) * 4) << 12 | (ulong)(uint)(random.Next(0, 100) * 4));
             words.Add(0x2FUL << 56 | (0UL << 52) | (3UL << 38) | (3UL << 36) | (1UL << 5) | (1UL << 4));
         }
 
@@ -205,7 +205,7 @@ public sealed class N64RdpParallelTests(Xunit.Abstractions.ITestOutputHelper out
                 {
                     // Other modes: the cycle type, Z, dither, alpha compare, blending, texture options.
                     var bits = (ulong)random.NextInt64() & 0x00FF_FFFF_FFFF_FFFF & ~(3UL << 52);
-                    bits |= (ulong)new[] { 0, 0, 1, 1, 2, 3 }[random.Next(6)] << 52;
+                    bits |= (ulong)(uint)new[] { 0, 0, 1, 1, 2, 3 }[random.Next(6)] << 52;
                     words.Add(0x2FUL << 56 | bits);
                     break;
                 }
@@ -215,18 +215,18 @@ public sealed class N64RdpParallelTests(Xunit.Abstractions.ITestOutputHelper out
                     words.Add(0x3CUL << 56 | ((ulong)random.NextInt64() & 0x00FF_FFFF_FFFF_FFFF)); // combine
                     break;
                 case 4:
-                    words.Add((ulong)(0x37 + random.Next(5)) << 56 | (uint)random.Next() | ((ulong)random.Next(256) << 32)); // fill/fog/blend/prim/env
+                    words.Add((ulong)(uint)(0x37 + random.Next(5)) << 56 | (uint)random.Next() | ((ulong)(uint)random.Next(256) << 32)); // fill/fog/blend/prim/env
                     break;
                 case 5:
-                    words.Add(0x35UL << 56 | ((ulong)random.NextInt64() & 0x00FF_FFFF_FFFF_FFFF) & ~(7UL << 24) | ((ulong)random.Next(8) << 24)); // set tile
-                    words.Add(0x32UL << 56 | (ulong)random.Next(64) << 44 | (ulong)random.Next(64) << 32 | (ulong)random.Next(8) << 24 | (ulong)random.Next(64, 256) << 12 | (ulong)random.Next(64, 256));
+                    words.Add(0x35UL << 56 | ((ulong)random.NextInt64() & 0x00FF_FFFF_FFFF_FFFF) & ~(7UL << 24) | ((ulong)(uint)random.Next(8) << 24)); // set tile
+                    words.Add(0x32UL << 56 | (ulong)(uint)random.Next(64) << 44 | (ulong)(uint)random.Next(64) << 32 | (ulong)(uint)random.Next(8) << 24 | (ulong)(uint)random.Next(64, 256) << 12 | (ulong)(uint)random.Next(64, 256));
                     break;
                 case 6:
                     // A texture image (sometimes a buffer being drawn), then a load from it.
                     words.Add(SetImage(0x3D, random.Next(5), random.Next(1, 4), new[] { 16, 32, 64 }[random.Next(3)],
                         random.Next(3) == 0 ? Buffers[random.Next(Buffers.Length)] : 0x300000 + (uint)random.Next(64) * 0x100));
-                    words.Add((ulong)new[] { 0x34, 0x33, 0x30 }[random.Next(3)] << 56 | (ulong)random.Next(16) << 44 | (ulong)random.Next(16) << 32
-                        | (ulong)random.Next(8) << 24 | (ulong)random.Next(16, 128) << 12 | (ulong)random.Next(16, 128));
+                    words.Add((ulong)(uint)new[] { 0x34, 0x33, 0x30 }[random.Next(3)] << 56 | (ulong)(uint)random.Next(16) << 44 | (ulong)(uint)random.Next(16) << 32
+                        | (ulong)(uint)random.Next(8) << 24 | (ulong)(uint)random.Next(16, 128) << 12 | (ulong)(uint)random.Next(16, 128));
                     break;
                 case 7:
                     words.Add(0x2EUL << 56 | (uint)random.Next()); // prim depth
@@ -238,12 +238,12 @@ public sealed class N64RdpParallelTests(Xunit.Abstractions.ITestOutputHelper out
                 case 9:
                 case 10:
                 case 11:
-                    words.Add(0x36UL << 56 | (ulong)random.Next(width * 4) << 44 | (ulong)random.Next(960) << 32 | (ulong)random.Next(width * 4) << 12 | (ulong)random.Next(960));
+                    words.Add(0x36UL << 56 | (ulong)(uint)random.Next(width * 4) << 44 | (ulong)(uint)random.Next(960) << 32 | (ulong)(uint)random.Next(width * 4) << 12 | (ulong)(uint)random.Next(960));
                     break;
                 case 12:
                 case 13:
-                    words.Add((ulong)(0x24 + random.Next(2)) << 56 | (ulong)random.Next(width * 4) << 44 | (ulong)random.Next(960) << 32 | (ulong)random.Next(8) << 24
-                        | (ulong)random.Next(width * 4) << 12 | (ulong)random.Next(960));
+                    words.Add((ulong)(uint)(0x24 + random.Next(2)) << 56 | (ulong)(uint)random.Next(width * 4) << 44 | (ulong)(uint)random.Next(960) << 32 | (ulong)(uint)random.Next(8) << 24
+                        | (ulong)(uint)random.Next(width * 4) << 12 | (ulong)(uint)random.Next(960));
                     words.Add((ulong)random.NextInt64());
                     break;
                 default:

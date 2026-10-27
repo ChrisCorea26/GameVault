@@ -129,7 +129,7 @@ public partial class App : Application
             services.AddSingleton<ISettingsStore>(_ => new InMemorySettingsStore());
             services.AddSingleton<IEmulatorService>(sp => new SampleEmulatorHost(sp.GetRequiredService<FrameSink>()));
             services.AddSingleton<IGameFilePicker, SampleGameFilePicker>();
-            services.AddSingleton<IFilePathPicker, SampleFilePathPicker>();
+            services.AddSingleton<IConfirmationService>(FixedConfirmation.Yes);
             services.AddSingleton<IInputDevicesService, SampleInputDevicesService>();
             services.AddSingleton<ITimelineService, SampleTimelineService>();
             services.AddSingleton<IPasswordService, SamplePasswordService>();
@@ -238,7 +238,7 @@ public partial class App : Application
                 return new DumperService(dumper, sp.GetRequiredService<ILibraryService>());
             });
             services.AddSingleton<IGameFilePicker, WinUiGameFilePicker>();
-            services.AddSingleton<IFilePathPicker, WinUiFilePathPicker>();
+            services.AddSingleton<IConfirmationService, ContentDialogConfirmation>();
             services.AddSingleton(sp => new ControllerManager(
                 sp.GetRequiredService<InputService>(),
                 new SdlControllerBackend(),
@@ -246,10 +246,11 @@ public partial class App : Application
             services.AddSingleton<IInputDevicesService>(sp => sp.GetRequiredService<ControllerManager>());
         }
 
-        // Video and input (SPEC §5): shared by the emulation thread and the GameView.
-        // BIOS files the player chooses in Settings are copied to %LOCALAPPDATA%\GameVault\bios\<system>\, shared by
-        // every family profile. Under --sample-data the picker returns paths that don't exist, so nothing is copied.
+        // BIOS files chosen in Settings are copied to %LOCALAPPDATA%\GameVault\bios\<system>\, shared by every family
+        // profile. Under --sample-data the picker returns paths that don't exist, so nothing is copied.
         services.AddSingleton(_ => new BiosImporter(new AppPaths().BiosDirectory));
+
+        // Video and input (SPEC §5): shared by the emulation thread and the GameView.
         services.AddSingleton<FrameSink>();
         services.AddSingleton<IWindowService, WinUiWindowService>();
         services.AddSingleton(_ => new InputService(KeyboardMapping.CreateDefault()));

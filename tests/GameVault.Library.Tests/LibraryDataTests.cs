@@ -183,6 +183,33 @@ public sealed class LibraryDataTests : IDisposable
     }
 
     [Fact]
+    public void An_unknown_games_details_are_saved_so_it_can_be_filtered_and_grouped()
+    {
+        _fx.WriteRom("alpha.nes", 1);
+        new LibraryScanner(_fx.Database).Scan([_fx.Root]);
+        var game = _fx.Repository.GetGames().Single();
+        game.IsCataloged.Should().BeFalse();
+
+        _fx.Repository.SaveCollection(game with
+        {
+            Publisher = "Community",
+            Developer = "Jo Example",
+            ReleaseYear = 2021,
+            Genre = "Puzzle",
+            Region = GameRegion.World,
+            Players = 2,
+        });
+
+        var saved = _fx.Repository.GetGame(game.Key)!;
+        saved.Publisher.Should().Be("Community");
+        saved.Developer.Should().Be("Jo Example");
+        saved.ReleaseYear.Should().Be(2021);
+        saved.Genre.Should().Be("Puzzle");
+        saved.Region.Should().Be(GameRegion.World);
+        saved.Players.Should().Be(2);
+    }
+
+    [Fact]
     public void Collection_fields_and_playtime_are_saved()
     {
         _fx.WriteRom("alpha.nes", 1);

@@ -3,12 +3,13 @@
 ## Where GameVault keeps things
 
 Everything GameVault creates is in `%LOCALAPPDATA%\GameVault\` (usually
-`C:\Users\<you>\AppData\Local\GameVault\`). Your ROM folders are only ever read, never written to. BIOS files you
-add with **Choose BIOS file…** are copied into `bios\`; a BIOS path you paste is read from where the file is.
+`C:\Users\<you>\AppData\Local\GameVault\`). Your ROM folders are only ever read, never written to (unless you turn
+on **Keep game saves next to the game files**, which writes each cartridge save beside its game), and your BIOS
+files are read from where you put them.
 
 | Path | Contents |
 |---|---|
-| `settings.json` | Your settings |
+| `settings.json` | Your settings, including your button remaps |
 | `library.db` | Library: games found, catalog, ownership, status, ratings, notes, playtime |
 | `Saves\` | Battery saves (`.sav`), Disk System and Apple II disk writes (`.fdssave`, `.a2save`), PlayStation memory cards (`.mcd`), N64 Controller Paks (`.mpk`), PlayStation 2 memory cards (`.ps2`) |
 | `States\` | Save states and their thumbnails |
@@ -19,7 +20,7 @@ add with **Choose BIOS file…** are copied into `bios\`; a BIOS path you paste 
 | `retroachievements.json` | Encrypted RetroAchievements sign-in |
 | `profiles.json` | Family profiles and the parent PIN (hashed) |
 | `Profiles\<id>\` | The same files for each extra family profile |
-| `bios\fds\`, `bios\ps1\`, `bios\ps2\` | Copies of the BIOS files you chose with **Choose BIOS file…** (shared by all family profiles) |
+| `bios\` | Copies of the BIOS files you chose with **Choose…** (`fds\`, `ps1\`, `ps2\`), shared by every family profile |
 | `logs\crash.log` | Details of any crash |
 
 Cover pictures stay where you chose them; only their location is stored, so don't move or delete them.
@@ -48,9 +49,12 @@ The RetroAchievements sign-in is tied to your Windows account, so sign in again 
 | *That file isn't a game GameVault can open.* | The file is damaged, has the wrong extension, or is for a system GameVault doesn't support. |
 | *GameVault couldn't open that file.* | It was moved, deleted, or is open in another program. |
 | A game shows a BIOS or ROM message | Set the file in Settings for that system. See [What you must supply](#what-you-must-supply). |
-| A game has the wrong name or shows as Unknown | Import a catalog for that system, or type the title in Game Details. Bad or modified dumps don't match the catalog. |
+| A game has the wrong name or shows as Unknown | Import a catalog for that system, or type the title and details in Game Details → **Edit details**. Bad or modified dumps don't match the catalog. |
+| A key or button does the wrong thing | It may be remapped. Open **Remap…** for that keyboard or controller and choose **Back to the standard layout**; in the Player, check whether a remap is set **Only for** this game. |
+| A European game runs too fast, or a US game too slow | Set **Game Details → Properties → Region**. |
+| An Apple II disk shows only the startup screen | Set the Disk II boot ROM in **Settings → Apple II**. |
 | No sound | Check **Settings → Audio → Game volume** and the Windows volume mixer. Sound is muted while fast-forwarding. |
-| Sound or picture stutters | Close other heavy programs, set **Reduce input lag** to *Low* or *Off*, and choose **Sharp pixels**. Nintendo 64 3D scenes can run below full speed. |
+| Sound or picture stutters | Close other heavy programs, set **Reduce input lag** to *Low* or *Off*, and choose **Sharp pixels**. The heaviest Nintendo 64 3D scenes can run below full speed on a CPU with few cores. |
 | The game pauses when I click another window | That's **Pause when GameVault is in the background**; turn it off in Settings → Gameplay. |
 | Controller doesn't work | Make sure GameVault is the active window; controllers are ignored in the background. Check **Settings → Controllers** for which player it's assigned to. If it's under *Other controllers*, choose **Use for Player 1**. Some apps (Steam, Game Bar) capture the Guide button; hold **Back + Start** instead. |
 | A keyboard key does nothing | Click the game picture to give it focus. Two-player keyboard games: some keyboards can't register many keys at once. |
@@ -58,7 +62,7 @@ The RetroAchievements sign-in is tied to your Windows account, so sign in again 
 | A game freezes or glitches with Reduce input lag on | Set **Game Details → Properties → Reduce input lag** to *Off* for that game. |
 | NES sprites flicker | Turn on **Game Details → Properties → Reduce flicker**, or Assist → **Reduce flicker**. |
 | An N64 game won't start | Turn off **Settings → Nintendo 64 → Expansion Pak**. |
-| An N64 game doesn't keep its save | Its save type may be missing from GameVault's database. |
+| An N64 game doesn't keep its save | Its save type may be missing from GameVault's database. Try the cartridge's save type in **Game Details → Properties → Save type**. |
 | A PlayStation game won't start with fast boot | Turn off **Skip the startup screens**. |
 | A PlayStation 2 game won't start with fast boot | Turn off **Settings → PlayStation 2 → Skip the startup screens**. |
 | A PlayStation 2 game runs slowly | Many games still run below full speed (see [PlayStation 2](#sony-playstation-2), *Performance*). If you built GameVault yourself, use a Release build (see [Installing GameVault](#installing-gamevault)). Close other heavy programs. |

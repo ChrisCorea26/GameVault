@@ -1,0 +1,29 @@
+{
+  "sha1": "a12d74c73a0481599a5d832361d168f4737bbcf6",
+  "title": "Legend of Zelda, The (USA)",
+  "values": {
+    "mode": { "address": "0x0012" },
+    "level": { "address": "0x0010" },
+    "room": { "address": "0x00EB" },
+    "hearts": { "address": "0x066F", "mask": "0x0F", "offset": 1, "max": 16 },
+    "containers": { "address": "0x066F", "mask": "0xF0", "shift": 4, "offset": 1, "max": 16 },
+    "rupees": { "address": "0x066D" },
+    "bombs": { "address": "0x0658" }
+  },
+  "playing": [ { "value": "mode", "op": "==", "target": 5 } ],
+  "map": {
+    "room": "room",
+    "area": "level",
+    "columns": 16,
+    "areaNames": {
+      "0": "Overworld", "1": "Level 1", "2": "Level 2", "3": "Level 3", "4": "Level 4", "5": "Level 5",
+      "6": "Level 6", "7": "Level 7", "8": "Level 8", "9": "Level 9"
+    }
+  },
+  "overlay": [
+    { "value": "hearts", "label": "Hearts" },
+    { "value": "containers", "label": "Heart containers" },
+    { "value": "rupees", "label": "Rupees" },
+    { "value": "bombs", "label": "Bombs" }
+  ]
+}

@@ -2,14 +2,14 @@
 
 **Goal:** PS2 games ran well below full speed. Phase 17's results put most of the time in the EE interpreter
 (64–71 M instructions a second against the real 294.9 MHz) and the rest in the software GS (22 Mpixels a second
-textured). Make both faster without changing a single result. Also give players an obvious place to supply their own
-BIOS files.
+textured). Make both faster without changing a single result. Also keep the BIOS files players choose in
+GameVault's own folder.
 
 **Done when:**
 - the EE runs recompiled, cycle for cycle the same as the interpreter: same output, picture, cycle count and save
   state on every test program;
 - the GS draws on several cores with local memory byte-identical to one renderer's;
-- every path box in Settings has a file picker, and BIOS files are copied into GameVault's folder;
+- a BIOS chosen in Settings is copied into GameVault's folder;
 - all tests pass, with the manual and `docs/bugs.md` updated.
 
 It also draws the N64's RDP on several cores (§3), the same way, as the request that started this asked.
@@ -145,14 +145,14 @@ and drawn before the run returns.
 - All 117 of PeterLemon's RDP programs run through the whole console on four threads. RDRAM and the console's save
   state match every 10 frames.
 
-## 4. Choosing BIOS files (`SettingsViewModel`, `BiosImporter`, `IFilePathPicker`)
+## 4. Choosing BIOS files (`SettingsViewModel`, `BiosImporter`)
 
-- Every path box in Settings has a **Browse…** button.
-- The Disk System, PlayStation and PlayStation 2 BIOS boxes have **Choose BIOS file…**:
-  - it checks the file (size, and for the PS2 its version);
-  - it copies the file to `%LOCALAPPDATA%\GameVault\bios\<fds|ps1|ps2>\` and uses the copy.
-- The "needs a BIOS" messages point at the button.
-- This fixes GV-009.
+- GV-009 was fixed on `main` while this was built: every path box has a **Choose…** button.
+- On top of that, a BIOS picked with **Choose…** (Disk System, PlayStation, PlayStation 2) is checked and copied:
+  - the check is its size, and for the PS2 its version too;
+  - the copy goes to `%LOCALAPPDATA%\GameVault\bios\<fds|ps1|ps2>\`, and Settings keeps the copy's path.
+- A file that fails the check isn't copied. It keeps its own path, so the existing warning (PS2) or the message at
+  launch explains what's wrong with it.
 
 ## 5. Results (Release, the shared 4-core build machine)
 

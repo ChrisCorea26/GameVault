@@ -125,7 +125,9 @@ Save and load take about 0.005–0.008 ms each (budget: 1 ms).
 |---|---|---|
 | Standard controller | ✅ | Two ports; turbo and pads in the platform layer |
 | Zapper | ✅ | Port 2. Light sense needs a bright pixel the beam drew within the last 20 scanlines (NESdev Wiki: "Zapper"). The mouse aims and the left button fires. |
-| Four Score | ✅ | Players 3–4 and the signature bits. While a Four Score game runs, the third and fourth pads join Players 3 and 4 (choose Four Score in Game Details → Properties or through the game database). Settings can't move a pad to Players 3–4 by hand yet (`docs/bugs.md`) |
+| Four Score | ✅ | Players 3–4 and the signature bits. While a Four Score game runs, the third and fourth pads join Players 3 and 4 (choose Four Score in Game Details → Properties or through the game database, which lists the Four Score games). Pads can be moved to any player by hand in Settings or the Player's Controllers flyout |
+| Power Pad | ✅ | Port 2 (NESdev Wiki: "Power Pad"); keyboard U I O P / J K L ; / M , . / are buttons 1–12. Unit tests check the serial order on D3/D4; not yet checked against a real mat game |
+| Arkanoid (Vaus) paddle | ✅ | Port 2 (NESdev Wiki: "Arkanoid controller"); the mouse turns the knob (98–242) and the left button fires. Unit tests check the inverted MSB-first serial position; not yet checked against Arkanoid |
 
 ## Sega SG-1000 / SC-3000 and Master System (Phase 11)
 

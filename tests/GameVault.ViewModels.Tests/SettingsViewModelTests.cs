@@ -165,4 +165,103 @@ public class SettingsViewModelTests
         store.Current.Should().Be(new AppSettings());
         store.SaveCount.Should().Be(1);
     }
+
+    [Fact]
+    public async Task Choose_buttons_fill_the_path_boxes_from_a_file_picker_and_save()
+    {
+        var store = new InMemorySettingsStore();
+        var vm = new SettingsViewModel(
+            store,
+            new InputSettingsViewModel(new SampleInputDevicesService(), store),
+            new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()),
+            picker: new SampleGameFilePicker());
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        await vm.ChooseFdsBiosCommand.ExecuteAsync(null);
+        await vm.ChooseAppleDiskRomCommand.ExecuteAsync(null);
+        await vm.ChoosePlayStationBiosCommand.ExecuteAsync(null);
+
+        vm.FdsBiosPath.Should().Be(@"C:\Games\BIOS\sample.rom");
+        store.Current.FdsBiosPath.Should().Be(@"C:\Games\BIOS\sample.rom");
+        store.Current.AppleIIDiskRomPath.Should().Be(@"C:\Games\BIOS\sample.rom");
+        store.Current.PlayStationBiosPath.Should().Be(@"C:\Games\BIOS\sample.bin");
+    }
+
+    [Fact]
+    public async Task A_chosen_bios_is_copied_into_gamevaults_bios_folder()
+    {
+        var root = Directory.CreateTempSubdirectory("gamevault-bios-");
+        try
+        {
+            var picked = Path.Combine(root.FullName, "picked", "disksys.rom");
+            Directory.CreateDirectory(Path.GetDirectoryName(picked)!);
+            File.WriteAllBytes(picked, new byte[8 * 1024]);
+            var wrongSize = Path.Combine(root.FullName, "picked", "scph1001.bin");
+            File.WriteAllBytes(wrongSize, new byte[100]);
+
+            var store = new InMemorySettingsStore();
+            var picker = new OnePathPicker();
+            var vm = new SettingsViewModel(
+                store,
+                new InputSettingsViewModel(new SampleInputDevicesService(), store),
+                new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()),
+                picker: picker,
+                biosImporter: new GameVault.Library.Bios.BiosImporter(Path.Combine(root.FullName, "bios")));
+            await vm.LoadCommand.ExecuteAsync(null);
+
+            picker.Path = picked;
+            await vm.ChooseFdsBiosCommand.ExecuteAsync(null);
+            var copy = Path.Combine(root.FullName, "bios", "fds", "disksys.rom");
+            File.Exists(copy).Should().BeTrue("the BIOS is copied");
+            store.Current.FdsBiosPath.Should().Be(copy, "Settings keeps the copy");
+
+            // A file that fails the check isn't copied; its own path is kept, so the launch message can explain it.
+            picker.Path = wrongSize;
+            await vm.ChoosePlayStationBiosCommand.ExecuteAsync(null);
+            Directory.Exists(Path.Combine(root.FullName, "bios", "ps1")).Should().BeFalse();
+            store.Current.PlayStationBiosPath.Should().Be(wrongSize);
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    private sealed class OnePathPicker : IGameFilePicker
+    {
+        public string? Path { get; set; }
+
+        public Task<string?> PickGameFileAsync() => Task.FromResult<string?>(null);
+
+        public Task<string?> PickFolderAsync() => Task.FromResult<string?>(null);
+
+        public Task<string?> PickCatalogFileAsync() => Task.FromResult<string?>(null);
+
+        public Task<string?> PickImageAsync() => Task.FromResult<string?>(null);
+
+        public Task<string?> PickSystemFileAsync(IReadOnlyList<string> extensions) => Task.FromResult(Path);
+    }
+
+    [Fact]
+    public async Task Hide_screen_edges_offers_an_amount()
+    {
+        var store = new InMemorySettingsStore();
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.OverscanIndex.Should().Be(2, "8 lines by default");
+
+        vm.OverscanIndex = 4;
+        store.Current.CropOverscan.Should().BeTrue();
+        store.Current.OverscanCropLines.Should().Be(16);
+        store.Current.CropLines().Should().Be(16);
+
+        vm.OverscanIndex = 0;
+        store.Current.CropOverscan.Should().BeFalse();
+        store.Current.CropLines().Should().Be(0);
+
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.OverscanIndex.Should().Be(0);
+        vm.OverscanIndex = 1;
+        store.Current.CropLines().Should().Be(4);
+    }
 }

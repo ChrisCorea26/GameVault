@@ -73,5 +73,12 @@ Numbers can be written as JSON numbers, as `"0x1F"` or as `"$1F"`.
 
 ## Launch titles
 SPEC §7.3 asks for definitions for 5–10 well-known password games, and Phase 6 is done when capture works
-for 5 of them. Choosing them and checking each against a real cartridge needs the project owner, because
-the repository can't contain the games. The checklist is in [`plans/phase-6.md`](plans/phase-6.md).
+for 5 of them. Definitions ship only where a public disassembly gives every fact (GV-006); the sources are in
+[`gamedb-sources.md`](gamedb-sources.md):
+
+| Game | File | Status |
+|---|---|---|
+| Metroid (USA) | `metroid-usa.json` | From the disassembly; to check on a cartridge |
+
+Checking each against a real cartridge, and the rest of the launch titles, need the project owner, because the
+repository can't contain the games. The checklist is in [`plans/phase-6.md`](plans/phase-6.md).

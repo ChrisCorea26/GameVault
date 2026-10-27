@@ -22,13 +22,15 @@ See [RetroAchievements](#retroachievements).
 ## Library
 
 **Game folders** lists the folders GameVault watches, each with **Remove**. **Add a folder…** adds one.
-**Look for new games** rescans them all.
+**Look for new games** rescans them all. GameVault looks for games for every system it plays, including games inside
+`.zip` files. **Remove** asks first (*Remove this folder?*): the folder's games leave your library, but the files
+aren't deleted, and adding the folder again brings them back with their saves and notes.
 
 ## Video
 
 | Setting | Values | Default |
 |---|---|---|
-| **Hide screen edges** | On / Off. Hides the overscan border that TVs cut off. | On |
+| **Hide screen edges** | Show the whole picture, 4 lines, 8 lines (like most TVs), 12 lines, 16 lines, at the top and at the bottom. Hide more if a game draws flickering lines or garbage at the edges. | 8 lines |
 | **Picture style** | Sharp pixels, Smooth, Living room CRT, Arcade monitor | Sharp pixels |
 | **TV pixel shape** | On / Off. Stretches the picture to the 8:7 pixel shape of a TV. | Off |
 | **Play in full screen** | On / Off. Games start in full screen. | Off |
@@ -46,6 +48,7 @@ See [RetroAchievements](#retroachievements).
 | **Reduce input lag** | Off, Low, Medium, High (run-ahead of 0 to 3 frames) | Low |
 | **Pause when GameVault is in the background** | On / Off | On |
 | **Rewind memory** | 64 MB, 128 MB, 256 MB, 512 MB, 1 GB | 256 MB |
+| **Keep game saves next to the game files** | On / Off. Cartridge saves go beside each game as a `.sav` with the same name (for example `Game.sav` next to `Game.nes`), so other emulators can use them. Saves already in GameVault's Saves folder are still found. If a game's folder can't be written to, its save stays in GameVault's folder. Memory cards and Controller Paks always stay there. | Off |
 
 *Reduce input lag* uses run-ahead: GameVault quietly runs a frame or more ahead so the game responds sooner. Games
 known to break with it have it turned off automatically, and you can override it per game in Game Details →
@@ -55,26 +58,26 @@ Properties. Higher settings need a faster PC.
 
 | Setting | Values | Default |
 |---|---|---|
-| **Swap players** | Swaps Player 1 and Player 2. | |
+| **Swap players** | Swaps Player 1 and Player 2. Each card's **Swap** menu swaps it with any other player. | |
 | **Pin to this player** / **Unpin** | Per controller | Not pinned |
-| **Use for Player 1 / 2** | For extra controllers | |
+| **Remap…** | Per keyboard or controller model, per player and per system. See [Remapping buttons](#remapping-buttons). | Standard layouts |
+| **Use for Player N** | For extra controllers, one button per player (four during Four Score games) | |
 | **Two players, one keyboard** | On / Off | Off |
 | **Turbo speed** | 30, 20, 15, 12, 10 or 7.5 presses per second | 15 |
 
 ## Cartridge dumper
 
-The path to `inlretro.exe`, the INL Retro-Prog command-line tool, for example `C:\INL-retro\inlretro.exe`.
-**Browse…** picks it. Takes effect the next time GameVault starts. See [Cartridge dumper](#cartridge-dumper-inl-retro-prog).
+The path to `inlretro.exe`, the INL Retro-Prog command-line tool, for example `C:\INL-retro\inlretro.exe`. Type or
+paste it, or choose **Choose…** to pick the file. Takes effect the next time GameVault starts. See [Cartridge dumper](#cartridge-dumper-inl-retro-prog).
 
 ## Codes
 
-Code collections you've imported, each with **Remove**. **Import a code collection…** adds a `.xlsx` or `.csv`
+Code collections you've imported, each with **Remove** (which asks first). **Import a code collection…** adds a `.xlsx` or `.csv`
 file. See [Code collections](#code-collections).
 
 ## Disk System
 
-The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`. **Choose BIOS file…** checks the
-file is 8 KB and copies it to `%LOCALAPPDATA%\GameVault\bios\fds\`; a warning says why if it isn't the BIOS.
+The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`, or **Choose…** to pick it.
 
 ## Apple II
 
@@ -83,20 +86,20 @@ file is 8 KB and copies it to `%LOCALAPPDATA%\GameVault\bios\fds\`; a warning sa
 | **System ROM** | `C:\Apple\apple2e-enhanced.rom` |
 | **Disk II boot ROM** | `C:\Apple\disk2.rom` |
 
-**Browse…** next to each box picks the file.
+Each box has **Choose…** to pick the file.
 
 ## PlayStation
 
 | Setting | Values | Default |
 |---|---|---|
-| **BIOS** | Path, for example `C:\PlayStation\scph1001.bin`. **Choose BIOS file…** checks the file is 512 KB and copies it to `%LOCALAPPDATA%\GameVault\bios\ps1\`. | Empty |
+| **BIOS** | Path, for example `C:\PlayStation\scph1001.bin`, or **Choose…** | Empty |
 | **Skip the startup screens** | On / Off | Off |
 
 ## PlayStation 2
 
 | Setting | Values | Default |
 |---|---|---|
-| **BIOS** | Path, for example `C:\PlayStation 2\scph39001.bin`. **Choose BIOS file…** checks the file is a 4 MB PlayStation 2 BIOS and copies it to `%LOCALAPPDATA%\GameVault\bios\ps2\`; a file that isn't is not copied, and a warning says why. GameVault shows the BIOS's version. | Empty |
+| **BIOS** | Path, for example `C:\PlayStation 2\scph39001.bin`, or **Choose…**. GameVault checks it's a 4 MB BIOS and shows its version. | Empty |
 | **Skip the startup screens** | On / Off | Off |
 
 ## Nintendo 64
@@ -117,7 +120,5 @@ file is 8 KB and copies it to `%LOCALAPPDATA%\GameVault\bios\fds\`; a warning sa
 BIOS and ROM paths, the dumper path, controller settings, PlayStation and Nintendo 64 options, family profiles or
 RetroAchievements.
 
-Every box that takes a file has a button next to it: **Choose BIOS file…** for BIOS files (the file is checked and
-copied into `%LOCALAPPDATA%\GameVault\bios\`, and the box then shows the copy) and **Browse…** for other files (the
-box shows the file where it is). You can also type or paste a path; the box saves when you leave it. Quotes around a
-pasted path are removed for you.
+All path boxes save when you leave the box, or as soon as you pick a file with **Choose…**, which also works with a
+controller. Quotes around a pasted path are removed for you.

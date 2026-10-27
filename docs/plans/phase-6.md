@@ -105,6 +105,9 @@ Shared pieces:
   - Error message mapping and the wizard ViewModel states.
 
 ## Owner checklist (manual, with real hardware)
+Definitions sourced from public disassemblies now ship (GV-006; `docs/password-definitions.md` lists them, starting
+with Metroid (USA)); step 1 is to confirm them on cartridges and choose the rest of the five.
+
 1. Choose the 5 launch password titles. Using your own cartridges, confirm each definition captures the
    correct password.
 2. Connect an INL Retro-Prog and dump an NROM, an MMC1 and an MMC3 cartridge. Confirm the hash matches the

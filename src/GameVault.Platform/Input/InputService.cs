@@ -23,7 +23,10 @@ public sealed class InputService
     private int _turboPeriod = DefaultTurboPeriodFrames;
 
     private readonly Lock _gate = new();
+    private KeyboardMapping _base;
     private KeyboardMapping _keyboard;
+    private Func<PadLayout, IReadOnlyList<(int Port, GameVault.ViewModels.Services.Input.ResolvedRemap Remap)>>? _remaps;
+    private PadLayout _layout;
 
     // Per (source, port, button): how many keys/inputs hold it, and when it was last pressed.
     private readonly Dictionary<(int Source, int Port, int Button), int> _holdCount = [];
@@ -36,7 +39,8 @@ public sealed class InputService
 
     public InputService(KeyboardMapping keyboard)
     {
-        _keyboard = keyboard;
+        _base = keyboard;
+        _keyboard = keyboard.ForLayout(PadLayout.Nes);
     }
 
     /// <summary>Replaces the keyboard bindings (for example the two-player preset); releases held keys.</summary>
@@ -44,10 +48,123 @@ public sealed class InputService
     {
         lock (_gate)
         {
-            ReleaseSourceLocked(KeyboardSource);
-            _heldKeys.Clear();
-            _keyboard = mapping;
+            _base = mapping;
+            RebuildKeyboardLocked();
         }
+    }
+
+    /// <summary>
+    /// The player's keyboard remaps for each pad layout (GV-001), as (port, remap) pairs; applied over the bindings
+    /// whenever the layout or the remaps change. Releases held keys.
+    /// </summary>
+    public void SetKeyboardRemaps(Func<PadLayout, IReadOnlyList<(int Port, GameVault.ViewModels.Services.Input.ResolvedRemap Remap)>>? remaps)
+    {
+        lock (_gate)
+        {
+            _remaps = remaps;
+            RebuildKeyboardLocked();
+        }
+    }
+
+    /// <summary>The bindings in use now: the base mapping for the running pad, with the remaps.</summary>
+    public KeyboardMapping KeyboardBindings
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return _keyboard;
+            }
+        }
+    }
+
+    private void RebuildKeyboardLocked()
+    {
+        ReleaseSourceLocked(KeyboardSource);
+        _heldKeys.Clear();
+        _keyboard = _base.ForLayout(_layout, _remaps?.Invoke(_layout));
+    }
+
+    // ---------------------------------------------------------------- Power Pad and Arkanoid paddle (SPEC §4.7, GV-013)
+
+    /// <summary>
+    /// The Power Pad's 12 buttons on the keyboard, in the mat's rows of four: U I O P, J K L ;, M , . / (none of them
+    /// is a controller key, so Player 1's pad still works for menus).
+    /// </summary>
+    public static IReadOnlyList<int> PowerPadKeys { get; } =
+    [
+        VirtualKeys.U, VirtualKeys.I, VirtualKeys.O, VirtualKeys.P,
+        VirtualKeys.J, VirtualKeys.K, VirtualKeys.L, VirtualKeys.Semicolon,
+        VirtualKeys.M, VirtualKeys.Comma, VirtualKeys.Period, VirtualKeys.Slash,
+    ];
+
+    private ushort _powerPad;
+    private double _paddle = 0.5;
+    private bool _paddleFire;
+
+    /// <summary>True while a Power Pad game runs: <see cref="PowerPadKeys"/> press the mat instead of anything else.</summary>
+    public bool PowerPadActive
+    {
+        get;
+        set
+        {
+            lock (_gate)
+            {
+                field = value;
+                _powerPad = 0;
+            }
+        }
+    }
+
+    /// <summary>The mat's buttons for the next frame: bit N - 1 for button N (emulation thread).</summary>
+    public ushort SamplePowerPad()
+    {
+        lock (_gate)
+        {
+            return _powerPad;
+        }
+    }
+
+    /// <summary>The Arkanoid paddle from the mouse (UI thread): the knob as a fraction of its travel, and the fire button.</summary>
+    public void SetPaddle(double fraction, bool fire)
+    {
+        lock (_gate)
+        {
+            _paddle = Math.Clamp(fraction, 0, 1);
+            _paddleFire = fire;
+        }
+    }
+
+    /// <summary>The paddle for the next frame (emulation thread).</summary>
+    public (double Fraction, bool Fire) SamplePaddle()
+    {
+        lock (_gate)
+        {
+            return (_paddle, _paddleFire);
+        }
+    }
+
+    private bool PowerPadKey(int virtualKey, bool down)
+    {
+        if (!PowerPadActive)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < PowerPadKeys.Count; i++)
+        {
+            if (PowerPadKeys[i] == virtualKey)
+            {
+                lock (_gate)
+                {
+                    _powerPad = (ushort)(down ? _powerPad | (1 << i) : _powerPad & ~(1 << i));
+                }
+
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private (int X, int Y)? _zapperAim;
@@ -121,7 +238,21 @@ public sealed class InputService
     /// The running system's pad (Phase 14). For SNES games controllers map Y and X to West and North and L/R to the
     /// shoulders, and the keyboard's turbo B and turbo A keys (A and S) become Y and X.
     /// </summary>
-    public PadLayout Layout { get; set; }
+    public PadLayout Layout
+    {
+        get => _layout;
+        set
+        {
+            lock (_gate)
+            {
+                if (_layout != value)
+                {
+                    _layout = value;
+                    RebuildKeyboardLocked();
+                }
+            }
+        }
+    }
 
     /// <summary>True while any typing key is held (the Apple IIe reads it).</summary>
     public bool AnyTypingKeyHeld
@@ -189,6 +320,11 @@ public sealed class InputService
 
     public bool KeyDown(int virtualKey)
     {
+        if (PowerPadKey(virtualKey, down: true))
+        {
+            return true;
+        }
+
         var typed = TypingMode && Type(virtualKey);
         if (KeyboardMapping.Hotkeys.Contains(virtualKey))
         {
@@ -200,20 +336,7 @@ public sealed class InputService
             return virtualKey is not (VirtualKeys.Escape or VirtualKeys.F11); // the page handles these
         }
 
-        if (LayoutKeys(Layout) is { } layoutKeys && layoutKeys.TryGetValue(virtualKey, out var extra))
-        {
-            lock (_gate)
-            {
-                if (_heldKeys.Add(virtualKey))
-                {
-                    Press(extra.Source, 0, extra.Button);
-                }
-            }
-
-            return true;
-        }
-
-        if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button, out var turbo))
+        if (!KeyboardBindings.TryGetBinding(virtualKey, out var port, out var button, out var turbo, out var kind))
         {
             return typed;
         }
@@ -225,11 +348,11 @@ public sealed class InputService
             {
                 if (turbo)
                 {
-                    PressTurbo(KeyboardSource, port, button);
+                    PressTurbo(SourceOf(kind), port, button);
                 }
                 else
                 {
-                    Press(KeyboardSource, port, button);
+                    Press(SourceOf(kind), port, button);
                 }
             }
         }
@@ -239,6 +362,11 @@ public sealed class InputService
 
     public bool KeyUp(int virtualKey)
     {
+        if (PowerPadKey(virtualKey, down: false))
+        {
+            return true;
+        }
+
         if (TypingMode)
         {
             lock (_gate)
@@ -257,20 +385,7 @@ public sealed class InputService
             return virtualKey is not (VirtualKeys.Escape or VirtualKeys.F11); // the page handles these
         }
 
-        if (LayoutKeys(Layout) is { } layoutKeys && layoutKeys.TryGetValue(virtualKey, out var extra))
-        {
-            lock (_gate)
-            {
-                if (_heldKeys.Remove(virtualKey))
-                {
-                    Release(extra.Source, 0, extra.Button);
-                }
-            }
-
-            return true;
-        }
-
-        if (!_keyboard.TryGetBinding(virtualKey, out var port, out var button, out var turbo))
+        if (!KeyboardBindings.TryGetBinding(virtualKey, out var port, out var button, out var turbo, out var kind))
         {
             return TypingMode;
         }
@@ -281,11 +396,11 @@ public sealed class InputService
             {
                 if (turbo)
                 {
-                    ReleaseTurbo(KeyboardSource, port, button);
+                    ReleaseTurbo(SourceOf(kind), port, button);
                 }
                 else
                 {
-                    Release(KeyboardSource, port, button);
+                    Release(SourceOf(kind), port, button);
                 }
             }
         }
@@ -406,6 +521,8 @@ public sealed class InputService
             _padHotkeys.Clear();
             _sticks.Clear();
             _zapperTrigger = false;
+            _powerPad = 0;
+            _paddleFire = false;
         }
     }
 
@@ -451,21 +568,10 @@ public sealed class InputService
                 }
             }
 
+            // Pads without turbo (SNES, PlayStation, N64, PS2) get the turbo keys as Y and X from the keyboard mapping
+            // (KeyboardMapping.ForLayout); a turbo button the player remapped there repeats like any other.
             var period = _turboPeriod;
-            if (Layout is PadLayout.Snes or PadLayout.PlayStation or PadLayout.Nintendo64 or PadLayout.PlayStation2)
-            {
-                // No turbo on SNES or PlayStation pads: those keys are Y (turbo B's key) and X (turbo A's key), the
-                // PlayStation's Square and Triangle.
-                foreach (var ((_, p, bit), _) in _turboCount)
-                {
-                    if (p == port)
-                    {
-                        var button = (ControllerState)(1UL << bit);
-                        state |= button == ControllerState.B ? ControllerState.Y : button == ControllerState.A ? ControllerState.X : button;
-                    }
-                }
-            }
-            else if (frame % period < (period + 1) / 2)
+            if (frame % period < (period + 1) / 2)
             {
                 foreach (var ((_, p, bit), _) in _turboCount)
                 {
@@ -493,6 +599,14 @@ public sealed class InputService
 
     // ---------------------------------------------------------------- analog sticks (N64, Phase 16; PlayStation 2, Phase 17)
 
+    /// <summary>Where a key's press is counted: the keyboard, or its D-pad or right-stick keys on the N64 and PS2.</summary>
+    private static int SourceOf(GameVault.ViewModels.Services.Input.KeyKind kind) => kind switch
+    {
+        GameVault.ViewModels.Services.Input.KeyKind.DPad => KeyboardDpadSource,
+        GameVault.ViewModels.Services.Input.KeyKind.RightStick => KeyboardRightStickSource,
+        _ => KeyboardSource,
+    };
+
     /// <summary>The keyboard's D-pad keys while an N64 or PS2 game runs, kept apart from the arrows, which push the stick.</summary>
     private const int KeyboardDpadSource = -1;
 
@@ -507,45 +621,6 @@ public sealed class InputService
 
     // Each pad's sticks past the dead zone, as fractions of full tilt (+Y up); scaled to the running pad's range.
     private readonly Dictionary<(int Source, int Port, bool Right), (double X, double Y)> _sticks = [];
-
-    /// <summary>The keys that belong to the running pad only (they win over the keyboard mapping), or null.</summary>
-    private static Dictionary<int, (int Source, ControllerState Button)>? LayoutKeys(PadLayout layout) => layout switch
-    {
-        PadLayout.Nintendo64 => N64Keys,
-        PadLayout.PlayStation2 => Ps2Keys,
-        _ => null,
-    };
-
-    /// <summary>
-    /// Keys that only mean something on the PS2 pad: I/J/K/L push the right stick (where the N64's C buttons are),
-    /// T/F/G/H are the D-pad, and 5 and 6 are L3 and R3 (after L1, R1, L2, R2 on 1–4).
-    /// </summary>
-    private static readonly Dictionary<int, (int Source, ControllerState Button)> Ps2Keys = new()
-    {
-        [VirtualKeys.I] = (KeyboardRightStickSource, ControllerState.Up),
-        [VirtualKeys.K] = (KeyboardRightStickSource, ControllerState.Down),
-        [VirtualKeys.J] = (KeyboardRightStickSource, ControllerState.Left),
-        [VirtualKeys.L] = (KeyboardRightStickSource, ControllerState.Right),
-        [VirtualKeys.T] = (KeyboardDpadSource, ControllerState.Up),
-        [VirtualKeys.G] = (KeyboardDpadSource, ControllerState.Down),
-        [VirtualKeys.F] = (KeyboardDpadSource, ControllerState.Left),
-        [VirtualKeys.H] = (KeyboardDpadSource, ControllerState.Right),
-        [VirtualKeys.Digit5] = (KeyboardSource, ControllerState.L3),
-        [VirtualKeys.Digit6] = (KeyboardSource, ControllerState.R3),
-    };
-
-    /// <summary>Keys that only mean something on the N64 pad: I/J/K/L the C buttons and T/F/G/H the D-pad.</summary>
-    private static readonly Dictionary<int, (int Source, ControllerState Button)> N64Keys = new()
-    {
-        [VirtualKeys.I] = (KeyboardSource, ControllerState.C), // C-up
-        [VirtualKeys.K] = (KeyboardSource, ControllerState.A), // C-down
-        [VirtualKeys.J] = (KeyboardSource, ControllerState.X), // C-left
-        [VirtualKeys.L] = (KeyboardSource, ControllerState.Z), // C-right
-        [VirtualKeys.T] = (KeyboardDpadSource, ControllerState.Up),
-        [VirtualKeys.G] = (KeyboardDpadSource, ControllerState.Down),
-        [VirtualKeys.F] = (KeyboardDpadSource, ControllerState.Left),
-        [VirtualKeys.H] = (KeyboardDpadSource, ControllerState.Right),
-    };
 
     /// <summary>
     /// A game controller's left analog stick (SDL's -32768..32767, +Y down), with a small round dead zone. Pads call
@@ -658,6 +733,9 @@ public sealed class InputService
 public enum PadLayout
 {
     Nes,
+
+    /// <summary>The SG-1000 and Master System: the NES's bindings, under their own names and remaps.</summary>
+    Sega,
     Genesis,
     Snes,
 

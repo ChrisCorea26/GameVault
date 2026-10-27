@@ -16,9 +16,10 @@ The Player shows the game with a toolbar above it. Press <kbd>Alt</kbd> to see e
 | **Disks** | <kbd>Alt</kbd>+<kbd>D</kbd> | Apple II drives 1 and 2. |
 | **Codes** | <kbd>Alt</kbd>+<kbd>C</kbd> | Game Genie and RAM codes (NES). |
 | **Netplay** | <kbd>Alt</kbd>+<kbd>N</kbd> | Two players on the same network. |
+| **Controllers** | <kbd>Alt</kbd>+<kbd>O</kbd> | The controller cards from Settings, so you can swap, reassign and remap without leaving the game. See [Controllers in the Player](#controllers-in-the-player). |
 | **Full screen** | <kbd>F11</kbd>, <kbd>Alt</kbd>+<kbd>Enter</kbd> | <kbd>Esc</kbd> leaves full screen. |
 | **Stats** | <kbd>Alt</kbd>+<kbd>T</kbd> | Shows values from the game, such as exact health. Only for games with a memory map. |
-| **Challenges** | <kbd>Alt</kbd>+<kbd>H</kbd> | Make and take verified challenges. |
+| **Challenges** | <kbd>Alt</kbd>+<kbd>H</kbd> | Make and take verified challenges. Only for games with a memory map. |
 | **Achievements** | <kbd>Alt</kbd>+<kbd>E</kbd> | RetroAchievements progress, for recognised games. |
 
 Buttons that don't apply to the running game are hidden. The toolbar is hidden in full screen.
@@ -41,20 +42,32 @@ thumbnail, the date, and your playtime.
 - When you leave a game, GameVault saves a **Where you left off** state automatically.
 
 Save states are separate from the game's own battery save (the in-game "save" of games like *The Legend of Zelda*).
-Battery saves are written automatically and kept in GameVault's data folder, never in your ROM folders.
+Battery saves are written automatically and kept in GameVault's data folder, not in your ROM folders, unless you turn
+on **Settings → Gameplay → Keep game saves next to the game files**.
 
 > **Note:** A save state stores which codes were on. Save states can't be loaded in RetroAchievements hardcore
 > mode or during a challenge attempt.
 
 ## Rewind and fast-forward
 
-- Hold <kbd>Backspace</kbd> or the controller's **left shoulder** button to rewind. A bar shows how far back you
-  are. Release to carry on playing from there.
+- Hold <kbd>Backspace</kbd> or the controller's **left shoulder** button to rewind. A scrub bar appears; it spans
+  the whole rewind history, however long. Release to carry on playing from there.
+- To jump to a point, grab the scrub bar with the mouse while rewinding and drag it, back or forward. The game holds
+  still while you drag, even if you let go of the rewind key. Let go of the bar to play on from that point.
 - Hold <kbd>Tab</kbd> or the **right shoulder** button to fast-forward.
 - <kbd>F2</kbd> goes back to about 5 seconds before you last lost a life, for games with a memory map.
 - How far back you can rewind depends on **Settings → Gameplay → Rewind memory** (256 MB by default, at least a
   minute of play).
 - On the Apple II every key types into the computer, so use <kbd>Shift</kbd>+<kbd>Backspace</kbd> to rewind.
+
+## Controllers in the Player
+
+**Controllers** opens the same cards as **Settings → Controllers**: one per player with its keyboard and controllers,
+**Pin to this player**, **Remap…** and **Swap** (*Swap with Player N*), plus **Other controllers** with **Use for
+Player N** buttons. While a Four Score game runs there are four cards, so you can put a controller on Player 3 or 4.
+
+**Remap…** here works as in Settings (see [Remapping buttons](#remapping-buttons)), with one more choice: **Only for**
+*the game's title* keeps the change for the running game alone. Closing the flyout stops Remap… waiting for a key.
 
 ## Assist mode
 
@@ -82,7 +95,8 @@ for each segment. Personal bests aren't recorded while codes are on.
 Many older games save progress with a password.
 
 - **Automatic capture.** For games GameVault has a password definition for, passwords are saved automatically
-  when the password screen appears, and a notice says *Password saved*.
+  when the password screen appears, and a notice says *Password saved*. GameVault ships a definition for *Metroid*
+  (USA); its password is saved each time it's shown after GAME OVER.
 - **By hand.** Press <kbd>F9</kbd> on the password screen. The game pauses; type the **Password** and an optional
   **Note**, and choose **Save**.
 

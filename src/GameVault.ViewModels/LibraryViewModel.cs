@@ -292,7 +292,22 @@ public sealed partial class LibraryViewModel(
 
     private static bool IsMine(GameTileViewModel tile) => tile.IsPlayable || tile.IsOwned;
 
+    // Library changes can reload from another thread when there is no UI context (tests, background scans), so the
+    // rebuild of Games is kept whole: two overlapping rebuilds must not interleave their Clear and Adds.
+    private readonly Lock _filterGate = new();
+
     private void ApplyFilter()
+    {
+        lock (_filterGate)
+        {
+            RebuildGames();
+        }
+
+        OnPropertyChanged(nameof(HasNoMatches));
+        OnPropertyChanged(nameof(HasNoOwnGames));
+    }
+
+    private void RebuildGames()
     {
         Games.Clear();
         foreach (var tile in _allGames)
@@ -311,9 +326,6 @@ public sealed partial class LibraryViewModel(
                 Games.Add(tile);
             }
         }
-
-        OnPropertyChanged(nameof(HasNoMatches));
-        OnPropertyChanged(nameof(HasNoOwnGames));
     }
 
     private static bool Is(string? filter, string? value) => filter is null or Any || filter == value;

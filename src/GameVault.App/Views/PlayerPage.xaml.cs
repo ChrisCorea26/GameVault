@@ -43,6 +43,11 @@ public sealed partial class PlayerPage : Page
             controllers.PauseRequested += OnPauseRequested;
         }
 
+        // The Slider handles its own pointer events, so listen for handled ones too (view-only glue).
+        RewindSlider.AddHandler(PointerPressedEvent, new PointerEventHandler((_, _) => ViewModel.BeginScrub()), handledEventsToo: true);
+        RewindSlider.AddHandler(PointerReleasedEvent, new PointerEventHandler((_, _) => EndScrub()), handledEventsToo: true);
+        RewindSlider.AddHandler(PointerCaptureLostEvent, new PointerEventHandler((_, _) => EndScrub()), handledEventsToo: true);
+
         ViewModel.StartCommand.Execute(_launch);
         Game.Focus(FocusState.Programmatic);
 
@@ -80,6 +85,18 @@ public sealed partial class PlayerPage : Page
         }
     }
 
+    private void RewindSlider_ValueChanged(object sender, Microsoft.UI.Xaml.Controls.Primitives.RangeBaseValueChangedEventArgs e) =>
+        ViewModel.ScrubTo(e.NewValue);
+
+    private void EndScrub()
+    {
+        if (ViewModel.IsScrubbing)
+        {
+            ViewModel.EndScrub();
+            ReturnFocusToGame();
+        }
+    }
+
     private void OnPauseRequested(object? sender, EventArgs e) => ViewModel.TogglePauseCommand.Execute(null);
 
     // Coming back to the window resumes a game that paused itself and gives the keyboard back to the game
@@ -97,6 +114,13 @@ public sealed partial class PlayerPage : Page
     }
 
     private void Flyout_Closed(object sender, object e) => ReturnFocusToGame();
+
+    // Closing the Controllers flyout stops Remap… waiting for a key or button.
+    private void ControllersFlyout_Closed(object sender, object e)
+    {
+        ViewModel.Controllers.Remap.CancelListening();
+        ReturnFocusToGame();
+    }
 
     // The list is read when it opens, so it shows the latest unlocks and progress.
     private void AchievementsFlyout_Opening(object sender, object e) => ViewModel.Achievements?.RefreshCommand.Execute(null);

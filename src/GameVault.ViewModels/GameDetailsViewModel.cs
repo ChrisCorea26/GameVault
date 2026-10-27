@@ -36,9 +36,56 @@ public sealed partial class GameDetailsViewModel(
 
     public IReadOnlyList<string> StatusOptions { get; } = ["Unplayed", "Playing", "Beaten", "100%"];
 
-    public IReadOnlyList<string> InputOptions { get; } = ["Automatic", "Controller", "Zapper", "Four Score"];
+    /// <summary>Index N (from 1) is <see cref="InputType"/> N - 1.</summary>
+    public IReadOnlyList<string> InputOptions { get; } =
+        ["Automatic", "Controller", "Zapper", "Four Score", "Power Pad (keyboard)", "Arkanoid paddle (mouse)"];
 
     public IReadOnlyList<string> AutoOnOffOptions { get; } = ["Automatic", "On", "Off"];
+
+    /// <summary>Unknown / homebrew games: the region, as <see cref="GameRegion"/> by index.</summary>
+    public IReadOnlyList<string> GameRegionOptions { get; } = ["Unknown", "North America", "Europe", "Japan", "World"];
+
+    /// <summary>Unknown / homebrew games: 1–4 players, by index (0 is one player).</summary>
+    public IReadOnlyList<string> PlayerCountOptions { get; } = ["1 player", "2 players", "3 players", "4 players"];
+
+    public IReadOnlyList<string> MirroringOptions { get; } = ["Automatic", "Horizontal", "Vertical", "Four-screen"];
+
+    private static readonly string?[] MirroringValues = [null, "horizontal", "vertical", "four-screen"];
+
+    public IReadOnlyList<string> AppleModelOptions { get; } = ["Automatic", "Apple II+", "Apple IIe", "Enhanced Apple IIe"];
+
+    private static readonly string?[] AppleModelValues = [null, "ii+", "iie", "iie-enhanced"];
+
+    public IReadOnlyList<string> GenesisPadOptions { get; } = ["Automatic (6-button)", "6-button", "3-button"];
+
+    private static readonly string?[] GenesisPadValues = [null, "6", "3"];
+
+    public IReadOnlyList<string> N64SaveOptions { get; } =
+        ["Automatic", "EEPROM (4 Kbit)", "EEPROM (16 Kbit)", "SRAM", "Flash", "None"];
+
+    private static readonly string?[] N64SaveValues = [null, "eeprom4k", "eeprom16k", "sram", "flash", "none"];
+
+    /// <summary>The TV standards this game's system offers (Properties → Region); empty when it has no choice.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRegionChoice))]
+    public partial IReadOnlyList<string> RegionOptions { get; private set; } = [];
+
+    public bool HasRegionChoice => RegionOptions.Count > 0;
+
+    private string?[] _regionValues = [];
+
+    /// <summary>The game is for the NES (or Disk System): controls, flicker, header corrections and codes apply (GV-016).</summary>
+    [ObservableProperty]
+    public partial bool IsNes { get; private set; }
+
+    [ObservableProperty]
+    public partial bool IsAppleII { get; private set; }
+
+    [ObservableProperty]
+    public partial bool IsGenesis { get; private set; }
+
+    [ObservableProperty]
+    public partial bool IsN64 { get; private set; }
 
     [ObservableProperty]
     public partial string Title { get; set; } = string.Empty;
@@ -106,6 +153,54 @@ public sealed partial class GameDetailsViewModel(
     [ObservableProperty]
     public partial int SpriteLimitIndex { get; set; }
 
+    /// <summary>Index into <see cref="RegionOptions"/> (0 is Automatic).</summary>
+    [ObservableProperty]
+    public partial int RegionIndex { get; set; }
+
+    [ObservableProperty]
+    public partial int AppleModelIndex { get; set; }
+
+    [ObservableProperty]
+    public partial int GenesisPadIndex { get; set; }
+
+    [ObservableProperty]
+    public partial int N64SaveIndex { get; set; }
+
+    /// <summary>NES header correction: the mapper number, or empty to keep the file's. Saved when the box loses focus.</summary>
+    [ObservableProperty]
+    public partial string MapperText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial int MirroringIndex { get; set; }
+
+    /// <summary>NES header correction: battery-backed save RAM (Automatic, On, Off).</summary>
+    [ObservableProperty]
+    public partial int BatteryIndex { get; set; }
+
+    /// <summary>Why the mapper box's text wasn't used, or empty.</summary>
+    [ObservableProperty]
+    public partial string MapperError { get; private set; } = string.Empty;
+
+    // ---------------------------------------------------------------- metadata of unknown / homebrew games (GV-011)
+
+    [ObservableProperty]
+    public partial string Publisher { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string Developer { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string ReleaseYearText { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string Genre { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial int GameRegionIndex { get; set; }
+
+    [ObservableProperty]
+    public partial int PlayerCountIndex { get; set; }
+
     [RelayCommand]
     private async Task LoadAsync(string? key)
     {
@@ -145,10 +240,27 @@ public sealed partial class GameDetailsViewModel(
         CanPlay = game.RomPath is not null;
         PlayHint = CanPlay ? string.Empty : "Add a folder with this game's file to play it.";
 
+        Publisher = game.Publisher ?? string.Empty;
+        Developer = game.Developer ?? string.Empty;
+        ReleaseYearText = game.ReleaseYear?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+        Genre = game.Genre ?? string.Empty;
+        GameRegionIndex = (int)game.Region;
+        PlayerCountIndex = Math.Clamp(game.Players, 1, 4) - 1;
+
+        ShowPropertiesFor(game.System);
         var overrides = await library.GetProfileOverridesAsync(key);
         InputIndex = overrides?.Input is { } input ? (int)input + 1 : 0;
         RunAheadIndex = ToIndex(overrides?.RunAheadSafe);
         SpriteLimitIndex = ToIndex(overrides?.RemoveSpriteLimit);
+        RegionIndex = IndexOf(_regionValues, overrides?.Region);
+        AppleModelIndex = IndexOf(AppleModelValues, overrides?.Model);
+        GenesisPadIndex = IndexOf(GenesisPadValues, overrides?.Pad);
+        N64SaveIndex = IndexOf(N64SaveValues, overrides?.Save);
+        MapperText = overrides?.Header?.Mapper?.ToString(CultureInfo.InvariantCulture) ?? string.Empty;
+        MirroringIndex = IndexOf(MirroringValues, overrides?.Header?.Mirroring);
+        BatteryIndex = ToIndex(overrides?.Header?.Battery);
+        _extraHeader = overrides?.Header;
+        MapperError = string.Empty;
         _loading = false;
 
         timeline.CanSave = false;
@@ -196,13 +308,42 @@ public sealed partial class GameDetailsViewModel(
         return SaveAsync(g => g with { CoverPath = null });
     }
 
-    /// <summary>Notes and the title save when the text box loses focus, not on every keystroke.</summary>
+    /// <summary>
+    /// Notes, the title and an unknown game's other details save when a text box loses focus, not on every keystroke.
+    /// Cataloged games keep the catalog's details.
+    /// </summary>
     [RelayCommand]
-    private Task SaveTextAsync() => SaveAsync(g => g with
+    private Task SaveTextAsync() => SaveAsync(g => CanEditTitle
+        ? g with
+        {
+            Notes = string.IsNullOrWhiteSpace(Notes) ? null : Notes,
+            Title = !string.IsNullOrWhiteSpace(Title) ? Title.Trim() : g.Title,
+            Publisher = NullIfBlank(Publisher),
+            Developer = NullIfBlank(Developer),
+            Genre = NullIfBlank(Genre),
+            ReleaseYear = int.TryParse(ReleaseYearText.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var year) && year is >= 1970 and <= 2100
+                ? year
+                : string.IsNullOrWhiteSpace(ReleaseYearText) ? null : g.ReleaseYear,
+        }
+        : g with { Notes = string.IsNullOrWhiteSpace(Notes) ? null : Notes });
+
+    partial void OnGameRegionIndexChanged(int value)
     {
-        Notes = string.IsNullOrWhiteSpace(Notes) ? null : Notes,
-        Title = CanEditTitle && !string.IsNullOrWhiteSpace(Title) ? Title.Trim() : g.Title,
-    });
+        if (CanEditTitle && Enum.IsDefined((GameRegion)value))
+        {
+            _ = SaveAsync(g => g with { Region = (GameRegion)value });
+        }
+    }
+
+    partial void OnPlayerCountIndexChanged(int value)
+    {
+        if (CanEditTitle && value is >= 0 and <= 3)
+        {
+            _ = SaveAsync(g => g with { Players = value + 1 });
+        }
+    }
+
+    private static string? NullIfBlank(string text) => string.IsNullOrWhiteSpace(text) ? null : text.Trim();
 
     partial void OnOwnsCartridgeChanged(bool value) => _ = SaveOwnership();
 
@@ -231,6 +372,68 @@ public sealed partial class GameDetailsViewModel(
 
     partial void OnSpriteLimitIndexChanged(int value) => _ = SaveOverrides();
 
+    partial void OnRegionIndexChanged(int value) => _ = SaveOverrides();
+
+    partial void OnAppleModelIndexChanged(int value) => _ = SaveOverrides();
+
+    partial void OnGenesisPadIndexChanged(int value) => _ = SaveOverrides();
+
+    partial void OnN64SaveIndexChanged(int value) => _ = SaveOverrides();
+
+    partial void OnMirroringIndexChanged(int value) => _ = SaveOverrides();
+
+    partial void OnBatteryIndexChanged(int value) => _ = SaveOverrides();
+
+    /// <summary>Called when the mapper box loses focus.</summary>
+    [RelayCommand]
+    private Task SaveMapperAsync() => SaveOverrides();
+
+    // Header fields this page doesn't edit (submapper, PRG RAM size) are kept as the overrides had them.
+    private HeaderCorrection? _extraHeader;
+
+    /// <summary>Shows the properties that apply to the game's system, and the TV standards it can run at.</summary>
+    private void ShowPropertiesFor(GameVault.Core.Systems.GameSystem system)
+    {
+        IsNes = system == GameVault.Core.Systems.GameSystem.Nes;
+        IsAppleII = system == GameVault.Core.Systems.GameSystem.AppleII;
+        IsGenesis = system == GameVault.Core.Systems.GameSystem.Genesis;
+        IsN64 = system == GameVault.Core.Systems.GameSystem.Nintendo64;
+        string[][] regions = system switch
+        {
+            GameVault.Core.Systems.GameSystem.Nes =>
+                [["Automatic", "NTSC (60 Hz)", "PAL (50 Hz)", "Dendy (50 Hz)"], ["", "ntsc", "pal", "dendy"]],
+            GameVault.Core.Systems.GameSystem.Genesis =>
+                [["Automatic", "USA (60 Hz)", "Japan (60 Hz)", "Europe (50 Hz)"], ["", "usa", "japan", "europe"]],
+            GameVault.Core.Systems.GameSystem.Snes => [["Automatic", "NTSC (60 Hz)", "PAL (50 Hz)"], ["", "ntsc", "pal"]],
+            GameVault.Core.Systems.GameSystem.MasterSystem or GameVault.Core.Systems.GameSystem.Sg1000 =>
+                [["Automatic (NTSC, 60 Hz)", "NTSC (60 Hz)", "PAL (50 Hz)"], ["", "ntsc", "pal"]],
+            _ => [[], []],
+        };
+        _regionValues = regions[1];
+        RegionOptions = regions[0];
+    }
+
+    private static int IndexOf(string?[] values, string? value)
+    {
+        if (value is null)
+        {
+            return 0;
+        }
+
+        for (var i = 1; i < values.Length; i++)
+        {
+            if (string.Equals(values[i], value, StringComparison.OrdinalIgnoreCase)
+                || (values[i] == "ii+" && string.Equals(value, "iiplus", StringComparison.OrdinalIgnoreCase)))
+            {
+                return i;
+            }
+        }
+
+        return 0;
+    }
+
+    private static string? ValueAt(string?[] values, int index) => index > 0 && index < values.Length ? values[index] : null;
+
     private Task SaveOwnership() => SaveAsync(g => g with
     {
         Owned = (OwnsCartridge ? Ownership.Cartridge : 0)
@@ -257,13 +460,43 @@ public sealed partial class GameDetailsViewModel(
             return;
         }
 
+        int? mapper = null;
+        MapperError = string.Empty;
+        if (!string.IsNullOrWhiteSpace(MapperText))
+        {
+            if (int.TryParse(MapperText.Trim(), NumberStyles.None, CultureInfo.InvariantCulture, out var number) && number is >= 0 and <= 4095)
+            {
+                mapper = number;
+            }
+            else
+            {
+                MapperError = "The mapper is a number from 0 to 4095, or leave it empty to use the file's.";
+                mapper = _extraHeader?.Mapper;
+            }
+        }
+
+        var header = new HeaderCorrection
+        {
+            Mapper = mapper,
+            Submapper = _extraHeader?.Submapper,
+            Mirroring = ValueAt(MirroringValues, MirroringIndex),
+            Battery = FromIndex(BatteryIndex),
+            PrgRamSize = _extraHeader?.PrgRamSize,
+        };
+        var hasHeader = header.Mapper is not null || header.Submapper is not null || header.Mirroring is not null
+            || header.Battery is not null || header.PrgRamSize is not null;
         var overrides = new GameProfile
         {
-            Input = InputIndex is >= 1 and <= 3 ? (InputType)(InputIndex - 1) : null,
+            Input = InputIndex >= 1 && InputIndex < InputOptions.Count ? (InputType)(InputIndex - 1) : null,
             RunAheadSafe = FromIndex(RunAheadIndex),
             RemoveSpriteLimit = FromIndex(SpriteLimitIndex),
+            Region = ValueAt(_regionValues, RegionIndex),
+            Model = ValueAt(AppleModelValues, AppleModelIndex),
+            Pad = ValueAt(GenesisPadValues, GenesisPadIndex),
+            Save = ValueAt(N64SaveValues, N64SaveIndex),
+            Header = hasHeader ? header : null,
         };
-        var empty = overrides.Input is null && overrides.RunAheadSafe is null && overrides.RemoveSpriteLimit is null;
+        var empty = overrides == new GameProfile();
         await library.SaveProfileOverridesAsync(_game.Key, empty ? null : overrides);
     }
 

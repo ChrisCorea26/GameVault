@@ -35,6 +35,12 @@ public static class VirtualKeys
     public const int W = 0x57;
     public const int X = 0x58;
     public const int Z = 0x5A;
+    public const int M = 0x4D;
+    public const int O = 0x4F;
+    public const int P = 0x50;
+    public const int U = 0x55;
+    public const int Semicolon = 0xBA;
+    public const int Slash = 0xBF;
     public const int Comma = 0xBC;
     public const int Period = 0xBE;
     public const int F2 = 0x71;

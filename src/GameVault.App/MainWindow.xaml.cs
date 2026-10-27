@@ -51,6 +51,15 @@ public sealed partial class MainWindow : Window
         if (App.TryGetService<LibraryService>() is { } library)
         {
             await library.StartWatchingAsync(); // folder changes rescan the library (SPEC §6.2)
+
+            // First launch: the freely licensed homebrew GameVault ships (SPEC §6.4) goes into the library once.
+            var store = App.GetService<ISettingsStore>();
+            var settings = await store.LoadAsync();
+            if (!settings.BundledHomebrewAdded)
+            {
+                await library.AddBundledHomebrewAsync(Path.Combine(AppContext.BaseDirectory, "data", "homebrew"));
+                await store.SaveAsync(await store.LoadAsync() with { BundledHomebrewAdded = true });
+            }
         }
 
         if (App.TryGetService<ControllerManager>() is { } controllers)

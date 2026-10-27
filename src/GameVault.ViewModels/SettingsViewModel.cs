@@ -12,10 +12,92 @@ public sealed partial class SettingsViewModel(
     LibrarySettingsViewModel library,
     FamilyViewModel? family = null,
     RetroAchievementsSettingsViewModel? retroAchievements = null,
-    IFilePathPicker? pathPicker = null,
+    IGameFilePicker? picker = null,
     BiosImporter? biosImporter = null)
     : ObservableObject
 {
+    // "Choose…" next to each path box (GV-009): a picker works with a mouse or a controller; typing still works too.
+    // Extensions are what the files are usually called; any file can be chosen, as dumps are named many ways.
+
+    [RelayCommand]
+    private async Task ChooseDumperAsync()
+    {
+        if (await PickAsync(".exe") is { } path)
+        {
+            DumperPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChooseFdsBiosAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            FdsBiosPath = await ImportAsync(BiosKind.FamicomDiskSystem, path);
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChooseAppleRomAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            AppleIIRomPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChooseAppleDiskRomAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            AppleIIDiskRomPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChoosePlayStationBiosAsync()
+    {
+        if (await PickAsync(".bin", ".rom") is { } path)
+        {
+            PlayStationBiosPath = await ImportAsync(BiosKind.PlayStation, path);
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChoosePlayStation2BiosAsync()
+    {
+        if (await PickAsync(".bin", ".rom") is { } path)
+        {
+            PlayStation2BiosPath = await ImportAsync(BiosKind.PlayStation2, path);
+            await SavePlayStation2BiosPathAsync();
+        }
+    }
+
+    /// <summary>
+    /// A chosen BIOS is checked and copied into GameVault's own folder (<c>%LOCALAPPDATA%\GameVault\bios\</c>), so it
+    /// keeps working when the original moves; the copy's path is kept. A file that fails the check keeps its own path,
+    /// so the usual warning or message explains what's wrong with it.
+    /// </summary>
+    private async Task<string> ImportAsync(BiosKind kind, string path)
+    {
+        if (biosImporter is null)
+        {
+            return path;
+        }
+
+        var import = await Task.Run(() => biosImporter.Import(kind, path));
+        return import.Succeeded && import.Path is { } copy ? copy : path;
+    }
+
+    private Task<string?> PickAsync(params string[] extensions) =>
+        picker is null ? Task.FromResult<string?>(null) : picker.PickSystemFileAsync([.. extensions, "*"]);
+
     /// <summary>Settings → Family: profiles, daily limits and the parent PIN (SPEC §7.9).</summary>
     public FamilyViewModel? Family { get; } = family;
 
@@ -40,13 +122,6 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial string FdsBiosPath { get; set; } = string.Empty;
 
-    /// <summary>Why the Disk System BIOS file the player chose wasn't used (wrong size, missing); empty otherwise.</summary>
-    [ObservableProperty]
-    public partial string FdsBiosProblem { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial bool HasFdsBiosProblem { get; set; }
-
     /// <summary>The player's own Apple II ROM (SPEC §7.11). Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string AppleIIRomPath { get; set; } = string.Empty;
@@ -58,13 +133,6 @@ public sealed partial class SettingsViewModel(
     /// <summary>The player's own PlayStation BIOS (SPEC §7.11). Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string PlayStationBiosPath { get; set; } = string.Empty;
-
-    /// <summary>Why the PlayStation BIOS file the player chose wasn't used (wrong size, missing); empty otherwise.</summary>
-    [ObservableProperty]
-    public partial string PlayStationBiosProblem { get; set; } = string.Empty;
-
-    [ObservableProperty]
-    public partial bool HasPlayStationBiosProblem { get; set; }
 
     /// <summary>Skip the PlayStation BIOS's intro.</summary>
     [ObservableProperty]
@@ -104,7 +172,41 @@ public sealed partial class SettingsViewModel(
     private bool _isLoaded;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OverscanIndex))]
     public partial bool CropOverscan { get; set; } = true;
+
+    /// <summary>Lines hidden at the top and at the bottom while <see cref="CropOverscan"/> is on.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OverscanIndex))]
+    public partial int OverscanCropLines { get; set; } = 8;
+
+    /// <summary>How much of the screen edges to hide (SPEC §5.2), matching <see cref="OverscanIndex"/>.</summary>
+    public IReadOnlyList<string> OverscanOptions { get; } =
+        ["Show the whole picture", "4 lines", "8 lines, like most TVs (default)", "12 lines", "16 lines"];
+
+    private static readonly int[] OverscanValues = [0, 4, 8, 12, 16];
+
+    /// <summary>Settings → Video → Hide screen edges, as an index into <see cref="OverscanOptions"/> (GV-020).</summary>
+    public int OverscanIndex
+    {
+        get => CropOverscan ? Math.Max(1, Array.IndexOf(OverscanValues, OverscanCropLines)) : 0;
+        set
+        {
+            if (value < 0 || value >= OverscanValues.Length || value == OverscanIndex)
+            {
+                return;
+            }
+
+            if (value > 0)
+            {
+                OverscanCropLines = OverscanValues[value];
+            }
+
+            CropOverscan = value > 0;
+            OnPropertyChanged();
+            SaveIfLoaded();
+        }
+    }
 
     /// <summary>A <see cref="Services.DisplayPreset"/> as an index, for a RadioButtons group.</summary>
     [ObservableProperty]
@@ -127,6 +229,12 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial bool AllowOppositeDirections { get; set; }
 
+    /// <summary>Keep cartridge saves next to the game files (SPEC §4.5 opt-in, GV-012).</summary>
+    [ObservableProperty]
+    public partial bool SavesNextToRom { get; set; }
+
+    partial void OnSavesNextToRomChanged(bool value) => SaveIfLoaded();
+
     /// <summary>0–100. Bound to a Slider (double), so it is a double here.</summary>
     [ObservableProperty]
     public partial double Volume { get; set; } = 80;
@@ -137,12 +245,14 @@ public sealed partial class SettingsViewModel(
         _isLoaded = false;
         var settings = await settingsStore.LoadAsync(cancellationToken);
         CropOverscan = settings.CropOverscan;
+        OverscanCropLines = Array.IndexOf(OverscanValues, settings.OverscanCropLines) > 0 ? settings.OverscanCropLines : 8;
         DisplayPresetIndex = (int)settings.DisplayPreset;
         TvPixelShape = settings.TvPixelShape;
         RunAheadFrames = Math.Clamp(settings.RunAheadFrames, 0, AppSettings.MaxRunAheadFrames);
         PauseWhenInactive = settings.PauseWhenInactive;
         PlayFullScreen = settings.PlayFullScreen;
         AllowOppositeDirections = settings.AllowOppositeDirections;
+        SavesNextToRom = settings.SavesNextToRom;
         Volume = Math.Clamp(settings.Volume, 0, 100);
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
         DumperPath = settings.DumperPath;
@@ -165,6 +275,7 @@ public sealed partial class SettingsViewModel(
         var defaults = new AppSettings();
         _isLoaded = false;
         CropOverscan = defaults.CropOverscan;
+        OverscanCropLines = defaults.OverscanCropLines;
         DisplayPresetIndex = (int)defaults.DisplayPreset;
         TvPixelShape = defaults.TvPixelShape;
         RunAheadFrames = defaults.RunAheadFrames;
@@ -213,145 +324,13 @@ public sealed partial class SettingsViewModel(
     private void SaveDumperPath() => SaveIfLoaded();
 
     [RelayCommand]
-    private void SaveFdsBiosPath()
-    {
-        ShowFdsBiosProblem(string.Empty);
-        SaveIfLoaded();
-    }
+    private void SaveFdsBiosPath() => SaveIfLoaded();
 
     [RelayCommand]
     private void SaveAppleRomPaths() => SaveIfLoaded();
 
     [RelayCommand]
-    private void SavePlayStationBiosPath()
-    {
-        ShowPlayStationBiosProblem(string.Empty);
-        SaveIfLoaded();
-    }
-
-    /// <summary>Settings → Dumper "Browse…": picks inlretro.exe.</summary>
-    [RelayCommand]
-    private async Task BrowseDumperPathAsync()
-    {
-        if (await PickAsync(new FilePathRequest([".exe"])) is { } path)
-        {
-            DumperPath = path;
-            await SaveNowAsync();
-        }
-    }
-
-    /// <summary>Settings → Apple II "Browse…" for the system ROM.</summary>
-    [RelayCommand]
-    private async Task BrowseAppleIIRomPathAsync()
-    {
-        if (await PickAsync(FilePathRequest.AnyFile()) is { } path)
-        {
-            AppleIIRomPath = path;
-            await SaveNowAsync();
-        }
-    }
-
-    /// <summary>Settings → Apple II "Browse…" for the Disk II boot ROM.</summary>
-    [RelayCommand]
-    private async Task BrowseAppleIIDiskRomPathAsync()
-    {
-        if (await PickAsync(FilePathRequest.AnyFile()) is { } path)
-        {
-            AppleIIDiskRomPath = path;
-            await SaveNowAsync();
-        }
-    }
-
-    /// <summary>
-    /// Settings → Disk System "Choose BIOS file…": checks the file (8 KB), copies it to GameVault's bios\fds folder
-    /// and uses the copy.
-    /// </summary>
-    [RelayCommand]
-    private async Task ChooseFdsBiosFileAsync()
-    {
-        if (await ImportBiosAsync(BiosKind.FamicomDiskSystem) is not { } import)
-        {
-            return;
-        }
-
-        if (import.Succeeded)
-        {
-            FdsBiosPath = import.Path!;
-            await SaveNowAsync();
-        }
-
-        ShowFdsBiosProblem(import.Succeeded ? string.Empty : import.Message);
-    }
-
-    /// <summary>Settings → PlayStation "Choose BIOS file…": checks the file (512 KB), copies it to bios\ps1 and uses the copy.</summary>
-    [RelayCommand]
-    private async Task ChoosePlayStationBiosFileAsync()
-    {
-        if (await ImportBiosAsync(BiosKind.PlayStation) is not { } import)
-        {
-            return;
-        }
-
-        if (import.Succeeded)
-        {
-            PlayStationBiosPath = import.Path!;
-            await SaveNowAsync();
-        }
-
-        ShowPlayStationBiosProblem(import.Succeeded ? string.Empty : import.Message);
-    }
-
-    /// <summary>
-    /// Settings → PlayStation 2 "Choose BIOS file…": checks the file (a 4 MB PlayStation 2 BIOS), copies it to
-    /// bios\ps2 and uses the copy. A file that isn't a BIOS isn't copied; the warning says why.
-    /// </summary>
-    [RelayCommand]
-    private async Task ChoosePlayStation2BiosFileAsync()
-    {
-        if (await ImportBiosAsync(BiosKind.PlayStation2) is not { } import)
-        {
-            return;
-        }
-
-        if (import.Succeeded)
-        {
-            PlayStation2BiosPath = import.Path!;
-            await SaveNowAsync();
-            await CheckPlayStation2BiosAsync();
-        }
-        else
-        {
-            PlayStation2BiosStatus = string.Empty;
-            PlayStation2BiosProblem = import.Message;
-            HasPlayStation2BiosProblem = true;
-        }
-    }
-
-    private Task<string?> PickAsync(FilePathRequest request) =>
-        pathPicker is null ? Task.FromResult<string?>(null) : pathPicker.PickFileAsync(request);
-
-    /// <summary>Asks for a BIOS file and imports it. Null when the player cancels (or there's no picker).</summary>
-    private async Task<BiosImport?> ImportBiosAsync(BiosKind kind)
-    {
-        if (biosImporter is null || await PickAsync(FilePathRequest.AnyFile("Use this BIOS")) is not { } source)
-        {
-            return null;
-        }
-
-        return await Task.Run(() => biosImporter.Import(kind, source));
-    }
-
-    private void ShowFdsBiosProblem(string message)
-    {
-        FdsBiosProblem = message;
-        HasFdsBiosProblem = message.Length > 0;
-    }
-
-    private void ShowPlayStationBiosProblem(string message)
-    {
-        PlayStationBiosProblem = message;
-        HasPlayStationBiosProblem = message.Length > 0;
-    }
+    private void SavePlayStationBiosPath() => SaveIfLoaded();
 
     partial void OnPlayStationFastBootChanged(bool value) => SaveIfLoaded();
 
@@ -385,8 +364,6 @@ public sealed partial class SettingsViewModel(
         }
     }
 
-    private Task SaveNowAsync() => _isLoaded ? SaveAsync() : Task.CompletedTask;
-
     private void SaveIfLoaded()
     {
         if (_isLoaded)
@@ -402,12 +379,14 @@ public sealed partial class SettingsViewModel(
         await settingsStore.SaveAsync(current with
         {
             CropOverscan = CropOverscan,
+            OverscanCropLines = OverscanCropLines,
             DisplayPreset = Enum.IsDefined((DisplayPreset)DisplayPresetIndex) ? (DisplayPreset)DisplayPresetIndex : current.DisplayPreset,
             TvPixelShape = TvPixelShape,
             RunAheadFrames = Math.Clamp(RunAheadFrames, 0, AppSettings.MaxRunAheadFrames),
             PauseWhenInactive = PauseWhenInactive,
             PlayFullScreen = PlayFullScreen,
             AllowOppositeDirections = AllowOppositeDirections,
+            SavesNextToRom = SavesNextToRom,
             Volume = (int)Math.Round(Math.Clamp(Volume, 0, 100)),
             DumperPath = DumperPath.Trim().Trim('"'),
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),

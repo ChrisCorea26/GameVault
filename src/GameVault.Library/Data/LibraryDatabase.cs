@@ -8,7 +8,7 @@ namespace GameVault.Library.Data;
 /// </summary>
 public sealed class LibraryDatabase : IDisposable
 {
-    public const int SchemaVersion = 2;
+    public const int SchemaVersion = 3;
 
     private readonly string _connectionString;
     private readonly SqliteConnection? _keepAlive;
@@ -122,6 +122,20 @@ public sealed class LibraryDatabase : IDisposable
                 ALTER TABLE files ADD COLUMN system INTEGER NOT NULL DEFAULT 0;
                 ALTER TABLE catalog ADD COLUMN system INTEGER NOT NULL DEFAULT 0;
                 PRAGMA user_version = 2;
+                """);
+        }
+
+        if (version < 3)
+        {
+            // GV-011: the details of games no catalog lists (homebrew, unknown dumps) that the player fills in.
+            Execute(connection, """
+                ALTER TABLE collection ADD COLUMN custom_region INTEGER;
+                ALTER TABLE collection ADD COLUMN custom_publisher TEXT;
+                ALTER TABLE collection ADD COLUMN custom_developer TEXT;
+                ALTER TABLE collection ADD COLUMN custom_year INTEGER;
+                ALTER TABLE collection ADD COLUMN custom_genre TEXT;
+                ALTER TABLE collection ADD COLUMN custom_players INTEGER;
+                PRAGMA user_version = 3;
                 """);
         }
     }
