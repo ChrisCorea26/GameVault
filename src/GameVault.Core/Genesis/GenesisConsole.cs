@@ -250,17 +250,16 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         _lineStart[0] = start;
         if (Sega32X is { } mars)
         {
-            if (line == Vdp.ActiveHeight)
-            {
-                // The picture is done: the 32X's goes over it before the 32X's frame buffers can swap.
-                mars.Compose(Vdp.WritableFrame, Vdp.Backdrop, Vdp.FrameWidth, Math.Min(Vdp.FrameHeight, Vdp.ActiveHeight));
-            }
-
             mars.SetHBlank(false);
             mars.BeginLine(line, Vdp.ActiveHeight);
         }
 
         Vdp.BeginLine(line);
+        if (Sega32X is { } mars32 && line < Vdp.ActiveHeight)
+        {
+            // The 32X's line goes over the Genesis' as it's drawn, so changes made between lines show where they were made.
+            mars32.ComposeLine(Vdp.WritableFrame, Vdp.Backdrop, Vdp.FrameWidth, line, Vdp.FrameRow(line));
+        }
         RunTo(start + ActiveMasterClocks, line);
         Vdp.BeginHBlank();
         Sega32X?.SetHBlank(true);

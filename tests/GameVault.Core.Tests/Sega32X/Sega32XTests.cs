@@ -170,6 +170,96 @@ public sealed class Sega32XTests
     }
 
     [Fact]
+    public void A_palette_change_on_a_genesis_h_interrupt_shows_from_that_line_down()
+    {
+        // The Genesis' H interrupt every 100 lines turns 32X colour 1 blue (its vector is in the 32X's vector BIOS).
+        ushort[] main =
+        [
+            .. MoveW(0x0001, 0xA15100), // ADEN
+            .. MoveW(0x8014, 0xC00004), // VDP register 0: H interrupts on
+            .. MoveW(0x8A63, 0xC00004), // register 10: every 100 lines
+            0x46FC, 0x2000,             // interrupts on
+            .. Loop,
+        ];
+        var rom = GenesisTests.Rom(main, size: 0x80000, patch: r =>
+        {
+            ushort[] handler = [.. MoveW(0x7C00, 0xA15202), 0x4E73]; // palette 1 = blue; RTE
+            for (var i = 0; i < handler.Length; i++)
+            {
+                BinaryPrimitives.WriteUInt16BigEndian(r.AsSpan(0x300 + i * 2), handler[i]);
+            }
+        });
+        var genesisBios = new byte[256];
+        BinaryPrimitives.WriteUInt32BigEndian(genesisBios.AsSpan(0x70), 0x300); // level 4
+        var bios = new Sega32XBios(genesisBios, Boot(2048, [0xAFFE, 0x0009]), Boot(1024, [0xAFFE, 0x0009]));
+        var unit = new Sega32XUnit(rom, bios, pal: false, GenesisConsole.NtscMasterClock);
+        var console = new GenesisConsole(new GenesisCartridge(rom), GenesisRegion.Americas, sega32X: unit);
+        console.Power();
+        console.RunFrame();
+
+        for (var y = 0; y < 256; y++)
+        {
+            console.WriteWord(0x840000 + (uint)y * 2, 0x0100);
+        }
+
+        for (var x = 0; x < 160; x++)
+        {
+            console.WriteWord(0x840200 + (uint)x * 2, 0x0101); // every pixel colour 1
+        }
+
+        console.WriteWord(0xA15180, 0x0081); // packed pixels, 32X in front
+        console.WriteWord(0xA1518A, 0x0001);
+        console.RunFrame(); // the buffers swap
+
+        console.WriteWord(0xA15202, 0x001F); // colour 1 red again before the frame starts
+        console.RunFrame();
+
+        ushort Pixel(int y) => console.FrameBuffer[y * console.ScreenWidth + 40];
+        Pixel(10).Should().Be((ushort)(Sega32XPalette.First + 0x001F), "red above the change");
+        Pixel(90).Should().Be((ushort)(Sega32XPalette.First + 0x001F));
+        Pixel(110).Should().Be((ushort)(Sega32XPalette.First + 0x7C00), "blue from the line after the interrupt");
+        Pixel(200).Should().Be((ushort)(Sega32XPalette.First + 0x7C00));
+    }
+
+    [Fact]
+    public void Turning_the_32x_picture_off_mid_frame_leaves_the_genesis_picture_below()
+    {
+        var console = Console(Words(MoveW(0x0001, 0xA15100), Loop));
+        console.RunFrame();
+        for (var y = 0; y < 256; y++)
+        {
+            console.WriteWord(0x840000 + (uint)y * 2, 0x0100);
+        }
+
+        for (var x = 0; x < 160; x++)
+        {
+            console.WriteWord(0x840200 + (uint)x * 2, 0x0101);
+        }
+
+        console.WriteWord(0xA15202, 0x001F);
+        console.WriteWord(0xA15180, 0x0081);
+        console.WriteWord(0xA1518A, 0x0001);
+        console.RunFrame();
+
+        // Run the next frame line by line from the outside: the mode goes to 0 (blank) halfway down.
+        var unit = console.Sega32X!;
+        var frame = new ushort[320 * 224];
+        var backdrop = new bool[320 * 224];
+        for (var line = 0; line < 224; line++)
+        {
+            if (line == 112)
+            {
+                console.WriteWord(0xA15180, 0x0000);
+            }
+
+            unit.ComposeLine(frame, backdrop, 320, line, line);
+        }
+
+        frame[50 * 320].Should().Be((ushort)(Sega32XPalette.First + 0x001F));
+        frame[150 * 320].Should().Be(0, "nothing was laid over the lower half");
+    }
+
+    [Fact]
     public void Direct_colour_and_run_length_lines_and_the_overwrite_image()
     {
         var vdp = new Mars32XVdp();
