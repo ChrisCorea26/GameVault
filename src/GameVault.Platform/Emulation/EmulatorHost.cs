@@ -165,6 +165,11 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _context = SynchronizationContext.Current;
         _present = console =>
         {
+            if (TryPresentGpuPicture(console))
+            {
+                return;
+            }
+
             if (console.TrueColorFrame is { IsEmpty: false } argb)
             {
                 _video.PresentArgb(argb, console.ScreenWidth, console.ScreenHeight, console.PixelAspect);
@@ -565,6 +570,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             FlushBattery();
             ReleaseDiscs(_console);
             _console = console;
+            AttachGpuRenderer(console);
             _battery = null;
             _pak = null;
             _ps2Card = null;
@@ -1367,6 +1373,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             FlushBattery(); // the previous game's
             ReleaseDiscs(_console);
             _console = console;
+            AttachGpuRenderer(console);
             _seenCheats = null;
             _cheatsActive = false;
             _diskOriginal = diskOriginal;

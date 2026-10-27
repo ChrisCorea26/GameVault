@@ -1,5 +1,5 @@
 ---
-edition: "Edition 18 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, Atari 2600, Atari 5200 and Sega CD"
+edition: "Edition 21 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, Atari 2600, Atari 5200 and Sega CD"
 ---
 
 # Introduction

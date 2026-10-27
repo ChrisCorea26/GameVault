@@ -42,6 +42,7 @@ public sealed class FrameSink : IVideoSink
         frame.Height = height;
         frame.PixelAspect = pixelAspect;
         frame.IsArgb = true;
+        frame.EnsureArgbCapacity(width * height);
         argb[..(width * height)].CopyTo(frame.Argb);
         _frames.Publish();
         _frameReady.Set();
