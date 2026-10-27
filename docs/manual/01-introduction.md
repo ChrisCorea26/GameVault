@@ -1,5 +1,5 @@
 ---
-edition: "Edition 21 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, Atari 2600, Atari 5200, Sega CD and 32X"
+edition: "Edition 21 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, GameCube, Atari 2600, Atari 5200, Sega CD and 32X"
 ---
 
 # Introduction
@@ -28,6 +28,7 @@ four freely licensed NES homebrew games, so there is something to play the first
 | Nintendo 64 | `.z64`, `.v64`, `.n64` | No |
 | 32X | `.32x` | **Yes**: the 32X's three BIOS files (256 bytes, 2 KB and 1 KB) |
 | Sega CD / Mega-CD | `.cue` + `.bin`, `.chd` | **Yes**: a 128 KB Sega CD BIOS of the discs' region |
+| Nintendo GameCube | `.dol`, `.elf` (homebrew programs; discs aren't supported yet) | No |
 | Sony PlayStation 2 | `.iso`, `.chd`, `.cue` + `.bin`, `.elf` | **Yes, for discs**: a 4 MB console BIOS such as SCPH-39001. Homebrew `.elf` programs run without it. |
 | Atari 2600 | `.a26` | No |
 | Atari 5200 | `.a52` | **Yes**: `5200.rom` (2 KB) |

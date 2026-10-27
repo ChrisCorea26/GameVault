@@ -343,3 +343,18 @@ No freely redistributable 2600 test ROM is used yet; real games are the owner's 
 
 No freely redistributable 5200 test ROM is used yet; the BIOS and real games are the owner's to try
 (`docs/plans/phase-19.md`).
+
+## GameCube (Phase 18, milestone 1)
+
+| Part | State |
+|---|---|
+| Gekko: integer, branches, CR, rotates, loads/stores (update, indexed, byte-reversed, multiple, string), SPRs | ✅ Unit tests on hand-assembled programs |
+| Gekko FPU: double and single arithmetic, fused multiply-add, conversions, compares, FPSCR | ✅ Unit tests; `fres` and `frsqrte` are exact, not the hardware's estimates |
+| Paired singles and quantised loads/stores (GQRs) | ✅ Unit tests |
+| Exceptions, `rfi`, decrementer, external interrupts, BATs | ✅ Unit tests |
+| VI: the XFB in YUV, display interrupts | ✅ Unit tests |
+| PI, SI controllers, EXI RTC/SRAM, the DSP's boot handshake and ARAM DMA | ✅ Unit tests |
+| DOL and ELF loading with the boot ROM's start-up done by GameVault | ✅ Unit tests |
+| GPU (GX), discs, DSP audio, memory cards, recompiler | Not yet (milestones 2–4) |
+
+No freely redistributable GameCube homebrew is bundled yet; homebrew is the owner's to try (`docs/plans/phase-18.md`).

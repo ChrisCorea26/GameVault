@@ -18,7 +18,7 @@ public static class RomFiles
     /// <summary>Every extension GameVault opens directly (besides .zip).</summary>
     public static IReadOnlyList<string> Extensions { get; } =
         [".nes", ".fds", ".sms", ".sg", ".sc", ".dsk", ".do", ".po", ".nib", ".woz", ".md", ".gen", ".smd", ".bin", ".sfc", ".smc",
-            ".cue", ".chd", ".m3u", ".exe", ".z64", ".v64", ".n64", ".iso", ".elf", ".a26", ".a52", ".32x"];
+            ".cue", ".chd", ".m3u", ".exe", ".z64", ".v64", ".n64", ".iso", ".elf", ".a26", ".a52", ".32x", ".dol"];
 
     /// <summary>
     /// The system a file is for, from its extension; null for other files (and .zip, whose content decides). Disc images
@@ -35,10 +35,11 @@ public static class RomFiles
         ".sfc" or ".smc" => GameSystem.Snes,
         ".cue" or ".chd" or ".m3u" or ".exe" => GameSystem.PlayStation, // an .exe counts only as a PS-EXE (see Read)
         ".z64" or ".v64" or ".n64" => GameSystem.Nintendo64,
-        ".iso" or ".elf" => GameSystem.PlayStation2, // an .elf counts only as a PS2 ELF (see Read)
+        ".iso" or ".elf" => GameSystem.PlayStation2, // an .elf counts as a PS2 ELF, or a GameCube one (see Read)
         ".a26" => GameSystem.Atari2600,
         ".a52" => GameSystem.Atari5200,
         ".32x" => GameSystem.Sega32X,
+        ".dol" => GameSystem.GameCube,
         _ => null,
     };
 
@@ -91,13 +92,16 @@ public static class RomFiles
 
     /// <summary>
     /// ".bin" is used by many systems: only a raw Genesis ROM (with "SEGA" in its header) is taken; a PlayStation
-    /// track is reached through its .cue. An ".exe" must be a PS-EXE, and an ".elf" a PlayStation 2 ELF.
+    /// track is reached through its .cue. An ".exe" must be a PS-EXE, an ".elf" a PlayStation 2 ELF or a PowerPC one
+    /// (the GameCube's), and a ".dol" a GameCube program.
     /// </summary>
     private static RomFile? Checked(RomFile file) => file.Extension switch
     {
         ".bin" when !GameVault.Core.Genesis.GenesisCartridge.LooksLikeGenesis(file.Data) => null,
         ".exe" when !GameVault.Core.PlayStation.PsExe.IsPsExe(file.Data) => null,
+        ".elf" when GameVault.Core.GameCube.GcExecutable.IsElf(file.Data) => file with { System = GameSystem.GameCube },
         ".elf" when !GameVault.Library.Discs.Ps2Discs.IsPs2Elf(file.Data) => null,
+        ".dol" when !GameVault.Core.GameCube.GcExecutable.IsDol(file.Data) => null,
         ".z64" or ".v64" or ".n64" when !GameVault.Core.Nintendo64.N64Cartridge.IsN64Rom(file.Data) => null,
         _ => file,
     };

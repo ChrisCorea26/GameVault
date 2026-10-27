@@ -560,3 +560,34 @@ keypad's codes follow published hardware notes and haven't been checked against 
 | *This is an Atari 5200 game. To play it, choose your own Atari 5200 BIOS…* | Choose `5200.rom` in **Settings → Atari 5200**. |
 | *The Atari 5200 BIOS file should be 2 KB.* | The file chosen isn't the 5200 BIOS. |
 | *That isn't an Atari 5200 cartridge image.* | Wrong file, or one of a size the 5200 doesn't use. |
+
+## Nintendo GameCube
+
+| | |
+|---|---|
+| **Files** | `.dol` and `.elf` homebrew programs (built with devkitPPC and libogc, for example) |
+| **You supply** | Nothing for homebrew |
+| **Saves** | None yet (memory cards come later). Use save states. |
+
+This is the GameCube's first milestone: the CPU, the video output from the program's own frame buffer, the
+controllers, and the system parts a homebrew program needs to start. Programs that draw with the GameCube's GPU show
+a black screen for now, and discs (`.iso`, `.gcm`, `.rvz`) can't be opened yet. The CPU is interpreted, so programs run
+at about an eighth of full speed until its recompiler arrives.
+
+**Controls** (the GameCube controller, on the PlayStation 2's layout):
+
+| GameCube | Controller | Keyboard |
+|---|---|---|
+| Control stick | Left stick | Arrow keys |
+| C-stick | Right stick | <kbd>I</kbd>, <kbd>J</kbd>, <kbd>K</kbd>, <kbd>L</kbd> |
+| A, B, X, Y | Bottom, left, right, top | <kbd>X</kbd>, <kbd>Z</kbd> and the others as for the PlayStation 2 |
+| Z | Right shoulder | <kbd>2</kbd> |
+| L and R | Left and right triggers | <kbd>3</kbd> and <kbd>4</kbd> |
+| Start | Start | <kbd>Enter</kbd> |
+| D-pad | D-pad | <kbd>T</kbd>, <kbd>F</kbd>, <kbd>G</kbd>, <kbd>H</kbd> |
+
+**Messages:**
+
+| Message | What to do |
+|---|---|
+| *That isn't a GameCube program (a .dol or a PowerPC .elf).* | Wrong file, or a disc image (not supported yet). |

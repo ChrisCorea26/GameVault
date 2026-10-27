@@ -69,6 +69,8 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
             ? GameVault.Core.Systems.GameSystem.SegaCd
             : datName.Contains("32X", StringComparison.OrdinalIgnoreCase)
             ? GameVault.Core.Systems.GameSystem.Sega32X
+            : datName.Contains("GameCube", StringComparison.OrdinalIgnoreCase)
+            ? GameVault.Core.Systems.GameSystem.GameCube
             : datName.Contains("Master System", StringComparison.OrdinalIgnoreCase) || datName.Contains("Mark III", StringComparison.OrdinalIgnoreCase)
             ? GameVault.Core.Systems.GameSystem.MasterSystem
             : datName.Contains("SG-1000", StringComparison.OrdinalIgnoreCase) || datName.Contains("SC-3000", StringComparison.OrdinalIgnoreCase)

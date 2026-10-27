@@ -21,6 +21,7 @@ public enum GameSystem
     Atari5200,
     SegaCd,
     Sega32X,
+    GameCube,
 }
 
 /// <summary>

@@ -53,6 +53,18 @@ internal static class ConsoleFactory
             return CreatePlayStation2(data, playStation2);
         }
 
+        if (system == GameSystem.GameCube)
+        {
+            try
+            {
+                return new GameVault.Core.GameCube.GameCubeConsole(data);
+            }
+            catch (RomFormatException ex)
+            {
+                throw new GameLoadException(ex.Message, ex);
+            }
+        }
+
         if (system == GameSystem.Nintendo64)
         {
             return CreateNintendo64(data, profile, n64 ?? new N64Setup());
