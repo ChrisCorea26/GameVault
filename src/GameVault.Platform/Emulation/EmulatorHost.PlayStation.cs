@@ -87,12 +87,17 @@ public sealed partial class EmulatorHost
         Raise(() => DiskChanged?.Invoke(this, EventArgs.Empty));
     }
 
-    /// <summary>Closes the disc files of a console that is being replaced. Emulation thread.</summary>
+    /// <summary>Closes the disc files of a console that is being replaced (PlayStation, PlayStation 2, Sega CD). Emulation thread.</summary>
     private static void ReleaseDiscs(Core.Systems.IEmulatedConsole? console)
     {
         if (console is PlayStationConsole ps)
         {
             (ps.CdRom.Disc as IDisposable)?.Dispose();
+        }
+
+        if (console is Core.Genesis.GenesisConsole { SegaCd: { } segaCd })
+        {
+            (segaCd.Drive.Disc as IDisposable)?.Dispose();
         }
 
         ReleasePs2Disc(console);
