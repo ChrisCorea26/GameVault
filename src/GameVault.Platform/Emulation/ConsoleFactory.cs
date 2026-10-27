@@ -57,6 +57,19 @@ internal static class ConsoleFactory
             return CreateNintendo64(data, profile, n64 ?? new N64Setup());
         }
 
+        if (system == GameSystem.Atari2600)
+        {
+            try
+            {
+                // The profile's model can name the bank-switching scheme ("F8SC", "E0", …) when detection guesses wrong.
+                return new GameVault.Core.Atari.Atari2600Console(new GameVault.Core.Atari.Atari2600Cartridge(data, profile.Model));
+            }
+            catch (RomFormatException ex)
+            {
+                throw new GameLoadException(ex.Message, ex);
+            }
+        }
+
         if (system == GameSystem.AppleII)
         {
             if (appleRoms is null)
@@ -195,7 +208,7 @@ internal static class ConsoleFactory
             var saveType = Library.Profiles.N64SaveTypes.Parse(profile.Save)
                 ?? N64Cartridge.HomebrewSaveType(rom)
                 ?? setup.SaveTypes?.Invoke(gameCode);
-            var console = new N64Console(new N64Cartridge(rom, saveType), setup.ExpansionPak);
+            var console = new N64Console(new N64Cartridge(rom, saveType), setup.ExpansionPak) { RumblePaks = setup.RumblePak };
             console.Rdp.ParallelWork = RenderThreads.Shared; // the RDP draws on the spare cores (the same pictures, sooner)
             return console;
         }
@@ -295,7 +308,7 @@ internal static class ConsoleFactory
         {
             try
             {
-                return new PlayStationConsole(bios, exe: PsExe.Parse(data));
+                return new PlayStationConsole(bios, exe: PsExe.Parse(data)) { AnalogPads = setup?.AnalogPads ?? false };
             }
             catch (InvalidDataException ex)
             {
@@ -319,7 +332,7 @@ internal static class ConsoleFactory
             throw new GameLoadException("GameVault couldn't open that disc: " + ex.Message, ex);
         }
 
-        return new PlayStationConsole(bios, disc, fastBoot: setup!.FastBoot);
+        return new PlayStationConsole(bios, disc, fastBoot: setup!.FastBoot) { AnalogPads = setup.AnalogPads };
     }
 
     /// <summary>
@@ -345,7 +358,7 @@ internal static class ConsoleFactory
 
             try
             {
-                return WithRenderThreads(new Ps2Console(Ps2Boot.FromElf(data), bios, Ps2MemoryCard.CreateFormatted()));
+                return WithRenderThreads(new Ps2Console(Ps2Boot.FromElf(data), bios, Ps2MemoryCard.CreateFormatted()) { MemoryCard2 = Ps2MemoryCard.CreateFormatted() });
             }
             catch (InvalidDataException ex)
             {
@@ -370,7 +383,10 @@ internal static class ConsoleFactory
 
         try
         {
-            return WithRenderThreads(new Ps2Console(Ps2Boot.FromDisc(disc), bios, Ps2MemoryCard.CreateFormatted(), new Ps2ConsoleOptions { FastBoot = setup!.FastBoot }));
+            return WithRenderThreads(new Ps2Console(Ps2Boot.FromDisc(disc), bios, Ps2MemoryCard.CreateFormatted(), new Ps2ConsoleOptions { FastBoot = setup!.FastBoot })
+            {
+                MemoryCard2 = Ps2MemoryCard.CreateFormatted(),
+            });
         }
         catch
         {

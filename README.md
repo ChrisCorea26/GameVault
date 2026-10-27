@@ -25,20 +25,21 @@ system, the BIOS and ROM files you must supply, controls, settings and troublesh
 | 4 | Tier 1 mappers, save states, run-ahead, video presets | ✅ MMC3 IRQ tests and state round-trips for every mapper pass |
 | 5 | Library, timeline, rewind, Zapper | ✅ Zero-config test (empty library → add folder → playing) passes |
 | 6 | Passwords, journal, assist/practice, Tier 2–3 mappers, dumper | 🟡 Built and tested; owner checks with real cartridges pending ([plan](docs/plans/phase-6.md#open-needs-the-owner)) |
-| 7 | Netplay, FDS, Tier 4 mappers | ✅ LAN rollback netplay, FDS with the player's own BIOS, Tier 4 boards |
+| 7 | Netplay, FDS, Tier 4 mappers | ✅ Rollback netplay on the LAN or over the internet (STUN, or the GameVault relay), Disk System games included; FDS with the player's own BIOS, Tier 4 boards |
 | 8 | Game Genie code library | ✅ Codes panel, imported code collections, GameGenie.com lookup on request |
 | 9 | Game-aware features | ✅ Memory maps, before-death states, auto maps, recap, family profiles, verified challenges, stat overlays |
 | 10 | RetroAchievements | 🟡 Built and tested offline with rcheevos; the owner's account and RetroAchievements' approval pending ([plan](docs/plans/phase-10.md#8-owner-tasks)) |
 | 11 | Sega SG-1000 and Master System | ✅ Z80 passes zexdoc/zexall; VDP, PSG, mappers; library system filter. Real-game checks are the owner's ([plan](docs/plans/phase-11.md)) |
 | 12 | Apple II, II+ and IIe | ✅ 6502/65C02 pass Dormann's tests; video, Disk II (DSK/PO/NIB/WOZ) with a two-drive disk menu, keyboard. Needs your own Apple ROMs ([plan](docs/plans/phase-12.md)) |
 | 13 | Sega Genesis / Mega Drive | ✅ 68000 passes the SingleStepTests suite; VDP, YM2612, PSG, Z80, 3/6-button pads, SRAM. Real-game checks are the owner's ([plan](docs/plans/phase-13.md)) |
-| 14 | Super Nintendo | ✅ 65C816 and SPC700 pass their SingleStepTests suites; PPU modes 0–7, DMA/HDMA, S-DSP with GameVault's own boot program; the Super FX, and the DSP-1 to DSP-4 with your own chip ROM. Other enhancement chips (SA-1, Cx4, …) aren't supported yet; real-game checks are the owner's ([plan](docs/plans/phase-14.md)) |
+| 14 | Super Nintendo | ✅ 65C816 and SPC700 pass their SingleStepTests suites; PPU modes 0–7, DMA/HDMA, S-DSP with GameVault's own boot program; the Super FX, SA-1, S-DD1 and OBC1, and the DSP-1 to DSP-4, ST010 and ST011 with your own chip ROM. The Cx4, SPC7110, ST018 and S-RTC aren't supported yet; real-game checks are the owner's ([plan](docs/plans/phase-14.md)) |
 | 15 | Sony PlayStation | ✅ R3000A passes PeterLemon's CPU tests; the GPU matches hardware VRAM dumps pixel for pixel; GTE, SPU, MDEC, CD-ROM (XA, CD-DA), pads and memory cards; .cue/.bin, .chd and .m3u. Needs your own BIOS; real-game checks are the owner's ([plan](docs/plans/phase-15.md)) |
 | 16 | Nintendo 64 | ✅ VR4300, FPU and RSP pass PeterLemon's test programs; a software RDP draws PeterLemon's 115 RDP programs; audio, controllers with the analog stick, Controller Pak, EEPROM, SRAM and FlashRAM; .z64, .v64 and .n64. The RDP is drawn in software on several cores (a GPU renderer is left for later); real-game checks are the owner's ([plan](docs/plans/phase-16.md)) |
 | 17 | Sony PlayStation 2 | ✅ 54 of ps2autotests' 55 EE programs match the hardware's output; EE, VU0/VU1, GS (software), IOP, SPU2, IPU, DualShock 2 and 8 MB memory cards; .iso, .chd, .cue/.bin and .elf. Discs need your own BIOS (ELF homebrew runs without one); the EE and both VUs run recompiled and the software GS draws on several cores, but many games still run below full speed (a GPU renderer is next, [plan](docs/plans/phase-17-performance.md)); real-game checks are the owner's ([plan](docs/plans/phase-17.md)) |
 | — | Sega CD / Mega-CD | 🟡 Sub CPU, gate array, Word RAM, CDD, CDC, PCM and the graphics ASIC under hand-written test programs; .cue/.bin and .chd. Needs your own BIOS; booting real discs is the owner's to check ([plan](docs/plans/sega-cd-32x.md)) |
 | — | 32X | 🟡 Both SH-2s (the SH7604 with its DMA, division unit and timers), the 32X VDP laid over the Genesis picture, PWM sound and the FIFO, under hand-written test programs; .32x files. Needs your own BIOS files; booting real games is the owner's to check ([plan](docs/plans/sega-cd-32x.md)) |
-| 18–19 | More systems | Planned (SPEC §7.11) |
+| 18 | GameCube / Wii | Planned (SPEC §7.11) |
+| 19 | Atari 2600 (then 5200) | 🟡 2600: TIA drawn colour clock by colour clock, RIOT, sound, and the common bank-switching boards, all under hand-written test programs; real-game checks are the owner's; the 5200 is next ([plan](docs/plans/phase-19.md)) |
 
 Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md). Known bugs and missing features are
 tracked in [`docs/bugs.md`](docs/bugs.md).

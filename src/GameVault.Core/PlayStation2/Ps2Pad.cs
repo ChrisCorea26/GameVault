@@ -11,7 +11,7 @@ namespace GameVault.Core.PlayStation2;
 /// GameVault's <see cref="ControllerState"/> carries the buttons and the left stick; the right stick and L3/R3 come
 /// separately until it grows to 64 bits (Phase 17's input step), so this struct is the one place to plug them in.
 /// </remarks>
-public readonly record struct Ps2PadInput(ushort Buttons, sbyte LeftX, sbyte LeftY, sbyte RightX, sbyte RightY)
+public readonly record struct Ps2PadInput(ushort Buttons, sbyte LeftX, sbyte LeftY, sbyte RightX, sbyte RightY, byte L2Pressure = 0, byte R2Pressure = 0)
 {
     public const ushort Select = 1 << 0;
     public const ushort L3 = 1 << 1;
@@ -55,14 +55,20 @@ public readonly record struct Ps2PadInput(ushort Buttons, sbyte LeftX, sbyte Lef
         bits |= state.HasFlag(ControllerState.A) ? Circle : 0; // east
         bits |= state.HasFlag(ControllerState.B) ? Cross : 0; // south
         bits |= state.HasFlag(ControllerState.Y) ? Square : 0; // west
-        return new Ps2PadInput((ushort)bits, state.StickX(), state.StickY(), state.RightStickX(), state.RightStickY());
+        return new Ps2PadInput(
+            (ushort)bits, state.StickX(), state.StickY(), state.RightStickX(), state.RightStickY(),
+            Pressure(state.L2Pressure()), Pressure(state.R2Pressure()));
     }
+
+    /// <summary>A trigger's 0–127 as the pad's pressure byte (0 stays 0: no analog value).</summary>
+    private static byte Pressure(int value) => value == 0 ? (byte)0 : (byte)((value << 1) | 1);
 }
 
 /// <summary>
 /// The DualShock 2 on SIO2 (ps2tek: "SIO2 Controller Commands"): digital mode (ID 41h), analog mode with both sticks
 /// (73h) and the DualShock 2 mode with twelve pressure bytes (79h), and the configuration commands 40h–4Fh the pad
-/// libraries send in config mode (F3h). Pressure bytes report full pressure for pressed buttons. The rumble motors'
+/// libraries send in config mode (F3h). Pressure bytes report full pressure for pressed buttons, except L2 and R2 from a
+/// pad's analog triggers, which report how far they're pulled (outstanding-work plan §12). The rumble motors'
 /// settings are kept but drive nothing.
 /// </summary>
 public sealed class Ps2Pad : IStateful
@@ -276,7 +282,9 @@ public sealed class Ps2Pad : IStateful
         ];
         for (var i = 0; i < order.Length; i++)
         {
-            Set(payload, 6 + i, (byte)((input.Buttons & order[i]) != 0 ? 0xFF : 0x00));
+            // A pad's analog trigger reports how far it's pulled; every other button (and a key) is all or nothing.
+            var analog = order[i] == Ps2PadInput.L2 ? input.L2Pressure : order[i] == Ps2PadInput.R2 ? input.R2Pressure : (byte)0;
+            Set(payload, 6 + i, (input.Buttons & order[i]) == 0 ? (byte)0x00 : analog != 0 ? analog : (byte)0xFF);
         }
     }
 

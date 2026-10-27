@@ -73,7 +73,7 @@ DAT replaces the old entries.
 
 | System | Where to get a catalog |
 |---|---|
-| NES, Master System, SG-1000, Genesis, SNES, N64, Apple II | No-Intro DATs (Logiqx XML), from the No-Intro DAT-o-MATIC site |
+| NES, Master System, SG-1000, Genesis, SNES, N64, Apple II, Atari 2600 | No-Intro DATs (Logiqx XML), from the No-Intro DAT-o-MATIC site |
 | PlayStation | Redump DATs (Logiqx XML), from the Redump site. Discs are matched on their first track. |
 | 32X | No-Intro DATs (*Sega - 32X*). |
 | Sega CD | Redump DATs (*Sega - Mega CD & Sega CD*), matched on the first track. |
@@ -121,6 +121,7 @@ time the game starts. Only the properties that apply to the game's system are sh
 | Property | Systems | Values |
 |---|---|---|
 | **Controls** | NES | Automatic, Controller, Zapper, Four Score, Power Pad (keyboard), Arkanoid paddle (mouse) |
+| **Port 1** | PlayStation | Automatic, DualShock, GunCon (the mouse aims), Mouse |
 | **Reduce input lag** | All | Automatic, On, Off |
 | **Reduce flicker (more sprites per line)** | NES | Automatic, On, Off |
 | **Region (speed)** | NES | Automatic, NTSC (60 Hz), PAL (50 Hz), Dendy (50 Hz) |

@@ -6,6 +6,7 @@
       "src\\GameVault.Dumper\\GameVault.Dumper.csproj",
       "src\\GameVault.Library\\GameVault.Library.csproj",
       "src\\GameVault.Platform\\GameVault.Platform.csproj",
+      "src\\GameVault.Relay\\GameVault.Relay.csproj",
       "src\\GameVault.ViewModels\\GameVault.ViewModels.csproj",
       "tests\\GameVault.Core.Tests\\GameVault.Core.Tests.csproj",
       "tests\\GameVault.Dumper.Tests\\GameVault.Dumper.Tests.csproj",

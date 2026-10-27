@@ -139,6 +139,12 @@ public sealed partial class Ps2Iop : IR3000Bus, IStateful
         set => Sio2.MemoryCard = value;
     }
 
+    public Ps2MemoryCard? MemoryCard2
+    {
+        get => Sio2.MemoryCard2;
+        set => Sio2.MemoryCard2 = value;
+    }
+
     /// <summary>I_STAT, I_MASK and I_CTRL as the CPU sees them (tests and the debugger).</summary>
     public uint InterruptStatus => _iStat;
 

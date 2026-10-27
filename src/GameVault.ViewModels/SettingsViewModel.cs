@@ -100,6 +100,16 @@ public sealed partial class SettingsViewModel(
     }
 
     [RelayCommand]
+    private async Task ChooseAppleCharacterRomAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            AppleIICharacterRomPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
     private async Task ChooseSnesChipRomFolderAsync()
     {
         if (picker is not null && await picker.PickFolderAsync() is { } folder)
@@ -175,6 +185,9 @@ public sealed partial class SettingsViewModel(
     /// <summary>The player's own Sega CD BIOS. GameVault never includes it. Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string SegaCdBiosPath { get; set; } = string.Empty;
+    /// <summary>The netplay relay server ("host:port"), or empty to connect directly. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string NetplayRelayServer { get; set; } = string.Empty;
 
     /// <summary>The player's own 32X BIOS files. GameVault never includes them. Saved when a text box loses focus.</summary>
     [ObservableProperty]
@@ -194,6 +207,17 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial string AppleIIDiskRomPath { get; set; } = string.Empty;
 
+    /// <summary>The player's own Apple II character ROM, optional. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string AppleIICharacterRomPath { get; set; } = string.Empty;
+
+    /// <summary>The Apple II monitors, in the order of <see cref="AppleIIMonitorIndex"/>.</summary>
+    public IReadOnlyList<string> AppleIIMonitors { get; } = ["Colour TV", "Green monitor", "Amber monitor", "White monitor"];
+
+    /// <summary>The Apple II's monitor; applies from the next game started.</summary>
+    [ObservableProperty]
+    public partial int AppleIIMonitorIndex { get; set; }
+
     /// <summary>The folder of the player's own Super Nintendo enhancement chip ROMs. Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string SnesChipRomFolder { get; set; } = string.Empty;
@@ -206,9 +230,17 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial bool PlayStationFastBoot { get; set; }
 
+    /// <summary>PlayStation controllers start in analog mode (takes effect the next time a game starts).</summary>
+    [ObservableProperty]
+    public partial bool PlayStationAnalog { get; set; }
+
     /// <summary>N64 games get the Expansion Pak (takes effect the next time a game starts).</summary>
     [ObservableProperty]
     public partial bool N64ExpansionPak { get; set; } = true;
+
+    /// <summary>N64 controllers get a Rumble Pak instead of the Controller Pak (takes effect the next time a game starts).</summary>
+    [ObservableProperty]
+    public partial bool N64RumblePak { get; set; }
 
     /// <summary>The player's own PlayStation 2 BIOS (SPEC §7.11, Phase 17). Saved when the text box loses focus.</summary>
     [ObservableProperty]
@@ -336,12 +368,17 @@ public sealed partial class SettingsViewModel(
         Sega32XGenesisBiosPath = settings.Sega32XGenesisBiosPath;
         Sega32XMasterBiosPath = settings.Sega32XMasterBiosPath;
         Sega32XSlaveBiosPath = settings.Sega32XSlaveBiosPath;
+        NetplayRelayServer = settings.NetplayRelayServer;
         AppleIIRomPath = settings.AppleIIRomPath;
         AppleIIDiskRomPath = settings.AppleIIDiskRomPath;
+        AppleIICharacterRomPath = settings.AppleIICharacterRomPath;
+        AppleIIMonitorIndex = Math.Clamp(settings.AppleIIMonitor, 0, AppleIIMonitors.Count - 1);
         PlayStationBiosPath = settings.PlayStationBiosPath;
         SnesChipRomFolder = settings.SnesChipRomFolder;
         PlayStationFastBoot = settings.PlayStationFastBoot;
+        PlayStationAnalog = settings.PlayStationAnalog;
         N64ExpansionPak = settings.N64ExpansionPak;
+        N64RumblePak = settings.N64RumblePak;
         PlayStation2BiosPath = settings.PlayStation2BiosPath;
         PlayStation2FastBoot = settings.PlayStation2FastBoot;
         await CheckPlayStation2BiosAsync();
@@ -414,7 +451,12 @@ public sealed partial class SettingsViewModel(
     private void SaveSega32XBiosPaths() => SaveIfLoaded();
 
     [RelayCommand]
+    private void SaveNetplayRelayServer() => SaveIfLoaded();
+
+    [RelayCommand]
     private void SaveAppleRomPaths() => SaveIfLoaded();
+
+    partial void OnAppleIIMonitorIndexChanged(int value) => SaveIfLoaded();
 
     [RelayCommand]
     private void SavePlayStationBiosPath() => SaveIfLoaded();
@@ -424,7 +466,11 @@ public sealed partial class SettingsViewModel(
 
     partial void OnPlayStationFastBootChanged(bool value) => SaveIfLoaded();
 
+    partial void OnPlayStationAnalogChanged(bool value) => SaveIfLoaded();
+
     partial void OnN64ExpansionPakChanged(bool value) => SaveIfLoaded();
+
+    partial void OnN64RumblePakChanged(bool value) => SaveIfLoaded();
 
     /// <summary>Called when the PS2 BIOS path box loses focus: saves it and checks the file (size and version).</summary>
     [RelayCommand]
@@ -485,12 +531,17 @@ public sealed partial class SettingsViewModel(
             Sega32XGenesisBiosPath = Sega32XGenesisBiosPath.Trim().Trim('"'),
             Sega32XMasterBiosPath = Sega32XMasterBiosPath.Trim().Trim('"'),
             Sega32XSlaveBiosPath = Sega32XSlaveBiosPath.Trim().Trim('"'),
+            NetplayRelayServer = NetplayRelayServer.Trim(),
             AppleIIRomPath = AppleIIRomPath.Trim().Trim('"'),
             AppleIIDiskRomPath = AppleIIDiskRomPath.Trim().Trim('"'),
+            AppleIICharacterRomPath = AppleIICharacterRomPath.Trim().Trim('"'),
+            AppleIIMonitor = Math.Clamp(AppleIIMonitorIndex, 0, AppleIIMonitors.Count - 1),
             PlayStationBiosPath = PlayStationBiosPath.Trim().Trim('"'),
             SnesChipRomFolder = SnesChipRomFolder.Trim().Trim('"'),
             PlayStationFastBoot = PlayStationFastBoot,
+            PlayStationAnalog = PlayStationAnalog,
             N64ExpansionPak = N64ExpansionPak,
+            N64RumblePak = N64RumblePak,
             PlayStation2BiosPath = PlayStation2BiosPath.Trim().Trim('"'),
             PlayStation2FastBoot = PlayStation2FastBoot,
             RewindMemoryMb = RewindMemoryIndex >= 0 && RewindMemoryIndex < RewindMemoryValues.Length

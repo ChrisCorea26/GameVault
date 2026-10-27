@@ -34,6 +34,22 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         _backend = backend;
         _settings = settings;
         _context = SynchronizationContext.Current;
+        input.RumbleChanged += OnRumbleChanged;
+    }
+
+    /// <summary>The game's rumble for a port goes to the pad playing on it (outstanding-work plan §10).</summary>
+    private void OnRumbleChanged(int port, float level)
+    {
+        int? instanceId;
+        lock (_gate)
+        {
+            instanceId = port < _model.Policy.PortCount ? _model.Policy.AssignedTo(port)?.InstanceId : null;
+        }
+
+        if (instanceId is { } id)
+        {
+            _backend.SetRumble(id, level);
+        }
     }
 
     /// <summary>Set by the app: pads are ignored while the window is in the background (input.md §7).</summary>
@@ -463,8 +479,9 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
             (x, y) = AppActive ? (pad.StickX, pad.StickY) : ((short)0, (short)0);
         }
 
-        // N64 and PS2 games read the stick itself (Phases 16 and 17); it doesn't press the D-pad.
-        var analog = _input.Layout is PadLayout.Nintendo64 or PadLayout.PlayStation2;
+        // N64, PlayStation and PS2 games read the stick itself (the PlayStation's DualShock makes it the D-pad while it's
+        // digital); it doesn't press the D-pad.
+        var analog = _input.Layout is PadLayout.Nintendo64 or PadLayout.PlayStation or PadLayout.PlayStation2;
         if (port is { } stickPort)
         {
             _input.SetStick(SourceOf(instanceId), stickPort, GameHasFocus ? x : (short)0, GameHasFocus ? y : (short)0);
@@ -537,7 +554,11 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         }
     }
 
-    public void Dispose() => _backend.Dispose();
+    public void Dispose()
+    {
+        _input.RumbleChanged -= OnRumbleChanged;
+        _backend.Dispose();
+    }
 
     // ------------------------------------------------------------ helpers
 
@@ -564,7 +585,7 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         _ => (ControllerState.None, false),
     };
 
-    /// <summary>The DualShock 2: the PlayStation's buttons by position (as the SNES pad's), with the stick clicks as L3 and R3.</summary>
+    /// <summary>The DualShock and DualShock 2: the PlayStation's buttons by position (as the SNES pad's), with the stick clicks as L3 and R3.</summary>
     private static (ControllerState State, bool Turbo) DualShock2Button(PadButton button) => button switch
     {
         PadButton.LeftStick => (ControllerState.L3, false),
@@ -626,7 +647,7 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
 
     /// <summary>A pad button's default meaning for a layout (input.md §6), before any remap.</summary>
     private static (ControllerState State, bool Turbo) DefaultButton(PadLayout layout, PadButton button) =>
-        layout == PadLayout.Genesis ? SixButton(button) : layout == PadLayout.PlayStation2 ? DualShock2Button(button) : layout is PadLayout.Snes or PadLayout.PlayStation or PadLayout.Nintendo64 ? SnesButton(button) : button switch
+        layout == PadLayout.Genesis ? SixButton(button) : layout is PadLayout.PlayStation or PadLayout.PlayStation2 ? DualShock2Button(button) : layout is PadLayout.Snes or PadLayout.Nintendo64 ? SnesButton(button) : button switch
         {
             PadButton.South => (ControllerState.B, false),
             PadButton.East => (ControllerState.A, false),
@@ -737,7 +758,22 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
             down = _input.Layout is PadLayout.PlayStation or PadLayout.Nintendo64 or PadLayout.PlayStation2 && AppActive && (held ? value > 8000 : value > 16000);
             changed = held != down;
             pad.Triggers = down ? pad.Triggers | button : pad.Triggers & ~button;
+            if (left)
+            {
+                pad.TriggerLeft = value;
+            }
+            else
+            {
+                pad.TriggerRight = value;
+            }
+
             port = _model.Policy.PortOf(instanceId);
+            if (port is { } pressurePort && _input.Layout == PadLayout.PlayStation2)
+            {
+                // How far each trigger is pulled, for the DualShock 2's pressure-sensitive L2 and R2.
+                var inGame = GameHasFocus && AppActive;
+                _input.SetTriggers(SourceOf(instanceId), pressurePort, inGame ? pad.TriggerLeft : (short)0, inGame ? pad.TriggerRight : (short)0);
+            }
         }
 
         if (uiPressed)
@@ -882,6 +918,10 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
 
         /// <summary>The triggers held past the menus' threshold, which scroll a page (input.md §7.1).</summary>
         public bool UiTriggerLeft { get; set; }
+
+        public short TriggerLeft { get; set; }
+
+        public short TriggerRight { get; set; }
 
         public bool UiTriggerRight { get; set; }
 

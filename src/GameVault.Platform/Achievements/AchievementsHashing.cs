@@ -26,7 +26,7 @@ public static class AchievementsHashing
         // rc_hash_n64: the ROM turned big-endian (.z64) first.
         GameVault.Core.Systems.GameSystem.Nintendo64 => Convert.ToHexStringLower(MD5.HashData(GameVault.Core.Nintendo64.N64Cartridge.ToBigEndian(file))),
 
-        // SMS, SG-1000, Apple II, Genesis and SNES: the whole file (rc_hash_buffer).
+        // SMS, SG-1000, Apple II, Genesis, SNES and the Atari 2600: the whole file (rc_hash_buffer).
         _ => Convert.ToHexStringLower(MD5.HashData(file)),
     };
 
@@ -86,6 +86,7 @@ public static class AchievementsHashing
         GameVault.Core.Systems.GameSystem.PlayStation => 12,
         GameVault.Core.Systems.GameSystem.Nintendo64 => 2,
         GameVault.Core.Systems.GameSystem.PlayStation2 => 21,
+        GameVault.Core.Systems.GameSystem.Atari2600 => 25,
         _ => 0,
     };
 

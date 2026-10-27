@@ -9,8 +9,9 @@ namespace GameVault.Core.PlayStation2;
 /// </summary>
 /// <remarks>
 /// References: ps2tek ("GS Reference" and its sub-pages), the GS User's Manual's register descriptions as the
-/// emulators document them, and Play! (BSD-2-Clause) for the swizzle tables, transfers and CLUT loads. Mipmapping,
-/// anti-aliasing and the texture cache's timing are not modelled; level 0 is always sampled.
+/// emulators document them, and Play! (BSD-2-Clause) for the swizzle tables, transfers and CLUT loads. Mipmaps are
+/// sampled by TEX1's LOD, up to six levels from MIPTBP1/2 or MTBA's packed layout (outstanding-work plan §12).
+/// Anti-aliasing and the texture cache's timing are not modelled.
 /// </remarks>
 public sealed partial class Ps2Gs : IStateful
 {

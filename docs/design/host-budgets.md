@@ -19,7 +19,7 @@ PlayStation 2's numbers are measured by `PlayStation2HostTests.Ps2_state_rewind_
 
 | System | State | Save / load | Rewind | Run-ahead | Netplay |
 |---|---|---|---|---|---|
-| NES, Master System, SG-1000, Genesis, SNES, Apple II | small | — | every 2nd frame | 0–3 frames (setting) | Yes (not Disk System games) |
+| NES, Master System, SG-1000, Genesis, SNES, Apple II | small | — | every 2nd frame | 0–3 frames (setting) | Yes (Disk System games too) |
 | PlayStation (Phase 15) | 3.6 MB | — | every 2nd frame (about 3 ms a frame, phase-15 results) | 0–3 frames | Yes |
 | Nintendo 64 (Phase 16) | 8 MB | 0.65 ms / 0.87 ms (phase-16 results) | every 2nd frame | 0–3 frames | Yes |
 | **PlayStation 2 (Phase 17)** | **49 MB** | **6–7 ms / 7 ms** | **every 30th frame (½ s), compressed on a worker** | **Off** | **No** |

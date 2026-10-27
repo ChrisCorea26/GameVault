@@ -160,7 +160,7 @@
         </Button.Flyout>
       </Button>
 
-      <!-- SPEC §7.7: two-player netplay on the local network (LAN-only for now) -->
+      <!-- SPEC §7.7: two-player netplay on the local network or over the internet (outstanding-work plan §13) -->
       <Button Grid.Column="10" AccessKey="N" Content="Netplay">
         <Button.Flyout>
           <Flyout Closed="Flyout_Closed" Placement="BottomEdgeAlignedRight">
@@ -175,12 +175,37 @@
                     Text="{x:Bind ViewModel.Netplay.InviteCode, Mode=OneWay}" />
                 <Button HorizontalAlignment="Center" Command="{x:Bind ViewModel.Netplay.CopyCodeCommand}" Content="Copy code" />
               </StackPanel>
+              <Grid ColumnSpacing="8" Visibility="{x:Bind ViewModel.Netplay.NeedsReply, Mode=OneWay}">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBox
+                    AutomationProperties.Name="Reply code"
+                    FontFamily="Consolas"
+                    PlaceholderText="Their reply code"
+                    Text="{x:Bind ViewModel.Netplay.ReplyCode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                <Button Grid.Column="1" Command="{x:Bind ViewModel.Netplay.AcceptReplyCommand}" Content="Connect" />
+              </Grid>
+              <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.Netplay.HasReplyCodeToSend, Mode=OneWay}">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    FontFamily="Consolas"
+                    FontSize="28"
+                    IsTextSelectionEnabled="True"
+                    Text="{x:Bind ViewModel.Netplay.ReplyCodeToSend, Mode=OneWay}" />
+                <Button HorizontalAlignment="Center" Command="{x:Bind ViewModel.Netplay.CopyReplyCodeCommand}" Content="Copy reply code" />
+              </StackPanel>
               <StackPanel Spacing="8" Visibility="{x:Bind ViewModel.Netplay.IsIdle, Mode=OneWay}">
                 <Button
                     HorizontalAlignment="Stretch"
                     Command="{x:Bind ViewModel.Netplay.HostCommand}"
                     Content="Host a game on this network"
                     Style="{StaticResource AccentButtonStyle}" />
+                <Button
+                    HorizontalAlignment="Stretch"
+                    Command="{x:Bind ViewModel.Netplay.HostInternetCommand}"
+                    Content="Host a game over the internet" />
                 <TextBlock Style="{StaticResource CaptionTextBlockStyle}" Text="Or join with the other player's code:" />
                 <Grid ColumnSpacing="8">
                   <Grid.ColumnDefinitions>
@@ -445,6 +470,8 @@
     <controls:GameView
         x:Name="Game"
         Grid.Row="2"
+        GunEnabled="{x:Bind ViewModel.UsesGun, Mode=OneWay}"
+        MouseEnabled="{x:Bind ViewModel.UsesMouse, Mode=OneWay}"
         PaddleEnabled="{x:Bind ViewModel.UsesPaddle, Mode=OneWay}"
         ZapperEnabled="{x:Bind ViewModel.UsesZapper, Mode=OneWay}" />
 

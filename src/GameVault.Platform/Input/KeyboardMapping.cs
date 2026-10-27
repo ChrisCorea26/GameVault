@@ -100,7 +100,7 @@ public sealed class KeyboardMapping
         foreach (var (key, button, kind) in layout switch
         {
             PadLayout.Nintendo64 => N64Keys,
-            PadLayout.PlayStation2 => Ps2Keys,
+            PadLayout.PlayStation or PadLayout.PlayStation2 => Ps2Keys,
             _ => [],
         })
         {

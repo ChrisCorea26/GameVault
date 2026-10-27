@@ -89,12 +89,12 @@ public sealed class SnesHostTests : IDisposable
     public async Task Games_with_enhancement_chips_get_a_clear_message()
     {
         var path = Path.Combine(_root.FullName, "Chip.sfc");
-        await File.WriteAllBytesAsync(path, CountingRom(chip: 0x34));
+        await File.WriteAllBytesAsync(path, CountingRom(chip: 0xF3));
         using var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()));
 
         var act = () => host.LoadAsync(path);
 
-        (await act.Should().ThrowAsync<GameLoadException>()).Which.Message.Should().Contain("SA-1");
+        (await act.Should().ThrowAsync<GameLoadException>()).Which.Message.Should().Contain("Cx4");
     }
 
     [Fact]

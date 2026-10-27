@@ -40,7 +40,7 @@ public enum PsInterrupt : uint
 /// response), and a device catches up before its registers are touched. Video timing follows the GPU's mode: 3,413
 /// GPU clocks a line and 263 lines in NTSC, 3,406 and 314 in PAL, with the GPU clock 11/7 of the CPU's.
 /// </remarks>
-public sealed partial class PlayStationConsole : IEmulatedConsole, IR3000Bus
+public sealed partial class PlayStationConsole : IEmulatedConsole, IR3000Bus, IRumbleSource
 {
     public const int RamSize = 2 * 1024 * 1024;
     public const int BiosSize = 512 * 1024;
@@ -164,6 +164,33 @@ public sealed partial class PlayStationConsole : IEmulatedConsole, IR3000Bus
     public double PixelAspect => 4.0 / 3.0 / ((double)_frameWidth / _frameHeight);
 
     public ReadOnlySpan<ushort> FrameBuffer => _frame.AsSpan(0, _frameWidth * _frameHeight);
+
+    // 24-bit pictures (FMVs) at full depth, and whether the last frame was one.
+    private readonly uint[] _argb = new uint[MaxWidth * MaxHeight];
+    private bool _trueColor;
+
+    public ReadOnlySpan<uint> TrueColorFrame => _trueColor ? _argb.AsSpan(0, _frameWidth * _frameHeight) : default;
+
+    /// <inheritdoc/>
+    public float RumbleLevel(int port)
+    {
+        var pad = Sio.Pad(port);
+        return Math.Max(pad.SmallMotor ? 0.5f : 0f, pad.LargeMotor / 255f);
+    }
+
+    /// <summary>
+    /// The DualShocks start in analog mode, as if the player had pressed their Analog button (Settings → PlayStation →
+    /// Analog mode). Off, they start digital and the game switches them when it wants the sticks.
+    /// </summary>
+    public bool AnalogPads
+    {
+        get => Sio.Pad(0).StartAnalog;
+        set
+        {
+            Sio.Pad(0).StartAnalog = value;
+            Sio.Pad(1).StartAnalog = value;
+        }
+    }
 
     /// <summary>The frame holds BGR555 colours, the same layout as the SNES's.</summary>
     public ReadOnlySpan<uint> Palette => SnesPpu.Palette;
@@ -485,7 +512,7 @@ public sealed partial class PlayStationConsole : IEmulatedConsole, IR3000Bus
     {
         _frameWidth = Gpu.DisplayWidth;
         _frameHeight = Gpu.DisplayHeight;
-        Gpu.CopyDisplay(_frame);
+        _trueColor = Gpu.CopyDisplay(_frame, _argb);
         _frameDone = true;
     }
 
@@ -948,6 +975,7 @@ public sealed partial class PlayStationConsole : IEmulatedConsole, IR3000Bus
     public void LoadState(StateReader reader)
     {
         reader.BeginChunk(Tag);
+        _trueColor = false; // until the next frame is drawn, the indexed picture stands
         reader.ReadBytes(_ram);
         reader.ReadBytes(_scratchpad);
         reader.ReadBytes(_io);

@@ -68,7 +68,8 @@ wrong extension.
 **Changing disk sides:** when the game asks you to turn the disk over, press <kbd>F4</kbd> for the next side, or pick
 one from the disk drop-down in the Player (*No disk*, *Disk 1, side A*, *Disk 1, side B*, …).
 
-**Not supported yet:** netplay with Disk System games.
+**Netplay:** Disk System games play over netplay when both players have the same BIOS; disk changes happen on both
+PCs at once.
 
 **Messages:**
 
@@ -133,6 +134,11 @@ game that needs another model (for example an unenhanced IIe), set **Game Detail
 > GameVault then shows *This disk can't start without the Disk II boot ROM. Choose your own Disk II boot ROM (256
 > bytes) in Settings → Apple II. GameVault doesn't include it.*
 
+**Display:** **Settings → Apple II → Monitor** shows the Apple on a colour TV (the default) or on a green, amber or
+white monochrome monitor, where hi-res pictures show every dot sharply instead of in colour. To see text in your own
+Apple's font, choose its character ROM under **Character ROM**. Games that change mode partway down the screen show
+as they did on the Apple.
+
 **Keyboard:** while an Apple II game runs, the whole keyboard types into the computer.
 
 | Apple key | PC key |
@@ -147,8 +153,7 @@ the same for drive 2. Use it for games on more than one disk.
 
 **Netplay:** both players need the same ROM files as well as the same disk.
 
-**Not supported yet:** loading an older save state doesn't undo later disk writes; no monochrome display option;
-your own character ROM isn't used; video mode changes in the middle of a frame aren't shown.
+**Not supported yet:** loading an older save state doesn't undo later disk writes.
 
 **Messages:**
 
@@ -157,6 +162,7 @@ your own character ROM isn't used; video mode changes in the middle of a frame a
 | *To play it, choose your own Apple II ROM files in Settings → Apple II.* | Set the System ROM path. |
 | *The Apple II ROM must be 12 KB (II/II+) or 16 KB (IIe).* | Wrong file or bad dump. |
 | *The Disk II boot ROM must be 256 bytes.* | Wrong file. |
+| *An Apple II character ROM is 2, 4 or 8 KB.* or *That file doesn't look like an Apple II character ROM.* | Wrong file for **Character ROM**, or a bad dump. Clear the box to use GameVault's own font. |
 | *This disk can't start without the Disk II boot ROM. Choose your own Disk II boot ROM (256 bytes) in Settings → Apple II. GameVault doesn't include it.* | Set the Disk II boot ROM path. |
 | *A .dsk, .do or .po disk image is 143,360 bytes.* | The image is damaged or isn't a 5.25-inch disk. |
 | *GameVault reads 5.25-inch WOZ images; this one is for 3.5-inch disks.* | 3.5-inch disks aren't supported. |
@@ -269,13 +275,18 @@ There's no turbo on the SNES. Use <kbd>Backspace</kbd> and <kbd>Tab</kbd> to rew
   `dsp2.rom`, `dsp3.rom` or `dsp4.rom`. Put it in a folder, then choose that folder in **Settings → Super
   Nintendo → Enhancement chip ROMs**. Either byte order works. DSP-2, DSP-3 and DSP-4 haven't been tried with real
   games yet.
+- **SA-1** (*Super Mario RPG*, *Kirby Super Star*, *Kirby's Dream Land 3*, …), **S-DD1** (*Star Ocean*, *Street
+  Fighter Alpha 2*) and **OBC1** (*Metal Combat*): work with nothing extra. SA-1 games save in the cartridge's
+  BW-RAM as `.sav`.
+- **ST010** (*F1 ROC II*, *Exhaust Heat II*) and **ST011** (*Hayazashi Nidan Morita Shogi*): like the DSP chips, they
+  need the chip's program from your own cartridge, named `st010.rom` or `st011.rom` (52 KB), in the same folder.
 
 | Message | What to do |
 |---|---|
 | *This game needs the DSP-1 chip's program ROM. Put your own dump (dsp1b.rom or dsp1.rom) in the folder chosen in Settings → Super Nintendo → Enhancement chip ROMs. GameVault doesn't include it.* | Add the file and choose its folder, then open the game again. |
 | *This game needs the … chip, which GameVault doesn't support yet.* | The chip isn't emulated yet. |
 
-**Not supported yet:** the SA-1, S-DD1, S-RTC, OBC1, Cx4, SPC7110 and ST01x chips, the Super Game Boy and the
+**Not supported yet:** the Cx4 (*Mega Man X2*, *X3*), SPC7110, ST018 and S-RTC chips, the Super Game Boy and the
 Satellaview; interlaced modes; effects that change the picture partway along a line.
 
 ## Sony PlayStation
@@ -317,7 +328,7 @@ Satellaview; interlaced modes; effects that change the picture partway along a l
 
 Discs are read from where they are; they're never copied or loaded into memory whole.
 
-**Controls** (digital pad):
+**Controls** (DualShock):
 
 | PlayStation | Keyboard | Controller (position) | Xbox label |
 |---|---|---|---|
@@ -325,12 +336,28 @@ Discs are read from where they are; they're never copied or loaded into memory w
 | Square, Triangle | <kbd>A</kbd>, <kbd>S</kbd> | Left, top | X, Y |
 | L1, R1 | <kbd>1</kbd>, <kbd>2</kbd> | Left shoulder, right shoulder | LB, RB |
 | L2, R2 | <kbd>3</kbd>, <kbd>4</kbd> | Left trigger, right trigger | LT, RT |
+| L3, R3 (analog mode) | <kbd>5</kbd>, <kbd>6</kbd> | Click the left stick, click the right stick | LS, RS |
 | Select, Start | <kbd>Right Shift</kbd>, <kbd>Enter</kbd> | Back, Start | View, Menu |
+| D-pad | <kbd>T</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> | D-pad | D-pad |
+| Left stick | Arrow keys (full push) | Left stick | Left stick |
+| Right stick | <kbd>I</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> (full push) | Right stick | Right stick |
+
+**Analog mode:** the controllers are DualShocks. They start digital, and the left stick (and the arrow keys) work the
+D-pad. Games that use the sticks switch them to analog themselves. For a game that supports the sticks but waits for
+you to press the DualShock's Analog button, turn on **Settings → PlayStation → Analog mode**. Games that rumble shake
+your controller, if it has motors.
+
+**Light gun and mouse:** for a GunCon game (*Time Crisis*, *Point Blank*), set **Game Details → Properties → Port
+1** to **GunCon (the mouse aims)**: point with the mouse, the left button is the trigger, the right button A and the
+middle button B. Most GunCon games start with a calibration screen; shoot its centre. For a mouse game (*Lemmings*,
+*Discworld*), choose **Mouse**: moving the mouse over the picture moves it, with its left and right buttons.
 
 **Memory cards:** each game gets its own card in slot 1, so you never run out of space. Slot 2 is empty.
 
-**Not supported yet:** DualShock analog sticks and vibration, multitap, mouse, light guns, link cable, GameShark
-codes, a memory card manager, and enhanced (upscaled) graphics.
+Videos and other pictures in 24-bit colour are shown with all their colours.
+
+**Not supported yet:** multitap, the Justifier light gun, link cable, GameShark codes, a memory card manager, and enhanced
+(upscaled) graphics.
 
 **Messages:**
 
@@ -374,7 +401,12 @@ Properties → Save type**.
 cores helps. 2D games and most 3D scenes run at full speed on a modern CPU; the heaviest 3D scenes may still slow
 down on a CPU with few cores.
 
-**Not supported yet:** Rumble Pak, Transfer Pak, mouse, voice recognition unit, 64DD, GameShark codes, and the N64's
+**Rumble Pak:** turn on **Settings → Nintendo 64 → Rumble Pak** and every controller gets one, so games that use it
+shake your controller (if it has rumble motors). Games can't save to the Controller Pak while it's on.
+
+Games that draw in 32-bit colour are shown with all their colours, without the banding of 16-bit colour.
+
+**Not supported yet:** Transfer Pak, mouse, voice recognition unit, 64DD, GameShark codes, and the N64's
 video filters.
 
 ## Sony PlayStation 2
@@ -383,7 +415,7 @@ video filters.
 |---|---|
 | **Files** | `.iso` (DVD or CD images); `.chd` (version 5, CD or DVD); `.cue` with its `.bin` tracks (CD games); `.elf` (homebrew programs) |
 | **You supply** | **A PlayStation 2 BIOS**, 4 MB, dumped from your own console (for example SCPH-39001), for discs. Homebrew `.elf` programs run without one. |
-| **Saves** | One 8 MB memory card per game in slot 1, as `.ps2` |
+| **Saves** | One 8 MB memory card per game in slot 1, as `.ps2`, and one card in slot 2 shared by every game |
 
 **Setup:**
 
@@ -417,11 +449,13 @@ from where they are; they're never copied or loaded into memory whole.
 | Left stick | Arrow keys (full push) | Left stick | Left stick |
 | Right stick | <kbd>I</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> (full push) | Right stick | Right stick |
 
-The pressure-sensitive buttons report full presses. While a PlayStation 2 game runs the left shoulder button is L1,
+The pressure-sensitive buttons report full presses, except L2 and R2 on a controller with analog triggers: they
+report how far you pull them. While a PlayStation 2 game runs the left shoulder button is L1,
 so use <kbd>Backspace</kbd> to rewind.
 
 **Memory cards:** each game gets its own 8 MB card in slot 1, created already formatted and saved with your other game
-saves. Slot 2 is empty.
+saves. Slot 2 holds one more card, the same for every game (`Memory card (slot 2).ps2` in the saves folder), so a
+sequel can find a save that the earlier game wrote there.
 
 **Rewind, run-ahead and netplay:** a PlayStation 2 is much larger than the other consoles, so:
 
@@ -435,8 +469,8 @@ helps. Lighter games can reach full speed on a fast PC, but many games still run
 lean on the PS2's vector units. Enhanced graphics and more speed-ups are planned.
 
 **Not supported yet:** changing discs in multi-disc games (an `.m3u` starts its first disc), vibration, the multitap,
-PlayStation games on the PlayStation 2, USB devices, the network adapter and hard drive, GameShark codes, memory card
-slot 2, and enhanced (upscaled) graphics.
+PlayStation games on the PlayStation 2, USB devices, the network adapter and hard drive, GameShark codes, and enhanced
+(upscaled) graphics.
 
 **Messages:**
 
@@ -447,3 +481,39 @@ slot 2, and enhanced (upscaled) graphics.
 | *GameVault couldn't open your PlayStation 2 BIOS. Check the file chosen in Settings → PlayStation 2.* | The file was moved, deleted or is locked. |
 | *That file isn't a PlayStation 2 program (ELF) or disc, or it's damaged.* | Check the file; re-dump the disc if needed. |
 | *Netplay isn't available for PlayStation 2 games: its rollback saves and loads the whole console every frame, and a PlayStation 2 is too large for that.* | Play it locally. |
+
+## Atari 2600
+
+| | |
+|---|---|
+| **Files** | `.a26` (or a `.zip` with one inside) |
+| **You supply** | Nothing: the 2600 has no BIOS |
+| **Saves** | None: 2600 games don't save. Use save states. |
+
+**Controls** (the joystick):
+
+| Atari 2600 | Keyboard | Controller |
+|---|---|---|
+| Joystick | Arrow keys | D-pad or left stick |
+| Fire | <kbd>Z</kbd> or <kbd>X</kbd> | Bottom or right button |
+| Console **Reset** switch | <kbd>Enter</kbd> | Start |
+| Console **Select** switch | <kbd>Right Shift</kbd> | Back |
+
+The second player's joystick is the second controller (or the second keyboard player). The difficulty switches stay
+on **B** (the easier setting) and the TV switch on colour.
+
+**Cartridges:** 2K and 4K games, and the bank-switching boards most games use: Atari's 8K, 16K and 32K (with or
+without the SuperChip's extra RAM), Parker Brothers (E0), Activision (FE), Tigervision (3F) and CBS RAM Plus (FA).
+GameVault tells them apart by the file's size and code. If a game shows garbage, set **Game Details → Properties**'
+model to the board's name (`F8`, `F8SC`, `F6`, `F6SC`, `F4`, `F4SC`, `E0`, `FE`, `3F` or `FA`).
+
+**Not supported yet:** paddles, keypads and the driving controller; the rarer boards (Pitfall II's DPC, M-Network
+E7, the Supercharger); PAL games' own colours (they show NTSC colours); and the Atari 5200.
+
+**Messages:**
+
+| Message | What to do |
+|---|---|
+| *GameVault doesn't know how a … KB Atari 2600 cartridge switches its banks.* | The file isn't a 2600 image GameVault knows, or it's a rarer board. |
+| *That isn't an Atari 2600 cartridge image.* | Wrong file. |
+

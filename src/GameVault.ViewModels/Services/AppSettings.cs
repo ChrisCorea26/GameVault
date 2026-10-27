@@ -95,6 +95,12 @@ public sealed record AppSettings
     /// <summary>The player's own Disk II boot ROM (256 bytes, slot 6), or empty.</summary>
     public string AppleIIDiskRomPath { get; init; } = string.Empty;
 
+    /// <summary>The player's own Apple II character ROM (2, 4 or 8 KB) for text, or empty for GameVault's own font.</summary>
+    public string AppleIICharacterRomPath { get; init; } = string.Empty;
+
+    /// <summary>The Apple II's monitor: 0 colour, 1 green, 2 amber, 3 white (the order of <c>AppleMonitor</c>).</summary>
+    public int AppleIIMonitor { get; init; }
+
     /// <summary>
     /// The player's own PlayStation BIOS (512 KB, such as SCPH-1001), or empty. GameVault never ships, downloads or
     /// links to it (SPEC §7.11).
@@ -105,10 +111,28 @@ public sealed record AppSettings
     public bool PlayStationFastBoot { get; init; }
 
     /// <summary>
+    /// PlayStation controllers start in analog mode, as if the DualShock's Analog button were pressed: for games that
+    /// use the sticks but don't switch the mode themselves. Off by default, since digital-only games want digital pads.
+    /// </summary>
+    public bool PlayStationAnalog { get; init; }
+
+    /// <summary>
     /// Give N64 games the Expansion Pak's extra 4 MB (8 MB in all). On by default, as most homebrew and many games
     /// use it; a few older games expect 4 MB.
     /// </summary>
     public bool N64ExpansionPak { get; init; } = true;
+
+    /// <summary>
+    /// A netplay relay server ("host:port") for hosting over the internet when the two players' routers can't reach
+    /// each other directly (outstanding-work plan §13), or empty to connect directly. Players run their own relay.
+    /// </summary>
+    public string NetplayRelayServer { get; init; } = string.Empty;
+
+    /// <summary>
+    /// A Rumble Pak in every N64 controller instead of the Controller Pak in the first, so games can shake the player's
+    /// pad. Off by default, since games can't save to the Controller Pak while it's out.
+    /// </summary>
+    public bool N64RumblePak { get; init; }
 
     /// <summary>
     /// The player's own PlayStation 2 BIOS (4 MB, such as SCPH-39001), or empty. Discs need it; ELF programs run on
