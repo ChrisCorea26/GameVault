@@ -161,11 +161,8 @@ SDL's GameController API reports buttons by **position**, so the defaults are po
   games misbehave when they see it (see the Standard controller page above). By default the most
   recently pressed direction on each axis wins. *Settings → Advanced → Allow opposite directions*
   turns this off.
-- Remaps are stored per controller model (SDL GUID) and per player. Per-game overrides arrive with
-  game profiles (Phase 5, SPEC §7.5).
-- *Current state:* remapping isn't implemented. The keyboard layouts (`GameVault.Platform/Input/KeyboardMapping.cs`)
-  and pad layouts (`ControllerManager.ApplyToGame`) are fixed, and there are no per-player, per-game or
-  one-handed overrides (`docs/bugs.md`).
+- Remaps are stored per controller model (SDL GUID) and per player, per system, and optionally per game
+  (GV-001). See §6.7.
 
 ### 6.1 Other systems (Phase 11)
 Sega SG-1000 and Master System pads use the same bindings. **B** (keyboard Z) is **Button 1**, **A**
@@ -263,6 +260,43 @@ wins. Turbo is off, as for the PlayStation. The pressure-sensitive buttons repor
 later. Challenge recordings carry the whole pad; netplay isn't offered for PS2 games, whose states are too large for
 rollback (host-budgets.md §3).
 
+### 6.7 Remapping (GV-001, GV-018)
+**Remap…** on each source of a port card (§9) opens an editor for that source and player:
+
+- **System:** NES, Master System and SG-1000, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64,
+  PlayStation 2. Each lists its own pad's buttons by their own names (Genesis A/B/C/X/Y/Z/Mode, Sega Button 1/2 and
+  Pause, PlayStation Cross/Circle/Square/Triangle/L1/R1/L2/R2, N64 A/B/Z/C-up…, PS2 L3/R3 and the right stick). The
+  catalog is `GameVault.ViewModels/Services/Input/InputRemaps.cs` (`InputActions`); a Platform test checks every
+  default it shows against what the keyboard and pads really do.
+- **Change** waits for a key (the page forwards it) or, for a controller, a button on that controller
+  (`IInputDevicesService.CaptureMode`; the press reaches neither the game nor the menus). One input does one thing:
+  whatever the new input did before is left unbound and the editor says so. **Clear** unbinds. The hotkeys (§8) and
+  the Guide button can't be used. On a controller the sticks and analog triggers stay fixed (the PlayStation's L2/R2,
+  the N64's Z and the C buttons on the right stick).
+- **Layout** (keyboard only): *Standard*, *One-handed, left hand* (W A S D, Q = B, E = A, R = Start, F = Select,
+  1 and 3 turbo) and *One-handed, right hand* (I J K L, U = B, O = A, P = Start, ; = Select, 7 and 9 turbo), applied
+  to every system (on the N64 and PS2 the directions move the stick).
+- **Only for this game** (in the Player only): the change applies to the running game, on top of the remap for every
+  game. **Back to the standard layout** clears the current scope.
+- Stored as JSON in `AppSettings.InputRemaps` (`InputRemapSet`): entries of device (`keyboard` or a GUID), player,
+  system, game (or none) and only the actions that differ. `ControllerManager` applies them: the keyboard's through
+  `InputService.SetKeyboardRemaps`, which rebuilds the mapping with `KeyboardMapping.ForLayout` whenever the pad layout
+  changes; pads through a per-model, per-port table that replaces `DefaultButton`. A shoulder button mapped to a game
+  button stops being a hotkey.
+- `KeyboardMapping.ForLayout` also holds what used to be special cases in `InputService`: the N64's and PS2's own keys
+  (T/F/G/H, I/J/K/L, 5/6) and, on pads without turbo, the A/S keys as Y/X. A turbo button remapped onto those pads
+  repeats like any other.
+
+### 6.8 Power Pad and Arkanoid paddle (SPEC §4.7, GV-013)
+- **Power Pad** (`Core/Input/PowerPad.cs`, port 2, NESdev Wiki "Power Pad"): its 12 buttons are the keys
+  **U I O P / J K L ; / M , . /**, in the mat's rows of four (side B's numbering, 1–12). None is a controller key, so
+  Player 1's keyboard pad still works for menus. The keys press the mat only while a Power Pad game runs
+  (`InputService.PowerPadActive`).
+- **Arkanoid paddle** (`Core/Input/ArkanoidPaddle.cs`, port 2, NESdev Wiki "Arkanoid controller"): the knob follows the
+  mouse across the picture's width (left edge = all the way left), the left button fires. The knob reads 98–242.
+- Both are chosen by the game's profile (`input`: `PowerPad`, `ArkanoidPaddle`) or Game Details → Properties →
+  Controls, and saved in states (NES state version 4).
+
 ## 7. Game input vs. UI navigation
 
 - **In the Library and other pages:** every connected pad navigates the UI (D-pad and stick move XY
@@ -299,10 +333,13 @@ Controller hotkeys work only from pads assigned to a port.
 
 - One card per port listing its sources (*Keyboard*, *Xbox Wireless Controller*), with
   **Pin to this player** / **Unpin** on each controller. **Swap players** sits above the cards.
-- A list of unassigned controllers (**Other controllers**), each with **Use for Player 1** / **Use for Player 2**.
+- Each card has **Swap** (with every other player: Players 3 and 4 too while a Four Score game runs) and each source
+  **Remap…** (§6.7).
+- A list of unassigned controllers (**Other controllers**), each with **Use for Player N** for every port in use
+  (four during a Four Score game; GV-002).
 - **Two players, one keyboard** and **Turbo speed** below the cards.
-- *Not built yet* (`docs/bugs.md`): **Remap…**, and the same port cards in the in-game overlay; today players
-  swap or reassign controllers only in Settings.
+- The same cards (`Controls/ControllerPortsPanel.xaml`) are in the Player's **Controllers** flyout (GV-003), so a
+  player can swap, reassign or remap without leaving the game; there Remap… offers **Only for this game**.
 - Under `--sample-data`: the keyboard and an *Xbox Wireless Controller* on Player 1, an *8BitDo SN30 Pro*
   on Player 2, and one unassigned *DualSense Wireless Controller*.
 
@@ -322,7 +359,7 @@ Controller hotkeys work only from pads assigned to a port.
 |---|---|
 | 2 | `ControllerState` and port merging; keyboard on Player 1 (§4.1); focus release (§4.4); opposite-direction rule (§6) |
 | 3 | SDL controllers, default mapping, assignment policy and hot-plug (§3, §5); UI navigation (§7); Settings → Input with sample data (§9); two-player keyboard preset (§4.3) |
-| 5 | Four Score (Players 3–4); per-game overrides; Zapper input type from game profiles. *Built:* the Four Score (four ports while a Four Score game runs) and the Zapper/Four Score input type from profiles and Game Details → Properties. *Not built:* assigning pads to Players 3–4 by hand and per-game remaps (`docs/bugs.md`) |
+| 5 | Four Score (Players 3–4); per-game overrides; Zapper input type from game profiles. *Built:* the Four Score (four ports while a Four Score game runs), the Zapper/Four Score input type from profiles and Game Details → Properties, assigning pads to Players 3–4 by hand, and per-game remaps (GV-001, GV-002) |
 | 16 | The N64's analog stick (32-bit state) |
 | 17 | The DualShock 2: 64-bit state, the right stick, L3/R3 (§2, §6.6) |
 
