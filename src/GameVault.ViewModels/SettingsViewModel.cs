@@ -70,6 +70,16 @@ public sealed partial class SettingsViewModel(
     }
 
     [RelayCommand]
+    private async Task ChooseSnesChipRomFolderAsync()
+    {
+        if (picker is not null && await picker.PickFolderAsync() is { } folder)
+        {
+            SnesChipRomFolder = folder;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
     private async Task ChoosePlayStationBiosAsync()
     {
         if (await PickAsync(".bin", ".rom") is { } path)
@@ -150,6 +160,10 @@ public sealed partial class SettingsViewModel(
     /// <summary>The Apple II's monitor; applies from the next game started.</summary>
     [ObservableProperty]
     public partial int AppleIIMonitorIndex { get; set; }
+
+    /// <summary>The folder of the player's own Super Nintendo enhancement chip ROMs. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string SnesChipRomFolder { get; set; } = string.Empty;
 
     /// <summary>The player's own PlayStation BIOS (SPEC §7.11). Saved when the text box loses focus.</summary>
     [ObservableProperty]
@@ -290,6 +304,7 @@ public sealed partial class SettingsViewModel(
         AppleIICharacterRomPath = settings.AppleIICharacterRomPath;
         AppleIIMonitorIndex = Math.Clamp(settings.AppleIIMonitor, 0, AppleIIMonitors.Count - 1);
         PlayStationBiosPath = settings.PlayStationBiosPath;
+        SnesChipRomFolder = settings.SnesChipRomFolder;
         PlayStationFastBoot = settings.PlayStationFastBoot;
         N64ExpansionPak = settings.N64ExpansionPak;
         PlayStation2BiosPath = settings.PlayStation2BiosPath;
@@ -365,6 +380,9 @@ public sealed partial class SettingsViewModel(
     [RelayCommand]
     private void SavePlayStationBiosPath() => SaveIfLoaded();
 
+    [RelayCommand]
+    private void SaveSnesChipRomFolder() => SaveIfLoaded();
+
     partial void OnPlayStationFastBootChanged(bool value) => SaveIfLoaded();
 
     partial void OnN64ExpansionPakChanged(bool value) => SaveIfLoaded();
@@ -429,6 +447,7 @@ public sealed partial class SettingsViewModel(
             AppleIICharacterRomPath = AppleIICharacterRomPath.Trim().Trim('"'),
             AppleIIMonitor = Math.Clamp(AppleIIMonitorIndex, 0, AppleIIMonitors.Count - 1),
             PlayStationBiosPath = PlayStationBiosPath.Trim().Trim('"'),
+            SnesChipRomFolder = SnesChipRomFolder.Trim().Trim('"'),
             PlayStationFastBoot = PlayStationFastBoot,
             N64ExpansionPak = N64ExpansionPak,
             PlayStation2BiosPath = PlayStation2BiosPath.Trim().Trim('"'),

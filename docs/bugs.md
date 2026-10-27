@@ -286,12 +286,12 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 |---|---|
 | Internet netplay (relay/STUN); the first release is LAN only | SPEC §7.7, `docs/plans/phase-7.md` |
 | Netplay for Famicom Disk System games | `EmulatorHost.cs:382` |
-| SNES enhancement chips (DSP, Super FX, SA-1, …) | README status, `docs/plans/phase-14.md` |
+| SNES enhancement chips beyond the DSP-n and Super FX (SA-1, Cx4, S-DD1, SPC7110, …) | `docs/plans/outstanding-work.md` §5 |
 | SC-3000 keyboard, Japanese SMS FM sound (YM2413) | `docs/plans/phase-11.md` |
 | Genesis stereo, interlace mode 2, Master System mode, EEPROM saves, Sega CD, 32X | `docs/plans/phase-13.md` |
 | PlayStation DualShock analog and vibration, multitap, light guns, GameShark, memory card manager, GPU renderer | `docs/plans/phase-15.md` |
 | N64 GPU renderer and recompiler, Rumble Pak, Transfer Pak, 64DD, GameShark | README status, `docs/plans/phase-16.md` |
 | ~~Apple II monochrome, user character ROM, mid-frame mode changes~~ Done (outstanding-work §9) | `docs/plans/phase-12.md` |
 | RetroAchievements approval for hardcore unlocks; real-game and real-cartridge checks | Owner tasks in README and phase plans |
-| PlayStation 2 GPU renderer (GS) and VU recompilers; N64 GPU renderer | `docs/plans/phase-17-performance.md` |
+| PlayStation 2 GPU renderer (GS); N64 GPU renderer | `docs/plans/phase-17-performance.md`, `docs/plans/outstanding-work.md` §14 |
 | GameCube / Wii, Atari 2600 / 5200 | SPEC §7.11, phases 18–19 |

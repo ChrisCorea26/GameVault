@@ -97,6 +97,12 @@ Each box has **Choose…** to pick the file. The character ROM can be the 2 KB o
 video ROM from a IIe; GameVault works out how it's laid out. A new monitor or character ROM applies from the next
 game started.
 
+## Super Nintendo
+
+| Setting | Values | Default |
+|---|---|---|
+| **Enhancement chip ROMs** | A folder holding your own `dsp1b.rom` (or `dsp1.rom`), `dsp2.rom`, `dsp3.rom` or `dsp4.rom`, or **Choose…** | Empty |
+
 ## PlayStation
 
 | Setting | Values | Default |

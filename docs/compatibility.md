@@ -204,7 +204,9 @@ Real games are the owner's to try; see `docs/plans/phase-13.md`.
 | DMA and HDMA; multiplier/divider; NMI/IRQ; joypad auto-read and serial | ✅ Unit tests |
 | PPU: modes 0–7, sprites, windows, colour math, brightness, hi-res | 🟡 Mode 1, mode 7, sprites, windows and colour math have pixel tests; other modes are implemented without their own tests |
 | Interlace, mid-line register changes, exact PPU timing | Not yet |
-| Enhancement chips (Super FX, SA-1, DSP-n, Cx4, S-DD1, SPC7110, …) | Not yet: such games get a message naming the chip |
+| Super FX (GSU-1/GSU-2): instructions, pipeline delay slot, cache, ROM buffer, PLOT/RPIX, bus ownership, IRQ | 🟡 Unit tests on hand-assembled GSU programs and a whole console starting the GSU; no freely redistributable Super FX test ROM to check against; real games are the owner's |
+| DSP-1/2/3/4 (µPD7725, with the player's own program ROM): OP/RT/JP/LD, multiplier, DR/SR handshake | 🟡 Unit tests on hand-assembled µPD7725 programs and a whole console talking to one; real games with the player's DSP dump are the owner's |
+| SA-1, Cx4, S-DD1, SPC7110, OBC1, ST01x, S-RTC | Not yet: such games get a message naming the chip |
 
 Real games are the owner's to try; see `docs/plans/phase-14.md`.
 
