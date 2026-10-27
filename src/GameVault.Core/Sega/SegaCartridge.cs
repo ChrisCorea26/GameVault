@@ -156,6 +156,23 @@ public sealed class SegaCartridge : IStateful, IBatteryBacked
     }
 
     /// <summary>Picks the board from the ROM: Codemasters games carry a checksum pair at $7FE6; anything bigger than 48 KB is a Sega board.</summary>
+    /// <summary>
+    /// True when the "TMR SEGA" header ($7FF0, $3FF0 or $1FF0) gives the region code 3, Japanese Master System: those
+    /// cartridges were made for the console with the FM Sound Unit built in (SMS Power! "ROM header").
+    /// </summary>
+    public static bool IsJapaneseMasterSystem(ReadOnlySpan<byte> rom)
+    {
+        foreach (var at in (ReadOnlySpan<int>)[0x7FF0, 0x3FF0, 0x1FF0])
+        {
+            if (at + 16 <= rom.Length && rom.Slice(at, 8).SequenceEqual("TMR SEGA"u8))
+            {
+                return rom[at + 15] >> 4 == 3;
+            }
+        }
+
+        return false;
+    }
+
     public static SegaMapper DetectMapper(ReadOnlySpan<byte> rom)
     {
         if (rom.Length >= 0x8000)

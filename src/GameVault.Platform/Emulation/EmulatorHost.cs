@@ -163,7 +163,17 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _controllerPaks = paths is null ? null : new BatterySaveStore(paths, ".mpk");
         _ps2Cards = paths is null ? null : new Ps2MemoryCardStore(paths);
         _context = SynchronizationContext.Current;
-        _present = console => _video.Present(console.FrameBuffer, PaletteFor(console), console.ScreenWidth, console.ScreenHeight, console.PixelAspect);
+        _present = console =>
+        {
+            if (console.TrueColorFrame is { IsEmpty: false } argb)
+            {
+                _video.PresentArgb(argb, console.ScreenWidth, console.ScreenHeight, console.PixelAspect);
+            }
+            else
+            {
+                _video.Present(console.FrameBuffer, PaletteFor(console), console.ScreenWidth, console.ScreenHeight, console.PixelAspect);
+            }
+        };
     }
 
     public EmulatorStatus Status { get; private set; }
@@ -993,7 +1003,11 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             var disk = string.IsNullOrWhiteSpace(settings.AppleIIDiskRomPath)
                 ? null
                 : await File.ReadAllBytesAsync(settings.AppleIIDiskRomPath, cancellationToken).ConfigureAwait(false);
-            return new AppleRoms(system, disk);
+            var character = string.IsNullOrWhiteSpace(settings.AppleIICharacterRomPath)
+                ? null
+                : await File.ReadAllBytesAsync(settings.AppleIICharacterRomPath, cancellationToken).ConfigureAwait(false);
+            var monitor = Enum.IsDefined((AppleMonitor)settings.AppleIIMonitor) ? (AppleMonitor)settings.AppleIIMonitor : AppleMonitor.Color;
+            return new AppleRoms(system, disk, character) { Monitor = monitor };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -1076,7 +1090,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         LoadControllerPak(console);
         LoadPs2MemoryCard(console);
         SetUpDiscs(data, system);
-        _input.TypingMode = console is AppleConsole;
+        _input.TypingMode = console is AppleConsole or SegaConsole { HasKeyboard: true };
         if (console is AppleConsole && appleRoms?.DiskBoot is null)
         {
             // Without the Disk II controller's ROM the Apple starts with no disk drive, so the disk can't boot (GV-010).
@@ -1241,6 +1255,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
         _input.TypingMode = false;
         _input.Layout = PadLayout.Nes;
+        _input.StopRumble();
 
         Post(() =>
         {
@@ -1309,8 +1324,10 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     public async Task<byte[]?> CaptureScreenshotAsync()
     {
         var frame = await InspectAsync(console => (
-            Pixels: console.FrameBuffer.ToArray(), Palette: ScreenshotPalette(console), Width: console.ScreenWidth, Height: console.ScreenHeight)).ConfigureAwait(false);
-        return frame.Pixels is null ? null : PngEncoder.Encode(PngEncoder.ToArgb(frame.Pixels, frame.Palette), frame.Width, frame.Height);
+            Argb: console.TrueColorFrame.IsEmpty ? PngEncoder.ToArgb(console.FrameBuffer, ScreenshotPalette(console)) : console.TrueColorFrame.ToArray(),
+            Width: console.ScreenWidth,
+            Height: console.ScreenHeight)).ConfigureAwait(false);
+        return frame.Argb is null ? null : PngEncoder.Encode(frame.Argb, frame.Width, frame.Height);
     }
 
     /// <summary>Loads a save state between frames. Returns false if it doesn't fit the running game.</summary>
@@ -1535,6 +1552,10 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             {
                 Type(apple);
             }
+            else if (console is SegaConsole { HasKeyboard: true } sc3000)
+            {
+                sc3000.SetKeyboardRows(Sc3000Keyboard.Matrix(_input.TypingKeysHeld));
+            }
 
             if (console is NesConsole { InputSetup: InputSetup.Zapper } nes)
             {
@@ -1561,6 +1582,14 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
                 var codes = withCodes.Cheats;
                 _cheatsActive = codes.Count > 0;
                 Raise(() => CheatsChanged?.Invoke(this, codes));
+            }
+
+            if (console is IRumbleSource rumble)
+            {
+                for (var port = 0; port < console.ControllerPorts && port < InputService.PortCount; port++)
+                {
+                    _input.SetRumble(port, rumble.RumbleLevel(port));
+                }
             }
 
             _rewind.OnFrame(console);

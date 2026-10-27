@@ -437,15 +437,11 @@ public sealed partial class GameView : Control
                     }
 
                     _pixelAspect = frame.PixelAspect;
-                    var palette = _frames.Palette;
-                    var pixels = frame.Span;
-                    for (var i = 0; i < pixels.Length; i++)
-                    {
-                        _pixels[i] = palette[pixels[i] & 0x7FFF]; // up to 32,768 colours (the SNES uses all of them)
-                    }
+                    var count = frame.Width * frame.Height;
+                    frame.ToArgb(_frames.Palette, _pixels);
 
                     // ARGB as little-endian uint is BGRA in memory, which is the bitmap's format.
-                    MemoryMarshal.AsBytes(_pixels.AsSpan(0, pixels.Length)).CopyTo(_bytes);
+                    MemoryMarshal.AsBytes(_pixels.AsSpan(0, count)).CopyTo(_bytes);
                     bitmap.SetPixelBytes(_bytes);
                 }
 

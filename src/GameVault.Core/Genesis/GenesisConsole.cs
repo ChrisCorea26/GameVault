@@ -383,6 +383,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         switch (address >> 16)
         {
             case < 0x40:
+                Cartridge.WriteWord(address, value);
                 break;
             case 0xA0:
                 Z80AreaWrite(address, (byte)(value >> 8));

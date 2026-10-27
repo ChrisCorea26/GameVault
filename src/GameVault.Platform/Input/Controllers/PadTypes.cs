@@ -76,4 +76,9 @@ public interface IControllerEvents
 public interface IControllerBackend : IDisposable
 {
     void Start(IControllerEvents events);
+
+    /// <summary>Runs a pad's rumble motors at <paramref name="level"/> (0 stops them), where the pad has them.</summary>
+    void SetRumble(int instanceId, float level)
+    {
+    }
 }
