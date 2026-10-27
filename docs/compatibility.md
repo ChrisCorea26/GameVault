@@ -284,6 +284,8 @@ Real cartridges are the owner's to try; see `docs/plans/phase-16.md`.
 | GS drawing: GameVault's homebrew (`tests/Ps2Homebrew`: PATH3 primitives, textures with CLUTs, blending and Z, a VU1 microprogram over PATH1 with PATH2) | ✅ Golden images and pixel probes; `mmi-fpu-check` 16/16 |
 | IOP, SIF, CDVD, SIO2 (DualShock 2, 8 MB memory card), SPU2, IPU | ✅ Unit tests; the EE and IOP running a stand-in BIOS together (SIF handshake and DMA both ways, CDVD reads, a GS frame) |
 | Booting the player's BIOS, ELF and disc fast boot | 🟡 Checked with a stand-in BIOS; real BIOSes and discs are the owner's to try |
-| Mipmapping, GS anti-aliasing, the IPU's command timing, PS1 mode, multitap | Not yet |
+| GS mipmapping: TEX1's LOD, MIPTBP1/2 and MTBA, nearest and blended levels | ✅ Unit tests |
+| Memory card slot 2 (one shared card); L2/R2 pressure from analog triggers | ✅ Unit tests |
+| GS anti-aliasing, the IPU's command timing, PS1 mode, multitap | Not yet |
 
 Real BIOSes and discs are the owner's to try; see `docs/plans/phase-17.md`.

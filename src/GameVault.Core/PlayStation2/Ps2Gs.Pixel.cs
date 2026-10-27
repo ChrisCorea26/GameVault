@@ -86,6 +86,17 @@ public sealed partial class Ps2Gs
         public bool Lcm;
         public int LodL;
         public double LodK;
+
+        /// <summary>MXL: the last mipmap level (0 for none).</summary>
+        public int Mxl;
+
+        /// <summary>MMIN's mipmap use: 0 none, 1 the nearest level, 2 a blend of the two nearest.</summary>
+        public int MipMode;
+
+        /// <summary>Each level's base pointer and buffer width, level 0 being TEX0's.</summary>
+        public MipLevels MipTbp;
+
+        public MipLevels MipTbw;
         public int Ta0;
         public int Ta1;
         public bool Aem;
@@ -98,6 +109,12 @@ public sealed partial class Ps2Gs
 
         /// <summary>The texture's palette (indexed formats only): a snapshot the batch owns.</summary>
         public uint[]? Palette;
+    }
+
+    [InlineArray(7)]
+    private struct MipLevels
+    {
+        private int _element;
     }
 
     [InlineArray(16)]
@@ -224,6 +241,52 @@ public sealed partial class Ps2Gs
         _state.LodL = (int)((tex1 >> 19) & 3);
         var k = (int)((tex1 >> 32) & 0xFFF);
         _state.LodK = (k >= 0x800 ? k - 0x1000 : k) / 16.0;
+        _state.Mxl = Math.Min((int)((tex1 >> 2) & 7), 6);
+        _state.MipMode = _state.Mxl == 0 ? 0 : mmin switch
+        {
+            2 or 4 => 1,
+            3 or 5 => 2,
+            _ => 0,
+        };
+        _state.MipTbp[0] = _state.Tbp;
+        _state.MipTbw[0] = _state.Tbw;
+        if (_state.MipMode != 0)
+        {
+            if ((tex1 & (1 << 9)) != 0)
+            {
+                // MTBA: levels 1–3 packed one after another after level 0, each half the width (ps2tek: "GS Textures").
+                var bp = _state.Tbp;
+                var bw = _state.Tbw;
+                var tw = (int)((tex0 >> 26) & 0xF);
+                var th = (int)((tex0 >> 30) & 0xF);
+                var bits = BitsPerPixel(_state.Tpsm);
+                for (var level = 1; level <= 3; level++)
+                {
+                    bp += (int)(((1L << tw) * (1L << th) * bits) >> 11);
+                    bw = Math.Max(bw >> 1, 1);
+                    tw = Math.Max(tw - 1, 0);
+                    th = Math.Max(th - 1, 0);
+                    _state.MipTbp[level] = bp & 0x3FFF;
+                    _state.MipTbw[level] = bw;
+                }
+            }
+            else
+            {
+                var mip1 = _regs[RegMipTbp1_1 + ctxt];
+                for (var level = 1; level <= 3; level++)
+                {
+                    _state.MipTbp[level] = (int)((mip1 >> ((level - 1) * 20)) & 0x3FFF);
+                    _state.MipTbw[level] = (int)((mip1 >> ((level - 1) * 20 + 14)) & 0x3F);
+                }
+            }
+
+            var mip2 = _regs[RegMipTbp2_1 + ctxt];
+            for (var level = 4; level <= 6; level++)
+            {
+                _state.MipTbp[level] = (int)((mip2 >> ((level - 4) * 20)) & 0x3FFF);
+                _state.MipTbw[level] = (int)((mip2 >> ((level - 4) * 20 + 14)) & 0x3F);
+            }
+        }
 
         _state.Palette = null;
         if (_state.Tme && IsIndexed(_state.Tpsm))

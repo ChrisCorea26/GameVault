@@ -233,6 +233,15 @@ protocol can't be checked here. Tests: `PsDualShockTests`,
 - The DualShock 2's pressure-sensitive buttons, from the analog triggers and full presses.
 - Mipmapping and LOD in the software GS.
 
+**As built.** Mipmapping in the GS: MXL, MMIN's four mipmap modes, the levels' addresses from MIPTBP1/2 or MTBA's
+packed layout, each level's size and region clamp halved, and a blend by LOD's fraction between levels. Slot 2
+holds one card shared by every game (`Memory card (slot 2).ps2`); SIO2's state is now version 2 and still loads
+version 1. L2 and R2 report how far a pad's analog triggers are pulled (`ControllerState` bits 50–63), other
+buttons report full presses. **Not done:** the multitap — SIO2's multitap commands (21h) can't be checked here
+against hardware or a test program, so rather than guess they stay open in `docs/bugs.md`; and the DualShock 2's
+vibration, which needs the rumble path from item 10. Tests: `Ps2GsRasterTests`, `Sio2Tests`,
+`PlayStation2PlatformTests`, `ControllerManagerTests`.
+
 ## 13. Internet netplay
 - A relay server option and STUN-based NAT traversal on top of the LAN rollback netplay (SPEC §7.7).
 - Netplay for Famicom Disk System games (disk contents synced at start).
@@ -257,6 +266,14 @@ profile of real games shows the CPU on top; until then the GPU renderer (item 14
 ## 16. PS2 netplay and run-ahead
 Make PS2 save states small and fast enough (dirty-page tracking for the 32 MB of RAM and the GS's 4 MB), then
 enable run-ahead and rollback netplay.
+
+**Measured: not possible yet.** A PS2 state is 51 MB. Saving it into a reused writer takes 7.2 ms and loading it
+9.1 ms (Release, the Linux build machine, after the `gs-basic` homebrew's tenth frame), against a 16.7 ms frame.
+Rollback saves a state every frame and replays several frames after a late input, and run-ahead saves, runs two
+frames and loads every frame; on top of a PS2 frame, which already takes most of the frame's time in real games, either
+would roughly halve the speed. Dirty-page tracking could make the save cheaper but not the replays. This waits until
+the PS2 runs well above full speed (the GPU renderer, item 14); `SystemBudgets` keeps both off with a message until
+then.
 
 ## 17. Sega CD and 32X
 The Sega CD (a second 68000, the CD drive, PCM and the ASIC's scaling) with the player's own BIOS; the 32X (two

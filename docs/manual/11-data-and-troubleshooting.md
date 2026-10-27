@@ -11,7 +11,7 @@ files are read from where you put them.
 |---|---|
 | `settings.json` | Your settings, including your button remaps |
 | `library.db` | Library: games found, catalog, ownership, status, ratings, notes, playtime |
-| `Saves\` | Battery saves (`.sav`), Disk System and Apple II disk writes (`.fdssave`, `.a2save`), PlayStation memory cards (`.mcd`), N64 Controller Paks (`.mpk`), PlayStation 2 memory cards (`.ps2`) |
+| `Saves\` | Battery saves (`.sav`), Disk System and Apple II disk writes (`.fdssave`, `.a2save`), PlayStation memory cards (`.mcd`), N64 Controller Paks (`.mpk`), PlayStation 2 memory cards (`.ps2`, and `Memory card (slot 2).ps2`, the card every PS2 game shares in slot 2) |
 | `States\` | Save states and their thumbnails |
 | `Passwords\` | Captured passwords |
 | `Journal\` | Notes, screenshots and maps |
