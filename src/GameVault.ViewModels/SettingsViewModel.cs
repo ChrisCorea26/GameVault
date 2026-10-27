@@ -40,6 +40,16 @@ public sealed partial class SettingsViewModel(
     }
 
     [RelayCommand]
+    private async Task ChooseSegaCdBiosAsync()
+    {
+        if (await PickAsync(".bin", ".rom", ".md") is { } path)
+        {
+            SegaCdBiosPath = await ImportAsync(BiosKind.SegaCd, path);
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
     private async Task ChooseAtari5200BiosAsync()
     {
         if (await PickAsync(".rom", ".bin") is { } path)
@@ -155,6 +165,9 @@ public sealed partial class SettingsViewModel(
     /// <summary>The player's own Atari 5200 BIOS (5200.rom). GameVault never includes it. Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string Atari5200BiosPath { get; set; } = string.Empty;
+    /// <summary>The player's own Sega CD BIOS. GameVault never includes it. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string SegaCdBiosPath { get; set; } = string.Empty;
     /// <summary>The netplay relay server ("host:port"), or empty to connect directly. Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string NetplayRelayServer { get; set; } = string.Empty;
@@ -193,6 +206,12 @@ public sealed partial class SettingsViewModel(
     /// <summary>PlayStation controllers start in analog mode (takes effect the next time a game starts).</summary>
     [ObservableProperty]
     public partial bool PlayStationAnalog { get; set; }
+
+    public IReadOnlyList<string> PlayStationResolutionOptions { get; } = ["1× (original)", "2×", "3×"];
+
+    /// <summary>The PlayStation's internal resolution, as an index into <see cref="PlayStationResolutionOptions"/>.</summary>
+    [ObservableProperty]
+    public partial int PlayStationResolutionIndex { get; set; }
 
     /// <summary>N64 games get the Expansion Pak (takes effect the next time a game starts).</summary>
     [ObservableProperty]
@@ -325,6 +344,7 @@ public sealed partial class SettingsViewModel(
         DumperPath = settings.DumperPath;
         FdsBiosPath = settings.FdsBiosPath;
         Atari5200BiosPath = settings.Atari5200BiosPath;
+        SegaCdBiosPath = settings.SegaCdBiosPath;
         NetplayRelayServer = settings.NetplayRelayServer;
         AppleIIRomPath = settings.AppleIIRomPath;
         AppleIIDiskRomPath = settings.AppleIIDiskRomPath;
@@ -334,6 +354,7 @@ public sealed partial class SettingsViewModel(
         SnesChipRomFolder = settings.SnesChipRomFolder;
         PlayStationFastBoot = settings.PlayStationFastBoot;
         PlayStationAnalog = settings.PlayStationAnalog;
+        PlayStationResolutionIndex = Math.Clamp(settings.PlayStationInternalResolution, 1, 3) - 1;
         N64ExpansionPak = settings.N64ExpansionPak;
         N64RumblePak = settings.N64RumblePak;
         PlayStation2BiosPath = settings.PlayStation2BiosPath;
@@ -405,6 +426,9 @@ public sealed partial class SettingsViewModel(
     private void SaveAtari5200BiosPath() => SaveIfLoaded();
 
     [RelayCommand]
+    private void SaveSegaCdBiosPath() => SaveIfLoaded();
+
+    [RelayCommand]
     private void SaveNetplayRelayServer() => SaveIfLoaded();
 
     [RelayCommand]
@@ -421,6 +445,8 @@ public sealed partial class SettingsViewModel(
     partial void OnPlayStationFastBootChanged(bool value) => SaveIfLoaded();
 
     partial void OnPlayStationAnalogChanged(bool value) => SaveIfLoaded();
+
+    partial void OnPlayStationResolutionIndexChanged(int value) => SaveIfLoaded();
 
     partial void OnN64ExpansionPakChanged(bool value) => SaveIfLoaded();
 
@@ -482,6 +508,7 @@ public sealed partial class SettingsViewModel(
             DumperPath = DumperPath.Trim().Trim('"'),
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),
             Atari5200BiosPath = Atari5200BiosPath.Trim().Trim('"'),
+            SegaCdBiosPath = SegaCdBiosPath.Trim().Trim('"'),
             NetplayRelayServer = NetplayRelayServer.Trim(),
             AppleIIRomPath = AppleIIRomPath.Trim().Trim('"'),
             AppleIIDiskRomPath = AppleIIDiskRomPath.Trim().Trim('"'),
@@ -491,6 +518,7 @@ public sealed partial class SettingsViewModel(
             SnesChipRomFolder = SnesChipRomFolder.Trim().Trim('"'),
             PlayStationFastBoot = PlayStationFastBoot,
             PlayStationAnalog = PlayStationAnalog,
+            PlayStationInternalResolution = Math.Clamp(PlayStationResolutionIndex, 0, 2) + 1,
             N64ExpansionPak = N64ExpansionPak,
             N64RumblePak = N64RumblePak,
             PlayStation2BiosPath = PlayStation2BiosPath.Trim().Trim('"'),

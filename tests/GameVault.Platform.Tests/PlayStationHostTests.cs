@@ -120,6 +120,34 @@ public sealed class PlayStationHostTests : IDisposable
     }
 
     [Fact]
+    public async Task At_2x_the_gpu_renderer_draws_the_picture_on_windows_and_the_software_gpu_elsewhere()
+    {
+        var path = Path.Combine(_root.FullName, "Counter.exe");
+        await File.WriteAllBytesAsync(path, CountingExe());
+        var frames = new FrameSink();
+        var settings = new InMemorySettingsStore(new AppSettings { PlayStationInternalResolution = 2 });
+        using var host = new EmulatorHost(frames, new InputService(KeyboardMapping.CreateDefault()), settings);
+
+        await host.LoadAsync(path);
+
+        // Direct3D only exists on Windows (CI's Windows runner has WARP); elsewhere the software picture stays.
+        var (width, height) = OperatingSystem.IsWindows() ? (512, 480) : (256, 240);
+        var green = 0u;
+        await WaitFor(() => Task.FromResult(frames.TryGetVideoFrame(out var frame) && frame.Width == width && frame.Height == height
+            && (green = Argb(frame, frames)[(width * height) / 2]) != 0xFF000000));
+        ((green >> 8) & 0xFF).Should().BeGreaterThan(200, "the screen was filled green");
+        ((green >> 16) & 0xFF).Should().BeLessThan(20);
+        host.Stop();
+    }
+
+    private static uint[] Argb(VideoFrame frame, FrameSink frames)
+    {
+        var argb = new uint[frame.Width * frame.Height];
+        frame.ToArgb(frames.Palette, argb);
+        return argb;
+    }
+
+    [Fact]
     public async Task A_disc_without_a_bios_gets_a_clear_message()
     {
         var cue = WriteDisc("Game", CountingExe());

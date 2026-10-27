@@ -267,6 +267,8 @@ datagrams; with **Settings → Netplay → Relay server** set, hosting goes thro
   differences fixed-function blending makes.
 - Software stays the default where results must be exact (netplay, verified challenges).
 - Its own plan file first.
+- **Status:** milestone 1, the PlayStation GPU at 2× and 3×, is done (`docs/plans/gpu-renderers.md`). The N64 RDP
+  and PS2 GS milestones are future work, in that plan.
 
 ## 15. N64 recompiler
 A VR4300 block recompiler to IL like the EE's, with the interpreter as the reference and the same kind of
@@ -292,6 +294,12 @@ then.
 ## 17. Sega CD and 32X
 The Sega CD (a second 68000, the CD drive, PCM and the ASIC's scaling) with the player's own BIOS; the 32X (two
 SH-2s and its VDP). Its own plan file first.
+
+**As built (Sega CD).** `docs/plans/sega-cd-32x.md` milestone 1: `SegaCdUnit` (the sub CPU, PRG-RAM, Word RAM in
+2M and 1M mode, backup RAM, the gate array), `SegaCdDrive` (the CDD's protocol at 75 Hz), `Lc8951` (the CDC),
+`Rf5c164` (PCM) and `SegaCdGraphics` (the stamp ASIC), plugged into `GenesisConsole`. `SegaCdDiscs` tells Sega CD
+discs from PlayStation ones; the player's BIOS in **Settings → Sega CD**. Tests: `SegaCdTests`, `SegaCdHostTests`.
+The 32X is milestone 2.
 
 ## 18. Phase 18: GameCube / Wii
 As SPEC §7.11 and §12. Its own `docs/plans/phase-18.md` first.

@@ -23,7 +23,7 @@ public static class RomFiles
     /// <summary>
     /// The system a file is for, from its extension; null for other files (and .zip, whose content decides). Disc images
     /// are told apart by their content when they're read (<see cref="Read"/>): a .cue, .chd or .m3u may be a PlayStation 2
-    /// disc, and an .iso a PlayStation disc.
+    /// disc, a .cue or .chd a Sega CD disc, and an .iso a PlayStation disc.
     /// </summary>
     public static GameSystem? SystemOf(string path) => Path.GetExtension(path).ToLowerInvariant() switch
     {
@@ -71,6 +71,11 @@ public static class RomFiles
             // readable). SYSTEM.CNF tells a PlayStation 2 disc (BOOT2) from a PlayStation disc.
             GameVault.Library.Discs.DiscImages.Files(path);
             var extension = Path.GetExtension(path).ToLowerInvariant();
+            if (GameVault.Library.Discs.SegaCdDiscs.IsSegaCd(path))
+            {
+                return new RomFile(GameVault.Library.Discs.SegaCdDiscs.Reference(path), GameSystem.SegaCd, extension);
+            }
+
             return GameVault.Library.Discs.Ps2Discs.SystemOf(path) switch
             {
                 GameSystem.PlayStation2 => new RomFile(GameVault.Library.Discs.Ps2Discs.Reference(path), GameSystem.PlayStation2, extension),

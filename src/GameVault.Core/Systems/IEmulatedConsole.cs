@@ -19,6 +19,7 @@ public enum GameSystem
     PlayStation2,
     Atari2600,
     Atari5200,
+    SegaCd,
     GameCube,
 }
 

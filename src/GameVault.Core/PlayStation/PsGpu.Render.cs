@@ -111,8 +111,36 @@ public sealed partial class PsGpu
         shading.Depth = (int)((_drawMode >> 7) & 3);
     }
 
+    private PsGpuDraw BackendDraw(in Shading shading) => new()
+    {
+        Textured = shading.Textured,
+        Raw = shading.Raw,
+        SemiTransparent = shading.SemiTransparent,
+        Gouraud = shading.Gouraud,
+        SemiMode = shading.SemiMode,
+        PageX = shading.PageX,
+        PageY = shading.PageY,
+        Depth = shading.Depth,
+        ClutX = shading.ClutX,
+        ClutY = shading.ClutY,
+        TextureWindow = _textureWindow,
+        DrawLeft = _drawLeft,
+        DrawTop = _drawTop,
+        DrawRight = _drawRight,
+        DrawBottom = _drawBottom,
+        SetMask = _setMask,
+        CheckMask = _checkMask,
+    };
+
+    private static PsGpuVertex BackendVertex(in Vertex v) => new() { X = v.X, Y = v.Y, R = v.R, G = v.G, B = v.B, U = v.U, V = v.V };
+
     private void DrawTriangle(Vertex a, Vertex b, Vertex c, in Shading shading)
     {
+        if (Backend is { } backend)
+        {
+            backend.Triangle(BackendVertex(a), BackendVertex(b), BackendVertex(c), BackendDraw(shading));
+        }
+
         var area = Edge(a.X, a.Y, b.X, b.Y, c.X, c.Y);
         if (area == 0)
         {
@@ -272,6 +300,13 @@ public sealed partial class PsGpu
             toColor = fromColor;
         }
 
+        if (Backend is { } backend)
+        {
+            var start = new PsGpuVertex { X = x0, Y = y0, R = (int)(fromColor & 0xFF), G = (int)((fromColor >> 8) & 0xFF), B = (int)((fromColor >> 16) & 0xFF) };
+            var end = new PsGpuVertex { X = x1, Y = y1, R = (int)(toColor & 0xFF), G = (int)((toColor >> 8) & 0xFF), B = (int)((toColor >> 16) & 0xFF) };
+            backend.Line(start, end, BackendDraw(shading));
+        }
+
         // Lines step along the longer axis in 32.32 fixed point, always from left to right, with colours in 12-bit
         // fixed point; Mednafen's model of the hardware's line unit (psx-spx: "GPU Render Line Commands").
         var k = Math.Max(dx, dy);
@@ -385,6 +420,11 @@ public sealed partial class PsGpu
         int r = (int)(color & 0xFF), g = (int)((color >> 8) & 0xFF), b = (int)((color >> 16) & 0xFF);
         var flipX = (_drawMode & 0x1000) != 0;
         var flipY = (_drawMode & 0x2000) != 0;
+        if (Backend is { } backend)
+        {
+            var corner = new PsGpuVertex { X = x0, Y = y0, R = r, G = g, B = b, U = u0, V = v0 };
+            backend.Rectangle(corner, width, height, flipX, flipY, BackendDraw(shading));
+        }
 
         for (var dy = 0; dy < height; dy++)
         {
@@ -519,6 +559,16 @@ public sealed partial class PsGpu
     private static int SignExtend11(uint value) => (int)(value << 21) >> 21;
 
     // ---- Display ----
+
+    /// <summary>The displayed area's top-left corner in VRAM (GP1 $05).</summary>
+    public int DisplayX => _displayX;
+
+    public int DisplayY => _displayY;
+
+    /// <summary>The display shows 24-bit colour (GP1 $08 bit 4): MDEC video, which the GPU renderers leave to VRAM.</summary>
+    public bool Display24Bit => (_displayMode & 0x10) != 0;
+
+    public bool DisplayEnabled => !_displayDisabled;
 
     /// <summary>The displayed width in pixels, from GP1 $08: 256, 320, 512 or 640, or 368.</summary>
     public int DisplayWidth => (_displayMode & 0x40) != 0

@@ -285,8 +285,8 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 | Item | Source |
 |---|---|
 | SNES enhancement chips still missing: Cx4, SPC7110, ST018, S-RTC (the SA-1, S-DD1, OBC1, ST010 and ST011 are done) | `docs/plans/outstanding-work.md` §5 |
-| Genesis stereo, EEPROM saves on EA/Acclaim/Codemasters boards, Sega CD, 32X | `docs/plans/phase-13.md`, `docs/plans/outstanding-work.md` §7, §17 |
-| PlayStation multitap, Justifier, GameShark, memory card manager, GPU renderer (the DualShock, GunCon and mouse are done) | `docs/plans/phase-15.md` |
+| Genesis stereo, EEPROM saves on EA/Acclaim/Codemasters boards, the 32X; the Sega CD's mode 1, CD+G and 1M cell-image view | `docs/plans/phase-13.md`, `docs/plans/outstanding-work.md` §7, §17, `docs/plans/sega-cd-32x.md` |
+| PlayStation multitap, Justifier, GameShark, memory card manager (the DualShock, GunCon, mouse and GPU renderer are done) | `docs/plans/phase-15.md` |
 | N64 GPU renderer and recompiler, Transfer Pak, 64DD, GameShark (the Rumble Pak is done) | README status, `docs/plans/phase-16.md` |
 | ~~Apple II monochrome, user character ROM, mid-frame mode changes~~ Done (outstanding-work §9) | `docs/plans/phase-12.md` |
 | RetroAchievements approval for hardcore unlocks; real-game and real-cartridge checks | Owner tasks in README and phase plans |
