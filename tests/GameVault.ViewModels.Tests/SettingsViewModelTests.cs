@@ -165,4 +165,48 @@ public class SettingsViewModelTests
         store.Current.Should().Be(new AppSettings());
         store.SaveCount.Should().Be(1);
     }
+
+    [Fact]
+    public async Task Choose_buttons_fill_the_path_boxes_from_a_file_picker_and_save()
+    {
+        var store = new InMemorySettingsStore();
+        var vm = new SettingsViewModel(
+            store,
+            new InputSettingsViewModel(new SampleInputDevicesService(), store),
+            new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()),
+            picker: new SampleGameFilePicker());
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        await vm.ChooseFdsBiosCommand.ExecuteAsync(null);
+        await vm.ChooseAppleDiskRomCommand.ExecuteAsync(null);
+        await vm.ChoosePlayStationBiosCommand.ExecuteAsync(null);
+
+        vm.FdsBiosPath.Should().Be(@"C:\Games\BIOS\sample.rom");
+        store.Current.FdsBiosPath.Should().Be(@"C:\Games\BIOS\sample.rom");
+        store.Current.AppleIIDiskRomPath.Should().Be(@"C:\Games\BIOS\sample.rom");
+        store.Current.PlayStationBiosPath.Should().Be(@"C:\Games\BIOS\sample.bin");
+    }
+
+    [Fact]
+    public async Task Hide_screen_edges_offers_an_amount()
+    {
+        var store = new InMemorySettingsStore();
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.OverscanIndex.Should().Be(2, "8 lines by default");
+
+        vm.OverscanIndex = 4;
+        store.Current.CropOverscan.Should().BeTrue();
+        store.Current.OverscanCropLines.Should().Be(16);
+        store.Current.CropLines().Should().Be(16);
+
+        vm.OverscanIndex = 0;
+        store.Current.CropOverscan.Should().BeFalse();
+        store.Current.CropLines().Should().Be(0);
+
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.OverscanIndex.Should().Be(0);
+        vm.OverscanIndex = 1;
+        store.Current.CropLines().Should().Be(4);
+    }
 }

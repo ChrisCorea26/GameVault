@@ -150,6 +150,10 @@ Platform 151 and Dumper 6.
 - **Sample data:** two profiles, Alex and Sam (PIN 1234), and a sample challenge and result.
 
 ## Owner checklist (later, with real games)
+Maps from public disassemblies now ship for Super Mario Bros. (World), The Legend of Zelda (USA) and Metroid (USA)
+(GV-007, `docs/gamedb-sources.md`); steps 1 and 2 are to check those on real copies and add the rest. Candidates with
+only wiki sources so far: Mega Man 2, Castlevania, Kid Icarus.
+
 1. Choose about 5 launch games (for example, a platformer with lives, an overworld adventure, and a game
    with a visible health bar).
 2. Write or check their memory maps against your own copies with a RAM viewer, and add them to

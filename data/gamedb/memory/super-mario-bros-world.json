@@ -1,0 +1,20 @@
+{
+  "sha1": "facee9c577a5262dbe33ac4930bb0b58c8c037f7",
+  "title": "Super Mario Bros. (World)",
+  "values": {
+    "mode": { "address": "0x0770" },
+    "lives": { "address": "0x075A", "offset": 1 },
+    "world": { "address": "0x075F", "offset": 1 },
+    "level": { "address": "0x075C", "offset": 1 },
+    "coins": { "address": "0x075E" },
+    "power": { "address": "0x0756" }
+  },
+  "playing": [ { "value": "mode", "op": "==", "target": 1 } ],
+  "lives": "lives",
+  "overlay": [
+    { "value": "world", "label": "World" },
+    { "value": "level", "label": "Level" },
+    { "value": "lives", "label": "Lives" },
+    { "value": "coins", "label": "Coins" }
+  ]
+}

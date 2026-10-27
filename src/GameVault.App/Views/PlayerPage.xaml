@@ -43,7 +43,19 @@
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
         <ColumnDefinition Width="Auto" />
+        <ColumnDefinition Width="Auto" />
       </Grid.ColumnDefinitions>
+
+      <!-- input.md §9 (GV-003): the port cards and Remap… in the game, so players can swap without leaving it -->
+      <Button Grid.Column="15" AccessKey="O" Content="Controllers">
+        <Button.Flyout>
+          <Flyout Closed="ControllersFlyout_Closed" Placement="BottomEdgeAlignedRight">
+            <ScrollViewer Width="660" MaxHeight="640">
+              <controls:ControllerPortsPanel ViewModel="{x:Bind ViewModel.Controllers}" />
+            </ScrollViewer>
+          </Flyout>
+        </Button.Flyout>
+      </Button>
 
       <!-- SPEC §7.10: RetroAchievements for the running game, when RetroAchievements recognised it -->
       <Button
@@ -200,7 +212,11 @@
       </Button>
 
       <!-- SPEC §7.9: verified challenges; shown when the game has a memory map or a challenge is open. -->
-      <Button Grid.Column="13" AccessKey="H" Content="Challenges">
+      <Button
+          Grid.Column="13"
+          AccessKey="H"
+          Content="Challenges"
+          Visibility="{x:Bind ViewModel.ShowChallenges, Mode=OneWay}">
         <Button.Flyout>
           <Flyout Closed="Flyout_Closed" Placement="BottomEdgeAlignedRight">
             <StackPanel Width="380" Spacing="12">
@@ -426,7 +442,11 @@
       </InfoBar>
     </StackPanel>
 
-    <controls:GameView x:Name="Game" Grid.Row="2" ZapperEnabled="{x:Bind ViewModel.UsesZapper, Mode=OneWay}" />
+    <controls:GameView
+        x:Name="Game"
+        Grid.Row="2"
+        PaddleEnabled="{x:Bind ViewModel.UsesPaddle, Mode=OneWay}"
+        ZapperEnabled="{x:Bind ViewModel.UsesZapper, Mode=OneWay}" />
 
     <!-- SPEC §7.9: "Previously on…" after a break of a day or more -->
     <Border
@@ -619,11 +639,22 @@
         VerticalAlignment="Bottom"
         Background="{ThemeResource AcrylicBackgroundFillColorDefaultBrush}"
         CornerRadius="8"
-        Visibility="{x:Bind ViewModel.IsRewinding, Mode=OneWay}">
+        Visibility="{x:Bind ViewModel.ShowRewindBar, Mode=OneWay}">
+      <!-- The scrub bar (GV-019): spans the whole history; drag it to a point and let go to play from there -->
       <StackPanel Orientation="Horizontal" Spacing="12">
         <FontIcon Glyph="&#xED3C;" />
-        <ProgressBar Width="240" VerticalAlignment="Center" Maximum="60" Value="{x:Bind ViewModel.RewindSeconds, Mode=OneWay}" />
-        <TextBlock VerticalAlignment="Center" Text="Rewinding" />
+        <Slider
+            x:Name="RewindSlider"
+            Width="320"
+            VerticalAlignment="Center"
+            AutomationProperties.Name="Rewind to"
+            IsThumbToolTipEnabled="False"
+            Maximum="{x:Bind ViewModel.RewindMaxSeconds, Mode=OneWay}"
+            Minimum="0"
+            StepFrequency="0.0333"
+            ValueChanged="RewindSlider_ValueChanged"
+            Value="{x:Bind ViewModel.RewindSeconds, Mode=OneWay}" />
+        <TextBlock VerticalAlignment="Center" Text="Rewinding — drag to choose a point" />
       </StackPanel>
     </Border>
 

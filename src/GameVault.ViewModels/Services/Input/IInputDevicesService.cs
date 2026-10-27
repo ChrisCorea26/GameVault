@@ -1,7 +1,13 @@
 namespace GameVault.ViewModels.Services.Input;
 
 /// <summary>An input source on a port: the keyboard or one game controller.</summary>
-public sealed record InputSourceInfo(string Id, string Name, bool IsKeyboard, bool IsPinned);
+/// <param name="Model">The controller's model (its SDL GUID), which remaps are stored by (input.md §6); null for the keyboard.</param>
+public sealed record InputSourceInfo(string Id, string Name, bool IsKeyboard, bool IsPinned, string? Model = null);
+
+/// <summary>A key or pad button pressed while <see cref="IInputDevicesService.CaptureMode"/> is on (Remap…).</summary>
+/// <param name="SourceId">The pad's source id (<see cref="InputSourceInfo.Id"/>); the keyboard is captured by the page.</param>
+/// <param name="Input">An <see cref="InputCodes"/> code such as "pad:South".</param>
+public sealed record CapturedInput(string SourceId, string Input);
 
 /// <summary>One console port and what drives it. <paramref name="WaitingFor"/> names a disconnected pad during play.</summary>
 public sealed record InputPortInfo(int Port, IReadOnlyList<InputSourceInfo> Sources, string? WaitingFor);
@@ -51,4 +57,18 @@ public interface IInputDevicesService
     void AssignToPort(string sourceId, int port);
 
     void SetPinned(string sourceId, bool pinned);
+
+    /// <summary>The remaps in effect (GV-001). Setting it applies them to the keyboard and pads right away.</summary>
+    InputRemapSet Remaps { get; set; }
+
+    /// <summary>The running game's key, for its own remaps; null in the menus.</summary>
+    string? GameKey { get; set; }
+
+    /// <summary>
+    /// While on, a pad button goes to <see cref="InputCaptured"/> instead of the game or the menus (Remap… is waiting
+    /// for "press the button to use").
+    /// </summary>
+    bool CaptureMode { get; set; }
+
+    event EventHandler<CapturedInput>? InputCaptured;
 }

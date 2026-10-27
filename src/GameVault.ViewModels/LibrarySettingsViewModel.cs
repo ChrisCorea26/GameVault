@@ -6,7 +6,7 @@ using GameVault.ViewModels.Services;
 namespace GameVault.ViewModels;
 
 /// <summary>Settings → Library (SPEC §9.2): the folders GameVault looks in, and a manual rescan.</summary>
-public sealed partial class LibrarySettingsViewModel(ILibraryService library, IGameFilePicker picker) : ObservableObject
+public sealed partial class LibrarySettingsViewModel(ILibraryService library, IGameFilePicker picker, IConfirmationService? confirm = null) : ObservableObject
 {
     public ObservableCollection<LibraryFolderViewModel> Folders { get; } = [];
 
@@ -71,6 +71,14 @@ public sealed partial class LibrarySettingsViewModel(ILibraryService library, IG
 
     internal async Task RemoveAsync(LibraryFolderViewModel folder)
     {
+        if (!await (confirm ?? FixedConfirmation.Yes).ConfirmAsync(
+            "Remove this folder?",
+            $"GameVault stops looking in {folder.Path}. Its games leave your library; the files themselves aren't deleted, and adding the folder again brings them back with their saves and notes.",
+            "Remove"))
+        {
+            return;
+        }
+
         await library.RemoveFolderAsync(folder.Path);
         Folders.Remove(folder);
         OnPropertyChanged(nameof(HasNoFolders));

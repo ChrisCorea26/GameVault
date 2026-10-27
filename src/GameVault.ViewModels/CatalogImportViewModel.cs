@@ -60,7 +60,7 @@ public sealed partial class CatalogImportViewModel(ILibraryService library, IGam
             var preview = await library.PreviewCatalogAsync(path);
             if (preview.Games == 0)
             {
-                ErrorMessage = "That file doesn't list any NES games. Choose a DAT file in the Logiqx XML format, such as a No-Intro DAT.";
+                ErrorMessage = "That file doesn't list any games GameVault plays. Choose a DAT file in the Logiqx XML format, such as a No-Intro or Redump DAT.";
                 return;
             }
 

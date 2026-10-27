@@ -268,4 +268,32 @@ public class TurboStickAndPresetTests
 
         _input.Sample(0).Should().Be(ControllerState.None);
     }
+
+    [Fact]
+    public void The_power_pad_mat_is_played_on_the_keyboard_while_its_game_runs()
+    {
+        _input.KeyDown(VirtualKeys.U).Should().BeFalse("U means nothing until a Power Pad game runs");
+        _input.KeyUp(VirtualKeys.U);
+
+        _input.PowerPadActive = true;
+        _input.KeyDown(VirtualKeys.U).Should().BeTrue(); // button 1
+        _input.KeyDown(VirtualKeys.Slash); // button 12
+        _input.KeyDown(VirtualKeys.Z); // the controller still works
+        _input.SamplePowerPad().Should().Be((ushort)(1 | (1 << 11)));
+        _input.Sample(0).Should().Be(ControllerState.B);
+
+        _input.KeyUp(VirtualKeys.U);
+        _input.SamplePowerPad().Should().Be((ushort)(1 << 11));
+        _input.ReleaseAll();
+        _input.SamplePowerPad().Should().Be(0);
+    }
+
+    [Fact]
+    public void The_paddle_follows_the_mouse()
+    {
+        _input.SetPaddle(1.4, fire: true);
+        _input.SamplePaddle().Should().Be((1.0, true));
+        _input.ReleaseAll();
+        _input.SamplePaddle().Fire.Should().BeFalse();
+    }
 }

@@ -24,6 +24,22 @@ public sealed class WinUiGameFilePicker : IGameFilePicker
         return result?.Path;
     }
 
+    public async Task<string?> PickSystemFileAsync(IReadOnlyList<string> extensions)
+    {
+        var picker = new FileOpenPicker(App.MainWindow.AppWindow.Id)
+        {
+            SuggestedStartLocation = PickerLocationId.DocumentsLibrary,
+            CommitButtonText = "Choose",
+        };
+        foreach (var extension in extensions.Count > 0 ? extensions : ["*"])
+        {
+            picker.FileTypeFilter.Add(extension);
+        }
+
+        var result = await picker.PickSingleFileAsync();
+        return result?.Path;
+    }
+
     public async Task<string?> PickDiskImageAsync()
     {
         var picker = new FileOpenPicker(App.MainWindow.AppWindow.Id)

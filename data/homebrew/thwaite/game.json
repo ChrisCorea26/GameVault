@@ -1,0 +1,11 @@
+{
+  "file": "thwaite.nes",
+  "title": "Thwaite",
+  "developer": "Damian Yerrick",
+  "publisher": "Homebrew",
+  "year": 2011,
+  "genre": "Shooter",
+  "players": 2,
+  "license": "GPL-3.0-or-later",
+  "region": "World"
+}

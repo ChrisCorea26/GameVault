@@ -34,6 +34,8 @@
   <!-- The game database (SPEC §7.5) ships next to the executable. -->
   <ItemGroup>
     <Content Include="..\..\data\gamedb\**\*.json" Link="data\gamedb\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <!-- SPEC §6.4: the bundled homebrew games with their licenses (and Thwaite's source, as the GPL asks) -->
+    <Content Include="..\..\data\homebrew\**\*" Link="data\homebrew\%(RecursiveDir)%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

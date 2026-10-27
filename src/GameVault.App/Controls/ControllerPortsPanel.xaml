@@ -1,0 +1,201 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  docs/design/input.md §9: one card per port with its sources (Pin, Remap…, Swap with Player N), the controllers not
+  assigned to a port (Use for Player N), and the Remap… editor (GV-001, GV-002, GV-018). Used in Settings and in the
+  Player's Controllers flyout (GV-003).
+-->
+<UserControl
+    x:Class="GameVault.App.Controls.ControllerPortsPanel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:helpers="using:GameVault.App.Helpers"
+    xmlns:vm="using:GameVault.ViewModels"
+    PreviewKeyDown="Panel_PreviewKeyDown">
+
+  <StackPanel Spacing="8">
+    <ItemsRepeater ItemsSource="{x:Bind ViewModel.Ports, Mode=OneWay}">
+      <ItemsRepeater.Layout>
+        <UniformGridLayout MinColumnSpacing="8" MinItemWidth="300" MinRowSpacing="8" />
+      </ItemsRepeater.Layout>
+      <ItemsRepeater.ItemTemplate>
+        <DataTemplate x:DataType="vm:InputPortViewModel">
+          <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+            <StackPanel Spacing="8">
+              <Grid>
+                <TextBlock VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind Title}" />
+                <DropDownButton HorizontalAlignment="Right" AutomationProperties.Name="Swap players" Content="Swap">
+                  <DropDownButton.Flyout>
+                    <Flyout>
+                      <ItemsRepeater ItemsSource="{x:Bind SwapChoices}">
+                        <ItemsRepeater.ItemTemplate>
+                          <DataTemplate x:DataType="vm:PlayerChoiceViewModel">
+                            <Button
+                                Margin="0,2"
+                                HorizontalAlignment="Stretch"
+                                Command="{x:Bind ChooseCommand}"
+                                Content="{x:Bind Label}" />
+                          </DataTemplate>
+                        </ItemsRepeater.ItemTemplate>
+                      </ItemsRepeater>
+                    </Flyout>
+                  </DropDownButton.Flyout>
+                </DropDownButton>
+              </Grid>
+              <ItemsRepeater ItemsSource="{x:Bind Sources}">
+                <ItemsRepeater.ItemTemplate>
+                  <DataTemplate x:DataType="vm:InputSourceViewModel">
+                    <Grid Padding="0,4" ColumnSpacing="8">
+                      <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                      </Grid.ColumnDefinitions>
+                      <FontIcon FontSize="16" Glyph="{x:Bind Glyph}" />
+                      <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{x:Bind Name}" TextTrimming="CharacterEllipsis" />
+                      <HyperlinkButton
+                          Grid.Column="2"
+                          Command="{x:Bind TogglePinCommand}"
+                          Content="{x:Bind PinLabel}"
+                          Visibility="{x:Bind CanPin}" />
+                      <HyperlinkButton Grid.Column="3" Command="{x:Bind RemapCommand}" Content="Remap…" />
+                    </Grid>
+                  </DataTemplate>
+                </ItemsRepeater.ItemTemplate>
+              </ItemsRepeater>
+              <TextBlock
+                  Foreground="{ThemeResource SystemFillColorCautionBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="{x:Bind WaitingText}"
+                  Visibility="{x:Bind IsWaiting}" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="No controller. Connect one, or pick one below."
+                  Visibility="{x:Bind HasNoSources}" />
+            </StackPanel>
+          </Border>
+        </DataTemplate>
+      </ItemsRepeater.ItemTemplate>
+    </ItemsRepeater>
+
+    <Border
+        Padding="16"
+        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+        CornerRadius="8"
+        Visibility="{x:Bind ViewModel.HasUnassigned, Mode=OneWay, FallbackValue=Collapsed}">
+      <StackPanel Spacing="8">
+        <TextBlock Text="Other controllers" />
+        <ItemsRepeater ItemsSource="{x:Bind ViewModel.Unassigned, Mode=OneWay}">
+          <ItemsRepeater.ItemTemplate>
+            <DataTemplate x:DataType="vm:UnassignedControllerViewModel">
+              <StackPanel Padding="0,4" Spacing="4">
+                <TextBlock Text="{x:Bind Name}" />
+                <ItemsRepeater ItemsSource="{x:Bind Players}">
+                  <ItemsRepeater.Layout>
+                    <StackLayout Orientation="Horizontal" Spacing="8" />
+                  </ItemsRepeater.Layout>
+                  <ItemsRepeater.ItemTemplate>
+                    <DataTemplate x:DataType="vm:PlayerChoiceViewModel">
+                      <Button Command="{x:Bind ChooseCommand}" Content="{x:Bind Label}" />
+                    </DataTemplate>
+                  </ItemsRepeater.ItemTemplate>
+                </ItemsRepeater>
+              </StackPanel>
+            </DataTemplate>
+          </ItemsRepeater.ItemTemplate>
+        </ItemsRepeater>
+      </StackPanel>
+    </Border>
+
+    <TextBlock
+        Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+        Style="{StaticResource CaptionTextBlockStyle}"
+        Text="{x:Bind ViewModel.LastNotice, Mode=OneWay}"
+        TextWrapping="Wrap" />
+
+    <!-- Remap… (SPEC §5.4): the chosen system's buttons by their own names; Change waits for the key or button -->
+    <Border
+        Padding="16"
+        Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
+        BorderBrush="{ThemeResource AccentFillColorDefaultBrush}"
+        BorderThickness="1"
+        CornerRadius="8"
+        Visibility="{x:Bind ViewModel.Remap.IsOpen, Mode=OneWay, FallbackValue=Collapsed}">
+      <StackPanel Spacing="8">
+        <Grid>
+          <TextBlock VerticalAlignment="Center" Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind ViewModel.Remap.Title, Mode=OneWay}" />
+          <Button HorizontalAlignment="Right" Command="{x:Bind ViewModel.Remap.CloseCommand, Mode=OneWay}" Content="Done" />
+        </Grid>
+        <ComboBox
+            HorizontalAlignment="Stretch"
+            Header="System"
+            ItemsSource="{x:Bind ViewModel.Remap.SystemOptions, Mode=OneWay}"
+            SelectedIndex="{x:Bind ViewModel.Remap.SystemIndex, Mode=TwoWay}" />
+        <CheckBox
+            Content="{x:Bind ViewModel.Remap.GameScopeLabel, Mode=OneWay}"
+            IsChecked="{x:Bind ViewModel.Remap.ThisGameOnly, Mode=TwoWay}"
+            Visibility="{x:Bind ViewModel.Remap.HasGame, Mode=OneWay, FallbackValue=Collapsed}" />
+        <Grid ColumnSpacing="8" Visibility="{x:Bind ViewModel.Remap.IsKeyboard, Mode=OneWay, FallbackValue=Collapsed}">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <ComboBox
+              HorizontalAlignment="Stretch"
+              Header="Layout"
+              ItemsSource="{x:Bind ViewModel.Remap.PresetOptions, Mode=OneWay}"
+              SelectedIndex="{x:Bind ViewModel.Remap.PresetIndex, Mode=TwoWay}" />
+          <Button Grid.Column="1" VerticalAlignment="Bottom" Command="{x:Bind ViewModel.Remap.ApplyPresetCommand, Mode=OneWay}" Content="Use this layout" />
+        </Grid>
+        <InfoBar
+            IsClosable="False"
+            IsOpen="{x:Bind ViewModel.Remap.IsListening, Mode=OneWay, FallbackValue=False}"
+            Message="{x:Bind ViewModel.Remap.Message, Mode=OneWay}"
+            Severity="Informational" />
+        <TextBlock
+            Text="{x:Bind ViewModel.Remap.Message, Mode=OneWay}"
+            TextWrapping="Wrap"
+            Visibility="{x:Bind helpers:BindingHelpers.Not(ViewModel.Remap.IsListening), Mode=OneWay, FallbackValue=Collapsed}" />
+        <ItemsRepeater ItemsSource="{x:Bind ViewModel.Remap.Rows, Mode=OneWay}">
+          <ItemsRepeater.ItemTemplate>
+            <DataTemplate x:DataType="vm:RemapRowViewModel">
+              <Grid Padding="0,2" ColumnSpacing="8">
+                <Grid.ColumnDefinitions>
+                  <ColumnDefinition Width="140" />
+                  <ColumnDefinition Width="*" />
+                  <ColumnDefinition Width="Auto" />
+                  <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock VerticalAlignment="Center" Text="{x:Bind Label}" />
+                <TextBlock
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    FontWeight="{x:Bind helpers:BindingHelpers.BoldIf(IsChanged)}"
+                    Text="{x:Bind BindingText}"
+                    TextTrimming="CharacterEllipsis" />
+                <Button
+                    Grid.Column="2"
+                    AutomationProperties.Name="{x:Bind ChangeLabel}"
+                    Command="{x:Bind ChangeCommand}"
+                    Content="Change"
+                    IsEnabled="{x:Bind IsChangeable}" />
+                <Button
+                    Grid.Column="3"
+                    Command="{x:Bind ClearCommand}"
+                    Content="Clear"
+                    IsEnabled="{x:Bind IsChangeable}" />
+              </Grid>
+            </DataTemplate>
+          </ItemsRepeater.ItemTemplate>
+        </ItemsRepeater>
+        <Button Command="{x:Bind ViewModel.Remap.ResetToDefaultsCommand, Mode=OneWay}" Content="Back to the standard layout" />
+        <TextBlock
+            Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+            Style="{StaticResource CaptionTextBlockStyle}"
+            Text="Remaps are kept per controller model and per player. GameVault's own keys (Esc, Backspace, Tab, F2–F12) can't be used. On a controller, the sticks and triggers stay as they are."
+            TextWrapping="Wrap" />
+      </StackPanel>
+    </Border>
+  </StackPanel>
+</UserControl>

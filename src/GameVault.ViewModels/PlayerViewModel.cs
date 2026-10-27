@@ -154,6 +154,12 @@ public sealed partial class PlayerViewModel(
     /// <summary>Game Genie and RAM codes for the running game (SPEC §7.8).</summary>
     public CodesViewModel Codes => codes;
 
+    /// <summary>
+    /// The controller port cards in the Player (input.md §9, GV-003): swap, reassign and remap without leaving the game,
+    /// with remaps for this game only.
+    /// </summary>
+    public InputSettingsViewModel Controllers { get; } = new(devices, settingsStore);
+
     /// <summary>Verified challenges (SPEC §7.9).</summary>
     public ChallengesViewModel Challenges => challenges;
 
@@ -178,6 +184,12 @@ public sealed partial class PlayerViewModel(
 
     /// <summary>True when the game has a memory map, so the Stats toggle is offered.</summary>
     public bool HasMemoryMap => emulator.HasMemoryMap;
+
+    /// <summary>
+    /// The Challenges button is offered when the game has a memory map (to make challenges) or a challenge is open
+    /// (docs/bugs.md GV-017). A challenge is made from a game with a memory map, so without one there is nothing to take.
+    /// </summary>
+    public bool ShowChallenges => HasMemoryMap || challenges.HasChallenge;
 
     /// <summary>The stat overlay is on for this game (remembered per game).</summary>
     [ObservableProperty]
@@ -280,11 +292,53 @@ public sealed partial class PlayerViewModel(
     public bool HasResumeOffer => ResumeOffer is not null;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowRewindBar))]
     public partial bool IsRewinding { get; private set; }
 
-    /// <summary>The scrub bar: 0–1 of the available history, shown while rewinding.</summary>
+    /// <summary>The scrub bar's position: seconds from the start of the rewind history (SPEC §7.2).</summary>
     [ObservableProperty]
     public partial double RewindSeconds { get; private set; }
+
+    /// <summary>The scrub bar's length: all the history there was when rewinding started, however long (GV-019).</summary>
+    [ObservableProperty]
+    public partial double RewindMaxSeconds { get; private set; } = 1;
+
+    /// <summary>True while the player holds the scrub bar; the game holds still until it is let go.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowRewindBar))]
+    public partial bool IsScrubbing { get; private set; }
+
+    /// <summary>The scrub bar shows while rewinding and while it is being dragged.</summary>
+    public bool ShowRewindBar => IsRewinding || IsScrubbing;
+
+    /// <summary>The scrub bar was grabbed (pointer pressed on it).</summary>
+    public void BeginScrub()
+    {
+        if (!IsScrubbing && IsRewinding)
+        {
+            IsScrubbing = true;
+            emulator.BeginScrub();
+        }
+    }
+
+    /// <summary>The scrub bar moved to <paramref name="seconds"/> from the start of the history.</summary>
+    public void ScrubTo(double seconds)
+    {
+        if (IsScrubbing && Math.Abs(seconds - RewindSeconds) > 0.001)
+        {
+            emulator.ScrubTo(seconds);
+        }
+    }
+
+    /// <summary>The scrub bar was let go: play continues from there.</summary>
+    public void EndScrub()
+    {
+        if (IsScrubbing)
+        {
+            IsScrubbing = false;
+            emulator.EndScrub();
+        }
+    }
 
     /// <summary>False for other systems' games: the Codes panel (Game Genie) is NES-only (SPEC §7.11).</summary>
     [ObservableProperty]
@@ -293,6 +347,10 @@ public sealed partial class PlayerViewModel(
     /// <summary>The game is set up for the Zapper, so the mouse aims (SPEC §7.5).</summary>
     [ObservableProperty]
     public partial bool UsesZapper { get; private set; }
+
+    /// <summary>The game is set up for the Arkanoid paddle, so moving the mouse turns it (SPEC §4.7).</summary>
+    [ObservableProperty]
+    public partial bool UsesPaddle { get; private set; }
 
     private bool _attached;
     private bool _pauseWhenInactive = true;
@@ -377,6 +435,7 @@ public sealed partial class PlayerViewModel(
             ShowStats = emulator.GameKey is { } statsKey && settings.StatOverlayGames.Split('|').Contains(statsKey);
             _loadingStats = false;
             OnPropertyChanged(nameof(HasMemoryMap));
+            OnPropertyChanged(nameof(ShowChallenges));
         }
         catch (GameLoadException ex)
         {
@@ -393,6 +452,8 @@ public sealed partial class PlayerViewModel(
         {
             emulator.SetAssist(assist.Options); // a new session starts with Assist off
             devices.SetPlayerCount(emulator.UsesFourScore ? 4 : 2);
+            devices.GameKey = key;
+            Controllers.SetGame(key, Title, emulator.System);
             timeline.CanSave = true;
             await timeline.ShowAsync(key);
             await recap.ShowAsync(key, (await library.GetGameAsync(key))?.Title ?? Title, DateTimeOffset.Now);
@@ -591,6 +652,8 @@ public sealed partial class PlayerViewModel(
             devices.ControllerDisconnected += OnControllerDisconnected;
             devices.Changed += OnDevicesChanged;
             devices.Notice += OnNotice;
+            challenges.PropertyChanged += OnChallengesChanged;
+            Controllers.Attach();
             devices.SetGameRunning(true);
             _attached = true;
         }
@@ -616,8 +679,12 @@ public sealed partial class PlayerViewModel(
             devices.ControllerDisconnected -= OnControllerDisconnected;
             devices.Changed -= OnDevicesChanged;
             devices.Notice -= OnNotice;
+            challenges.PropertyChanged -= OnChallengesChanged;
+            Controllers.Detach();
             devices.SetGameRunning(false);
             devices.SetPlayerCount(2);
+            devices.GameKey = null;
+            Controllers.SetGame(null, null, null);
             _attached = false;
         }
     }
@@ -672,6 +739,7 @@ public sealed partial class PlayerViewModel(
     private void OnRewindChanged(object? sender, EventArgs e)
     {
         IsRewinding = emulator.IsRewinding;
+        RewindMaxSeconds = Math.Max(1, emulator.RewindMaxSeconds);
         RewindSeconds = emulator.RewindSeconds;
         if (IsRewinding)
         {
@@ -692,11 +760,20 @@ public sealed partial class PlayerViewModel(
         }
     }
 
+    private void OnChallengesChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(ChallengesViewModel.HasChallenge))
+        {
+            OnPropertyChanged(nameof(ShowChallenges));
+        }
+    }
+
     private void Refresh()
     {
         Status = emulator.Status;
         Title = emulator.GameTitle ?? "Player";
         UsesZapper = emulator.UsesZapper;
+        UsesPaddle = emulator.UsesPaddle;
         IsNesGame = emulator.System is null or GameVault.Core.Systems.GameSystem.Nes;
         if (emulator.Status == EmulatorStatus.Faulted)
         {

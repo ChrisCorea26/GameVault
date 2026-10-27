@@ -12,7 +12,7 @@
     <TextBlock Style="{StaticResource TitleTextBlockStyle}" Text="Import a catalog" />
     <TextBlock
         Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-        Text="A catalog lists every NES release so GameVault can name your games and show a complete checklist of what you own. Choose a DAT file in the Logiqx XML format, such as a No-Intro NES DAT you downloaded."
+        Text="A catalog lists every release for a system so GameVault can name your games and show a complete checklist of what you own. Choose a DAT file in the Logiqx XML format that you downloaded, such as a No-Intro DAT for the NES, SG-1000, Master System, Apple II, Genesis, Super Nintendo or Nintendo 64, or a Redump DAT for the PlayStation or PlayStation 2."
         TextWrapping="Wrap" />
 
     <InfoBar IsClosable="False" IsOpen="{x:Bind ViewModel.HasError, Mode=OneWay}" Message="{x:Bind ViewModel.ErrorMessage, Mode=OneWay}" Severity="Error" />

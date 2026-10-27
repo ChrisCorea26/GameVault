@@ -54,9 +54,11 @@ public sealed class MapService
                 _maps.SetJournalImage(key, room.Area, imageId);
             });
         }
-        catch (IOException)
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
-            // A map that can't be saved this time is redrawn on the next new room.
+            // A map that can't be saved this time is redrawn on the next new room. On Windows a map file another
+            // process holds (or one being deleted) fails with UnauthorizedAccessException, which must not crash the
+            // app from this event handler.
         }
         finally
         {

@@ -1,11 +1,12 @@
 using GameVault.Core.Input;
+using GameVault.ViewModels.Services.Input;
 
 namespace GameVault.Platform.Input;
 
 /// <summary>Keyboard bindings: virtual key → (port, button). Defaults per docs/design/input.md §4.1.</summary>
 public sealed class KeyboardMapping
 {
-    private readonly Dictionary<int, (int Port, ControllerState Button, bool Turbo)> _bindings = [];
+    private readonly Dictionary<int, Binding> _bindings = [];
 
     /// <summary>Keys reserved for hotkeys (input.md §8). They never reach the game.</summary>
     public static IReadOnlySet<int> Hotkeys { get; } = new HashSet<int>
@@ -71,6 +72,94 @@ public sealed class KeyboardMapping
         return mapping;
     }
 
+    /// <summary>
+    /// This mapping for one system's pad (docs/design/input.md §6), with the player's remaps on top (GV-001): the N64's
+    /// and PS2's own keys are added (the arrows push the stick there, so T/F/G/H are the D-pad), and on pads without
+    /// turbo (SNES, PlayStation, N64, PS2) the turbo keys A and S become Y and X.
+    /// </summary>
+    public KeyboardMapping ForLayout(PadLayout layout, IReadOnlyList<(int Port, ResolvedRemap Remap)>? remaps = null)
+    {
+        var mapping = new KeyboardMapping();
+        foreach (var (key, binding) in _bindings)
+        {
+            mapping._bindings[key] = binding;
+        }
+
+        if (layout is PadLayout.Snes or PadLayout.PlayStation or PadLayout.Nintendo64 or PadLayout.PlayStation2)
+        {
+            foreach (var (key, binding) in mapping._bindings.ToList())
+            {
+                if (binding.Turbo)
+                {
+                    var button = binding.Button == ControllerState.B ? ControllerState.Y : binding.Button == ControllerState.A ? ControllerState.X : binding.Button;
+                    mapping._bindings[key] = binding with { Button = button, Turbo = false };
+                }
+            }
+        }
+
+        foreach (var (key, button, kind) in layout switch
+        {
+            PadLayout.Nintendo64 => N64Keys,
+            PadLayout.PlayStation2 => Ps2Keys,
+            _ => [],
+        })
+        {
+            mapping._bindings[key] = new Binding(0, button, false, kind);
+        }
+
+        foreach (var (port, remap) in remaps ?? [])
+        {
+            // One key does one thing and one action has one key: drop the target's old key, then bind the new one.
+            foreach (var (key, binding) in mapping._bindings.ToList())
+            {
+                if (binding.Port == port && binding.Button == remap.Button && binding.Turbo == remap.Turbo && binding.Kind == remap.Kind)
+                {
+                    mapping._bindings.Remove(key);
+                }
+            }
+
+            if (InputCodes.TryKey(remap.Input, out var newKey) && !Hotkeys.Contains(newKey))
+            {
+                mapping._bindings[newKey] = new Binding(port, remap.Button, remap.Turbo, remap.Kind);
+            }
+        }
+
+        return mapping;
+    }
+
+    /// <summary>
+    /// Keys that only mean something on the N64 pad: I/J/K/L the C buttons and T/F/G/H the D-pad (input.md §6.5).
+    /// </summary>
+    private static readonly (int Key, ControllerState Button, KeyKind Kind)[] N64Keys =
+    [
+        (VirtualKeys.I, ControllerState.C, KeyKind.Normal), // C-up
+        (VirtualKeys.K, ControllerState.A, KeyKind.Normal), // C-down
+        (VirtualKeys.J, ControllerState.X, KeyKind.Normal), // C-left
+        (VirtualKeys.L, ControllerState.Z, KeyKind.Normal), // C-right
+        (VirtualKeys.T, ControllerState.Up, KeyKind.DPad),
+        (VirtualKeys.G, ControllerState.Down, KeyKind.DPad),
+        (VirtualKeys.F, ControllerState.Left, KeyKind.DPad),
+        (VirtualKeys.H, ControllerState.Right, KeyKind.DPad),
+    ];
+
+    /// <summary>
+    /// Keys that only mean something on the PS2 pad: I/J/K/L push the right stick (where the N64's C buttons are),
+    /// T/F/G/H are the D-pad, and 5 and 6 are L3 and R3 (after L1, R1, L2, R2 on 1–4; input.md §6.6).
+    /// </summary>
+    private static readonly (int Key, ControllerState Button, KeyKind Kind)[] Ps2Keys =
+    [
+        (VirtualKeys.I, ControllerState.Up, KeyKind.RightStick),
+        (VirtualKeys.K, ControllerState.Down, KeyKind.RightStick),
+        (VirtualKeys.J, ControllerState.Left, KeyKind.RightStick),
+        (VirtualKeys.L, ControllerState.Right, KeyKind.RightStick),
+        (VirtualKeys.T, ControllerState.Up, KeyKind.DPad),
+        (VirtualKeys.G, ControllerState.Down, KeyKind.DPad),
+        (VirtualKeys.F, ControllerState.Left, KeyKind.DPad),
+        (VirtualKeys.H, ControllerState.Right, KeyKind.DPad),
+        (VirtualKeys.Digit5, ControllerState.L3, KeyKind.Normal),
+        (VirtualKeys.Digit6, ControllerState.R3, KeyKind.Normal),
+    ];
+
     public void Bind(int virtualKey, int port, ControllerState button)
     {
         if (Hotkeys.Contains(virtualKey))
@@ -78,30 +167,40 @@ public sealed class KeyboardMapping
             throw new ArgumentException($"Key 0x{virtualKey:X2} is reserved for a hotkey.", nameof(virtualKey));
         }
 
-        _bindings[virtualKey] = (port, button, false);
+        _bindings[virtualKey] = new Binding(port, button, false, KeyKind.Normal);
     }
 
     /// <summary>Binds a key to a turbo button: while held, the button is pressed and released repeatedly.</summary>
     public void BindTurbo(int virtualKey, int port, ControllerState button)
     {
         Bind(virtualKey, port, button);
-        _bindings[virtualKey] = (port, button, true);
+        _bindings[virtualKey] = new Binding(port, button, true, KeyKind.Normal);
     }
 
     public bool TryGetBinding(int virtualKey, out int port, out ControllerState button) =>
         TryGetBinding(virtualKey, out port, out button, out _);
 
-    public bool TryGetBinding(int virtualKey, out int port, out ControllerState button, out bool turbo)
+    public bool TryGetBinding(int virtualKey, out int port, out ControllerState button, out bool turbo) =>
+        TryGetBinding(virtualKey, out port, out button, out turbo, out _);
+
+    public bool TryGetBinding(int virtualKey, out int port, out ControllerState button, out bool turbo, out KeyKind kind)
     {
         if (_bindings.TryGetValue(virtualKey, out var binding))
         {
-            (port, button, turbo) = binding;
+            (port, button, turbo, kind) = binding;
             return true;
         }
 
         port = 0;
         button = ControllerState.None;
         turbo = false;
+        kind = KeyKind.Normal;
         return false;
     }
+
+    /// <summary>The key bound to a target, or 0 (tests and the default-binding check).</summary>
+    public int KeyFor(int port, ControllerState button, bool turbo, KeyKind kind = KeyKind.Normal) =>
+        _bindings.Where(b => b.Value == new Binding(port, button, turbo, kind)).Select(b => b.Key).DefaultIfEmpty(0).Min();
+
+    private readonly record struct Binding(int Port, ControllerState Button, bool Turbo, KeyKind Kind);
 }

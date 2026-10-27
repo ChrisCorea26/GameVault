@@ -5,8 +5,20 @@ public sealed record AppSettings
 {
     public const int MaxRunAheadFrames = 3;
 
-    /// <summary>Hide the top and bottom 8 lines, like most TVs did (SPEC §5.2).</summary>
+    /// <summary>Hide the top and bottom of the picture, like most TVs did (SPEC §5.2). How much is <see cref="OverscanCropLines"/>.</summary>
     public bool CropOverscan { get; init; } = true;
+
+    /// <summary>The largest crop Settings → Video offers, in lines at the top and at the bottom.</summary>
+    public const int MaxOverscanCropLines = 16;
+
+    /// <summary>
+    /// Lines hidden at the top and at the bottom while <see cref="CropOverscan"/> is on: 8 by default, like most TVs
+    /// (SPEC §5.2); Settings → Video offers 4 to 16.
+    /// </summary>
+    public int OverscanCropLines { get; init; } = 8;
+
+    /// <summary>The lines to hide at the top and at the bottom: 0 when cropping is off.</summary>
+    public int CropLines() => CropOverscan ? Math.Clamp(OverscanCropLines, 0, MaxOverscanCropLines) : 0;
 
     /// <summary>Picture style (SPEC §5.2).</summary>
     public DisplayPreset DisplayPreset { get; init; } = DisplayPreset.SharpPixels;
@@ -34,8 +46,20 @@ public sealed record AppSettings
     /// </summary>
     public int TurboPeriodFrames { get; init; } = 4;
 
+    /// <summary>True once the bundled homebrew folder (SPEC §6.4) was added to the library, so removing it sticks.</summary>
+    public bool BundledHomebrewAdded { get; init; }
+
+    /// <summary>The player's button remaps (SPEC §5.4, GV-001) as JSON; see <c>Input.InputRemapSet</c>. Empty for none.</summary>
+    public string InputRemaps { get; init; } = string.Empty;
+
     /// <summary>Pinned controllers as "key=port" entries separated by '|' (input.md §3.5).</summary>
     public string ControllerPins { get; init; } = string.Empty;
+
+    /// <summary>
+    /// Keep battery saves next to the game file ("Game.sav" beside "Game.nes") instead of in GameVault's Saves folder
+    /// (SPEC §4.5: only when the player opts in). Off by default. A save already in the Saves folder is still found.
+    /// </summary>
+    public bool SavesNextToRom { get; init; }
 
     /// <summary>Memory for rewind history in MB (SPEC §7.2: 256 MB by default).</summary>
     public int RewindMemoryMb { get; init; } = 256;

@@ -62,6 +62,33 @@ public sealed class LibraryService : ILibraryService, IDisposable
         return result;
     }
 
+    /// <summary>
+    /// Adds the bundled homebrew folder (SPEC §6.4) and fills in its games' details. Run once, on first launch; after
+    /// that the folder is an ordinary library folder the player may remove.
+    /// </summary>
+    public async Task AddBundledHomebrewAsync(string folder)
+    {
+        if (!Directory.Exists(folder))
+        {
+            return;
+        }
+
+        await AddFolderAsync(folder);
+        await Task.Run(() =>
+        {
+            var games = _repository.GetGames();
+            foreach (var (path, bundled) in BundledHomebrew.Read(folder))
+            {
+                if (games.FirstOrDefault(g => string.Equals(g.RomPath, path, StringComparison.OrdinalIgnoreCase)) is { } entry
+                    && BundledHomebrew.Describe(entry, bundled) is var described && described != entry)
+                {
+                    _repository.SaveCollection(described);
+                }
+            }
+        });
+        RaiseChanged();
+    }
+
     public async Task RemoveFolderAsync(string path)
     {
         await Task.Run(() => _repository.RemoveFolder(path));

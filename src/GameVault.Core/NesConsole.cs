@@ -85,6 +85,12 @@ public sealed class NesConsole : IEmulatedConsole
     /// <summary>The light gun; active on port 2 after <see cref="ConnectInput"/> with <see cref="InputSetup.Zapper"/>.</summary>
     public Zapper Zapper { get; }
 
+    /// <summary>The Power Pad mat; active on port 2 after <see cref="ConnectInput"/> with <see cref="InputSetup.PowerPad"/>.</summary>
+    public PowerPad PowerPad { get; } = new();
+
+    /// <summary>The Arkanoid paddle; active on port 2 after <see cref="ConnectInput"/> with <see cref="InputSetup.ArkanoidPaddle"/>.</summary>
+    public ArkanoidPaddle Paddle { get; } = new();
+
     public InputSetup InputSetup { get; private set; } = InputSetup.Controllers;
 
     /// <summary>
@@ -99,6 +105,14 @@ public sealed class NesConsole : IEmulatedConsole
             case InputSetup.Zapper:
                 Bus.SetPort(0, Controller1);
                 Bus.SetPort(1, Zapper);
+                break;
+            case InputSetup.PowerPad:
+                Bus.SetPort(0, Controller1);
+                Bus.SetPort(1, PowerPad);
+                break;
+            case InputSetup.ArkanoidPaddle:
+                Bus.SetPort(0, Controller1);
+                Bus.SetPort(1, Paddle);
                 break;
             case InputSetup.FourScore:
                 Bus.SetPort(0, new FourScorePort(Controller1, Controller3, 0));
@@ -296,7 +310,7 @@ public sealed class NesConsole : IEmulatedConsole
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 3);
+        writer.BeginChunk(Tag, 4);
         Cpu.SaveState(writer);
         Bus.SaveState(writer);
         Ppu.SaveState(writer);
@@ -321,6 +335,9 @@ public sealed class NesConsole : IEmulatedConsole
             writer.WriteByte(code.Compare ?? 0);
         }
 
+        // Version 4: the Power Pad and the Arkanoid paddle (SPEC §4.7).
+        PowerPad.SaveState(writer);
+        Paddle.SaveState(writer);
         writer.EndChunk();
     }
 
@@ -360,6 +377,12 @@ public sealed class NesConsole : IEmulatedConsole
                 var compare = reader.ReadByte();
                 codes.Add(new CheatCode(kind, address, value, hasCompare ? compare : null));
             }
+        }
+
+        if (version >= 4)
+        {
+            PowerPad.LoadState(reader);
+            Paddle.LoadState(reader);
         }
 
         if (!codes.SequenceEqual(Cheats))

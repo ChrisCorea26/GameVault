@@ -5,6 +5,7 @@
     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:controls="using:GameVault.App.Controls"
     xmlns:vm="using:GameVault.ViewModels"
     mc:Ignorable="d">
 
@@ -163,7 +164,7 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="GameVault looks for .nes, .fds and .zip files in these folders and notices when you add or remove games."
+              Text="GameVault looks in these folders for games for every system it plays (NES and Disk System, SG-1000, Master System, Apple II, Genesis, Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2), including games inside .zip files, and notices when you add or remove them."
               TextWrapping="Wrap" />
           <ItemsRepeater ItemsSource="{x:Bind ViewModel.Library.Folders}">
             <ItemsRepeater.ItemTemplate>
@@ -207,15 +208,16 @@
             <TextBlock
                 Foreground="{ThemeResource TextFillColorSecondaryBrush}"
                 Style="{StaticResource CaptionTextBlockStyle}"
-                Text="Crops the top and bottom of the picture, like most TVs did."
+                Text="Crops the top and bottom of the picture, like most TVs did. Some games draw flickering lines or garbage at the edges; hide more to cover them."
                 TextWrapping="Wrap" />
           </StackPanel>
-          <ToggleSwitch
+          <ComboBox
               Grid.Column="1"
-              MinWidth="0"
-              IsOn="{x:Bind ViewModel.CropOverscan, Mode=TwoWay}"
-              OffContent=""
-              OnContent="" />
+              MinWidth="220"
+              VerticalAlignment="Center"
+              AutomationProperties.Name="Hide screen edges"
+              ItemsSource="{x:Bind ViewModel.OverscanOptions}"
+              SelectedIndex="{x:Bind ViewModel.OverscanIndex, Mode=TwoWay}" />
         </Grid>
       </Border>
 
@@ -375,6 +377,31 @@
         </Grid>
       </Border>
 
+      <!-- SPEC §4.5: saves stay in GameVault's folder unless the player opts in (GV-012) -->
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <Grid ColumnSpacing="16">
+          <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="Auto" />
+          </Grid.ColumnDefinitions>
+          <StackPanel>
+            <TextBlock Text="Keep game saves next to the game files" />
+            <TextBlock
+                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                Style="{StaticResource CaptionTextBlockStyle}"
+                Text="Cartridge saves go beside each game as a .sav file with the same name, so other emulators can use them. Off: they stay in GameVault's Saves folder. Saves already there are still found. If a game's folder can't be written to, its save stays in GameVault's folder. Memory cards and Controller Paks always stay there."
+                TextWrapping="Wrap" />
+          </StackPanel>
+          <ToggleSwitch
+              Grid.Column="1"
+              MinWidth="0"
+              AutomationProperties.Name="Keep game saves next to the game files"
+              IsOn="{x:Bind ViewModel.SavesNextToRom, Mode=TwoWay}"
+              OffContent=""
+              OnContent="" />
+        </Grid>
+      </Border>
+
       <!-- Input (docs/design/input.md §9) -->
       <Grid Margin="0,16,0,4">
         <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="Controllers" />
@@ -383,76 +410,8 @@
             Command="{x:Bind ViewModel.Input.SwapPlayersCommand}"
             Content="Swap players" />
       </Grid>
-      <ItemsRepeater ItemsSource="{x:Bind ViewModel.Input.Ports}">
-        <ItemsRepeater.Layout>
-          <UniformGridLayout MinColumnSpacing="8" MinItemWidth="300" MinRowSpacing="8" />
-        </ItemsRepeater.Layout>
-        <ItemsRepeater.ItemTemplate>
-          <DataTemplate x:DataType="vm:InputPortViewModel">
-            <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
-              <StackPanel Spacing="8">
-                <TextBlock Style="{StaticResource BodyStrongTextBlockStyle}" Text="{x:Bind Title}" />
-                <ItemsRepeater ItemsSource="{x:Bind Sources}">
-                  <ItemsRepeater.ItemTemplate>
-                    <DataTemplate x:DataType="vm:InputSourceViewModel">
-                      <Grid Padding="0,4" ColumnSpacing="8">
-                        <Grid.ColumnDefinitions>
-                          <ColumnDefinition Width="Auto" />
-                          <ColumnDefinition Width="*" />
-                          <ColumnDefinition Width="Auto" />
-                        </Grid.ColumnDefinitions>
-                        <FontIcon FontSize="16" Glyph="{x:Bind Glyph}" />
-                        <TextBlock Grid.Column="1" VerticalAlignment="Center" Text="{x:Bind Name}" />
-                        <HyperlinkButton
-                            Grid.Column="2"
-                            Command="{x:Bind TogglePinCommand}"
-                            Content="{x:Bind PinLabel}"
-                            Visibility="{x:Bind CanPin}" />
-                      </Grid>
-                    </DataTemplate>
-                  </ItemsRepeater.ItemTemplate>
-                </ItemsRepeater>
-                <TextBlock
-                    Foreground="{ThemeResource SystemFillColorCautionBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="{x:Bind WaitingText}"
-                    Visibility="{x:Bind IsWaiting}" />
-                <TextBlock
-                    Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                    Style="{StaticResource CaptionTextBlockStyle}"
-                    Text="No controller. Connect one, or pick one below."
-                    Visibility="{x:Bind HasNoSources}" />
-              </StackPanel>
-            </Border>
-          </DataTemplate>
-        </ItemsRepeater.ItemTemplate>
-      </ItemsRepeater>
-
-      <Border
-          Padding="16"
-          Background="{ThemeResource CardBackgroundFillColorDefaultBrush}"
-          CornerRadius="8"
-          Visibility="{x:Bind ViewModel.Input.HasUnassigned, Mode=OneWay}">
-        <StackPanel Spacing="8">
-          <TextBlock Text="Other controllers" />
-          <ItemsRepeater ItemsSource="{x:Bind ViewModel.Input.Unassigned}">
-            <ItemsRepeater.ItemTemplate>
-              <DataTemplate x:DataType="vm:UnassignedControllerViewModel">
-                <Grid Padding="0,4" ColumnSpacing="8">
-                  <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
-                  </Grid.ColumnDefinitions>
-                  <TextBlock VerticalAlignment="Center" Text="{x:Bind Name}" />
-                  <Button Grid.Column="1" Command="{x:Bind UseForPlayer1Command}" Content="Use for Player 1" />
-                  <Button Grid.Column="2" Command="{x:Bind UseForPlayer2Command}" Content="Use for Player 2" />
-                </Grid>
-              </DataTemplate>
-            </ItemsRepeater.ItemTemplate>
-          </ItemsRepeater>
-        </StackPanel>
-      </Border>
+      <!-- Port cards, other controllers and Remap… (GV-001, GV-002); the Player shows the same panel (GV-003) -->
+      <controls:ControllerPortsPanel ViewModel="{x:Bind ViewModel.Input}" />
 
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
         <Grid ColumnSpacing="16">
@@ -509,13 +468,25 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="Optional. To dump your own cartridges with an INL Retro-Prog, paste where its program (inlretro.exe) is. Takes effect the next time GameVault starts."
+              Text="Optional. To dump your own cartridges with an INL Retro-Prog, choose its program (inlretro.exe). Takes effect the next time GameVault starts."
               TextWrapping="Wrap" />
-          <TextBox
-              AutomationProperties.Name="INL Retro-Prog program"
-              LostFocus="DumperPath_LostFocus"
-              PlaceholderText="C:\INL-retro\inlretro.exe"
-              Text="{x:Bind ViewModel.DumperPath, Mode=TwoWay}" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="INL Retro-Prog program"
+                LostFocus="DumperPath_LostFocus"
+                PlaceholderText="C:\INL-retro\inlretro.exe"
+                Text="{x:Bind ViewModel.DumperPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Choose the INL Retro-Prog program"
+                Command="{x:Bind ViewModel.ChooseDumperCommand}"
+                Content="Choose…" />
+          </Grid>
         </StackPanel>
       </Border>
 
@@ -557,13 +528,25 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="Famicom Disk System games (.fds) need the Disk System BIOS (disksys.rom, 8 KB) from your own console. GameVault doesn't include it. Paste where the file is."
+              Text="Famicom Disk System games (.fds) need the Disk System BIOS (disksys.rom, 8 KB) from your own console. GameVault doesn't include it. Choose the file, or paste where it is."
               TextWrapping="Wrap" />
-          <TextBox
-              AutomationProperties.Name="Disk System BIOS file"
-              LostFocus="FdsBiosPath_LostFocus"
-              PlaceholderText="C:\NES\disksys.rom"
-              Text="{x:Bind ViewModel.FdsBiosPath, Mode=TwoWay}" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="Disk System BIOS file"
+                LostFocus="FdsBiosPath_LostFocus"
+                PlaceholderText="C:\NES\disksys.rom"
+                Text="{x:Bind ViewModel.FdsBiosPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Choose the Disk System BIOS file"
+                Command="{x:Bind ViewModel.ChooseFdsBiosCommand}"
+                Content="Choose…" />
+          </Grid>
         </StackPanel>
       </Border>
 
@@ -574,20 +557,44 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="Apple II disks (.dsk, .do, .po, .nib, .woz) need the ROMs from your own Apple: the system ROM (12 KB for a II or II+, 16 KB for a IIe) and the Disk II controller's 256-byte boot ROM. GameVault doesn't include them. Paste where the files are."
+              Text="Apple II disks (.dsk, .do, .po, .nib, .woz) need the ROMs from your own Apple: the system ROM (12 KB for a II or II+, 16 KB for a IIe) and the Disk II controller's 256-byte boot ROM. GameVault doesn't include them. Choose the files, or paste where they are."
               TextWrapping="Wrap" />
-          <TextBox
-              AutomationProperties.Name="Apple II system ROM file"
-              Header="System ROM"
-              LostFocus="AppleRoms_LostFocus"
-              PlaceholderText="C:\Apple\apple2e-enhanced.rom"
-              Text="{x:Bind ViewModel.AppleIIRomPath, Mode=TwoWay}" />
-          <TextBox
-              AutomationProperties.Name="Disk II boot ROM file"
-              Header="Disk II boot ROM"
-              LostFocus="AppleRoms_LostFocus"
-              PlaceholderText="C:\Apple\disk2.rom"
-              Text="{x:Bind ViewModel.AppleIIDiskRomPath, Mode=TwoWay}" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="Apple II system ROM file"
+                Header="System ROM"
+                LostFocus="AppleRoms_LostFocus"
+                PlaceholderText="C:\Apple\apple2e-enhanced.rom"
+                Text="{x:Bind ViewModel.AppleIIRomPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                AutomationProperties.Name="Choose the Apple II system ROM file"
+                Command="{x:Bind ViewModel.ChooseAppleRomCommand}"
+                Content="Choose…" />
+          </Grid>
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="Disk II boot ROM file"
+                Header="Disk II boot ROM"
+                LostFocus="AppleRoms_LostFocus"
+                PlaceholderText="C:\Apple\disk2.rom"
+                Text="{x:Bind ViewModel.AppleIIDiskRomPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                AutomationProperties.Name="Choose the Disk II boot ROM file"
+                Command="{x:Bind ViewModel.ChooseAppleDiskRomCommand}"
+                Content="Choose…" />
+          </Grid>
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
@@ -603,13 +610,25 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="PlayStation discs (.cue with its .bin files, .chd, .iso, or an .m3u list of discs) need the BIOS from your own console (512 KB, such as SCPH-1001). GameVault doesn't include it. Paste where the file is."
+              Text="PlayStation discs (.cue with its .bin files, .chd, .iso, or an .m3u list of discs) need the BIOS from your own console (512 KB, such as SCPH-1001). GameVault doesn't include it. Choose the file, or paste where it is."
               TextWrapping="Wrap" />
-          <TextBox
-              AutomationProperties.Name="PlayStation BIOS file"
-              LostFocus="PlayStationBiosPath_LostFocus"
-              PlaceholderText="C:\PlayStation\scph1001.bin"
-              Text="{x:Bind ViewModel.PlayStationBiosPath, Mode=TwoWay}" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="PlayStation BIOS file"
+                LostFocus="PlayStationBiosPath_LostFocus"
+                PlaceholderText="C:\PlayStation\scph1001.bin"
+                Text="{x:Bind ViewModel.PlayStationBiosPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Choose the PlayStation BIOS file"
+                Command="{x:Bind ViewModel.ChoosePlayStationBiosCommand}"
+                Content="Choose…" />
+          </Grid>
           <Grid ColumnSpacing="16">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*" />
@@ -679,13 +698,25 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="PlayStation 2 discs (.iso, .chd, or .cue with its .bin files) need the BIOS from your own console (4 MB, such as SCPH-39001). GameVault doesn't include it. Homebrew .elf programs run without it. Paste where the file is."
+              Text="PlayStation 2 discs (.iso, .chd, or .cue with its .bin files) need the BIOS from your own console (4 MB, such as SCPH-39001). GameVault doesn't include it. Homebrew .elf programs run without it. Choose the file, or paste where it is."
               TextWrapping="Wrap" />
-          <TextBox
-              AutomationProperties.Name="PlayStation 2 BIOS file"
-              LostFocus="PlayStation2BiosPath_LostFocus"
-              PlaceholderText="C:\PlayStation 2\scph39001.bin"
-              Text="{x:Bind ViewModel.PlayStation2BiosPath, Mode=TwoWay}" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="PlayStation 2 BIOS file"
+                LostFocus="PlayStation2BiosPath_LostFocus"
+                PlaceholderText="C:\PlayStation 2\scph39001.bin"
+                Text="{x:Bind ViewModel.PlayStation2BiosPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Choose the PlayStation 2 BIOS file"
+                Command="{x:Bind ViewModel.ChoosePlayStation2BiosCommand}"
+                Content="Choose…" />
+          </Grid>
           <InfoBar
               IsClosable="False"
               IsOpen="{x:Bind ViewModel.HasPlayStation2BiosProblem, Mode=OneWay}"

@@ -33,6 +33,23 @@ public sealed class SampleInputDevicesService : IInputDevicesService
 
     public int TurboPeriodFrames { get; set; } = 4;
 
+    public InputRemapSet Remaps { get; set; } = InputRemapSet.Empty;
+
+    public string? GameKey { get; set; }
+
+    public bool CaptureMode { get; set; }
+
+    public event EventHandler<CapturedInput>? InputCaptured;
+
+    /// <summary>Simulates pressing a pad button (for previews and tests): captured while Remap… waits for one.</summary>
+    public void SimulateButton(string sourceId, string button)
+    {
+        if (CaptureMode)
+        {
+            InputCaptured?.Invoke(this, new CapturedInput(sourceId, InputCodes.Pad(button)));
+        }
+    }
+
     public event EventHandler? Changed;
 
     public event EventHandler<string>? Notice;

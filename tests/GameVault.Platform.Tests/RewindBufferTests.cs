@@ -41,6 +41,57 @@ public class RewindBufferTests
     }
 
     [Fact]
+    public void Scrubbing_moves_both_ways_and_play_continues_from_the_chosen_point()
+    {
+        var console = NewConsole();
+        var rewind = new RewindBuffer();
+        var snapshots = new List<byte[]>();
+        for (var frame = 0; frame < 400; frame++)
+        {
+            if (frame % RewindBuffer.Interval == 0)
+            {
+                snapshots.Add(console.SaveSnapshot());
+            }
+
+            rewind.OnFrame(console);
+            console.RunFrame();
+        }
+
+        // Back across a keyframe group, forward again, then back: nothing is removed while scrubbing.
+        foreach (var index in new[] { 10, 150, 61, 199, 0, 120 })
+        {
+            rewind.Restore(index, console);
+            console.SaveSnapshot().Should().Equal(snapshots[index], $"entry {index}");
+        }
+
+        rewind.Count.Should().Be(200);
+        rewind.TruncateAfter(120);
+        rewind.Count.Should().Be(121);
+
+        // New captures continue from entry 120 (already stored, so the next one is an interval later) and restore correctly.
+        var later = new List<byte[]>();
+        for (var frame = 0; frame < 200; frame++)
+        {
+            if (frame % RewindBuffer.Interval == 1)
+            {
+                later.Add(console.SaveSnapshot());
+            }
+
+            rewind.OnFrame(console);
+            console.RunFrame();
+        }
+
+        for (var i = later.Count - 1; i >= 0; i--)
+        {
+            rewind.StepBack(console).Should().BeTrue();
+            console.SaveSnapshot().Should().Equal(later[i], $"new entry {i}");
+        }
+
+        rewind.StepBack(console).Should().BeTrue();
+        console.SaveSnapshot().Should().Equal(snapshots[120]);
+    }
+
+    [Fact]
     public void A_longer_interval_compressed_in_the_background_restores_the_same_states()
     {
         // The PlayStation 2's settings (SystemBudgets): a capture every 30 frames, compressed on a worker.

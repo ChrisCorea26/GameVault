@@ -5,8 +5,13 @@ SPEC §7.5. Each `*.json` file here holds one profile, or an array of profiles, 
 header and 512-byte trainer; SMS, SG-1000 and SNES drop a 512-byte copier header, Genesis `.smd` files are
 de-interleaved, N64 ROMs are byte-swapped to big-endian, and a PlayStation disc hashes its first track
 (`src/GameVault.Library/Hashing/RomHasher.cs`). GameVault applies a profile automatically when that game starts. In **Game Details →
-Properties** the player can override the controls (`input`), run-ahead (`runAheadSafe`) and sprite-limit
-(`removeSpriteLimit`) settings, and their choices win. The other fields can only be set here.
+Properties** the player can override every field the game's system uses (GV-004): the controls (`input`), run-ahead
+(`runAheadSafe`), sprite limit (`removeSpriteLimit`), region, the NES header's mapper, mirroring and battery, the Apple II
+model, the Genesis pad and the N64 save type. Their choices win.
+
+The profiles that ship are the `input-*.json` files: the NES games that need a Zapper, a Four Score, the Power Pad or the
+Arkanoid paddle get them automatically (GV-007). Where their hashes and lists come from is in
+[`docs/gamedb-sources.md`](../../docs/gamedb-sources.md).
 
 Profiles hold metadata only. Never add ROM data, box art or copyrighted text.
 
@@ -25,7 +30,7 @@ Profiles hold metadata only. Never add ROM data, box art or copyrighted text.
 | Field | Meaning |
 |---|---|
 | `header` | Corrections for a wrong or missing iNES header. Fields left out keep the header's value. `mirroring` is `horizontal`, `vertical` or `four-screen`. |
-| `input` | `Controller`, `Zapper` (the mouse aims and clicks) or `FourScore`. |
+| `input` | `Controller`, `Zapper` (the mouse aims and clicks), `FourScore`, `PowerPad` (the keyboard is the mat) or `ArkanoidPaddle` (the mouse turns the knob). |
 | `runAheadSafe` | `false` turns run-ahead off for games it breaks. `true` marks the game as safe for it. |
 | `removeSpriteLimit` | `true` draws more than 8 sprites per line, which removes flicker. |
 | `region` | NES: `ntsc`, `pal` or `dendy`. Genesis: `usa` (or `ntsc`), `japan`, or `europe` (or `pal`). SNES: `pal`/`europe` or `ntsc`/`usa`/`japan`. SG-1000 and Master System: `pal` (anything else is NTSC). |

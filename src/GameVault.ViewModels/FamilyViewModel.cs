@@ -34,7 +34,7 @@ public sealed partial class FamilyProfileItem(FamilyProfile profile, bool isCurr
     private void Switch() => owner.SwitchTo(this);
 
     [RelayCommand]
-    private void Remove() => owner.Remove(this);
+    private Task RemoveAsync() => owner.RemoveAsync(this);
 }
 
 /// <summary>
@@ -44,10 +44,12 @@ public sealed partial class FamilyProfileItem(FamilyProfile profile, bool isCurr
 public sealed partial class FamilyViewModel : ObservableObject
 {
     private readonly IFamilyService _family;
+    private readonly IConfirmationService _confirm;
 
-    public FamilyViewModel(IFamilyService family)
+    public FamilyViewModel(IFamilyService family, IConfirmationService? confirm = null)
     {
         _family = family;
+        _confirm = confirm ?? FixedConfirmation.Yes;
         Refresh();
     }
 
@@ -171,9 +173,13 @@ public sealed partial class FamilyViewModel : ObservableObject
     }
 
     [RelayCommand]
-    private void RemovePin()
+    private async Task RemovePinAsync()
     {
-        if (CanManage && _family.HasPin)
+        if (CanManage && _family.HasPin
+            && await _confirm.ConfirmAsync(
+                "Remove the PIN?",
+                "Anyone will be able to change profiles and limits, and to keep playing past a daily limit.",
+                "Remove PIN"))
         {
             _family.SetPin(null);
             Message = "PIN removed.";
@@ -191,9 +197,13 @@ public sealed partial class FamilyViewModel : ObservableObject
         }
     }
 
-    internal void Remove(FamilyProfileItem item)
+    internal async Task RemoveAsync(FamilyProfileItem item)
     {
-        if (!CanManage || !item.CanRemove)
+        if (!CanManage || !item.CanRemove
+            || !await _confirm.ConfirmAsync(
+                $"Remove {item.Name}?",
+                $"{item.Name} no longer appears in the profile list. Their games and saves are kept in GameVault's folder.",
+                "Remove"))
         {
             return;
         }

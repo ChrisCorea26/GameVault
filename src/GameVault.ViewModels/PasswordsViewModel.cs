@@ -7,7 +7,7 @@ using GameVault.ViewModels.Services;
 namespace GameVault.ViewModels;
 
 /// <summary>The Passwords panel (SPEC §7.3): saved passwords for one game, newest first, each with Copy.</summary>
-public sealed partial class PasswordsViewModel(IPasswordService service, IClipboardService clipboard) : ObservableObject
+public sealed partial class PasswordsViewModel(IPasswordService service, IClipboardService clipboard, IConfirmationService? confirm = null) : ObservableObject
 {
     private string? _gameKey;
     private bool _attached;
@@ -63,8 +63,17 @@ public sealed partial class PasswordsViewModel(IPasswordService service, IClipbo
         CopiedText = $"Copied {item.Password}";
     }
 
-    internal Task DeleteAsync(PasswordItemViewModel item) =>
-        _gameKey is { } key ? service.DeleteAsync(key, item.Id) : Task.CompletedTask;
+    internal async Task DeleteAsync(PasswordItemViewModel item)
+    {
+        if (_gameKey is { } key
+            && await (confirm ?? FixedConfirmation.Yes).ConfirmAsync(
+                "Delete this password?",
+                $"{item.Password} and its screenshot are removed. Write it down first if you might need it.",
+                "Delete"))
+        {
+            await service.DeleteAsync(key, item.Id);
+        }
+    }
 
     private async void OnChanged(object? sender, string gameKey)
     {

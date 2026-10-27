@@ -13,6 +13,19 @@ public class DisplayLayoutTests
         rect.Should().Be(new DisplayRect(448, 92, 1024, 896, 8, 224)); // 1080 / 224 = 4.8, so 4x
     }
 
+    [Theory]
+    [InlineData(0, 240)]
+    [InlineData(4, 232)]
+    [InlineData(16, 208)]
+    [InlineData(40, 208)] // clamped to the most Settings offers
+    public void The_overscan_crop_amount_is_configurable(int lines, int sourceHeight)
+    {
+        var rect = DisplayLayout.Compute(1920, 1080, DisplayPreset.Smooth, lines, tvPixelShape: false);
+
+        rect.SourceHeight.Should().Be(sourceHeight);
+        rect.SourceTop.Should().Be((240 - sourceHeight) / 2);
+    }
+
     [Fact]
     public void Sharp_pixels_never_goes_below_1x()
     {

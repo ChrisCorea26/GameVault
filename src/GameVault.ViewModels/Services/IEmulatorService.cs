@@ -25,6 +25,9 @@ public interface IEmulatorService
     /// <summary>True when the game is set up for the Zapper, so the mouse aims (SPEC §7.5).</summary>
     bool UsesZapper { get; }
 
+    /// <summary>True when the game is set up for the Arkanoid paddle, so the mouse turns it (SPEC §4.7).</summary>
+    bool UsesPaddle => false;
+
     /// <summary>True when the game is set up for the Four Score (four players).</summary>
     bool UsesFourScore { get; }
 
@@ -33,6 +36,27 @@ public interface IEmulatorService
 
     /// <summary>How many seconds of rewind history are available.</summary>
     double RewindSeconds { get; }
+
+    /// <summary>The scrub bar's length: the seconds of history there were when rewinding started.</summary>
+    double RewindMaxSeconds => RewindSeconds;
+
+    /// <summary>
+    /// The scrub bar was grabbed (SPEC §7.2): the game holds still at the current point of the history, even once the
+    /// rewind button is let go, until <see cref="EndScrub"/>.
+    /// </summary>
+    void BeginScrub()
+    {
+    }
+
+    /// <summary>Shows the point of the history <paramref name="seconds"/> from its start (either direction).</summary>
+    void ScrubTo(double seconds)
+    {
+    }
+
+    /// <summary>The scrub bar was let go: play continues from the chosen point, and the newer history is dropped.</summary>
+    void EndScrub()
+    {
+    }
 
     /// <summary>Raised on the UI thread when rewinding starts, moves, or stops.</summary>
     event EventHandler? RewindChanged;

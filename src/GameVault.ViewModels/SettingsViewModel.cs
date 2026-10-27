@@ -10,9 +10,76 @@ public sealed partial class SettingsViewModel(
     InputSettingsViewModel input,
     LibrarySettingsViewModel library,
     FamilyViewModel? family = null,
-    RetroAchievementsSettingsViewModel? retroAchievements = null)
+    RetroAchievementsSettingsViewModel? retroAchievements = null,
+    IGameFilePicker? picker = null)
     : ObservableObject
 {
+    // "Choose…" next to each path box (GV-009): a picker works with a mouse or a controller; typing still works too.
+    // Extensions are what the files are usually called; any file can be chosen, as dumps are named many ways.
+
+    [RelayCommand]
+    private async Task ChooseDumperAsync()
+    {
+        if (await PickAsync(".exe") is { } path)
+        {
+            DumperPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChooseFdsBiosAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            FdsBiosPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChooseAppleRomAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            AppleIIRomPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChooseAppleDiskRomAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            AppleIIDiskRomPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChoosePlayStationBiosAsync()
+    {
+        if (await PickAsync(".bin", ".rom") is { } path)
+        {
+            PlayStationBiosPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChoosePlayStation2BiosAsync()
+    {
+        if (await PickAsync(".bin", ".rom") is { } path)
+        {
+            PlayStation2BiosPath = path;
+            await SavePlayStation2BiosPathAsync();
+        }
+    }
+
+    private Task<string?> PickAsync(params string[] extensions) =>
+        picker is null ? Task.FromResult<string?>(null) : picker.PickSystemFileAsync([.. extensions, "*"]);
+
     /// <summary>Settings → Family: profiles, daily limits and the parent PIN (SPEC §7.9).</summary>
     public FamilyViewModel? Family { get; } = family;
 
@@ -87,7 +154,41 @@ public sealed partial class SettingsViewModel(
     private bool _isLoaded;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OverscanIndex))]
     public partial bool CropOverscan { get; set; } = true;
+
+    /// <summary>Lines hidden at the top and at the bottom while <see cref="CropOverscan"/> is on.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(OverscanIndex))]
+    public partial int OverscanCropLines { get; set; } = 8;
+
+    /// <summary>How much of the screen edges to hide (SPEC §5.2), matching <see cref="OverscanIndex"/>.</summary>
+    public IReadOnlyList<string> OverscanOptions { get; } =
+        ["Show the whole picture", "4 lines", "8 lines, like most TVs (default)", "12 lines", "16 lines"];
+
+    private static readonly int[] OverscanValues = [0, 4, 8, 12, 16];
+
+    /// <summary>Settings → Video → Hide screen edges, as an index into <see cref="OverscanOptions"/> (GV-020).</summary>
+    public int OverscanIndex
+    {
+        get => CropOverscan ? Math.Max(1, Array.IndexOf(OverscanValues, OverscanCropLines)) : 0;
+        set
+        {
+            if (value < 0 || value >= OverscanValues.Length || value == OverscanIndex)
+            {
+                return;
+            }
+
+            if (value > 0)
+            {
+                OverscanCropLines = OverscanValues[value];
+            }
+
+            CropOverscan = value > 0;
+            OnPropertyChanged();
+            SaveIfLoaded();
+        }
+    }
 
     /// <summary>A <see cref="Services.DisplayPreset"/> as an index, for a RadioButtons group.</summary>
     [ObservableProperty]
@@ -110,6 +211,12 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial bool AllowOppositeDirections { get; set; }
 
+    /// <summary>Keep cartridge saves next to the game files (SPEC §4.5 opt-in, GV-012).</summary>
+    [ObservableProperty]
+    public partial bool SavesNextToRom { get; set; }
+
+    partial void OnSavesNextToRomChanged(bool value) => SaveIfLoaded();
+
     /// <summary>0–100. Bound to a Slider (double), so it is a double here.</summary>
     [ObservableProperty]
     public partial double Volume { get; set; } = 80;
@@ -120,12 +227,14 @@ public sealed partial class SettingsViewModel(
         _isLoaded = false;
         var settings = await settingsStore.LoadAsync(cancellationToken);
         CropOverscan = settings.CropOverscan;
+        OverscanCropLines = Array.IndexOf(OverscanValues, settings.OverscanCropLines) > 0 ? settings.OverscanCropLines : 8;
         DisplayPresetIndex = (int)settings.DisplayPreset;
         TvPixelShape = settings.TvPixelShape;
         RunAheadFrames = Math.Clamp(settings.RunAheadFrames, 0, AppSettings.MaxRunAheadFrames);
         PauseWhenInactive = settings.PauseWhenInactive;
         PlayFullScreen = settings.PlayFullScreen;
         AllowOppositeDirections = settings.AllowOppositeDirections;
+        SavesNextToRom = settings.SavesNextToRom;
         Volume = Math.Clamp(settings.Volume, 0, 100);
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
         DumperPath = settings.DumperPath;
@@ -148,6 +257,7 @@ public sealed partial class SettingsViewModel(
         var defaults = new AppSettings();
         _isLoaded = false;
         CropOverscan = defaults.CropOverscan;
+        OverscanCropLines = defaults.OverscanCropLines;
         DisplayPresetIndex = (int)defaults.DisplayPreset;
         TvPixelShape = defaults.TvPixelShape;
         RunAheadFrames = defaults.RunAheadFrames;
@@ -251,12 +361,14 @@ public sealed partial class SettingsViewModel(
         await settingsStore.SaveAsync(current with
         {
             CropOverscan = CropOverscan,
+            OverscanCropLines = OverscanCropLines,
             DisplayPreset = Enum.IsDefined((DisplayPreset)DisplayPresetIndex) ? (DisplayPreset)DisplayPresetIndex : current.DisplayPreset,
             TvPixelShape = TvPixelShape,
             RunAheadFrames = Math.Clamp(RunAheadFrames, 0, AppSettings.MaxRunAheadFrames),
             PauseWhenInactive = PauseWhenInactive,
             PlayFullScreen = PlayFullScreen,
             AllowOppositeDirections = AllowOppositeDirections,
+            SavesNextToRom = SavesNextToRom,
             Volume = (int)Math.Round(Math.Clamp(Volume, 0, 100)),
             DumperPath = DumperPath.Trim().Trim('"'),
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),

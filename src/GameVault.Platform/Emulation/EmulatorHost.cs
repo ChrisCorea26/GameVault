@@ -60,6 +60,10 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     private readonly BatterySaveStore? _memoryCards;
     private readonly BatterySaveStore? _controllerPaks;
     private BatterySaveStore? _batteryStore;
+
+    // GV-012: the game file whose folder the next game's save goes in (set by LoadAsync), and the running game's save there.
+    private string? _nextSaveBesideRom;
+    private string? _batteryBesideRom;
     private readonly BatterySaveStore? _diskSaves;
     private readonly BatterySaveStore? _appleDiskSaves;
 
@@ -421,6 +425,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             _seenCheats = null;
             _cheatsActive = false;
             _rewind.Clear();
+            _scrubIndex = -1;
             _rewinding = false;
             _challenge = null;
             _challengeActive = false;
@@ -624,6 +629,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
             _cheatsActive = false;
             _rewind.Clear();
+            _scrubIndex = -1;
             _watcher.Resync();
             _challenge = challenge;
             _challengeInputs = [];
@@ -771,11 +777,86 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
     public bool UsesZapper { get; private set; }
 
+    /// <inheritdoc />
+    public bool UsesPaddle { get; private set; }
+
     public bool UsesFourScore { get; private set; }
 
     public bool IsRewinding { get; private set; }
 
     public double RewindSeconds { get; private set; }
+
+    /// <inheritdoc />
+    public double RewindMaxSeconds { get; private set; }
+
+    // The scrub bar (GV-019): the history entry shown while it is held, or -1. Emulation thread.
+    private int _scrubIndex = -1;
+    private double _rewindStartSeconds;
+
+    /// <inheritdoc />
+    public void BeginScrub() => Post(() =>
+    {
+        if (_scrubIndex < 0 && _console is not null && _challenge is null && !_hardcore && _rewind.Count > 0)
+        {
+            if (!_rewinding)
+            {
+                _rewindStartSeconds = _rewind.Duration.TotalSeconds;
+            }
+
+            _scrubIndex = _rewind.Count - 1;
+            PublishRewind();
+        }
+    });
+
+    /// <inheritdoc />
+    public void ScrubTo(double seconds) => Post(() =>
+    {
+        if (_scrubIndex < 0 || _console is not { } console || _rewind.Count == 0)
+        {
+            return;
+        }
+
+        var index = Math.Clamp((int)Math.Round(seconds / _rewind.SecondsPerEntry) - 1, 0, _rewind.Count - 1);
+        if (index == _scrubIndex)
+        {
+            return;
+        }
+
+        try
+        {
+            _rewind.Restore(index, console);
+            _scrubIndex = index;
+            console.RunFrameSilently();
+            _present(console);
+        }
+        catch (Exception ex) when (ex is StateFormatException or InvalidDataException)
+        {
+            _rewind.Clear();
+            _scrubIndex = -1;
+            RaiseNotice("Rewind stopped working for this game, so its history was cleared.");
+        }
+
+        PublishRewind();
+    });
+
+    /// <inheritdoc />
+    public void EndScrub() => Post(() =>
+    {
+        if (_scrubIndex < 0)
+        {
+            return;
+        }
+
+        _rewind.TruncateAfter(_scrubIndex);
+        _scrubIndex = -1;
+        if (!_rewinding)
+        {
+            _audio?.Flush();
+            _watcher.Resync(); // scrubbing back isn't dying
+        }
+
+        PublishRewind();
+    });
 
     /// <summary>The profile applied to the running game.</summary>
     public GameProfile? Profile { get; private set; }
@@ -846,6 +927,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             _input.AllowOppositeDirections = settings.AllowOppositeDirections;
             RunAheadFrames = settings.RunAheadFrames;
             RewindCapacity = Math.Clamp(settings.RewindMemoryMb, 16, 4096) * 1024L * 1024;
+            _nextSaveBesideRom = settings.SavesNextToRom ? path : null;
             if (_audio is not null)
             {
                 _audio.Volume = Math.Clamp(settings.Volume, 0, 100) / 100f;
@@ -886,6 +968,10 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             : null;
         Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation, n64, playStation2);
     }
+
+    /// <summary>Shown when an Apple II disk starts without the Disk II boot ROM chosen in Settings.</summary>
+    public const string MissingDiskRomNotice =
+        "This disk can't start without the Disk II boot ROM. Choose your own Disk II boot ROM (256 bytes) in Settings → Apple II. GameVault doesn't include it.";
 
     /// <summary>The player's Apple II ROMs from Settings, or null when they aren't set yet.</summary>
     private async Task<AppleRoms?> LoadAppleRomsAsync(CancellationToken cancellationToken)
@@ -955,11 +1041,16 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         var battery = console.Battery;
         var batteryStore = console is PlayStationConsole ? _memoryCards : _batteries;
 
+        // Cartridge saves can sit next to the game file when the player opts in (GV-012); memory cards stay put.
+        var besideRom = batteryStore is not null && batteryStore == _batteries && _nextSaveBesideRom is { } romPath
+            ? batteryStore.BesideRom(romPath)
+            : null;
+        _nextSaveBesideRom = null;
         if (battery is not null && batteryStore is not null)
         {
             try
             {
-                batteryStore.TryLoad(console.RomHash, battery.BatteryRam);
+                batteryStore.TryLoad(console.RomHash, battery.BatteryRam, besideRom);
             }
             catch (IOException)
             {
@@ -979,6 +1070,12 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         LoadPs2MemoryCard(console);
         SetUpDiscs(data, system);
         _input.TypingMode = console is AppleConsole;
+        if (console is AppleConsole && appleRoms?.DiskBoot is null)
+        {
+            // Without the Disk II controller's ROM the Apple starts with no disk drive, so the disk can't boot (GV-010).
+            RaiseNotice(MissingDiskRomNotice);
+        }
+
         _input.Layout = console switch
         {
             GenesisConsole => PadLayout.Genesis,
@@ -986,6 +1083,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             PlayStationConsole => PadLayout.PlayStation,
             N64Console => PadLayout.Nintendo64,
             Core.PlayStation2.Ps2Console => PadLayout.PlayStation2,
+            SegaConsole => PadLayout.Sega,
             _ => PadLayout.Nes,
         };
         var appleBoot = console is AppleConsole { Disk: var drives } && drives.DiskIn(0) is { } bootDisk
@@ -1017,6 +1115,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             {
                 InputType.Zapper => InputSetup.Zapper,
                 InputType.FourScore => InputSetup.FourScore,
+                InputType.PowerPad => InputSetup.PowerPad,
+                InputType.ArkanoidPaddle => InputSetup.ArkanoidPaddle,
                 _ => InputSetup.Controllers,
             });
             nes.Ppu.RemoveSpriteLimit = profile.RemoveSpriteLimit == true || _assist.RemoveFlicker;
@@ -1048,6 +1148,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
             _battery = battery;
             _batteryStore = batteryStore;
+            _batteryBesideRom = besideRom;
             _batterySaved = battery?.BatteryRam.ToArray() ?? [];
             _batteryTitle = title;
             TrackControllerPak(console);
@@ -1075,6 +1176,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         GameKey = hashes.Key;
         Profile = profile;
         UsesZapper = nes?.InputSetup == InputSetup.Zapper;
+        UsesPaddle = nes?.InputSetup == InputSetup.ArkanoidPaddle;
+        _input.PowerPadActive = nes?.InputSetup == InputSetup.PowerPad;
         UsesFourScore = nes?.InputSetup == InputSetup.FourScore;
         DiskSideCount = nes?.Fds?.SideCount ?? DiscNames.Count;
         MemoryMap = memoryMap;
@@ -1145,6 +1248,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             _ps2Card = null;
             _running = false;
             _rewind.Clear();
+            _scrubIndex = -1;
         });
         SetAudioPaused(true);
         GameTitle = null;
@@ -1152,6 +1256,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         AchievementsHash = null;
         GameKey = null;
         UsesZapper = false;
+        UsesPaddle = false;
+        _input.PowerPadActive = false;
         UsesFourScore = false;
         DiskSideCount = 0;
         DiscNames = [];
@@ -1430,6 +1536,18 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
                 nes.Zapper.Trigger = trigger;
             }
 
+            if (console is NesConsole { InputSetup: InputSetup.PowerPad } mat)
+            {
+                mat.PowerPad.Buttons = _input.SamplePowerPad();
+            }
+
+            if (console is NesConsole { InputSetup: InputSetup.ArkanoidPaddle } vaus)
+            {
+                var (fraction, fire) = _input.SamplePaddle();
+                vaus.Paddle.SetFraction(fraction);
+                vaus.Paddle.Fire = fire;
+            }
+
             if (console is NesConsole withCodes && withCodes.Bus.Cheats != _seenCheats)
             {
                 _seenCheats = withCodes.Bus.Cheats;
@@ -1521,7 +1639,12 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         if (held != _rewinding)
         {
             _rewinding = held;
-            if (!held)
+            if (held && _scrubIndex < 0)
+            {
+                _rewindStartSeconds = _rewind.Duration.TotalSeconds;
+            }
+
+            if (!held && _scrubIndex < 0)
             {
                 _audio?.Flush(); // resume from silence
                 _watcher.Resync(); // rewinding isn't dying
@@ -1530,12 +1653,19 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             PublishRewind();
         }
 
-        return held;
+        // While the scrub bar is held the game holds still, whether or not the rewind button still is.
+        return held || _scrubIndex >= 0;
     }
 
     /// <summary>One step of rewind: restore an older state and show the frame that follows it, silently.</summary>
     private bool TryRewindFrame(IEmulatedConsole console)
     {
+        if (_scrubIndex >= 0)
+        {
+            _wake.WaitOne(15); // the scrub bar moves the picture; nothing runs meanwhile
+            return false;
+        }
+
         try
         {
             if (_rewind.StepBack(console))
@@ -1554,6 +1684,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         catch (Exception ex) when (ex is StateFormatException or InvalidDataException)
         {
             _rewind.Clear();
+            _scrubIndex = -1;
             RaiseNotice("Rewind stopped working for this game, so its history was cleared.");
             return true;
         }
@@ -1561,12 +1692,14 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
     private void PublishRewind()
     {
-        var rewinding = _rewinding;
-        var seconds = _rewind.Duration.TotalSeconds;
+        var rewinding = _rewinding || _scrubIndex >= 0;
+        var seconds = _scrubIndex >= 0 ? (_scrubIndex + 1) * _rewind.SecondsPerEntry : _rewind.Duration.TotalSeconds;
+        var max = Math.Max(_rewindStartSeconds, seconds);
         Raise(() =>
         {
             IsRewinding = rewinding;
             RewindSeconds = seconds;
+            RewindMaxSeconds = max;
             RewindChanged?.Invoke(this, EventArgs.Empty);
         });
     }
@@ -1740,12 +1873,13 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _batterySaved = data;
         var title = _batteryTitle;
         var hash = _console!.RomHash;
+        var beside = _batteryBesideRom;
 
         void Write()
         {
             try
             {
-                store.Save(title, hash, data);
+                store.Save(title, hash, data, beside);
             }
             catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
             {

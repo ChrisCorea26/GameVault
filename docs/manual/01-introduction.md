@@ -1,5 +1,5 @@
 ---
-edition: "Edition 2 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2"
+edition: "Edition 3 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2"
 ---
 
 # Introduction
@@ -9,7 +9,9 @@ hardware accurately, sets itself up with no configuration, and keeps a library o
 what you've beaten, your playtime, notes, passwords and save states.
 
 GameVault plays games **you supply yourself**, such as dumps of cartridges and discs you own, or freely licensed
-homebrew. It never includes, downloads or links to commercial games, BIOS files or system ROMs.
+homebrew. It never includes, downloads or links to commercial games, BIOS files or system ROMs. It does come with
+four freely licensed NES homebrew games, so there is something to play the first time you start it (see
+[Bundled homebrew](#bundled-homebrew)).
 
 ## Supported systems at a glance
 
@@ -35,7 +37,7 @@ GameVault works out of the box, but some things only you can provide. This check
 
 | Item | Required? | Where it goes | More |
 |---|---|---|---|
-| **Your games** (ROM files and disc images) | Yes | Any folder; add it in the Library | [Quick start](#quick-start) |
+| **Your games** (ROM files and disc images) | Yes, beyond the bundled homebrew | Any folder; add it in the Library | [Quick start](#quick-start) |
 | **Famicom Disk System BIOS** (`disksys.rom`, 8 KB) | Only for `.fds` games | Settings → Disk System | [Famicom Disk System](#famicom-disk-system) |
 | **Apple II system ROM** (12 KB for II/II+, 16 KB for IIe) and **Disk II boot ROM** (256 bytes) | Only for Apple II | Settings → Apple II | [Apple II](#apple-ii-ii-and-iie) |
 | **PlayStation BIOS** (512 KB, e.g. SCPH-1001) | Only for PlayStation discs | Settings → PlayStation | [PlayStation](#sony-playstation) |
