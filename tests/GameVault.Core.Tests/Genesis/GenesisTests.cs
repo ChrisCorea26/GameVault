@@ -172,6 +172,36 @@ public sealed class GenesisTests
     }
 
     [Fact]
+    public void Interlace_mode_2_draws_8x16_tiles_into_a_448_line_picture_one_field_at_a_time()
+    {
+        var vdp = Vdp(12, 0x87, 7, 0x00); // H40 and LSM = 11: interlace mode 2
+        SetColor(vdp, 1, 0x000E); // red
+        SetColor(vdp, 2, 0x00E0); // green
+        // Tile 1 (64 bytes at $40): rows 0–7 colour 1, rows 8–15 colour 2. Plane A's first entry uses it.
+        WriteVram(vdp, 64, [.. Enumerable.Repeat((ushort)0x1111, 16), .. Enumerable.Repeat((ushort)0x2222, 16)]);
+        WriteVram(vdp, 0xC000, 0x0001);
+
+        // Two frames: one even field and one odd, each drawing every other line.
+        for (var frame = 0; frame < 2; frame++)
+        {
+            for (var line = 0; line < 262; line++)
+            {
+                vdp.BeginLine(line);
+                vdp.BeginHBlank();
+            }
+        }
+
+        vdp.Interlace2.Should().BeTrue();
+        vdp.FrameHeight.Should().Be(448);
+        for (var y = 0; y < 16; y++)
+        {
+            Pixel(vdp, 3, y).Should().Be(Normal(y < 8 ? (ushort)0x000E : (ushort)0x00E0), $"line {y} of the doubled picture");
+        }
+
+        Pixel(vdp, 3, 16).Should().Be(Normal(0x0000), "the next tile row down is tile 0, transparent");
+    }
+
+    [Fact]
     public void Planes_draw_tiles_with_priority_over_each_other_and_the_background()
     {
         var vdp = Vdp(7, 0x00);
