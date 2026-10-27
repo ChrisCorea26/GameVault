@@ -34,6 +34,7 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
     private readonly byte[] _backupRam = new byte[0x2000];
     private readonly byte[] _commCommand = new byte[16];
     private readonly byte[] _commStatus = new byte[16];
+    private readonly byte[] _subcodeBuffer = new byte[128];
     private readonly long _masterClock;
 
     private bool _subReset = true;
@@ -61,6 +62,7 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
     private int _dmaAddress;
     private bool _dmaRunning;
     private bool _cdcInterrupt;
+    private byte _subcodeAddress;
 
     private long _subCycles;
     private long _frameBase;      // master clocks before this frame
@@ -188,6 +190,8 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
         _dmaAddress = 0;
         _dmaRunning = false;
         _cdcInterrupt = false;
+        _subcodeAddress = 0;
+        Array.Clear(_subcodeBuffer);
         _tickCountdown = ClocksPerTick;
         Pcm.Reset();
         Cdc.Reset();
@@ -264,6 +268,11 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
             if ((_driveControl & 0x04) != 0)
             {
                 Raise(4); // HOCK: the drive reports each tick
+            }
+
+            if (Drive.SubcodeReady)
+            {
+                StoreSubcode(Drive.Subcode);
             }
         }
 
@@ -366,6 +375,26 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
 
             _dmaAddress++;
         }
+    }
+
+    /// <summary>
+    /// A sector's subcode reaches the gate array (genesis-gaps.md §4): the pointer at $FF8069 moves on by 98 bytes
+    /// (the sector's two sync symbols and 96 symbols) within the 64-word buffer at $FF8100, the 96 symbols go in from
+    /// there two to a word, and the level 6 interrupt is raised. The BIOS's CD player decodes CD+G from the buffer.
+    /// Behaviour follows Genesis Plus GX's cdd.c, read for behaviour only.
+    /// </summary>
+    private void StoreSubcode(ReadOnlySpan<byte> symbols)
+    {
+        _subcodeAddress = (byte)((_subcodeAddress + 98) & 0x7E);
+        var word = _subcodeAddress >> 1;
+        for (var i = 0; i < ICdSubcode.Size; i += 2)
+        {
+            _subcodeBuffer[word * 2] = symbols[i];
+            _subcodeBuffer[word * 2 + 1] = symbols[i + 1];
+            word = (word + 1) & 0x3F;
+        }
+
+        Raise(6);
     }
 
     // ---- Word RAM ----
@@ -815,6 +844,8 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
 
             case 0x58: return (byte)(Graphics.Busy ? 0x80 : 0);
             case 0x59: return (byte)Graphics.StampSize;
+            case 0x69: return _subcodeAddress;
+            case >= 0x100: return _subcodeBuffer[a & 0x7F]; // 64 words, mirrored at $FF8180
             default: return 0;
         }
     }
@@ -928,7 +959,7 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 1);
+        writer.BeginChunk(Tag, 2);
         Cpu.SaveState(writer);
         Drive.SaveState(writer);
         Cdc.SaveState(writer);
@@ -970,12 +1001,14 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
         writer.WriteInt32(_tickCountdown);
         writer.WriteInt64(_cddTicks);
         writer.WriteInt64(_lastCddCycle);
+        writer.WriteBytes(_subcodeBuffer);
+        writer.WriteByte(_subcodeAddress);
         writer.EndChunk();
     }
 
     public void LoadState(StateReader reader)
     {
-        reader.BeginChunk(Tag);
+        var version = reader.BeginChunk(Tag);
         Cpu.LoadState(reader);
         Drive.LoadState(reader);
         Cdc.LoadState(reader);
@@ -1017,6 +1050,17 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
         _tickCountdown = Math.Clamp(reader.ReadInt32(), 1, ClocksPerTick);
         _cddTicks = reader.ReadInt64();
         _lastCddCycle = reader.ReadInt64();
+        if (version >= 2)
+        {
+            reader.ReadBytes(_subcodeBuffer);
+            _subcodeAddress = (byte)(reader.ReadByte() & 0x7E);
+        }
+        else
+        {
+            Array.Clear(_subcodeBuffer);
+            _subcodeAddress = 0;
+        }
+
         reader.EndChunk();
         _lastLeft = _lastRight = 0;
     }

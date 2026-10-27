@@ -51,13 +51,14 @@ resampler's two channels), so its entry is just removed.
 ## 4. Sega CD: CD+G (subcode)
 - **Discs:** `ICdSubcode` (Core, next to `ICdImage`): a disc image that also has each sector's 96 bytes of subcode,
   one byte per symbol (P in bit 7 … W in bit 0). `CueImage` reads a `.sub` file named like the cue sheet (CloneCD's
-  layout: 12 bytes per channel, P to W). `ChdImage` reads the subcode stored after each frame when the track's
-  SUBTYPE is RW_RAW (stored a byte per symbol). Images without subcode are unchanged.
+  layout: 12 bytes per channel, P to W), the layout Genesis Plus GX reads. Images without subcode are unchanged.
+  CHD subcode isn't read: chdman's subcode types don't say plainly which order they keep, so a guess could garble
+  the graphics. It waits for a CHD made from a known CD+G disc to check against.
 - **Sega CD:** each sector the drive plays or reads (75 a second) moves the gate array's subcode pointer ($FF8068)
   on by 98 bytes. The sector's 96 symbols then go into the 64-word subcode buffer at $FF8100 (mirrored at $FF8180),
   two symbols a word, and the level 6 interrupt is raised. The BIOS's own CD player decodes the CD+G graphics from
   there. Behaviour follows Genesis Plus GX's cdd.c, read for behaviour only.
-- **Tests:** the subcode conversion from both file layouts; the buffer, pointer and level 6 interrupt from a disc
+- **Tests:** the subcode conversion from the .sub layout; the buffer, pointer and level 6 interrupt from a disc
   with known subcode; a `.sub` beside a cue sheet; a save-state round trip.
 
 ## 5. 32X: the SH-2 cache

@@ -669,4 +669,79 @@ public sealed class SegaCdTests
         console.SegaCd.MainReadGate(0x20).Should().Be(count);
         console.WorkRam[0xFF10].Should().Be(ram);
     }
+
+    // ---- Subcode (CD+G) ----
+
+    [Fact]
+    public void Subcode_reaches_the_gate_arrays_buffer_with_the_level_6_interrupt()
+    {
+        // Each sector's 96 symbols: the sector's number, then the symbol's.
+        var data = Disc();
+        var sectors = new byte[150 * ICdImage.SectorSize];
+        var subcode = new byte[150 * 96];
+        for (var sector = 0; sector < 150; sector++)
+        {
+            data.ReadSector(150 + sector, sectors.AsSpan(sector * ICdImage.SectorSize, ICdImage.SectorSize));
+            for (var symbol = 0; symbol < 96; symbol++)
+            {
+                subcode[sector * 96 + symbol] = (byte)(sector * 3 + symbol);
+            }
+        }
+
+        var disc = new MemoryCdImage(sectors, data.Tracks, subcode);
+        var sub = Words(MoveB(0x40, 0xFF8033), EnableInterrupts, Loop);
+        var console = Console(Words(MoveB(0x01, 0xA12001), Loop), sub, disc, prg: prg =>
+        {
+            Long(prg, 0x78, 0x2000); // level 6
+            Put(prg, 0x2000, Words(AddqB(0xFF8020), Rte));
+        });
+        var unit = console.SegaCd!;
+        console.RunFrame();
+        Command(unit, 0x3, 0, 0, 0, 0, 2, 0, 0); // play from 00:02:00
+        for (var i = 0; i < 30; i++)
+        {
+            console.RunFrame();
+        }
+
+        var played = unit.Drive.Position - 150; // sectors played so far
+        played.Should().BeGreaterThan(5);
+        unit.MainReadGate(0x20).Should().Be((byte)played, "one level 6 interrupt a sector");
+
+        // The pointer moved 98 bytes a sector; the last sector's symbols start there, two to a word, wrapping in 128 bytes.
+        var pointer = unit.ReadByte(0xFF8069);
+        pointer.Should().Be((byte)(played * 98 & 0x7E));
+        var last = played - 1;
+        for (var symbol = 0; symbol < 96; symbol++)
+        {
+            var at = (uint)(0xFF8100 + ((pointer + symbol) & 0x7F));
+            unit.ReadByte(at).Should().Be((byte)(last * 3 + symbol), $"symbol {symbol}");
+        }
+
+        unit.ReadWord(0xFF8180 + (uint)(pointer & 0x7E)).Should().Be(unit.ReadWord(0xFF8100 + (uint)(pointer & 0x7E)), "the buffer is mirrored");
+
+        var state = console.SaveSnapshot();
+        var buffer = Enumerable.Range(0, 128).Select(i => unit.ReadByte(0xFF8100 + (uint)i)).ToArray();
+        console.RunFrame();
+        console.LoadSnapshot(state);
+        Enumerable.Range(0, 128).Select(i => unit.ReadByte(0xFF8100 + (uint)i)).Should().Equal(buffer);
+        unit.ReadByte(0xFF8069).Should().Be(pointer);
+    }
+
+    [Fact]
+    public void Subcode_kept_channel_by_channel_becomes_a_byte_per_symbol()
+    {
+        var channels = new byte[96];
+        channels[0] = 0b1000_0001; // P: symbols 0 and 7
+        channels[12 + 1] = 0x80;   // Q: symbol 8
+        channels[7 * 12 + 11] = 1; // W: symbol 95
+        var symbols = new byte[96];
+
+        CdSubcode.FromChannels(channels, symbols);
+
+        symbols[0].Should().Be(0x80);
+        symbols[7].Should().Be(0x80);
+        symbols[8].Should().Be(0x40);
+        symbols[95].Should().Be(0x01);
+        symbols.Count(b => b != 0).Should().Be(4);
+    }
 }
