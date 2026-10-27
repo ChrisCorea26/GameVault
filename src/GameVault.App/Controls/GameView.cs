@@ -427,7 +427,7 @@ public sealed partial class GameView : Control
         private readonly Thread _thread;
         private readonly CancellationTokenSource _stop = new();
         private readonly Lock _layoutGate = new();
-        private readonly uint[] _pixels = new uint[IVideoSink.MaxWidth * IVideoSink.MaxHeight];
+        private uint[] _pixels = new uint[IVideoSink.MaxWidth * IVideoSink.MaxHeight];
         private byte[] _bytes = new byte[FrameWidth * FrameHeight * 4];
         private int _frameWidth = FrameWidth;
         private int _frameHeight = FrameHeight;
@@ -513,6 +513,11 @@ public sealed partial class GameView : Control
 
                     _pixelAspect = frame.PixelAspect;
                     var count = frame.Width * frame.Height;
+                    if (_pixels.Length < count)
+                    {
+                        _pixels = new uint[count]; // a GPU renderer's larger picture
+                    }
+
                     frame.ToArgb(_frames.Palette, _pixels);
 
                     // ARGB as little-endian uint is BGRA in memory, which is the bitmap's format.

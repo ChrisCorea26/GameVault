@@ -11,3 +11,4 @@
 | 7 | October 2026 | Super Nintendo games with a Super FX chip (Star Fox, Yoshi's Island) play, and games with a DSP chip (Super Mario Kart, Pilotwings) play with your own chip ROM in **Settings → Super Nintendo → Enhancement chip ROMs**. |
 | 12 | October 2026 | Nintendo 64: **Settings → Nintendo 64 → Rumble Pak** puts a Rumble Pak in every controller, and games shake your controller through it; games in 32-bit colour show all their colours. |
 | 14 | October 2026 | PlayStation: the controllers are DualShocks, with both sticks, L3 and R3, vibration and **Settings → PlayStation → Analog mode**; the GunCon and the mouse (chosen per game in Game Details); 24-bit videos show all their colours. |
+| 21 | October 2026 | PlayStation: **Settings → PlayStation → Internal resolution** draws 3D games at 2× or 3× on your graphics card. |

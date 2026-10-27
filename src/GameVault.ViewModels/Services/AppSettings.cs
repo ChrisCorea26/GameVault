@@ -98,6 +98,12 @@ public sealed record AppSettings
     public bool PlayStationAnalog { get; init; }
 
     /// <summary>
+    /// The PlayStation GPU renderer's internal resolution: 1 (the software picture, the default), 2 or 3 times the
+    /// console's own, drawn with Direct3D 11 (docs/plans/gpu-renderers.md).
+    /// </summary>
+    public int PlayStationInternalResolution { get; init; } = 1;
+
+    /// <summary>
     /// Give N64 games the Expansion Pak's extra 4 MB (8 MB in all). On by default, as most homebrew and many games
     /// use it; a few older games expect 4 MB.
     /// </summary>

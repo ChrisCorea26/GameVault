@@ -216,6 +216,8 @@ protocol can't be checked here. Tests: `PsDualShockTests`,
   differences fixed-function blending makes.
 - Software stays the default where results must be exact (netplay, verified challenges).
 - Its own plan file first.
+- **Status:** milestone 1, the PlayStation GPU at 2× and 3×, is done (`docs/plans/gpu-renderers.md`). The N64 RDP
+  and PS2 GS milestones are future work, in that plan.
 
 ## 15. N64 recompiler
 A VR4300 block recompiler to IL like the EE's, with the interpreter as the reference and the same kind of
