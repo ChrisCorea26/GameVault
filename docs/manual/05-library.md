@@ -119,6 +119,7 @@ time the game starts. Only the properties that apply to the game's system are sh
 | Property | Systems | Values |
 |---|---|---|
 | **Controls** | NES | Automatic, Controller, Zapper, Four Score, Power Pad (keyboard), Arkanoid paddle (mouse) |
+| **Port 1** | PlayStation | Automatic, DualShock, GunCon (the mouse aims), Mouse |
 | **Reduce input lag** | All | Automatic, On, Off |
 | **Reduce flicker (more sprites per line)** | NES | Automatic, On, Off |
 | **Region (speed)** | NES | Automatic, NTSC (60 Hz), PAL (50 Hz), Dendy (50 Hz) |

@@ -491,6 +491,7 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
                     return;
                 case >= 0x4300 and < 0x4380:
                     _dma[offset & 0x7F] = value;
+                    (_coprocessor as Sdd1)?.SnoopDma(offset, value); // the S-DD1 watches each channel's source and count
                     return;
                 case < 0x6000:
                     return;

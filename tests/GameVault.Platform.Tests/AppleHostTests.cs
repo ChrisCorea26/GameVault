@@ -82,6 +82,29 @@ public sealed class AppleHostTests : IDisposable
     }
 
     [Fact]
+    public async Task The_monitor_setting_reaches_the_machine_and_a_wrong_character_rom_is_explained()
+    {
+        var disk = Path.Combine(_root.FullName, "Game.dsk");
+        await File.WriteAllBytesAsync(disk, new byte[AppleDisk.DiskBytes]);
+        var roms = WriteRoms();
+        var settings = new InMemorySettingsStore(new AppSettings { AppleIIRomPath = roms, AppleIIMonitor = (int)AppleMonitor.Green });
+        using (var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), settings))
+        {
+            await host.LoadAsync(disk);
+            (await host.InspectAsync(c => ((AppleConsole)c).Monitor)).Should().Be(AppleMonitor.Green);
+        }
+
+        var notAFont = Path.Combine(_root.FullName, "font.rom");
+        await File.WriteAllBytesAsync(notAFont, new byte[2048]);
+        var bad = new InMemorySettingsStore(new AppSettings { AppleIIRomPath = roms, AppleIICharacterRomPath = notAFont });
+        using var badHost = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), bad);
+
+        var act = () => badHost.LoadAsync(disk);
+
+        (await act.Should().ThrowAsync<GameLoadException>()).Which.Message.Should().Contain("character ROM");
+    }
+
+    [Fact]
     public async Task The_disk_menu_fills_and_empties_drive_2_and_writes_are_kept_for_the_next_session()
     {
         var game = Path.Combine(_root.FullName, "Game.dsk");

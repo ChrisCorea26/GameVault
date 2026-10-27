@@ -136,10 +136,31 @@ public sealed class D3D11FrameRenderer : IDisposable
         UploadFrame(frame, palette, DisplayLayout.FrameWidth, DisplayLayout.FrameHeight, 1.0);
 
     /// <summary>Uploads a frame of any system's size; the texture follows the frame's size.</summary>
-    public void UploadFrame(VideoFrame frame, ReadOnlySpan<uint> palette) =>
-        UploadFrame(frame.Span, palette, frame.Width, frame.Height, frame.PixelAspect);
+    public void UploadFrame(VideoFrame frame, ReadOnlySpan<uint> palette)
+    {
+        if (frame.IsArgb)
+        {
+            Upload(frame.ArgbSpan, frame.Width, frame.Height, frame.PixelAspect);
+        }
+        else
+        {
+            UploadFrame(frame.Span, palette, frame.Width, frame.Height, frame.PixelAspect);
+        }
+    }
 
     private void UploadFrame(ReadOnlySpan<ushort> frame, ReadOnlySpan<uint> palette, int width, int height, double pixelAspect)
+    {
+        var count = width * height;
+        for (var i = 0; i < count; i++)
+        {
+            _pixels[i] = palette[frame[i] & 0x7FFF];
+        }
+
+        Upload(_pixels.AsSpan(0, count), width, height, pixelAspect);
+    }
+
+    /// <summary>Copies an ARGB frame into the frame texture, resizing it to the frame's size first.</summary>
+    private void Upload(ReadOnlySpan<uint> argb, int width, int height, double pixelAspect)
     {
         if (width != _frameWidth || height != _frameHeight)
         {
@@ -153,16 +174,10 @@ public sealed class D3D11FrameRenderer : IDisposable
         }
 
         _framePixelAspect = pixelAspect;
-        var count = width * height;
-        for (var i = 0; i < count; i++)
-        {
-            _pixels[i] = palette[frame[i] & 0x7FFF];
-        }
-
         var mapped = _context.Map(_frameTexture, 0, MapMode.WriteDiscard);
         try
         {
-            var source = MemoryMarshal.AsBytes(_pixels.AsSpan(0, count));
+            var source = MemoryMarshal.AsBytes(argb);
             for (var y = 0; y < height; y++)
             {
                 var row = source.Slice(y * width * 4, width * 4);
