@@ -299,6 +299,32 @@ public sealed class N64ConsoleTests
     }
 
     [Fact]
+    public void A_32_bit_frame_is_kept_at_full_depth_and_a_16_bit_one_is_not()
+    {
+        var console = new N64Console(new N64Cartridge(Rom([Mips.BranchSelf, Mips.Nop])));
+        console.Power();
+        console.Write32(0x0440_0000, 0x0000_3003); // 32-bit
+        console.Write32(0x0440_0004, 0x0020_0000);
+        console.Write32(0x0440_0008, 320);
+        console.Write32(0x0440_0018, 0x20D);
+        console.Write32(0x0440_001C, 0xC15);
+        console.Write32(0x0440_0024, 0x006C_02EC);
+        console.Write32(0x0440_0028, 0x0025_01FF);
+        console.Write32(0x0440_0030, 0x200);
+        console.Write32(0x0440_0034, 0x400);
+        BinaryPrimitives.WriteUInt32BigEndian(console.Rdram.AsSpan(0x20_0000 + (10 * 320 + 5) * 4), 0x123456FF);
+        console.RunFrame();
+
+        console.TrueColorFrame.Length.Should().Be(320 * 237);
+        console.TrueColorFrame[10 * 320 + 5].Should().Be(0xFF123456, "every bit of the 8-bit channels");
+        console.FrameBuffer[10 * 320 + 5].Should().Be((ushort)((0x12 >> 3) | (0x34 >> 3) << 5 | (0x56 >> 3) << 10));
+
+        console.Write32(0x0440_0000, 0x0000_3002); // back to 16-bit
+        console.RunFrame();
+        console.TrueColorFrame.IsEmpty.Should().BeTrue();
+    }
+
+    [Fact]
     public void The_joybus_reads_the_controller_and_its_stick()
     {
         var console = new N64Console(new N64Cartridge(Rom([Mips.BranchSelf, Mips.Nop])));

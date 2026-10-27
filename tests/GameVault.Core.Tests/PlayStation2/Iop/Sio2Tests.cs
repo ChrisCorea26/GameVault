@@ -79,6 +79,21 @@ public sealed class Sio2Tests
     }
 
     [Fact]
+    public void Analog_triggers_report_their_pressure_and_keys_report_full_pressure()
+    {
+        Transfer(0, Padded(5, 0x01, 0x43, 0x00, 0x01));
+        Transfer(0, Padded(9, 0x01, 0x44, 0x00, 0x01, 0x03));
+        Transfer(0, Padded(9, 0x01, 0x4F, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x00, 0x00));
+        Transfer(0, Padded(9, 0x01, 0x43, 0x00, 0x00));
+
+        Iop.SetControllerState(0, (ControllerState.L2 | ControllerState.R2).WithTriggerPressure(64, 0));
+        var poll = Transfer(0, Padded(21, 0x01, 0x42, 0x00));
+
+        poll[19].Should().Be(0x81, "L2 half pulled");
+        poll[20].Should().Be(0xFF, "R2 held with no analog value: all the way");
+    }
+
+    [Fact]
     public void A_missing_pad_on_port_2_is_reported_in_recv1()
     {
         Iop.Sio2.PadConnected[1] = false;
@@ -97,6 +112,25 @@ public sealed class Sio2Tests
         Transfer(0, Padded(13, 0x81, 0x26)).Should().Equal(0x00, 0x00, 0x2B, 0x00, 0x02, 0x10, 0x00, 0x00, 0x40, 0x00, 0x00, 0x52, 0x55);
         Transfer(1, 0x81, 0x11, 0x00, 0x00).Should().Equal(0xFF, 0xFF, 0xFF, 0xFF);
         Recv1.Should().Be(0x1D100u);
+    }
+
+    [Fact]
+    public void A_card_in_slot_2_answers_on_port_2_with_its_own_contents()
+    {
+        Iop.MemoryCard = Ps2MemoryCard.CreateFormatted();
+        Iop.MemoryCard2 = Ps2MemoryCard.CreateFormatted();
+        Iop.MemoryCard2.Data[0x200] = 0x5A;
+
+        Transfer(1, 0x81, 0x11, 0x00, 0x00).Should().Equal(0x00, 0x00, 0x2B, 0x55);
+        Recv1.Should().Be(0x1100u);
+        Iop.MemoryCard.Data[0x200].Should().NotBe(0x5A, "each slot has its own card");
+
+        var writer = new GameVault.Core.State.StateWriter();
+        Iop.SaveState(writer);
+        var other = new IopHarness();
+        other.Iop.MemoryCard = Ps2MemoryCard.CreateFormatted();
+        other.Iop.LoadState(new GameVault.Core.State.StateReader(writer.ToArray()));
+        other.Iop.MemoryCard2!.Data[0x200].Should().Be(0x5A, "slot 2's card rides in the save state");
     }
 
     /// <summary>Starts SIO2's DMA channels 11 and 12 for one command of <paramref name="command"/>'s bytes (padded to words).</summary>

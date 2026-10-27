@@ -50,4 +50,21 @@ public sealed class NetplayViewModelTests : IDisposable
         _vm.Status.Should().Be(NetplayStatus.Playing);
         _vm.StatusText.Should().Be("Connected. You are Player 2.");
     }
+
+    [Fact]
+    public async Task Hosting_over_the_internet_asks_for_the_reply_code()
+    {
+        await _vm.HostInternetCommand.ExecuteAsync(null);
+
+        _vm.NeedsReply.Should().BeTrue();
+        _vm.StatusText.Should().Contain("reply code");
+        _vm.AcceptReplyCommand.CanExecute(null).Should().BeFalse();
+        _vm.ReplyCode = "ABCDE-12345";
+
+        await _vm.AcceptReplyCommand.ExecuteAsync(null);
+
+        _vm.NeedsReply.Should().BeFalse();
+        _vm.Status.Should().Be(NetplayStatus.Playing);
+        _vm.ReplyCode.Should().BeEmpty();
+    }
 }

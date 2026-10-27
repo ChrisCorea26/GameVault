@@ -4,10 +4,13 @@ using System.Net.Sockets;
 namespace GameVault.Platform.Netplay;
 
 /// <summary>
-/// Netplay over UDP on the local network (SPEC §7.7; the owner chose LAN-only to start). The host listens
-/// and takes the first player who sends a packet as its peer; the joining player knows the host's address
-/// from the invite code. Packets from anyone else are ignored. Never blocks: <see cref="TryReceive"/> only
-/// reads datagrams that have already arrived.
+/// Netplay over UDP (SPEC §7.7). On the local network the host listens and takes the first player who sends a packet
+/// as its peer; the joining player knows the host's address from the invite code. Over the internet
+/// (outstanding-work plan §13) each side first learns its public address from a STUN server
+/// (<see cref="DiscoverPublicEndPointAsync"/>), the host is told the joiner's through the reply code
+/// (<see cref="ExpectPeer"/>), and both send until their routers let the packets through; or both join a room on a
+/// relay (<see cref="JoinRelayAsync"/>), which is then the peer. Packets from anyone else are ignored. Never blocks:
+/// <see cref="TryReceive"/> only reads datagrams that have already arrived.
 /// </summary>
 public sealed class UdpNetplayLink : INetplayLink, IDisposable
 {
@@ -16,6 +19,10 @@ public sealed class UdpNetplayLink : INetplayLink, IDisposable
 
     private readonly UdpClient _udp;
     private IPEndPoint? _peer;
+
+    // Over the internet a router may give the other player's packets a different port than their STUN reply said:
+    // packets from the same address are then taken as theirs.
+    private bool _anyPortFromPeer;
 
     private UdpNetplayLink(UdpClient udp, IPEndPoint? peer)
     {
@@ -57,6 +64,119 @@ public sealed class UdpNetplayLink : INetplayLink, IDisposable
     public static UdpNetplayLink Connect(IPEndPoint host) =>
         new(new UdpClient(new IPEndPoint(IPAddress.Any, 0)), host);
 
+    /// <summary>The host was told who will join (their reply code): send to them, so our router lets their packets in.</summary>
+    public void ExpectPeer(IPEndPoint peer)
+    {
+        _peer = peer;
+        _anyPortFromPeer = true;
+    }
+
+    /// <summary>
+    /// Asks STUN servers, through this socket, what address and port the internet sees it from. Null when none
+    /// answers within <paramref name="timeout"/> (no internet, or UDP blocked). Call before the game's packets flow.
+    /// </summary>
+    public async Task<IPEndPoint?> DiscoverPublicEndPointAsync(IEnumerable<IPEndPoint> servers, TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        foreach (var server in servers)
+        {
+            var request = StunMessage.Request(out var transaction);
+            using var wait = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            wait.CancelAfter(timeout);
+            try
+            {
+                for (var attempt = 0; attempt < 3 && !wait.IsCancellationRequested; attempt++)
+                {
+                    await _udp.SendAsync(request, server, wait.Token).ConfigureAwait(false);
+                    using var retry = CancellationTokenSource.CreateLinkedTokenSource(wait.Token);
+                    retry.CancelAfter(timeout / 3);
+                    while (true)
+                    {
+                        var received = await _udp.ReceiveAsync(retry.Token).ConfigureAwait(false);
+                        if (StunMessage.TryParseResponse(received.Buffer, transaction, out var mapped))
+                        {
+                            return mapped;
+                        }
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+            {
+                // This server didn't answer in time; try the next.
+            }
+            catch (SocketException)
+            {
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>Resolves the public STUN servers (IPv4 only). Empty without DNS.</summary>
+    public static async Task<IReadOnlyList<IPEndPoint>> ResolveAsync(IEnumerable<(string Host, int Port)> servers, CancellationToken cancellationToken = default)
+    {
+        var resolved = new List<IPEndPoint>();
+        foreach (var (host, port) in servers)
+        {
+            try
+            {
+                var addresses = await Dns.GetHostAddressesAsync(host, AddressFamily.InterNetwork, cancellationToken).ConfigureAwait(false);
+                if (addresses.Length > 0)
+                {
+                    resolved.Add(new IPEndPoint(addresses[0], port));
+                }
+            }
+            catch (SocketException)
+            {
+            }
+        }
+
+        return resolved;
+    }
+
+    /// <summary>
+    /// Takes a seat in <paramref name="room"/> on a relay, which becomes the peer. False when the relay doesn't answer
+    /// within <paramref name="timeout"/> or the room is full.
+    /// </summary>
+    public async Task<bool> JoinRelayAsync(IPEndPoint relay, uint room, TimeSpan timeout, CancellationToken cancellationToken = default)
+    {
+        var join = GameVault.Relay.NetplayRelay.JoinPacket(room);
+        using var wait = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        wait.CancelAfter(timeout);
+        try
+        {
+            while (true)
+            {
+                await _udp.SendAsync(join, relay, wait.Token).ConfigureAwait(false);
+                using var retry = CancellationTokenSource.CreateLinkedTokenSource(wait.Token);
+                retry.CancelAfter(TimeSpan.FromMilliseconds(500));
+                try
+                {
+                    while (true)
+                    {
+                        var received = await _udp.ReceiveAsync(retry.Token).ConfigureAwait(false);
+                        if (received.RemoteEndPoint.Equals(relay) && received.Buffer.AsSpan().SequenceEqual(GameVault.Relay.NetplayRelay.AckMagic))
+                        {
+                            _peer = relay;
+                            return true;
+                        }
+                    }
+                }
+                catch (OperationCanceledException) when (!wait.IsCancellationRequested)
+                {
+                    // Ask again.
+                }
+            }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            return false;
+        }
+        catch (SocketException)
+        {
+            return false;
+        }
+    }
+
     public void Send(NetplayPacket packet)
     {
         if (_peer is null)
@@ -92,7 +212,12 @@ public sealed class UdpNetplayLink : INetplayLink, IDisposable
                 _peer ??= from;
                 if (!from.Equals(_peer))
                 {
-                    continue; // someone else: one game, two players
+                    if (!_anyPortFromPeer || !from.Address.Equals(_peer.Address))
+                    {
+                        continue; // someone else: one game, two players
+                    }
+
+                    _peer = from; // their router gave them another port
                 }
 
                 LastReceived = DateTime.UtcNow;

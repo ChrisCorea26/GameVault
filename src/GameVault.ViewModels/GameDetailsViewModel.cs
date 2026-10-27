@@ -40,6 +40,11 @@ public sealed partial class GameDetailsViewModel(
     public IReadOnlyList<string> InputOptions { get; } =
         ["Automatic", "Controller", "Zapper", "Four Score", "Power Pad (keyboard)", "Arkanoid paddle (mouse)"];
 
+    /// <summary>The PlayStation's port 1, as <see cref="PlayStationInputValues"/> by index.</summary>
+    public IReadOnlyList<string> PlayStationInputOptions { get; } = ["Automatic", "DualShock", "GunCon (the mouse aims)", "Mouse"];
+
+    private static readonly InputType?[] PlayStationInputValues = [null, InputType.Controller, InputType.GunCon, InputType.Mouse];
+
     public IReadOnlyList<string> AutoOnOffOptions { get; } = ["Automatic", "On", "Off"];
 
     /// <summary>Unknown / homebrew games: the region, as <see cref="GameRegion"/> by index.</summary>
@@ -86,6 +91,13 @@ public sealed partial class GameDetailsViewModel(
 
     [ObservableProperty]
     public partial bool IsN64 { get; private set; }
+
+    [ObservableProperty]
+    public partial bool IsPlayStation { get; private set; }
+
+    /// <summary>What is in the PlayStation's port 1 (the DualShock, the GunCon or the mouse).</summary>
+    [ObservableProperty]
+    public partial int PlayStationInputIndex { get; set; }
 
     [ObservableProperty]
     public partial string Title { get; set; } = string.Empty;
@@ -249,7 +261,8 @@ public sealed partial class GameDetailsViewModel(
 
         ShowPropertiesFor(game.System);
         var overrides = await library.GetProfileOverridesAsync(key);
-        InputIndex = overrides?.Input is { } input ? (int)input + 1 : 0;
+        InputIndex = overrides?.Input is { } input && (int)input + 1 < InputOptions.Count ? (int)input + 1 : 0;
+        PlayStationInputIndex = Math.Max(0, Array.IndexOf(PlayStationInputValues, overrides?.Input));
         RunAheadIndex = ToIndex(overrides?.RunAheadSafe);
         SpriteLimitIndex = ToIndex(overrides?.RemoveSpriteLimit);
         RegionIndex = IndexOf(_regionValues, overrides?.Region);
@@ -368,6 +381,8 @@ public sealed partial class GameDetailsViewModel(
 
     partial void OnInputIndexChanged(int value) => _ = SaveOverrides();
 
+    partial void OnPlayStationInputIndexChanged(int value) => _ = SaveOverrides();
+
     partial void OnRunAheadIndexChanged(int value) => _ = SaveOverrides();
 
     partial void OnSpriteLimitIndexChanged(int value) => _ = SaveOverrides();
@@ -398,6 +413,7 @@ public sealed partial class GameDetailsViewModel(
         IsAppleII = system == GameVault.Core.Systems.GameSystem.AppleII;
         IsGenesis = system == GameVault.Core.Systems.GameSystem.Genesis;
         IsN64 = system == GameVault.Core.Systems.GameSystem.Nintendo64;
+        IsPlayStation = system == GameVault.Core.Systems.GameSystem.PlayStation;
         string[][] regions = system switch
         {
             GameVault.Core.Systems.GameSystem.Nes =>
@@ -487,7 +503,9 @@ public sealed partial class GameDetailsViewModel(
             || header.Battery is not null || header.PrgRamSize is not null;
         var overrides = new GameProfile
         {
-            Input = InputIndex >= 1 && InputIndex < InputOptions.Count ? (InputType)(InputIndex - 1) : null,
+            Input = IsPlayStation
+                ? PlayStationInputValues[Math.Clamp(PlayStationInputIndex, 0, PlayStationInputValues.Length - 1)]
+                : InputIndex >= 1 && InputIndex < InputOptions.Count ? (InputType)(InputIndex - 1) : null,
             RunAheadSafe = FromIndex(RunAheadIndex),
             RemoveSpriteLimit = FromIndex(SpriteLimitIndex),
             Region = ValueAt(_regionValues, RegionIndex),

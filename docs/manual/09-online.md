@@ -4,13 +4,14 @@ GameVault works fully offline. These features use the network only when you ask 
 
 ## Netplay
 
-Two people on the **same local network** (home Wi-Fi or wired network) can play together, each on their own PC.
+Two people can play together, each on their own PC: on the **same local network** (home Wi-Fi or wired network) or
+**over the internet**.
 
 **What you need:**
 
-- Both PCs on the same network. Internet play isn't available yet.
+- Both PCs on the same network, or both on the internet.
 - **The same game file** on both PCs. GameVault checks this and never sends game data over the network.
-- For Apple II games, the same Apple II ROM files on both PCs.
+- For Apple II games, the same Apple II ROM files on both PCs; for Disk System games, the same Disk System BIOS.
 - RetroAchievements **Hardcore mode** off on both PCs.
 - A game for any system except the PlayStation 2, whose console is too large for netplay's rollback.
 
@@ -25,6 +26,24 @@ Two people on the **same local network** (home Wi-Fi or wired network) can play 
 1. Start the same game.
 2. Open **Netplay**, type the code under *Or join with the other player's code*, and choose **Join**.
 
+**Over the internet:**
+
+1. The host starts the game, opens **Netplay** and chooses **Host a game over the internet**, then sends the code to
+   the other player (a message, a chat app).
+2. The other player starts the same game and joins with the code, as above. They get a **reply code** and send it back.
+3. The host types the reply code and chooses **Connect**.
+
+GameVault asks a public STUN server (Google's or Cloudflare's) what address your PC has on the internet; nothing else
+is sent to it. Most home routers then let the two PCs reach each other directly. If yours can't (some mobile and
+university networks), one of you can run **GameVault's relay** on a server and enter its address in **Settings →
+Netplay → Relay server**: hosting over the internet then goes through it, the code is 16 characters long, and no reply
+code is needed.
+
+**Running the relay:** `GameVault.Relay` is a small program that runs on Windows, Linux or macOS with .NET. Start it
+on a server the internet can reach (`GameVault.Relay` listens on UDP port 47801, or give another port as its only
+argument), open that UDP port in the server's firewall, and enter `server-address:47801` in Settings. It only passes
+the two players' netplay packets to each other; it never sees game files.
+
 Both games restart from the title screen, without battery saves or codes. The Netplay panel shows whether you're Player 1 or Player 2. Progress made
 during netplay isn't written to the game's save file. Choose **Leave netplay** to stop.
 
@@ -38,14 +57,19 @@ devices from reaching each other.
 
 | Message | What to do |
 |---|---|
-| *That invite code isn't right.* | Codes have 10 letters and digits. Case, spaces and dashes don't matter. |
+| *That invite code isn't right.* | Codes have 10 letters and digits (16 through a relay). Case, spaces and dashes don't matter. |
+| *That reply code isn't right.* | Type the reply code the other player got when they joined, not your own code. |
+| *GameVault couldn't find this PC's internet address.* | Check the internet connection. Networks that block UDP need a relay, or play on the same network. |
+| *The relay server chosen in Settings → Netplay didn't answer.* | Check the relay's address and that it's running with its UDP port open, or clear the setting to connect directly. |
+| *The relay server in that code didn't answer, or the game there already has two players.* | Ask the host to host again. |
 | *The other player has a different game or version.* | Both players need the identical file. Compare the files or copy yours to them. |
-| *Lost the connection to the other player.* | Check both PCs are on the same network and the firewall allows GameVault. |
+| *Lost the connection to the other player.* | Check both PCs are on the same network (or online) and the firewall allows GameVault. Over the internet, if you never connect after the reply code, your routers can't reach each other: use a relay. |
 | *The two games stopped matching, so netplay stopped.* | Start netplay again. |
 | *This PC doesn't seem to be on a network.* | Connect to the network first. |
 | *Netplay is off in RetroAchievements hardcore mode.* | Turn Hardcore off in Settings → RetroAchievements. |
 
-Famicom Disk System games can't be played over netplay yet.
+Famicom Disk System games play too. Either player can change the disk side from the disk menu, and both PCs change it
+on the same frame.
 
 ## RetroAchievements
 

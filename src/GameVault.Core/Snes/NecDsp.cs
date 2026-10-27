@@ -8,8 +8,12 @@ namespace GameVault.Core.Snes;
 /// <param name="OffsetLow">The window's first offset in the bank.</param>
 /// <param name="OffsetHigh">The window's last offset.</param>
 /// <param name="StatusBit">The address bit that selects the status register (set) or the data register (clear).</param>
-public readonly record struct NecDspMap(int BankMask, int Bank, int OffsetLow, int OffsetHigh, int StatusBit)
+/// <param name="RamBank">For the µPD96050: the banks (under <paramref name="BankMask"/>) where the SNES reaches the chip's data RAM at $0000–$0FFF, or -1.</param>
+public readonly record struct NecDspMap(int BankMask, int Bank, int OffsetLow, int OffsetHigh, int StatusBit, int RamBank = -1)
 {
+    /// <summary>The ST010 and ST011: ports in banks $60–$67 ($0000 data, $0001 status), data RAM in $68–$6F.</summary>
+    public static NecDspMap Seta { get; } = new(0x78, 0x60, 0x0000, 0x0FFF, 0x0001, 0x68);
+
     /// <summary>LoROM boards up to 1 MB: banks $30–$3F (and $B0–$BF), $8000–$FFFF; $C000 and up is the status register.</summary>
     public static NecDspMap LoRom1Mb { get; } = new(0x70, 0x30, 0x8000, 0xFFFF, 0x4000);
 
@@ -30,12 +34,21 @@ public readonly record struct NecDspMap(int BankMask, int Bank, int OffsetLow, i
 /// <remarks>
 /// References: the µPD7725 data sheet's instruction set (OP, RT, JP and LD), as fullsnes ("SNES Cart DSP-n/ST010/ST011")
 /// and the bsnes/MAME cores describe it. One instruction a cycle at 7.6 MHz.
+/// <para>
+/// The same class runs the µPD96050 of Seta's ST010 (F1 ROC II) and ST011 (Hayazashi Nidan Morita Shogi): 16,384
+/// instructions in two 8K halves (LJMP and HJMP pick one), 2,048 data ROM words, 2,048 words of RAM that the SNES also
+/// reads and writes (the ST010's is battery-backed), 11-bit RP and DP, and a 16-level stack (outstanding-work plan §5).
+/// </para>
 /// </remarks>
 public sealed class NecDsp : ISnesCoprocessor
 {
     public const int ProgramWords = 2048;
     public const int DataWords = 1024;
     public const int DumpSize = ProgramWords * 3 + DataWords * 2;
+
+    public const int Upd96050ProgramWords = 16384;
+    public const int Upd96050DataWords = 2048;
+    public const int Upd96050DumpSize = Upd96050ProgramWords * 3 + Upd96050DataWords * 2;
 
     /// <summary>The chip's clock against the SNES master clock (21,477,272 Hz).</summary>
     private const long DspHz = 7_600_000;
@@ -51,13 +64,18 @@ public sealed class NecDsp : ISnesCoprocessor
 
     private readonly uint[] _program;
     private readonly ushort[] _dataRom;
-    private readonly ushort[] _ram = new ushort[256];
-    private readonly ushort[] _stack = new ushort[4];
+    private readonly ushort[] _ram;
+    private readonly ushort[] _stack;
     private readonly NecDspMap _map;
+    private readonly bool _upd96050;
+    private readonly int _pcMask;
+    private readonly int _rpMask;
+    private readonly int _dpMask;
+    private readonly long _hz;
 
     private ushort _pc;
     private ushort _rp;
-    private byte _dp;
+    private ushort _dp;
     private int _sp;
     private short _k;
     private short _l;
@@ -77,15 +95,29 @@ public sealed class NecDsp : ISnesCoprocessor
     /// <summary>Master clocks × <see cref="DspHz"/> run so far this frame (so the ratio stays exact).</summary>
     private long _ticks;
 
-    public NecDsp(string name, uint[] program, ushort[] dataRom, NecDspMap map)
+    /// <param name="hz">The chip's clock: 7.6 MHz for the DSP-n, 11 MHz for the ST010, 15 MHz for the ST011.</param>
+    public NecDsp(string name, uint[] program, ushort[] dataRom, NecDspMap map, bool upd96050 = false, long hz = DspHz)
     {
-        ArgumentOutOfRangeException.ThrowIfNotEqual(program.Length, ProgramWords);
-        ArgumentOutOfRangeException.ThrowIfNotEqual(dataRom.Length, DataWords);
+        ArgumentOutOfRangeException.ThrowIfNotEqual(program.Length, upd96050 ? Upd96050ProgramWords : ProgramWords);
+        ArgumentOutOfRangeException.ThrowIfNotEqual(dataRom.Length, upd96050 ? Upd96050DataWords : DataWords);
         Name = name;
         _program = program;
         _dataRom = dataRom;
         _map = map;
+        _upd96050 = upd96050;
+        _pcMask = program.Length - 1;
+        _rpMask = dataRom.Length - 1;
+        _dpMask = upd96050 ? 0x7FF : 0xFF;
+        _ram = new ushort[_dpMask + 1];
+        _stack = new ushort[upd96050 ? 16 : 4];
+        _hz = hz;
     }
+
+    /// <summary>True for the ST010's and ST011's µPD96050.</summary>
+    public bool IsUpd96050 => _upd96050;
+
+    /// <summary>The µPD96050's data RAM as bytes, low byte first (the ST010's save file).</summary>
+    public Span<byte> DataRam => System.Runtime.InteropServices.MemoryMarshal.AsBytes(_ram.AsSpan());
 
     public string Name { get; }
 
@@ -101,23 +133,25 @@ public sealed class NecDsp : ISnesCoprocessor
     /// <exception cref="ArgumentException">The dump isn't 8 KB.</exception>
     public static (uint[] Program, ushort[] Data) SplitDump(ReadOnlySpan<byte> dump)
     {
-        if (dump.Length != DumpSize)
+        if (dump.Length is not (DumpSize or Upd96050DumpSize))
         {
-            throw new ArgumentException($"A µPD7725 program ROM dump is {DumpSize} bytes.", nameof(dump));
+            throw new ArgumentException($"A µPD7725 program ROM dump is {DumpSize} bytes, a µPD96050's {Upd96050DumpSize}.", nameof(dump));
         }
 
-        var little = new uint[ProgramWords];
-        var big = new uint[ProgramWords];
-        for (var i = 0; i < ProgramWords; i++)
+        var programWords = dump.Length == DumpSize ? ProgramWords : Upd96050ProgramWords;
+        var dataWords = dump.Length == DumpSize ? DataWords : Upd96050DataWords;
+        var little = new uint[programWords];
+        var big = new uint[programWords];
+        for (var i = 0; i < programWords; i++)
         {
             little[i] = (uint)(dump[i * 3] | dump[i * 3 + 1] << 8 | dump[i * 3 + 2] << 16);
             big[i] = (uint)(dump[i * 3] << 16 | dump[i * 3 + 1] << 8 | dump[i * 3 + 2]);
         }
 
         var useBig = JumpScore(big) > JumpScore(little);
-        var data = new ushort[DataWords];
-        var at = ProgramWords * 3;
-        for (var i = 0; i < DataWords; i++)
+        var data = new ushort[dataWords];
+        var at = programWords * 3;
+        for (var i = 0; i < dataWords; i++)
         {
             data[i] = useBig
                 ? (ushort)(dump[at + i * 2] << 8 | dump[at + i * 2 + 1])
@@ -170,11 +204,19 @@ public sealed class NecDsp : ISnesCoprocessor
     {
         var bank = (int)(address >> 16) & 0x7F;
         var offset = (int)(address & 0xFFFF);
-        return (bank & _map.BankMask) == _map.Bank && offset >= _map.OffsetLow && offset <= _map.OffsetHigh;
+        return offset >= _map.OffsetLow && offset <= _map.OffsetHigh && ((bank & _map.BankMask) == _map.Bank || IsRam(bank, offset));
     }
+
+    private bool IsRam(int bank, int offset) => _map.RamBank >= 0 && (bank & _map.BankMask) == _map.RamBank && offset < 0x1000;
 
     public byte Read(uint address, byte openBus)
     {
+        if (IsRam((int)(address >> 16) & 0x7F, (int)(address & 0xFFFF)))
+        {
+            var word = _ram[((int)(address & 0xFFF) >> 1) & _dpMask];
+            return (byte)((address & 1) != 0 ? word >> 8 : word);
+        }
+
         if ((address & _map.StatusBit) != 0)
         {
             return (byte)(_sr >> 8);
@@ -199,6 +241,13 @@ public sealed class NecDsp : ISnesCoprocessor
 
     public void Write(uint address, byte value)
     {
+        if (IsRam((int)(address >> 16) & 0x7F, (int)(address & 0xFFFF)))
+        {
+            ref var word = ref _ram[((int)(address & 0xFFF) >> 1) & _dpMask];
+            word = (address & 1) != 0 ? (ushort)((word & 0x00FF) | value << 8) : (ushort)((word & 0xFF00) | value);
+            return;
+        }
+
         if ((address & _map.StatusBit) != 0)
         {
             return; // the status register is read-only to the SNES
@@ -224,7 +273,7 @@ public sealed class NecDsp : ISnesCoprocessor
 
     public void CatchUp(long clock)
     {
-        var target = clock * DspHz;
+        var target = clock * _hz;
         while (_ticks < target)
         {
             Step();
@@ -232,7 +281,7 @@ public sealed class NecDsp : ISnesCoprocessor
         }
     }
 
-    public void EndFrame(long frameClocks) => _ticks -= frameClocks * DspHz;
+    public void EndFrame(long frameClocks) => _ticks -= frameClocks * _hz;
 
     // ---- The DSP ----
 
@@ -240,7 +289,7 @@ public sealed class NecDsp : ISnesCoprocessor
     public void Step()
     {
         var op = _program[_pc];
-        _pc = (ushort)((_pc + 1) & (ProgramWords - 1));
+        _pc = (ushort)((_pc + 1) & _pcMask);
         switch (op >> 22)
         {
             case 0:
@@ -284,7 +333,7 @@ public sealed class NecDsp : ISnesCoprocessor
             3 => _tr,
             4 => _dp,
             5 => _rp,
-            6 => _dataRom[_rp & (DataWords - 1)],
+            6 => _dataRom[_rp & _rpMask],
             7 => (ushort)(0x8000 - (_flagA.S1 ? 1 : 0)),
             8 => ReadDrForDsp(),
             9 => _dr,
@@ -397,15 +446,15 @@ public sealed class NecDsp : ISnesCoprocessor
 
         switch (dpl)
         {
-            case 1: _dp = (byte)((_dp & 0xF0) | ((_dp + 1) & 0x0F)); break;
-            case 2: _dp = (byte)((_dp & 0xF0) | ((_dp - 1) & 0x0F)); break;
-            case 3: _dp &= 0xF0; break;
+            case 1: _dp = (ushort)((_dp & ~0x0F) | ((_dp + 1) & 0x0F)); break;
+            case 2: _dp = (ushort)((_dp & ~0x0F) | ((_dp - 1) & 0x0F)); break;
+            case 3: _dp &= unchecked((ushort)~0x0F); break;
         }
 
-        _dp ^= (byte)(dphm << 4);
+        _dp ^= (ushort)(dphm << 4);
         if (rpdcr != 0)
         {
-            _rp = (ushort)((_rp - 1) & (DataWords - 1));
+            _rp = (ushort)((_rp - 1) & _rpMask);
         }
     }
 
@@ -418,19 +467,22 @@ public sealed class NecDsp : ISnesCoprocessor
     private void ExecuteJump(uint op)
     {
         var brch = (op >> 13) & 0x1FF;
-        var target = (ushort)((op >> 2) & (ProgramWords - 1));
+        // The µPD96050 adds two bank bits below the address and keeps the current 8K half; HJMP and LJMP pick one.
+        var target = _upd96050
+            ? (ushort)((_pc & 0x2000) | (int)(op & 3) << 11 | (int)((op >> 2) & 0x7FF))
+            : (ushort)((op >> 2) & (ProgramWords - 1));
         bool take;
         switch (brch)
         {
             case 0x000: // JMPSO
-                _pc = (ushort)(_so & (ProgramWords - 1));
+                _pc = (ushort)(_so & _pcMask);
                 return;
             case 0x100 or 0x101: // LJMP, HJMP (one bank on the µPD7725)
-                _pc = target;
+                _pc = Half(target, brch);
                 return;
             case 0x140 or 0x141: // LCALL, HCALL
                 Push(_pc);
-                _pc = target;
+                _pc = Half(target, brch);
                 return;
             case 0x080: take = !_flagA.C; break;
             case 0x082: take = _flagA.C; break;
@@ -475,6 +527,9 @@ public sealed class NecDsp : ISnesCoprocessor
         }
     }
 
+    private ushort Half(ushort target, uint brch) =>
+        _upd96050 ? (ushort)((brch & 1) != 0 ? target | 0x2000 : target & 0x1FFF) : target;
+
     /// <summary>LD (and an OP's move): <paramref name="value"/> into the register <paramref name="dst"/> selects.</summary>
     private void Load(ushort value, int dst)
     {
@@ -483,8 +538,8 @@ public sealed class NecDsp : ISnesCoprocessor
             case 1: _a = value; break;
             case 2: _b = value; break;
             case 3: _tr = value; break;
-            case 4: _dp = (byte)value; break;
-            case 5: _rp = (ushort)(value & (DataWords - 1)); break;
+            case 4: _dp = (ushort)(value & _dpMask); break;
+            case 5: _rp = (ushort)(value & _rpMask); break;
             case 6:
                 _dr = value;
                 _sr |= SrRqm;
@@ -495,11 +550,11 @@ public sealed class NecDsp : ISnesCoprocessor
             case 10: _k = (short)value; break;
             case 11:
                 _k = (short)value;
-                _l = (short)_dataRom[_rp & (DataWords - 1)];
+                _l = (short)_dataRom[_rp & _rpMask];
                 break;
             case 12:
                 _l = (short)value;
-                _k = (short)_ram[(_dp | 0x40) & 0xFF];
+                _k = (short)_ram[(_dp | 0x40) & _dpMask];
                 break;
             case 13: _l = (short)value; break;
             case 14: _trb = value; break;
@@ -521,12 +576,12 @@ public sealed class NecDsp : ISnesCoprocessor
     private void Push(ushort value)
     {
         _stack[_sp] = value;
-        _sp = (_sp + 1) & 3;
+        _sp = (_sp + 1) & (_stack.Length - 1);
     }
 
     private ushort Pop()
     {
-        _sp = (_sp - 1) & 3;
+        _sp = (_sp - 1) & (_stack.Length - 1);
         return _stack[_sp];
     }
 
@@ -542,7 +597,7 @@ public sealed class NecDsp : ISnesCoprocessor
 
     internal ushort Pc => _pc;
 
-    internal ushort Ram(int index) => _ram[index & 0xFF];
+    internal ushort Ram(int index) => _ram[index & _dpMask];
 
     // ---- Save states ----
 
@@ -561,7 +616,15 @@ public sealed class NecDsp : ISnesCoprocessor
 
         writer.WriteUInt16(_pc);
         writer.WriteUInt16(_rp);
-        writer.WriteByte(_dp);
+        if (_upd96050)
+        {
+            writer.WriteUInt16(_dp); // the µPD7725's layout stays as it was
+        }
+        else
+        {
+            writer.WriteByte((byte)_dp);
+        }
+
         writer.WriteInt32(_sp);
         writer.WriteUInt16((ushort)_k);
         writer.WriteUInt16((ushort)_l);
@@ -594,10 +657,10 @@ public sealed class NecDsp : ISnesCoprocessor
             _stack[i] = reader.ReadUInt16();
         }
 
-        _pc = (ushort)(reader.ReadUInt16() & (ProgramWords - 1));
-        _rp = (ushort)(reader.ReadUInt16() & (DataWords - 1));
-        _dp = reader.ReadByte();
-        _sp = reader.ReadInt32() & 3;
+        _pc = (ushort)(reader.ReadUInt16() & _pcMask);
+        _rp = (ushort)(reader.ReadUInt16() & _rpMask);
+        _dp = (ushort)((_upd96050 ? reader.ReadUInt16() : reader.ReadByte()) & _dpMask);
+        _sp = reader.ReadInt32() & (_stack.Length - 1);
         _k = (short)reader.ReadUInt16();
         _l = (short)reader.ReadUInt16();
         _m = reader.ReadUInt16();
