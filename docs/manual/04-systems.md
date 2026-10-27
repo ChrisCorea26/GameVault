@@ -170,7 +170,7 @@ Properties → Controller** to *3-button*.
 While a Genesis game runs the shoulder buttons are game buttons, so use <kbd>Backspace</kbd> and <kbd>Tab</kbd> to
 rewind and fast-forward.
 
-**Not supported yet:** stereo sound (audio is mono), interlaced high-resolution mode, Master System mode, EEPROM
+**Not supported yet:** interlaced high-resolution mode, Master System mode, EEPROM
 saves, Sega CD and 32X.
 
 ## Super Nintendo

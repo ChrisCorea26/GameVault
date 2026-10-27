@@ -1,7 +1,9 @@
 namespace GameVault.Core.Audio;
 
 /// <summary>
-/// Turns APU amplitude changes (stamped in CPU cycles) into output samples, typically at 48 kHz (SPEC §4.4).
+/// Turns APU amplitude changes (stamped in CPU cycles) into output samples, typically at 48 kHz (SPEC §4.4), in
+/// stereo: <see cref="AddDelta(int, float)"/> changes both channels (the NES, the SN76489, the Apple II speaker), and
+/// <see cref="AddDelta(int, float, float)"/> each one (the YM2612, S-DSP, SPU, AI and SPU2).
 /// </summary>
 /// <remarks>
 /// Each change is added as a band-limited step ("BLEP"): a windowed-sinc impulse, chosen from 64 sub-sample
@@ -9,6 +11,8 @@ namespace GameVault.Core.Audio;
 /// only for each change, not for every CPU cycle. The NES's own analog filters (NESdev Wiki: "APU Mixer")
 /// follow: high-pass at 90 Hz and 440 Hz, low-pass at 14 kHz. The input clock rate can change per frame;
 /// dynamic rate control uses that to nudge the ratio (SPEC §5.3).
+/// Until a stereo change arrives only the left channel is integrated and the right copies it, so mono systems cost
+/// what they did before stereo.
 /// </remarks>
 public sealed class BandLimitedResampler : IAudioSink
 {
@@ -19,28 +23,28 @@ public sealed class BandLimitedResampler : IAudioSink
 
     private static readonly float[][] Kernel = BuildKernel();
 
-    private readonly float[] _buffer = new float[MaxFrameSamples + Taps + 1];
-    private readonly float[] _output;
+    private readonly float[] _left = new float[MaxFrameSamples + Taps + 1];
+    private readonly float[] _right = new float[MaxFrameSamples + Taps + 1];
+    private readonly float[] _output; // interleaved left, right
     private readonly int _sampleRate;
     private double _samplesPerClock;
     private double _offset;
     private int _available;
-    private float _integrator;
+    private bool _stereo;
+    private float _integratorLeft;
+    private float _integratorRight;
 
-    // Filter state
+    // Filter state, one per channel
     private readonly float _hp90;
     private readonly float _hp440;
     private readonly float _lp14k;
-    private float _hp90PrevIn;
-    private float _hp90PrevOut;
-    private float _hp440PrevIn;
-    private float _hp440PrevOut;
-    private float _lpPrevOut;
+    private FilterState _filterLeft;
+    private FilterState _filterRight;
 
     public BandLimitedResampler(double clockRate, int sampleRate = 48000)
     {
         _sampleRate = sampleRate;
-        _output = new float[MaxFrameSamples * 4];
+        _output = new float[MaxFrameSamples * 4 * 2];
         ClockRate = clockRate;
 
         var dt = 1.0 / sampleRate;
@@ -64,24 +68,52 @@ public sealed class BandLimitedResampler : IAudioSink
     /// <summary>Output gain applied after filtering.</summary>
     public float Volume { get; set; } = 1.0f;
 
-    /// <summary>Samples ready to read.</summary>
+    /// <summary>Frames (a left and a right sample) ready to read.</summary>
     public int Available => _available;
 
+    /// <summary>True once a change has reached one channel only; until then both channels carry the same signal.</summary>
+    public bool IsStereo => _stereo;
+
+    /// <summary>A change on both channels at once (a mono source).</summary>
     public void AddDelta(int clock, float delta)
     {
-        var position = _offset + clock * _samplesPerClock;
-        var index = (int)position;
-        var phase = (int)((position - index) * Phases);
-        if ((uint)index >= MaxFrameSamples)
+        if (!Locate(clock, out var index, out var kernel))
         {
-            return; // frame far longer than any real one; drop rather than overrun
+            return;
         }
 
-        var kernel = Kernel[phase];
-        var target = _buffer.AsSpan(index, Taps);
-        for (var t = 0; t < Taps; t++)
+        AddStep(_left.AsSpan(index, Taps), kernel, delta);
+        if (_stereo)
         {
-            target[t] += delta * kernel[t];
+            AddStep(_right.AsSpan(index, Taps), kernel, delta);
+        }
+    }
+
+    /// <summary>A change of <paramref name="left"/> on the left channel and <paramref name="right"/> on the right.</summary>
+    public void AddDelta(int clock, float left, float right)
+    {
+        if (!Locate(clock, out var index, out var kernel))
+        {
+            return;
+        }
+
+        if (!_stereo)
+        {
+            // Until now the right channel has been the left one: give it its own copy, then carry on in stereo.
+            Array.Copy(_left, _right, _left.Length);
+            _integratorRight = _integratorLeft;
+            _filterRight = _filterLeft;
+            _stereo = true;
+        }
+
+        if (left != 0)
+        {
+            AddStep(_left.AsSpan(index, Taps), kernel, left);
+        }
+
+        if (right != 0)
+        {
+            AddStep(_right.AsSpan(index, Taps), kernel, right);
         }
     }
 
@@ -89,51 +121,125 @@ public sealed class BandLimitedResampler : IAudioSink
     {
         var end = _offset + clocks * _samplesPerClock;
         var count = Math.Min((int)end, MaxFrameSamples);
-        if (_available + count > _output.Length)
+        if ((_available + count) * 2 > _output.Length)
         {
             // Nobody is reading (e.g. muted): keep only the newest audio.
             _available = 0;
         }
 
+        var output = _available * 2;
         for (var i = 0; i < count; i++)
         {
-            _integrator += _buffer[i];
-            _output[_available++] = Filter(_integrator) * Volume;
+            _integratorLeft += _left[i];
+            var left = Filter(_integratorLeft, ref _filterLeft) * Volume;
+            float right;
+            if (_stereo)
+            {
+                _integratorRight += _right[i];
+                right = Filter(_integratorRight, ref _filterRight) * Volume;
+            }
+            else
+            {
+                right = left;
+            }
+
+            _output[output++] = left;
+            _output[output++] = right;
         }
 
+        _available += count;
+
         // Carry the tails of impulses that extend past this frame into the next one.
-        Array.Copy(_buffer, count, _buffer, 0, Taps);
-        Array.Clear(_buffer, Taps, _buffer.Length - Taps);
+        Carry(_left, count);
+        if (_stereo)
+        {
+            Carry(_right, count);
+        }
+
         _offset = end - count;
     }
 
-    /// <summary>Copies up to <paramref name="destination"/>.Length samples out and returns how many.</summary>
-    public int Read(Span<float> destination)
+    /// <summary>
+    /// Copies up to <paramref name="destination"/>.Length / 2 frames out as interleaved left and right samples and
+    /// returns how many frames.
+    /// </summary>
+    public int ReadStereo(Span<float> destination)
     {
-        var count = Math.Min(destination.Length, _available);
-        _output.AsSpan(0, count).CopyTo(destination);
-        _output.AsSpan(count, _available - count).CopyTo(_output);
+        var count = Math.Min(destination.Length / 2, _available);
+        _output.AsSpan(0, count * 2).CopyTo(destination);
+        _output.AsSpan(count * 2, (_available - count) * 2).CopyTo(_output);
         _available -= count;
         return count;
     }
 
-    private float Filter(float x)
+    /// <summary>Copies up to <paramref name="destination"/>.Length frames out mixed to mono (the average of left and right) and returns how many.</summary>
+    public int Read(Span<float> destination)
+    {
+        var count = Math.Min(destination.Length, _available);
+        for (var i = 0; i < count; i++)
+        {
+            destination[i] = (_output[2 * i] + _output[2 * i + 1]) * 0.5f;
+        }
+
+        _output.AsSpan(count * 2, (_available - count) * 2).CopyTo(_output);
+        _available -= count;
+        return count;
+    }
+
+    private bool Locate(int clock, out int index, out float[] kernel)
+    {
+        var position = _offset + clock * _samplesPerClock;
+        index = (int)position;
+        if ((uint)index >= MaxFrameSamples)
+        {
+            kernel = Kernel[0];
+            return false; // frame far longer than any real one; drop rather than overrun
+        }
+
+        kernel = Kernel[(int)((position - index) * Phases)];
+        return true;
+    }
+
+    private static void AddStep(Span<float> target, float[] kernel, float delta)
+    {
+        for (var t = 0; t < Taps; t++)
+        {
+            target[t] += delta * kernel[t];
+        }
+    }
+
+    private static void Carry(float[] buffer, int count)
+    {
+        Array.Copy(buffer, count, buffer, 0, Taps);
+        Array.Clear(buffer, Taps, buffer.Length - Taps);
+    }
+
+    private float Filter(float x, ref FilterState state)
     {
         if (!ApplyNesFilters)
         {
             return x;
         }
 
-        var hp1 = _hp90 * (_hp90PrevOut + x - _hp90PrevIn);
-        _hp90PrevIn = x;
-        _hp90PrevOut = hp1;
+        var hp1 = _hp90 * (state.Hp90PrevOut + x - state.Hp90PrevIn);
+        state.Hp90PrevIn = x;
+        state.Hp90PrevOut = hp1;
 
-        var hp2 = _hp440 * (_hp440PrevOut + hp1 - _hp440PrevIn);
-        _hp440PrevIn = hp1;
-        _hp440PrevOut = hp2;
+        var hp2 = _hp440 * (state.Hp440PrevOut + hp1 - state.Hp440PrevIn);
+        state.Hp440PrevIn = hp1;
+        state.Hp440PrevOut = hp2;
 
-        _lpPrevOut += _lp14k * (hp2 - _lpPrevOut);
-        return _lpPrevOut;
+        state.LpPrevOut += _lp14k * (hp2 - state.LpPrevOut);
+        return state.LpPrevOut;
+    }
+
+    private struct FilterState
+    {
+        public float Hp90PrevIn;
+        public float Hp90PrevOut;
+        public float Hp440PrevIn;
+        public float Hp440PrevOut;
+        public float LpPrevOut;
     }
 
     private static double HighPassCoefficient(double hz, double dt)

@@ -288,28 +288,51 @@
       <!-- Audio -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Audio" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
-        <Grid ColumnSpacing="16">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="240" />
-          </Grid.ColumnDefinitions>
-          <StackPanel>
-            <TextBlock Text="Game volume" />
-            <TextBlock
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource CaptionTextBlockStyle}"
-                Text="Takes effect the next time you start a game."
-                TextWrapping="Wrap" />
-          </StackPanel>
-          <Slider
-              Grid.Column="1"
-              VerticalAlignment="Center"
-              AutomationProperties.Name="Game volume"
-              Maximum="100"
-              Minimum="0"
-              StepFrequency="5"
-              Value="{x:Bind ViewModel.Volume, Mode=TwoWay}" />
-        </Grid>
+        <StackPanel Spacing="12">
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="240" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Game volume" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Takes effect the next time you start a game."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <Slider
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Game volume"
+                Maximum="100"
+                Minimum="0"
+                StepFrequency="5"
+                Value="{x:Bind ViewModel.Volume, Mode=TwoWay}" />
+          </Grid>
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Mono" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Plays both stereo channels on both speakers, for one speaker or one ear. Takes effect the next time you start a game."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch
+                Grid.Column="1"
+                MinWidth="0"
+                AutomationProperties.Name="Mono"
+                IsOn="{x:Bind ViewModel.MonoAudio, Mode=TwoWay}"
+                OffContent=""
+                OnContent="" />
+          </Grid>
+        </StackPanel>
       </Border>
 
       <!-- Gameplay -->

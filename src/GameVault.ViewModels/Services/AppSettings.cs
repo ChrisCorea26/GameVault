@@ -115,6 +115,9 @@ public sealed record AppSettings
     /// <summary>Game volume, 0–100 (0 mutes).</summary>
     public int Volume { get; init; } = 80;
 
+    /// <summary>Play both stereo channels on both speakers (for one speaker or one ear). Off by default.</summary>
+    public bool MonoAudio { get; init; }
+
     /// <summary>
     /// Let the game see Left+Right or Up+Down at once. Off by default: the most recent direction on each
     /// axis wins, like a real pad (docs/design/input.md §6).

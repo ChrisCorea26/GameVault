@@ -40,6 +40,11 @@ aren't deleted, and adding the folder again brings them back with their saves an
 | Setting | Values | Default |
 |---|---|---|
 | **Game volume** | 0 to 100 | 80 |
+| **Mono** | On / Off. Plays both stereo channels on both speakers, for one speaker or one ear. | Off |
+
+Sound is in stereo where the console had it: the Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64
+and PlayStation 2. The NES, SG-1000, Master System and Apple II were mono, so their sound is the same on both
+speakers.
 
 ## Gameplay
 
