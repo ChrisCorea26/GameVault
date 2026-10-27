@@ -19,3 +19,4 @@
 | 15 | October 2026 | Netplay over the internet (**Host a game over the internet**, with a reply code, or through a relay in **Settings → Netplay**), and netplay for Disk System games. |
 | 16 | October 2026 | Adds the Atari 2600: its section in Supported systems (the joystick, the console switches and the bank-switching boards). |
 | 17 | October 2026 | Adds the Atari 5200: its section in Supported systems (the keypad on the number row, the analog stick, the BIOS you supply) and **Settings → Atari 5200**. |
+| 21 | October 2026 | PlayStation: **Settings → PlayStation → Internal resolution** draws 3D games at 2× or 3× on your graphics card. |

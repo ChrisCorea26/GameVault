@@ -804,6 +804,26 @@
               Style="{StaticResource CaptionTextBlockStyle}"
               Text="Each game gets its own memory card in slot 1, saved with your other game saves."
               TextWrapping="Wrap" />
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Internal resolution" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Draws 3D games at two or three times the PlayStation's resolution with your graphics card, for sharper edges. Videos and the BIOS screens look as they always do. Needs Direct3D 11. Takes effect the next time a game starts."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <ComboBox
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="PlayStation internal resolution"
+                ItemsSource="{x:Bind ViewModel.PlayStationResolutionOptions}"
+                SelectedIndex="{x:Bind ViewModel.PlayStationResolutionIndex, Mode=TwoWay}" />
+          </Grid>
         </StackPanel>
       </Border>
 

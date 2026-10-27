@@ -194,6 +194,12 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial bool PlayStationAnalog { get; set; }
 
+    public IReadOnlyList<string> PlayStationResolutionOptions { get; } = ["1× (original)", "2×", "3×"];
+
+    /// <summary>The PlayStation's internal resolution, as an index into <see cref="PlayStationResolutionOptions"/>.</summary>
+    [ObservableProperty]
+    public partial int PlayStationResolutionIndex { get; set; }
+
     /// <summary>N64 games get the Expansion Pak (takes effect the next time a game starts).</summary>
     [ObservableProperty]
     public partial bool N64ExpansionPak { get; set; } = true;
@@ -334,6 +340,7 @@ public sealed partial class SettingsViewModel(
         SnesChipRomFolder = settings.SnesChipRomFolder;
         PlayStationFastBoot = settings.PlayStationFastBoot;
         PlayStationAnalog = settings.PlayStationAnalog;
+        PlayStationResolutionIndex = Math.Clamp(settings.PlayStationInternalResolution, 1, 3) - 1;
         N64ExpansionPak = settings.N64ExpansionPak;
         N64RumblePak = settings.N64RumblePak;
         PlayStation2BiosPath = settings.PlayStation2BiosPath;
@@ -422,6 +429,8 @@ public sealed partial class SettingsViewModel(
 
     partial void OnPlayStationAnalogChanged(bool value) => SaveIfLoaded();
 
+    partial void OnPlayStationResolutionIndexChanged(int value) => SaveIfLoaded();
+
     partial void OnN64ExpansionPakChanged(bool value) => SaveIfLoaded();
 
     partial void OnN64RumblePakChanged(bool value) => SaveIfLoaded();
@@ -491,6 +500,7 @@ public sealed partial class SettingsViewModel(
             SnesChipRomFolder = SnesChipRomFolder.Trim().Trim('"'),
             PlayStationFastBoot = PlayStationFastBoot,
             PlayStationAnalog = PlayStationAnalog,
+            PlayStationInternalResolution = Math.Clamp(PlayStationResolutionIndex, 0, 2) + 1,
             N64ExpansionPak = N64ExpansionPak,
             N64RumblePak = N64RumblePak,
             PlayStation2BiosPath = PlayStation2BiosPath.Trim().Trim('"'),

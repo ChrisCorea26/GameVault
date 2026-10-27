@@ -14,6 +14,10 @@ public interface IVideoSink
     public const int MaxWidth = 640;
     public const int MaxHeight = 512;
 
+    /// <summary>The largest full-colour frame: the PlayStation's 640×512 drawn at 3× by the GPU renderer.</summary>
+    public const int MaxArgbWidth = MaxWidth * 3;
+    public const int MaxArgbHeight = MaxHeight * 3;
+
     /// <summary>
     /// Presents one frame: <paramref name="width"/>×<paramref name="height"/> palette indices (256×240 for the NES,
     /// with emphasis bits). <paramref name="paletteArgb"/> maps each index to a 32-bit ARGB color.
@@ -43,7 +47,18 @@ public sealed class VideoFrame
     public ReadOnlySpan<ushort> Span => Pixels.AsSpan(0, Width * Height);
 
     /// <summary>The frame as ARGB, used instead of <see cref="Pixels"/> when <see cref="IsArgb"/>.</summary>
-    public uint[] Argb { get; } = new uint[IVideoSink.MaxWidth * IVideoSink.MaxHeight];
+    /// It grows (up to <see cref="IVideoSink.MaxArgbWidth"/> × <see cref="IVideoSink.MaxArgbHeight"/>) for a GPU
+    /// renderer's larger picture.
+    public uint[] Argb { get; private set; } = new uint[IVideoSink.MaxWidth * IVideoSink.MaxHeight];
+
+    /// <summary>Makes <see cref="Argb"/> hold at least <paramref name="count"/> pixels.</summary>
+    public void EnsureArgbCapacity(int count)
+    {
+        if (Argb.Length < count)
+        {
+            Argb = new uint[count];
+        }
+    }
 
     /// <summary>True when the frame came at full colour depth (<see cref="Argb"/>), not as palette indices.</summary>
     public bool IsArgb { get; set; }

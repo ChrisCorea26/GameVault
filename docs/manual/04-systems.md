@@ -299,6 +299,12 @@ D-pad. Games that use the sticks switch them to analog themselves. For a game th
 you to press the DualShock's Analog button, turn on **Settings → PlayStation → Analog mode**. Games that rumble shake
 your controller, if it has motors.
 
+**Sharper 3D:** **Settings → PlayStation → Internal resolution** draws games at two or three times the console's
+resolution on your graphics card. Polygons get smooth edges and distant detail stays readable; 2D games and menus
+look the same as at 1×. Videos (and anything else in 24-bit colour) show at the console's own resolution. The game
+itself runs exactly as it does at 1×, so save states, rewind, netplay and challenges are unaffected. The dithering
+the PlayStation adds to its colours isn't drawn above 1×.
+
 **Light gun and mouse:** for a GunCon game (*Time Crisis*, *Point Blank*), set **Game Details → Properties → Port
 1** to **GunCon (the mouse aims)**: point with the mouse, the left button is the trigger, the right button A and the
 middle button B. Most GunCon games start with a calibration screen; shoot its centre. For a mouse game (*Lemmings*,
