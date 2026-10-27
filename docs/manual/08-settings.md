@@ -84,6 +84,11 @@ file. See [Code collections](#code-collections).
 
 The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`, or **Choose…** to pick it.
 
+## Sega CD
+
+The path to your Sega CD BIOS (128 KB), for example `C:\Sega\bios_CD_U.bin`, or **Choose…** to pick it. A chosen
+file is checked and copied into GameVault's own folder.
+
 ## Apple II
 
 | Setting | Example |

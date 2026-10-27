@@ -189,7 +189,21 @@ Real disks need the owner's Apple ROMs (Settings → Apple II) and disk images; 
 | Cartridges: raw and .smd, header region, SRAM (odd/even/word), SSF2 mapper | ✅ Unit tests |
 | 3- and 6-button pads | ✅ Unit tests |
 | EEPROM saves (I²C: X24C01 and 24C01–24C512), with Sega's header-declared wiring on $200001 | ✅ Unit tests (page writes, wrap, random reads, the cartridge's lines, save states); EA, Acclaim and Codemasters wiring not yet |
-| Sega CD, 32X | Not yet |
+| 32X | Not yet |
+
+### Sega CD (outstanding-work item 17, milestone 1)
+
+| Part | State |
+|---|---|
+| Sub CPU (the 68000 core), reset and bus request from the main CPU, level 2 interrupt, communication words and flags | ✅ Unit tests with programs on both CPUs |
+| PRG-RAM banking and write protect; Word RAM in 2M and 1M mode, the dot image and its priority modes | ✅ Unit tests; 1M mode's cell-image view for the main CPU not yet |
+| Timer, stopwatch, font generator, backup RAM | ✅ Unit tests |
+| CDD: TOC reports, seek, play, pause, stop, scan, the status checksum | ✅ Unit tests; seek times are estimates |
+| CDC: decoding into its buffer, the host ports, DMA to PRG-RAM, Word RAM and PCM RAM | ✅ Unit tests |
+| RF5C164 PCM: steps, loops, envelope, pan | ✅ Unit tests |
+| Graphics ASIC: stamp maps, sizes, flips, rotations, repeat | 🟡 One drawing checked; the rotations' directions aren't checked against hardware |
+| CD-DA through the fader | 🟡 Plays; the fader curve is linear |
+| Booting a real BIOS and discs | Not checked yet (the owner's) |
 
 Real games are the owner's to try; see `docs/plans/phase-13.md`.
 

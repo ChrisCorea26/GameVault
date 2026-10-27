@@ -287,7 +287,7 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 | Internet netplay (relay/STUN); the first release is LAN only | SPEC §7.7, `docs/plans/phase-7.md` |
 | Netplay for Famicom Disk System games | `EmulatorHost.cs:382` |
 | SNES enhancement chips beyond the DSP-n and Super FX (SA-1, Cx4, S-DD1, SPC7110, …) | `docs/plans/outstanding-work.md` §5 |
-| Genesis stereo, EEPROM saves on EA/Acclaim/Codemasters boards, Sega CD, 32X | `docs/plans/phase-13.md`, `docs/plans/outstanding-work.md` §7, §17 |
+| Genesis stereo, EEPROM saves on EA/Acclaim/Codemasters boards, the 32X; the Sega CD's mode 1, CD+G and 1M cell-image view | `docs/plans/phase-13.md`, `docs/plans/outstanding-work.md` §7, §17, `docs/plans/sega-cd-32x.md` |
 | PlayStation DualShock analog and vibration, multitap, light guns, GameShark, memory card manager, GPU renderer | `docs/plans/phase-15.md` |
 | N64 GPU renderer and recompiler, Rumble Pak, Transfer Pak, 64DD, GameShark | README status, `docs/plans/phase-16.md` |
 | Apple II monochrome, user character ROM, mid-frame mode changes | `docs/plans/phase-12.md` |

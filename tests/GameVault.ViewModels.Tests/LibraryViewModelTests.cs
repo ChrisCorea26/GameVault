@@ -188,7 +188,7 @@ public class LibraryViewModelTests
         var vm = await LoadedSampleLibrary();
 
         vm.HasSeveralSystems.Should().BeTrue();
-        vm.Systems.Should().Equal(LibraryViewModel.Any, "Apple II", "Genesis", "Master System", "NES", "Nintendo 64", "PlayStation", "PlayStation 2", "SG-1000", "Super Nintendo");
+        vm.Systems.Should().Equal(LibraryViewModel.Any, "Apple II", "Genesis", "Master System", "NES", "Nintendo 64", "PlayStation", "PlayStation 2", "Sega CD", "SG-1000", "Super Nintendo");
         vm.SelectedSystem = "Master System";
         vm.Games.Should().ContainSingle().Which.Title.Should().Be("Coral Coast");
         vm.Games[0].SystemText.Should().Be("Master System");

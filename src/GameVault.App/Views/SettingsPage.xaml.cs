@@ -40,6 +40,8 @@ public sealed partial class SettingsPage : Page
 
     private void FdsBiosPath_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveFdsBiosPathCommand.Execute(null);
 
+    private void SegaCdBiosPath_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveSegaCdBiosPathCommand.Execute(null);
+
     private void AppleRoms_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveAppleRomPathsCommand.Execute(null);
 
     private void PlayStationBiosPath_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SavePlayStationBiosPathCommand.Execute(null);

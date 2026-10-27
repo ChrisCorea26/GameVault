@@ -74,6 +74,12 @@ public sealed record AppSettings
     public string FdsBiosPath { get; init; } = string.Empty;
 
     /// <summary>
+    /// Full path of the player's own Sega CD BIOS (128 KB), or empty. GameVault never ships, downloads or links to it
+    /// (SPEC §4.5).
+    /// </summary>
+    public string SegaCdBiosPath { get; init; } = string.Empty;
+
+    /// <summary>
     /// The player's own Apple II system ROM (12 KB for the II/II+, 16 KB for the IIe), or empty. GameVault never ships,
     /// downloads or links to it (SPEC §7.11).
     /// </summary>

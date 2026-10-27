@@ -164,7 +164,7 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="GameVault looks in these folders for games for every system it plays (NES and Disk System, SG-1000, Master System, Apple II, Genesis, Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2), including games inside .zip files, and notices when you add or remove them."
+              Text="GameVault looks in these folders for games for every system it plays (NES and Disk System, SG-1000, Master System, Apple II, Genesis, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2 and Sega CD), including games inside .zip files, and notices when you add or remove them."
               TextWrapping="Wrap" />
           <ItemsRepeater ItemsSource="{x:Bind ViewModel.Library.Folders}">
             <ItemsRepeater.ItemTemplate>
@@ -568,6 +568,35 @@
                 VerticalAlignment="Center"
                 AutomationProperties.Name="Choose the Disk System BIOS file"
                 Command="{x:Bind ViewModel.ChooseFdsBiosCommand}"
+                Content="Choose…" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Sega CD (sega-cd-32x.md): the player's own BIOS; GameVault never ships it -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Sega CD" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Sega CD discs (.cue or .chd) need a Sega CD BIOS (128 KB) from your own console, of the same region as your discs. GameVault doesn't include it. Choose the file, or paste where it is."
+              TextWrapping="Wrap" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="Sega CD BIOS file"
+                LostFocus="SegaCdBiosPath_LostFocus"
+                PlaceholderText="C:\Sega\bios_CD_U.bin"
+                Text="{x:Bind ViewModel.SegaCdBiosPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Choose the Sega CD BIOS file"
+                Command="{x:Bind ViewModel.ChooseSegaCdBiosCommand}"
                 Content="Choose…" />
           </Grid>
         </StackPanel>
