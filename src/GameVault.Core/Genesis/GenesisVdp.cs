@@ -34,6 +34,7 @@ public sealed class GenesisVdp : IStateful
     private readonly ushort[] _vsram = new ushort[64];
     private readonly byte[] _registers = new byte[32];
     private readonly ushort[] _frame = new ushort[MaxWidth * MaxHeight];
+    private readonly bool[] _backdrop = new bool[MaxWidth * MaxHeight];
     private readonly byte[] _planeA = new byte[MaxWidth];
     private readonly byte[] _planeB = new byte[MaxWidth];
     private readonly byte[] _spriteLine = new byte[MaxWidth];
@@ -70,6 +71,12 @@ public sealed class GenesisVdp : IStateful
     public int FrameHeight => _frameHeight;
 
     public ReadOnlySpan<ushort> Frame => _frame.AsSpan(0, _frameWidth * _frameHeight);
+
+    /// <summary>The frame to write into (the 32X lays its picture over the Genesis').</summary>
+    public Span<ushort> WritableFrame => _frame.AsSpan(0, _frameWidth * _frameHeight);
+
+    /// <summary>Per pixel of <see cref="Frame"/>: only the background colour shows there (no plane or sprite pixel).</summary>
+    public ReadOnlySpan<bool> Backdrop => _backdrop.AsSpan(0, _frameWidth * _frameHeight);
 
     /// <summary>The 1,536 colours: shadow (0–511), normal (512–1023) and highlight (1024–1535) of the 9-bit colours.</summary>
     public static ReadOnlySpan<uint> Palette => PaletteTable;
@@ -533,10 +540,12 @@ public sealed class GenesisVdp : IStateful
         }
 
         var output = _frame.AsSpan(y * _frameWidth, _frameWidth);
+        var backdrop = _backdrop.AsSpan(y * _frameWidth, _frameWidth);
         var background = (ushort)(512 + Color9(_cram[_registers[7] & 0x3F]));
         if (!DisplayEnabled || (_registers[1] & 0x04) == 0)
         {
             output.Fill(background);
+            backdrop.Fill(true);
             return;
         }
 
@@ -567,12 +576,22 @@ public sealed class GenesisVdp : IStateful
         var count = Math.Min(width, _frameWidth);
         for (var x = 0; x < count; x++)
         {
-            output[x] = hideLeft && x < 8 ? background : Compose(_planeA[x], _planeB[x], _spriteLine[x], shadowHighlight);
+            if (hideLeft && x < 8)
+            {
+                output[x] = background;
+                backdrop[x] = true;
+            }
+            else
+            {
+                output[x] = Compose(_planeA[x], _planeB[x], _spriteLine[x], shadowHighlight);
+                backdrop[x] = ((_planeA[x] | _planeB[x] | _spriteLine[x]) & 0x0F) == 0;
+            }
         }
 
         if (count < _frameWidth)
         {
             output[count..].Fill(background);
+            backdrop[count..].Fill(true);
         }
     }
 
