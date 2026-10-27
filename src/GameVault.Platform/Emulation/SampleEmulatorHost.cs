@@ -167,6 +167,25 @@ public sealed class SampleEmulatorHost : IEmulatorService, IDisposable
         return Task.FromResult(NetplayInviteCode);
     }
 
+    public bool NetplayNeedsReply { get; private set; }
+
+    public Task<string> HostInternetNetplayAsync()
+    {
+        NetplayInviteCode = "M3TQ8-ZK2RW";
+        NetplayNeedsReply = true;
+        NetplayStatus = NetplayStatus.WaitingForPlayer;
+        NetplayChanged?.Invoke(this, EventArgs.Empty);
+        return Task.FromResult(NetplayInviteCode);
+    }
+
+    public Task AcceptNetplayReplyAsync(string replyCode)
+    {
+        NetplayNeedsReply = false;
+        NetplayStatus = NetplayStatus.Playing;
+        NetplayChanged?.Invoke(this, EventArgs.Empty);
+        return Task.CompletedTask;
+    }
+
     public Task JoinNetplayAsync(string inviteCode)
     {
         NetplayInviteCode = null;
@@ -178,6 +197,7 @@ public sealed class SampleEmulatorHost : IEmulatorService, IDisposable
     public void LeaveNetplay()
     {
         NetplayInviteCode = null;
+        NetplayNeedsReply = false;
         NetplayStatus = NetplayStatus.Off;
         NetplayChanged?.Invoke(this, EventArgs.Empty);
     }

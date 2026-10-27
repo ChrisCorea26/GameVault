@@ -98,6 +98,12 @@ public sealed record AppSettings
     public bool N64ExpansionPak { get; init; } = true;
 
     /// <summary>
+    /// A netplay relay server ("host:port") for hosting over the internet when the two players' routers can't reach
+    /// each other directly (outstanding-work plan §13), or empty to connect directly. Players run their own relay.
+    /// </summary>
+    public string NetplayRelayServer { get; init; } = string.Empty;
+
+    /// <summary>
     /// The player's own PlayStation 2 BIOS (4 MB, such as SCPH-39001), or empty. Discs need it; ELF programs run on
     /// GameVault's own kernel without it. GameVault never ships, downloads or links to it (SPEC §7.11).
     /// </summary>

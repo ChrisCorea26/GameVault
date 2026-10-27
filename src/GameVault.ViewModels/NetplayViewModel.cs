@@ -5,8 +5,9 @@ using GameVault.ViewModels.Services;
 namespace GameVault.ViewModels;
 
 /// <summary>
-/// The Player's Netplay flyout (SPEC §7.7, LAN-only): host the running game and share the invite code, or
-/// join with a code from the other player. Both players need the same game file.
+/// The Player's Netplay flyout (SPEC §7.7): host the running game on this network or over the internet and share the
+/// invite code, or join with a code from the other player; an internet host without a relay then types the joiner's
+/// reply code (outstanding-work plan §13). Both players need the same game file.
 /// </summary>
 public sealed partial class NetplayViewModel(IEmulatorService emulator, IClipboardService clipboard) : ObservableObject
 {
@@ -22,12 +23,24 @@ public sealed partial class NetplayViewModel(IEmulatorService emulator, IClipboa
 
     public bool HasInviteCode => InviteCode is not null && IsActive;
 
+    /// <summary>The internet host is waiting for the joiner's reply code.</summary>
+    public bool NeedsReply => emulator.NetplayNeedsReply && IsActive;
+
+    /// <summary>The joiner's reply code for an internet host.</summary>
+    public string? ReplyCodeToSend => emulator.NetplayReplyCode;
+
+    public bool HasReplyCodeToSend => ReplyCodeToSend is not null && IsActive && Status != NetplayStatus.Playing;
+
     public string StatusText => Status switch
     {
         NetplayStatus.Off when emulator.System == GameVault.Core.Systems.GameSystem.PlayStation2 =>
             "Netplay isn't available for PlayStation 2 games: the console is too large to rewind and replay every frame.",
-        NetplayStatus.Off => "Play with someone on the same network. They need the same game file.",
+        NetplayStatus.Off => "Play with someone on the same network or over the internet. They need the same game file.",
+        NetplayStatus.WaitingForPlayer when NeedsReply =>
+            "Give player 2 this code. When they send you the reply code they get, type it below. The game starts over when they join.",
         NetplayStatus.WaitingForPlayer => "Waiting for player 2. Give them this code; the game starts over when they join.",
+        NetplayStatus.Connecting when ReplyCodeToSend is not null =>
+            "Send this reply code to the host. You're connected as soon as they type it.",
         NetplayStatus.Connecting => "Connecting to the other player…",
         NetplayStatus.Playing => InviteCode is null ? "Connected. You are Player 2." : "Connected. You are Player 1.",
         NetplayStatus.Waiting => "Waiting for the other player to catch up…",
@@ -40,6 +53,10 @@ public sealed partial class NetplayViewModel(IEmulatorService emulator, IClipboa
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(JoinCommand))]
     public partial string JoinCode { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(AcceptReplyCommand))]
+    public partial string ReplyCode { get; set; } = string.Empty;
 
     [ObservableProperty]
     public partial string? ErrorMessage { get; private set; }
@@ -78,6 +95,50 @@ public sealed partial class NetplayViewModel(IEmulatorService emulator, IClipboa
         }
 
         Refresh();
+    }
+
+    [RelayCommand]
+    private async Task HostInternetAsync()
+    {
+        ErrorMessage = null;
+        try
+        {
+            await emulator.HostInternetNetplayAsync();
+        }
+        catch (NetplayException ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+
+        Refresh();
+    }
+
+    private bool CanAcceptReply() => !string.IsNullOrWhiteSpace(ReplyCode);
+
+    [RelayCommand(CanExecute = nameof(CanAcceptReply))]
+    private async Task AcceptReplyAsync()
+    {
+        ErrorMessage = null;
+        try
+        {
+            await emulator.AcceptNetplayReplyAsync(ReplyCode);
+            ReplyCode = string.Empty;
+        }
+        catch (NetplayException ex)
+        {
+            ErrorMessage = ex.Message;
+        }
+
+        Refresh();
+    }
+
+    [RelayCommand]
+    private void CopyReplyCode()
+    {
+        if (ReplyCodeToSend is { } code)
+        {
+            clipboard.SetText(code);
+        }
     }
 
     private bool CanJoin() => !string.IsNullOrWhiteSpace(JoinCode);
@@ -123,6 +184,9 @@ public sealed partial class NetplayViewModel(IEmulatorService emulator, IClipboa
         OnPropertyChanged(nameof(IsIdle));
         OnPropertyChanged(nameof(InviteCode));
         OnPropertyChanged(nameof(HasInviteCode));
+        OnPropertyChanged(nameof(NeedsReply));
+        OnPropertyChanged(nameof(ReplyCodeToSend));
+        OnPropertyChanged(nameof(HasReplyCodeToSend));
         OnPropertyChanged(nameof(StatusText));
     }
 }

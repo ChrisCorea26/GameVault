@@ -25,7 +25,7 @@ system, the BIOS and ROM files you must supply, controls, settings and troublesh
 | 4 | Tier 1 mappers, save states, run-ahead, video presets | ✅ MMC3 IRQ tests and state round-trips for every mapper pass |
 | 5 | Library, timeline, rewind, Zapper | ✅ Zero-config test (empty library → add folder → playing) passes |
 | 6 | Passwords, journal, assist/practice, Tier 2–3 mappers, dumper | 🟡 Built and tested; owner checks with real cartridges pending ([plan](docs/plans/phase-6.md#open-needs-the-owner)) |
-| 7 | Netplay, FDS, Tier 4 mappers | ✅ LAN rollback netplay, FDS with the player's own BIOS, Tier 4 boards |
+| 7 | Netplay, FDS, Tier 4 mappers | ✅ Rollback netplay on the LAN or over the internet (STUN, or the GameVault relay), Disk System games included; FDS with the player's own BIOS, Tier 4 boards |
 | 8 | Game Genie code library | ✅ Codes panel, imported code collections, GameGenie.com lookup on request |
 | 9 | Game-aware features | ✅ Memory maps, before-death states, auto maps, recap, family profiles, verified challenges, stat overlays |
 | 10 | RetroAchievements | 🟡 Built and tested offline with rcheevos; the owner's account and RetroAchievements' approval pending ([plan](docs/plans/phase-10.md#8-owner-tasks)) |

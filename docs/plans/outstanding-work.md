@@ -185,6 +185,16 @@ from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Pla
 - A relay server option and STUN-based NAT traversal on top of the LAN rollback netplay (SPEC §7.7).
 - Netplay for Famicom Disk System games (disk contents synced at start).
 
+**As built.** Disk System games start from the same image and BIOS on both PCs, and a disk change travels in the
+player's input (`ControllerState` bits 50–55 on the NES, one frame), so `NesConsole.SetControllerState` changes the
+disk on the same frame everywhere and rollback replays it. Internet hosting: `StunMessage` (RFC 5389 Binding) on the
+netplay socket gives the public address, carried in the same 10-character code with bit 48 set; the joiner learns its
+own the same way and shows it as a reply code, and `UdpNetplayLink.ExpectPeer` makes the host send to it (and accept
+its packets from another port of the same address) until the routers open. A relay (`src/GameVault.Relay`, a small
+cross-platform console program) pairs two players by room (`GVRJ` + room, answered `GVRA`) and forwards their
+datagrams; with **Settings → Netplay → Relay server** set, hosting goes through it with a 16-character code. Tests:
+`InternetNetplayTests` (a stand-in STUN server and the relay on loopback), `LanNetplayTests`, `NetplayViewModelTests`.
+
 ## 14. GPU renderers
 - Direct3D 11 renderers for the PS2 GS, the N64 RDP and the PlayStation GPU, with internal resolution scaling.
 - The software renderers stay the reference: at 1× each GPU renderer is compared with them on the test programs

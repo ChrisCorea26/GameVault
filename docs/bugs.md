@@ -284,8 +284,6 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 
 | Item | Source |
 |---|---|
-| Internet netplay (relay/STUN); the first release is LAN only | SPEC §7.7, `docs/plans/phase-7.md` |
-| Netplay for Famicom Disk System games | `EmulatorHost.cs:382` |
 | SNES enhancement chips beyond the DSP-n and Super FX (SA-1, Cx4, S-DD1, SPC7110, …) | `docs/plans/outstanding-work.md` §5 |
 | SC-3000 keyboard, Japanese SMS FM sound (YM2413) | `docs/plans/phase-11.md` |
 | Genesis stereo, interlace mode 2, Master System mode, EEPROM saves, Sega CD, 32X | `docs/plans/phase-13.md` |
