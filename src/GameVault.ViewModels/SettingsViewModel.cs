@@ -235,6 +235,12 @@ public sealed partial class SettingsViewModel(
 
     partial void OnSavesNextToRomChanged(bool value) => SaveIfLoaded();
 
+    /// <summary>Both stereo channels on both speakers.</summary>
+    [ObservableProperty]
+    public partial bool MonoAudio { get; set; }
+
+    partial void OnMonoAudioChanged(bool value) => SaveIfLoaded();
+
     /// <summary>0–100. Bound to a Slider (double), so it is a double here.</summary>
     [ObservableProperty]
     public partial double Volume { get; set; } = 80;
@@ -254,6 +260,7 @@ public sealed partial class SettingsViewModel(
         AllowOppositeDirections = settings.AllowOppositeDirections;
         SavesNextToRom = settings.SavesNextToRom;
         Volume = Math.Clamp(settings.Volume, 0, 100);
+        MonoAudio = settings.MonoAudio;
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
         DumperPath = settings.DumperPath;
         FdsBiosPath = settings.FdsBiosPath;
@@ -283,6 +290,7 @@ public sealed partial class SettingsViewModel(
         PlayFullScreen = defaults.PlayFullScreen;
         AllowOppositeDirections = defaults.AllowOppositeDirections;
         Volume = defaults.Volume;
+        MonoAudio = defaults.MonoAudio;
         RewindMemoryIndex = Array.IndexOf(RewindMemoryValues, defaults.RewindMemoryMb);
         _isLoaded = true;
         return SaveAsync();
@@ -388,6 +396,7 @@ public sealed partial class SettingsViewModel(
             AllowOppositeDirections = AllowOppositeDirections,
             SavesNextToRom = SavesNextToRom,
             Volume = (int)Math.Round(Math.Clamp(Volume, 0, 100)),
+            MonoAudio = MonoAudio,
             DumperPath = DumperPath.Trim().Trim('"'),
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),
             AppleIIRomPath = AppleIIRomPath.Trim().Trim('"'),

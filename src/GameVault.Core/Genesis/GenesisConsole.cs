@@ -45,7 +45,8 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
     private bool _z80BusRequested;
     private bool _z80Reset = true;
     private int _cpuDebt;
-    private float _lastFm;
+    private float _lastFmLeft;
+    private float _lastFmRight;
 
     public GenesisConsole(GenesisCartridge cartridge, GenesisRegion? region = null, bool sixButton = true)
     {
@@ -137,7 +138,8 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         _z80BusRequested = false;
         _z80Reset = true;
         _cpuDebt = 0;
-        _lastFm = 0;
+        _lastFmLeft = 0;
+        _lastFmRight = 0;
         FrameCount = 0;
         Cpu.Reset();
     }
@@ -277,12 +279,14 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
             _ymMaster += clocks * 7L;
             if (Audio is { } audio)
             {
-                // Mono: the average of left and right; each channel is at most ±8192.
-                var level = (Fm.Left + Fm.Right) * (0.16f / 2 / 8192);
-                if (level != _lastFm)
+                // Each channel is at most ±8192; panning (register $B4) sends a channel to the left, right or both.
+                var left = Fm.Left * (0.16f / 8192);
+                var right = Fm.Right * (0.16f / 8192);
+                if (left != _lastFmLeft || right != _lastFmRight)
                 {
-                    audio.AddDelta((int)Math.Max(0, _ymMaster), level - _lastFm);
-                    _lastFm = level;
+                    audio.AddDelta((int)Math.Max(0, _ymMaster), left - _lastFmLeft, right - _lastFmRight);
+                    _lastFmLeft = left;
+                    _lastFmRight = right;
                 }
             }
         }

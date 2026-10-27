@@ -544,6 +544,36 @@ public sealed class N64ConsoleTests
     }
 
     [Fact]
+    public void The_ai_plays_left_and_right_on_their_own_channels()
+    {
+        var console = new N64Console(new N64Cartridge(Rom([Mips.BranchSelf, Mips.Nop])));
+        console.Power();
+        var audio = console.EnableAudio(48000);
+
+        // A square wave on the left only; the right holds a steady negative level.
+        for (var i = 0; i < 4000; i++)
+        {
+            BinaryPrimitives.WriteInt16BigEndian(console.Rdram.AsSpan(0x30_0000 + i * 4), (short)(i / 50 % 2 == 0 ? 8000 : -8000));
+            BinaryPrimitives.WriteInt16BigEndian(console.Rdram.AsSpan(0x30_0000 + i * 4 + 2), -4096);
+        }
+
+        console.Write32(0x0450_0010, 1520);
+        console.Write32(0x0450_0008, 1);
+        console.Write32(0x0450_0000, 0x30_0000);
+        console.Write32(0x0450_0004, 16000);
+        console.RunFrame();
+        console.RunFrame();
+
+        var frames = new float[96000];
+        var count = audio.ReadStereo(frames);
+        count.Should().BeGreaterThan(1000);
+        var left = Enumerable.Range(0, count).Select(i => frames[2 * i]).ToArray();
+        var right = Enumerable.Range(0, count).Select(i => frames[2 * i + 1]).ToArray();
+        left[^200..].Max().Should().BeGreaterThan(0.2f, "the square wave plays on the left");
+        right[^200..].Should().OnlyContain(r => Math.Abs(r + 0.125f) < 0.01f, "the right holds its own level");
+    }
+
+    [Fact]
     public void A_save_state_resumes_exactly()
     {
         // A loop that counts and stores, with the VI running.

@@ -199,8 +199,8 @@ sound.
     with each 16-bit word byte-swapped (as the reference core exposes it), then SRAM at $10000.
   - The sample library has a Genesis game.
 - **Changed from the plan, or left for later:**
-  - **Audio is mono:** panning is computed, then left and right are averaged, because GameVault's audio path
-    is mono.
+  - **Audio was mono:** panning was computed, then left and right averaged. Stereo came later
+    (`outstanding-work.md` §2).
   - **YM2612 details:** the DAC "ladder" offsets aren't modeled (only the 9-bit quantization), and LFO pitch
     modulation is a close approximation of the chip's table.
   - **Not yet:** interlace mode 2, the Master System mode, EEPROM saves, and the Sega CD and 32X.

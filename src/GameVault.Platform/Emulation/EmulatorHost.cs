@@ -110,7 +110,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     private bool _profileRemovesSpriteLimit;
     private AssistOptions _assist = AssistOptions.Off;
     private readonly Action<IEmulatedConsole> _present;
-    private readonly float[] _samples = new float[8192];
+    private readonly float[] _samples = new float[8192 * 2]; // interleaved left and right
     private AudioPacing? _pacing;
     private bool _audioActive;
 
@@ -485,11 +485,11 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         if (console.Audio is { } resampler)
         {
             int count;
-            while ((count = resampler.Read(_samples)) > 0)
+            while ((count = resampler.ReadStereo(_samples)) > 0)
             {
                 if (_audioActive)
                 {
-                    _audio!.Write(_samples.AsSpan(0, count));
+                    _audio!.Write(_samples.AsSpan(0, count * 2));
                 }
             }
         }
@@ -931,6 +931,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             if (_audio is not null)
             {
                 _audio.Volume = Math.Clamp(settings.Volume, 0, 100) / 100f;
+                _audio.Mono = settings.MonoAudio;
             }
         }
 
@@ -1456,7 +1457,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             wasFastForward = fastForward;
             var audioClocked = _audioActive && !fastForward && !rewinding && console.Audio is not null;
 
-            if (audioClocked && !_pacing!.ShouldRunFrame(_audio!.BufferedSamples))
+            if (audioClocked && !_pacing!.ShouldRunFrame(_audio!.BufferedFrames))
             {
                 _wake.WaitOne(1);
                 nextFrame = clock.ElapsedTicks;
@@ -1466,7 +1467,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             if (audioClocked)
             {
                 _rateClock ??= Stopwatch.StartNew();
-                var consumed = _samplesWritten - _audio!.BufferedSamples;
+                var consumed = _samplesWritten - _audio!.BufferedFrames;
                 // Slow motion: telling the resampler the CPU runs slower stretches each frame's sound, so the
                 // audio clock paces fewer frames per second and the pitch drops with the speed.
                 console.Audio!.ClockRate = console.CpuClockRate * Speed * _pacing!.ClockRateFactor(consumed, _rateClock.Elapsed.TotalSeconds);
@@ -1486,11 +1487,11 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             if (console.Audio is { } resampler)
             {
                 int count;
-                while ((count = resampler.Read(_samples)) > 0)
+                while ((count = resampler.ReadStereo(_samples)) > 0)
                 {
                     if (audioClocked)
                     {
-                        _samplesWritten += _audio!.Write(_samples.AsSpan(0, count));
+                        _samplesWritten += _audio!.Write(_samples.AsSpan(0, count * 2));
                     }
                 }
             }
