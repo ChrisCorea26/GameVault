@@ -11,13 +11,12 @@ public sealed partial class InputSettingsViewModel : ObservableObject
 {
     private readonly IInputDevicesService _devices;
     private readonly ISettingsStore _settings;
+    private bool _attached;
 
     public InputSettingsViewModel(IInputDevicesService devices, ISettingsStore settings)
     {
         _devices = devices;
         _settings = settings;
-        _devices.Changed += (_, _) => Refresh();
-        _devices.Notice += (_, notice) => LastNotice = notice;
         Refresh();
     }
 
@@ -88,6 +87,38 @@ public sealed partial class InputSettingsViewModel : ObservableObject
 
     [RelayCommand]
     private void SwapPlayers() => _devices.SwapPorts(0, 1);
+
+    /// <summary>
+    /// Starts listening for device changes (when the page loads). Nothing is subscribed before this: the device
+    /// events arrive on the UI thread, and <see cref="Refresh"/> rebuilds <see cref="Ports"/> and
+    /// <see cref="Unassigned"/>, so a view model left subscribed after its page is gone would push collection
+    /// changes into the torn-down ItemsRepeaters and fail with E_FAIL (SPEC §9.1).
+    /// </summary>
+    public void Attach()
+    {
+        if (!_attached)
+        {
+            _devices.Changed += OnDevicesChanged;
+            _devices.Notice += OnNotice;
+            _attached = true;
+            Refresh(); // devices may have come and gone while the page was away
+        }
+    }
+
+    /// <summary>Stops listening for device changes (when the page is left).</summary>
+    public void Detach()
+    {
+        if (_attached)
+        {
+            _devices.Changed -= OnDevicesChanged;
+            _devices.Notice -= OnNotice;
+            _attached = false;
+        }
+    }
+
+    private void OnDevicesChanged(object? sender, EventArgs e) => Refresh();
+
+    private void OnNotice(object? sender, string notice) => LastNotice = notice;
 
     internal void UseForPlayer(string sourceId, int port) => _devices.AssignToPort(sourceId, port);
 
