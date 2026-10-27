@@ -163,7 +163,7 @@ and drawn before the run returns.
 | EE, FPU-heavy loop | 88 M instr/s | 195 M instr/s (2.2×) |
 | EE, MMI-heavy loop | 92 M instr/s | 192 M instr/s (2.1×) |
 | GS, 2000 textured bilinear blended Z-tested triangles a frame | 12.8 Mpixels/s | 27 (2 threads), 33–37 (4 threads) |
-| VU1, transform loop | 77 M cycles/s | unchanged (§6) |
+| VU1, transform loop | 77 M cycles/s | unchanged here; see §7 |
 | N64 RDP, 300 shaded textured Z-buffered triangles | 18.8 scenes/s | 40.2 (2 threads), 56.0 (4 threads) |
 
 The EE now runs integer code faster than the real CPU. FPU-heavy code is limited by the PS2's non-IEEE float rules,
@@ -184,3 +184,45 @@ which are done bit-exactly in software. Benchmarks: `R5900BenchmarkTests` (`GAME
    - It can't be checked in the Linux build environment this change was made in, so it wasn't attempted here.
    - The software GS stays the reference. Its batches are already the unit a GPU renderer would take.
 3. **A GPU renderer for the N64 RDP**, as SPEC §7.11 asks, with the same caveat as 2.
+
+## 7. The VU recompiler (`Ps2Vu.Recompiler.cs`, outstanding-work plan §3)
+
+Done after the steps above, as §6.1 asked.
+
+- **Blocks.** A block is a run of pairs from its start up to and including:
+  - the delay pair of a branch or jump;
+  - the delay pair of an E bit;
+  - a pair with a D or T bit;
+  - or the end of micro memory.
+
+  A block holds at most 64 pairs. It starts only where the interpreter would run a pair from the top, with no branch
+  or end pending, and it is compiled after 8 runs.
+- **The same code as the interpreter.**
+  - `Step` was split into the steps a pair takes: the operand waits, `BeginPair` (stall, retire, integer hazard),
+    `TakeBranch`, the upper and lower instructions, `EndPair`, and the E/D/T bits.
+  - Each upper and lower instruction became its own method, all with the same parameters.
+  - Both the interpreter and the compiled blocks call these, so the per-pair decode check, the operand-mask loops and
+    the opcode switches fold away in a block (the methods are inlined with constant arguments), and nothing else
+    changes.
+  - The stall, the flag queue, Q/P, the integer branch hazard and the slice's end are checked exactly where the
+    interpreter checks them.
+- **New microcode.** A block keeps the doublewords it was built from and compares them with micro memory each time
+  it starts.
+- **The switch.** `Ps2Vu.RecompilerEnabled`, on where the runtime can compile code. Blocks are a cache, not state.
+- **Tests:**
+  - `Ps2VuRecompilerTests`: 48 random micro programs on VU0 and VU1 (every kind of upper and lower instruction,
+    branches, E/D/T/I bits, microcode replaced mid-run, slices of 1–120 cycles). The whole state of both units and
+    what they asked of the host must match after every one of 400 slices. Breaking the recompiler on purpose (the
+    branch, the E bit, the slice check, a VF or VI wait) fails them.
+  - `Ps2RecompilerConsoleTests` now runs every ps2autotests program and the homebrew with the EE and both VUs
+    recompiled against all three interpreted.
+- **Results** (Release, the shared 4-core build machine; `Ps2VuBenchmarkTests`, which now reports both):
+
+  | | Interpreted | Recompiled |
+  |---|---|---|
+  | VU1, transform loop (a 4×4 matrix through ACC, DIV, FTOI4, a store per vertex) | 60–68 M cycles/s | 108 M cycles/s (1.6–1.8×) |
+  | VU1, integer and branch loop (NOP upper instructions) | 75 M cycles/s | 290 M cycles/s (3.9×) |
+
+  FMAC-heavy code is now limited by the bit-exact PS2 float arithmetic itself (each `Add4`/`Mul4` is a 40–60
+  cycle dependency chain on the host; `Add4` got about 20 % faster with AVX2's per-lane shift), not by the
+  interpreter.

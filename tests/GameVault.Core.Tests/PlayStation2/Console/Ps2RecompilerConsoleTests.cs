@@ -8,8 +8,8 @@ using Xunit.Abstractions;
 namespace GameVault.Core.Tests.PlayStation2.Console;
 
 /// <summary>
-/// The whole machine runs the same with the EE's recompiler as with the interpreter: every ps2autotests program and
-/// the homebrew, frame by frame, with the same output, picture and save state.
+/// The whole machine runs the same with the EE's and the VUs' recompilers as with the interpreters: every ps2autotests
+/// program and the homebrew, frame by frame, with the same output, picture and save state.
 /// </summary>
 public sealed class Ps2RecompilerConsoleTests(ITestOutputHelper log)
 {
@@ -52,7 +52,10 @@ public sealed class Ps2RecompilerConsoleTests(ITestOutputHelper log)
         var interpreted = new Ps2Console(Ps2Boot.FromElf(elf, "host:test.elf")) { DebugOutput = c => interpretedOutput.Append(c) };
         var recompiled = new Ps2Console(Ps2Boot.FromElf(elf, "host:test.elf")) { DebugOutput = c => recompiledOutput.Append(c) };
         interpreted.Cpu.RecompilerEnabled = false;
+        interpreted.Vu0.RecompilerEnabled = false;
+        interpreted.Vu1.RecompilerEnabled = false;
         recompiled.Cpu.RecompilerEnabled.Should().BeTrue("the recompiler is on by default");
+        recompiled.Vu1.RecompilerEnabled.Should().BeTrue("the VUs' recompiler is on by default too");
 
         for (var frame = 1; frame <= Frames; frame++)
         {
@@ -74,6 +77,7 @@ public sealed class Ps2RecompilerConsoleTests(ITestOutputHelper log)
             }
         }
 
-        log.WriteLine($"{name}: {recompiled.Cpu.CompiledBlocks} blocks, {recompiled.Cpu.RecompiledInstructions * 100.0 / recompiled.Cpu.Cycles:F1}% of the EE's cycles in them");
+        log.WriteLine($"{name}: {recompiled.Cpu.CompiledBlocks} blocks, {recompiled.Cpu.RecompiledInstructions * 100.0 / recompiled.Cpu.Cycles:F1}% of the EE's cycles in them; "
+                      + $"VU0 {recompiled.Vu0.CompiledBlocks} blocks, VU1 {recompiled.Vu1.CompiledBlocks} blocks ({recompiled.Vu1.RecompiledCycles} of {recompiled.Vu1.Cycles} cycles)");
     }
 }
