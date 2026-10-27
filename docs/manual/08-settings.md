@@ -118,6 +118,7 @@ Each box has **Choose…** to pick the file.
 | Setting | Values | Default |
 |---|---|---|
 | **Expansion Pak** | On / Off. Takes effect the next time a game starts. | On |
+| **Rumble Pak** | On puts a Rumble Pak in every controller instead of the Controller Pak, so games can shake your controller. Takes effect the next time a game starts. | Off |
 
 ## Advanced
 

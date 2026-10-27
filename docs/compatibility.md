@@ -250,7 +250,8 @@ Real discs need the owner's BIOS (Settings → PlayStation); real games are the 
 | SRAM and FlashRAM | ✅ Unit tests (FlashRAM follows Mupen64Plus's command set) |
 | AI: audio buffers and the DAC rate | ✅ Unit tests and PeterLemon's PCM demos (not committed: their samples' origin isn't stated) |
 | Boot: simulated PIF, the cartridge's own IPL3; CIC seeds 6101–6106 | 🟡 PeterLemon's programs boot through krom's IPL3; Nintendo's IPL3s are the owner's to try with their cartridges |
-| 64DD, Rumble Pak, Transfer Pak, mouse, VRU | Not yet |
+| Rumble Pak (probe and motor; passed to the player's pad through SDL) | ✅ Unit tests; how it feels on a real pad is the owner's to check |
+| 64DD, Transfer Pak, mouse, VRU | Not yet |
 
 Real cartridges are the owner's to try; see `docs/plans/phase-16.md`.
 

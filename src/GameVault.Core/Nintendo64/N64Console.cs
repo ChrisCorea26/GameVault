@@ -24,7 +24,7 @@ namespace GameVault.Core.Nintendo64;
 /// line, a DMA's end, an audio buffer's end, a slice of the RSP), and a device catches up before its registers are
 /// touched.
 /// </remarks>
-public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHost
+public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHost, IRumbleSource
 {
     public const double CpuClock = 93_750_000.0;
     public const int MaxWidth = 640;
@@ -118,6 +118,28 @@ public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHos
 
     /// <summary>The Controller Pak in the first controller, saved separately from the cartridge.</summary>
     public N64ControllerPak ControllerPak => Pif.Pak!;
+
+    private readonly N64RumblePak?[] _rumblePaks = new N64RumblePak?[4];
+
+    /// <summary>
+    /// A Rumble Pak in every controller (Settings → Nintendo 64 → Controller accessory) instead of the Controller Pak in
+    /// the first. Takes effect at once; the Controller Pak keeps its contents for when it goes back in.
+    /// </summary>
+    public bool RumblePaks
+    {
+        get => _rumblePaks[0] is not null;
+        set
+        {
+            for (var port = 0; port < 4; port++)
+            {
+                _rumblePaks[port] = value ? new N64RumblePak() : null;
+                Pif.SetAccessory(port, value ? _rumblePaks[port] : port == 0 ? Pif.Pak : null);
+            }
+        }
+    }
+
+    /// <inheritdoc/>
+    public float RumbleLevel(int port) => _rumblePaks[port] is { Rumbling: true } ? 1f : 0f;
 
     /// <summary>
     /// Text homebrew prints through the IS-Viewer debug port at $13FF0000 (libdragon's debugf). While this is null

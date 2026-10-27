@@ -156,6 +156,10 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial bool N64ExpansionPak { get; set; } = true;
 
+    /// <summary>N64 controllers get a Rumble Pak instead of the Controller Pak (takes effect the next time a game starts).</summary>
+    [ObservableProperty]
+    public partial bool N64RumblePak { get; set; }
+
     /// <summary>The player's own PlayStation 2 BIOS (SPEC §7.11, Phase 17). Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string PlayStation2BiosPath { get; set; } = string.Empty;
@@ -284,6 +288,7 @@ public sealed partial class SettingsViewModel(
         SnesChipRomFolder = settings.SnesChipRomFolder;
         PlayStationFastBoot = settings.PlayStationFastBoot;
         N64ExpansionPak = settings.N64ExpansionPak;
+        N64RumblePak = settings.N64RumblePak;
         PlayStation2BiosPath = settings.PlayStation2BiosPath;
         PlayStation2FastBoot = settings.PlayStation2FastBoot;
         await CheckPlayStation2BiosAsync();
@@ -362,6 +367,8 @@ public sealed partial class SettingsViewModel(
 
     partial void OnN64ExpansionPakChanged(bool value) => SaveIfLoaded();
 
+    partial void OnN64RumblePakChanged(bool value) => SaveIfLoaded();
+
     /// <summary>Called when the PS2 BIOS path box loses focus: saves it and checks the file (size and version).</summary>
     [RelayCommand]
     private async Task SavePlayStation2BiosPathAsync()
@@ -423,6 +430,7 @@ public sealed partial class SettingsViewModel(
             SnesChipRomFolder = SnesChipRomFolder.Trim().Trim('"'),
             PlayStationFastBoot = PlayStationFastBoot,
             N64ExpansionPak = N64ExpansionPak,
+            N64RumblePak = N64RumblePak,
             PlayStation2BiosPath = PlayStation2BiosPath.Trim().Trim('"'),
             PlayStation2FastBoot = PlayStation2FastBoot,
             RewindMemoryMb = RewindMemoryIndex >= 0 && RewindMemoryIndex < RewindMemoryValues.Length

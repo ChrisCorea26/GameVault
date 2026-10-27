@@ -298,11 +298,28 @@ public class ControllerManagerTests
         restarted.TwoPlayerKeyboard.Should().BeTrue();
     }
 
+    [Fact]
+    public void A_game_s_rumble_reaches_the_pad_playing_on_that_port()
+    {
+        _manager.OnConnected(Pad(1));
+        _manager.OnConnected(Pad(2));
+
+        _input.SetRumble(1, 1f);
+        _input.SetRumble(1, 1f); // unchanged: not sent again
+        _input.StopRumble();
+
+        _backend.Rumble.Should().Equal((2, 1f), (2, 0f));
+    }
+
     private sealed class FakeBackend : IControllerBackend
     {
         public IControllerEvents? Events { get; private set; }
 
+        public List<(int Id, float Level)> Rumble { get; } = [];
+
         public void Start(IControllerEvents events) => Events = events;
+
+        public void SetRumble(int instanceId, float level) => Rumble.Add((instanceId, level));
 
         public void Dispose()
         {

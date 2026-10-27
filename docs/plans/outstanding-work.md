@@ -171,6 +171,13 @@ from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Pla
 - GameShark button codes (88/89).
 - The VI's anti-alias and divot filters, and 32-bit frames shown at full depth.
 
+**As built (first part).** `IN64Accessory` in each controller's slot; `N64RumblePak` (probe at $8000, motor at
+$C000); `N64Console.RumblePaks` (Settings → Nintendo 64 → Rumble Pak) puts one in every controller. The host passes
+`IRumbleSource.RumbleLevel` to `InputService.SetRumble`, and `ControllerManager` sends it to the pad on that port,
+where `SdlControllerBackend` runs `SDL_GameControllerRumble` from its polling thread. The motor isn't part of the save
+state. GameShark codes turned out not to exist for the N64 at all (cheats are NES-only from the store to the UI), so
+they are a separate part with the cheat system made per-system. Tests: `N64AccessoryTests`, `ControllerManagerTests`.
+
 ## 11. PlayStation peripherals and output
 - The mouse, the GunCon and the Justifier (with the PC mouse as the gun, as the NES Zapper does).
 - 24-bit output shown at full depth (FMVs).

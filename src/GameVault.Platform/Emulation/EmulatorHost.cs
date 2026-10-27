@@ -1241,6 +1241,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
         _input.TypingMode = false;
         _input.Layout = PadLayout.Nes;
+        _input.StopRumble();
 
         Post(() =>
         {
@@ -1561,6 +1562,14 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
                 var codes = withCodes.Cheats;
                 _cheatsActive = codes.Count > 0;
                 Raise(() => CheatsChanged?.Invoke(this, codes));
+            }
+
+            if (console is IRumbleSource rumble)
+            {
+                for (var port = 0; port < console.ControllerPorts && port < InputService.PortCount; port++)
+                {
+                    _input.SetRumble(port, rumble.RumbleLevel(port));
+                }
             }
 
             _rewind.OnFrame(console);

@@ -6,7 +6,7 @@ namespace GameVault.Platform.Emulation;
 /// <summary>
 /// What an N64 needs besides the game: the Expansion Pak setting and the save-type list (data/gamedb/n64/saves.json).
 /// </summary>
-public sealed record N64Setup(bool ExpansionPak = true, Func<string, N64SaveType?>? SaveTypes = null);
+public sealed record N64Setup(bool ExpansionPak = true, Func<string, N64SaveType?>? SaveTypes = null, bool RumblePak = false);
 
 /// <summary>N64 games (SPEC §7.11, Phase 16): the Expansion Pak from Settings, and the Controller Pak's save file.</summary>
 public sealed partial class EmulatorHost
@@ -23,8 +23,8 @@ public sealed partial class EmulatorHost
     /// <summary>The Expansion Pak setting, read when an N64 game is opened.</summary>
     private async Task<N64Setup> LoadN64SetupAsync(CancellationToken cancellationToken)
     {
-        var expansionPak = _settings is null || (await _settings.LoadAsync(cancellationToken).ConfigureAwait(false)).N64ExpansionPak;
-        return new N64Setup(expansionPak, N64SaveTypes);
+        var settings = _settings is null ? null : await _settings.LoadAsync(cancellationToken).ConfigureAwait(false);
+        return new N64Setup(settings?.N64ExpansionPak ?? true, N64SaveTypes, settings?.N64RumblePak ?? false);
     }
 
     /// <summary>Reads the game's Controller Pak, if it has been saved before (UI thread, while loading).</summary>

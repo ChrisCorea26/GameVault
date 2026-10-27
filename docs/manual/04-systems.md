@@ -306,7 +306,10 @@ Properties → Save type**.
 cores helps. 2D games and most 3D scenes run at full speed on a modern CPU; the heaviest 3D scenes may still slow
 down on a CPU with few cores.
 
-**Not supported yet:** Rumble Pak, Transfer Pak, mouse, voice recognition unit, 64DD, GameShark codes, and the N64's
+**Rumble Pak:** turn on **Settings → Nintendo 64 → Rumble Pak** and every controller gets one, so games that use it
+shake your controller (if it has rumble motors). Games can't save to the Controller Pak while it's on.
+
+**Not supported yet:** Transfer Pak, mouse, voice recognition unit, 64DD, GameShark codes, and the N64's
 video filters.
 
 ## Sony PlayStation 2

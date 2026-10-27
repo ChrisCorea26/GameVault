@@ -9,3 +9,4 @@
 | 5 | October 2026 | Every page and menu can be used with a controller alone: the D-pad moves between items, the bottom button presses, flips or opens them, the top button opens an item's menu, the shoulders switch between Library and Settings, and the triggers jump a screen up or down a long page. |
 | 6 | October 2026 | Sound is in stereo on the Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2, and **Settings → Audio → Mono** plays both channels on both speakers. |
 | 7 | October 2026 | Super Nintendo games with a Super FX chip (Star Fox, Yoshi's Island) play, and games with a DSP chip (Super Mario Kart, Pilotwings) play with your own chip ROM in **Settings → Super Nintendo → Enhancement chip ROMs**. |
+| 12 | October 2026 | Nintendo 64: **Settings → Nintendo 64 → Rumble Pak** puts a Rumble Pak in every controller, and games shake your controller through it. |

@@ -34,6 +34,22 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         _backend = backend;
         _settings = settings;
         _context = SynchronizationContext.Current;
+        input.RumbleChanged += OnRumbleChanged;
+    }
+
+    /// <summary>The game's rumble for a port goes to the pad playing on it (outstanding-work plan §10).</summary>
+    private void OnRumbleChanged(int port, float level)
+    {
+        int? instanceId;
+        lock (_gate)
+        {
+            instanceId = port < _model.Policy.PortCount ? _model.Policy.AssignedTo(port)?.InstanceId : null;
+        }
+
+        if (instanceId is { } id)
+        {
+            _backend.SetRumble(id, level);
+        }
     }
 
     /// <summary>Set by the app: pads are ignored while the window is in the background (input.md §7).</summary>
@@ -537,7 +553,11 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         }
     }
 
-    public void Dispose() => _backend.Dispose();
+    public void Dispose()
+    {
+        _input.RumbleChanged -= OnRumbleChanged;
+        _backend.Dispose();
+    }
 
     // ------------------------------------------------------------ helpers
 
