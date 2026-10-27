@@ -20,6 +20,7 @@ files are read from where you put them.
 | `retroachievements.json` | Encrypted RetroAchievements sign-in |
 | `profiles.json` | Family profiles and the parent PIN (hashed) |
 | `Profiles\<id>\` | The same files for each extra family profile |
+| `bios\` | Copies of the BIOS files you chose with **Choose…** (`fds\`, `ps1\`, `ps2\`), shared by every family profile |
 | `logs\crash.log` | Details of any crash |
 
 Cover pictures stay where you chose them; only their location is stored, so don't move or delete them.
@@ -53,7 +54,7 @@ The RetroAchievements sign-in is tied to your Windows account, so sign in again 
 | A European game runs too fast, or a US game too slow | Set **Game Details → Properties → Region**. |
 | An Apple II disk shows only the startup screen | Set the Disk II boot ROM in **Settings → Apple II**. |
 | No sound | Check **Settings → Audio → Game volume** and the Windows volume mixer. Sound is muted while fast-forwarding. |
-| Sound or picture stutters | Close other heavy programs, set **Reduce input lag** to *Low* or *Off*, and choose **Sharp pixels**. Nintendo 64 3D scenes can run below full speed. |
+| Sound or picture stutters | Close other heavy programs, set **Reduce input lag** to *Low* or *Off*, and choose **Sharp pixels**. The heaviest Nintendo 64 3D scenes can run below full speed on a CPU with few cores. |
 | The game pauses when I click another window | That's **Pause when GameVault is in the background**; turn it off in Settings → Gameplay. |
 | Controller doesn't work | Make sure GameVault is the active window; controllers are ignored in the background. Check **Settings → Controllers** for which player it's assigned to. If it's under *Other controllers*, choose **Use for Player 1**. Some apps (Steam, Game Bar) capture the Guide button; hold **Back + Start** instead. |
 | A keyboard key does nothing | Click the game picture to give it focus. Two-player keyboard games: some keyboards can't register many keys at once. |
@@ -64,7 +65,7 @@ The RetroAchievements sign-in is tied to your Windows account, so sign in again 
 | An N64 game doesn't keep its save | Its save type may be missing from GameVault's database. Try the cartridge's save type in **Game Details → Properties → Save type**. |
 | A PlayStation game won't start with fast boot | Turn off **Skip the startup screens**. |
 | A PlayStation 2 game won't start with fast boot | Turn off **Settings → PlayStation 2 → Skip the startup screens**. |
-| A PlayStation 2 game runs slowly | Expected for now: the PlayStation 2 is emulated in software and runs below full speed. |
+| A PlayStation 2 game runs slowly | Many games still run below full speed (see [PlayStation 2](#sony-playstation-2), *Performance*). If you built GameVault yourself, use a Release build (see [Installing GameVault](#installing-gamevault)). Close other heavy programs. |
 | A PlayStation 2 game isn't in the library | Discs are recognised by their SYSTEM.CNF file; check the image isn't damaged. A `.bin` must come with its `.cue`. |
 | Settings are greyed out | The family profile is locked. A parent can unlock it with the PIN. |
 | GameVault crashed | Details are in `%LOCALAPPDATA%\GameVault\logs\crash.log`. Include that file when you report the problem. |

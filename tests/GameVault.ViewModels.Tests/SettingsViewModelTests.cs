@@ -188,6 +188,61 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task A_chosen_bios_is_copied_into_gamevaults_bios_folder()
+    {
+        var root = Directory.CreateTempSubdirectory("gamevault-bios-");
+        try
+        {
+            var picked = Path.Combine(root.FullName, "picked", "disksys.rom");
+            Directory.CreateDirectory(Path.GetDirectoryName(picked)!);
+            File.WriteAllBytes(picked, new byte[8 * 1024]);
+            var wrongSize = Path.Combine(root.FullName, "picked", "scph1001.bin");
+            File.WriteAllBytes(wrongSize, new byte[100]);
+
+            var store = new InMemorySettingsStore();
+            var picker = new OnePathPicker();
+            var vm = new SettingsViewModel(
+                store,
+                new InputSettingsViewModel(new SampleInputDevicesService(), store),
+                new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()),
+                picker: picker,
+                biosImporter: new GameVault.Library.Bios.BiosImporter(Path.Combine(root.FullName, "bios")));
+            await vm.LoadCommand.ExecuteAsync(null);
+
+            picker.Path = picked;
+            await vm.ChooseFdsBiosCommand.ExecuteAsync(null);
+            var copy = Path.Combine(root.FullName, "bios", "fds", "disksys.rom");
+            File.Exists(copy).Should().BeTrue("the BIOS is copied");
+            store.Current.FdsBiosPath.Should().Be(copy, "Settings keeps the copy");
+
+            // A file that fails the check isn't copied; its own path is kept, so the launch message can explain it.
+            picker.Path = wrongSize;
+            await vm.ChoosePlayStationBiosCommand.ExecuteAsync(null);
+            Directory.Exists(Path.Combine(root.FullName, "bios", "ps1")).Should().BeFalse();
+            store.Current.PlayStationBiosPath.Should().Be(wrongSize);
+        }
+        finally
+        {
+            root.Delete(recursive: true);
+        }
+    }
+
+    private sealed class OnePathPicker : IGameFilePicker
+    {
+        public string? Path { get; set; }
+
+        public Task<string?> PickGameFileAsync() => Task.FromResult<string?>(null);
+
+        public Task<string?> PickFolderAsync() => Task.FromResult<string?>(null);
+
+        public Task<string?> PickCatalogFileAsync() => Task.FromResult<string?>(null);
+
+        public Task<string?> PickImageAsync() => Task.FromResult<string?>(null);
+
+        public Task<string?> PickSystemFileAsync(IReadOnlyList<string> extensions) => Task.FromResult(Path);
+    }
+
+    [Fact]
     public async Task Hide_screen_edges_offers_an_amount()
     {
         var store = new InMemorySettingsStore();

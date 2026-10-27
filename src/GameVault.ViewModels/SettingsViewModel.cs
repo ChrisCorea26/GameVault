@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GameVault.Library.Bios;
 using GameVault.ViewModels.Services;
 
 namespace GameVault.ViewModels;
@@ -11,7 +12,8 @@ public sealed partial class SettingsViewModel(
     LibrarySettingsViewModel library,
     FamilyViewModel? family = null,
     RetroAchievementsSettingsViewModel? retroAchievements = null,
-    IGameFilePicker? picker = null)
+    IGameFilePicker? picker = null,
+    BiosImporter? biosImporter = null)
     : ObservableObject
 {
     // "Choose…" next to each path box (GV-009): a picker works with a mouse or a controller; typing still works too.
@@ -32,7 +34,7 @@ public sealed partial class SettingsViewModel(
     {
         if (await PickAsync(".rom", ".bin") is { } path)
         {
-            FdsBiosPath = path;
+            FdsBiosPath = await ImportAsync(BiosKind.FamicomDiskSystem, path);
             SaveIfLoaded();
         }
     }
@@ -62,7 +64,7 @@ public sealed partial class SettingsViewModel(
     {
         if (await PickAsync(".bin", ".rom") is { } path)
         {
-            PlayStationBiosPath = path;
+            PlayStationBiosPath = await ImportAsync(BiosKind.PlayStation, path);
             SaveIfLoaded();
         }
     }
@@ -72,9 +74,25 @@ public sealed partial class SettingsViewModel(
     {
         if (await PickAsync(".bin", ".rom") is { } path)
         {
-            PlayStation2BiosPath = path;
+            PlayStation2BiosPath = await ImportAsync(BiosKind.PlayStation2, path);
             await SavePlayStation2BiosPathAsync();
         }
+    }
+
+    /// <summary>
+    /// A chosen BIOS is checked and copied into GameVault's own folder (<c>%LOCALAPPDATA%\GameVault\bios\</c>), so it
+    /// keeps working when the original moves; the copy's path is kept. A file that fails the check keeps its own path,
+    /// so the usual warning or message explains what's wrong with it.
+    /// </summary>
+    private async Task<string> ImportAsync(BiosKind kind, string path)
+    {
+        if (biosImporter is null)
+        {
+            return path;
+        }
+
+        var import = await Task.Run(() => biosImporter.Import(kind, path));
+        return import.Succeeded && import.Path is { } copy ? copy : path;
     }
 
     private Task<string?> PickAsync(params string[] extensions) =>

@@ -89,6 +89,7 @@ public sealed partial class Ps2Gs
                 _upBits = BitsPerPixel(dpsm);
                 _upAcc = 0;
                 _upAccBits = 0;
+                SetUploadPages(dbp, dbw, dpsm, dsax, dsay, width, height);
                 break;
             case 1:
                 _downActive = width > 0 && height > 0;
@@ -106,6 +107,7 @@ public sealed partial class Ps2Gs
                 _downCarryBits = 0;
                 break;
             case 2:
+                Flush();
                 CopyLocal(sbp, sbw, spsm, ssax, ssay, dbp, dbw, dpsm, dsax, dsay, width, height, (int)((pos >> 59) & 3));
                 break;
         }
@@ -119,6 +121,7 @@ public sealed partial class Ps2Gs
             return;
         }
 
+        FlushForUpload();
         if (_upBits == 32)
         {
             UploadPixel((uint)value);
@@ -145,7 +148,7 @@ public sealed partial class Ps2Gs
 
     private void UploadPixel(uint pixel)
     {
-        WritePixel(_upPsm, _upBp, _upBw, _upX0 + _upX, _upY0 + _upY, pixel);
+        WritePixel(_memory, _upPsm, _upBp, _upBw, _upX0 + _upX, _upY0 + _upY, pixel);
         if (++_upX == _upWidth)
         {
             _upX = 0;
@@ -171,6 +174,7 @@ public sealed partial class Ps2Gs
             return 0;
         }
 
+        Flush();
         var count = 0;
         while (count < destination.Length && _downQwordsLeft > 0)
         {
@@ -181,7 +185,7 @@ public sealed partial class Ps2Gs
             _downCarryBits = 0;
             while (bits < 128 && _downPixelsLeft > 0)
             {
-                var pixel = ReadPixel(_downPsm, _downBp, _downBw, _downX0 + _downX, _downY0 + _downY);
+                var pixel = ReadPixel(_memory, _downPsm, _downBp, _downBw, _downX0 + _downX, _downY0 + _downY);
                 acc |= (UInt128)pixel << bits;
                 if (bits + _downBits > 128)
                 {
@@ -221,8 +225,8 @@ public sealed partial class Ps2Gs
             for (var i = 0; i < width; i++)
             {
                 var col = xDown ? width - 1 - i : i;
-                var pixel = ReadPixel(spsm, sbp, sbw, sx + col, sy + row);
-                WritePixel(dpsm, dbp, dbw, dx + col, dy + row, pixel);
+                var pixel = ReadPixel(_memory, spsm, sbp, sbw, sx + col, sy + row);
+                WritePixel(_memory, dpsm, dbp, dbw, dx + col, dy + row, pixel);
             }
         }
     }

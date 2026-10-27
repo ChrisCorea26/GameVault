@@ -8,7 +8,7 @@ namespace GameVault.Core.Nintendo64;
 /// <summary>
 /// The Reality Display Processor (SPEC §7.11, Phase 16): the N64's rasterizer, in software. Commands arrive through
 /// the DPC registers from RDRAM (or from the RSP's DMEM over the XBUS) and run as soon as DPC_END is written, so the
-/// result is deterministic. Triangles, rectangles, the texture unit with TMEM, the colour combiner, the blender and the
+/// result is deterministic (drawing may be shared among several cores, with the same result: N64Rdp.Batch.cs). Triangles, rectangles, the texture unit with TMEM, the colour combiner, the blender and the
 /// Z buffer follow the hardware's fixed-point rules where they are documented.
 /// </summary>
 /// <remarks>
@@ -164,6 +164,7 @@ public sealed partial class N64Rdp : IStateful, IN64DpRegisters
             return;
         }
 
+        var batching = Batching;
         while (_current < _end)
         {
             _command[_commandWords++] = ReadCommandWord(_current);
@@ -171,9 +172,22 @@ public sealed partial class N64Rdp : IStateful, IN64DpRegisters
             var id = (int)(_command[0] >> 56) & 0x3F;
             if (_commandWords >= CommandLength[id])
             {
-                Execute(id);
+                if (batching)
+                {
+                    Record(id);
+                }
+                else
+                {
+                    Execute(id);
+                }
+
                 _commandWords = 0;
             }
+        }
+
+        if (batching)
+        {
+            FlushBatch(); // the CPU may read RDRAM as soon as the run returns
         }
     }
 
@@ -205,7 +219,11 @@ public sealed partial class N64Rdp : IStateful, IN64DpRegisters
             case 0x28: // Sync Tile
                 break;
             case 0x29: // Sync Full
-                _host.RaiseInterrupt(N64Interrupt.Dp);
+                if (!_replica)
+                {
+                    _host.RaiseInterrupt(N64Interrupt.Dp);
+                }
+
                 break;
             case 0x2A:
                 SetKeyGb(w);

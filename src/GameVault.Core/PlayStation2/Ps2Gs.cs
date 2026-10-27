@@ -4,8 +4,8 @@ namespace GameVault.Core.PlayStation2;
 
 /// <summary>
 /// The Graphics Synthesizer (SPEC §7.11, Phase 17): 4 MB of local memory, the general registers the GIF writes, the
-/// privileged registers the EE maps at $12000000, and a software rasterizer. Drawing runs as soon as a vertex kick
-/// completes a primitive, so the result is deterministic.
+/// privileged registers the EE maps at $12000000, and a software rasterizer. Completed primitives are queued and drawn
+/// in batches, perhaps on several cores, with the same result as drawing each at once (Ps2Gs.Batch.cs).
 /// </summary>
 /// <remarks>
 /// References: ps2tek ("GS Reference" and its sub-pages), the GS User's Manual's register descriptions as the
@@ -144,8 +144,15 @@ public sealed partial class Ps2Gs : IStateful
         Reset();
     }
 
-    /// <summary>The 4 MB local memory, little-endian, in the hardware's swizzled layout.</summary>
-    public byte[] LocalMemory => _memory;
+    /// <summary>The 4 MB local memory, little-endian, in the hardware's swizzled layout (with every queued primitive drawn).</summary>
+    public byte[] LocalMemory
+    {
+        get
+        {
+            Flush();
+            return _memory;
+        }
+    }
 
     /// <summary>The GS interrupt line to the INTC: an event bit in CSR that IMR doesn't mask.</summary>
     public bool InterruptPending => (_csr & ~(_imr >> 8) & EventMask) != 0;
@@ -262,7 +269,8 @@ public sealed partial class Ps2Gs : IStateful
                 WriteSignal(value);
                 break;
             case RegFinish:
-                // Drawing is synchronous, so everything before FINISH has completed.
+                // Everything before FINISH has completed: queued primitives count as drawn (only local memory can tell,
+                // and reading it draws them).
                 SetEvent(CsrFinish);
                 break;
             case RegLabel:
@@ -527,6 +535,7 @@ public sealed partial class Ps2Gs : IStateful
 
     public void SaveState(StateWriter writer)
     {
+        Flush();
         writer.BeginChunk(Tag, 1);
         writer.WriteBytes(_memory);
         foreach (var r in _regs)
@@ -569,6 +578,7 @@ public sealed partial class Ps2Gs : IStateful
 
     public void LoadState(StateReader reader)
     {
+        DiscardBatch();
         reader.BeginChunk(Tag);
         reader.ReadBytes(_memory);
         for (var i = 0; i < _regs.Length; i++)

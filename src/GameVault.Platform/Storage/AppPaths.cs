@@ -52,5 +52,11 @@ public sealed class AppPaths
     /// <summary>Practice personal bests (SPEC §7.6).</summary>
     public string PracticeDirectory => Path.Combine(Root, "Practice");
 
+    /// <summary>
+    /// BIOS files the player chose in Settings (Choose…), copied here into one folder per system
+    /// (<c>bios\fds</c>, <c>bios\ps1</c>, <c>bios\ps2</c>). GameVault never includes a BIOS.
+    /// </summary>
+    public string BiosDirectory => Path.Combine(Root, "bios");
+
     public string CrashLogFile => Path.Combine(Root, "logs", "crash.log");
 }

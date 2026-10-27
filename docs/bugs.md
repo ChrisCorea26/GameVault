@@ -140,6 +140,8 @@ content is missing. **Low** = wrong text or a small inconsistency.
   where the file is", `SettingsPage.xaml:506-612`). Players must find and paste a full path, which isn't possible with
   a controller alone.
 - **Fixed** in `2e8ad95`: Each path box has a **Choose…** button (`IGameFilePicker.PickSystemFileAsync`); typing a path still works.
+  A BIOS picked that way (Disk System, PlayStation, PlayStation 2) is now also checked and copied into
+  `%LOCALAPPDATA%\GameVault\bios\<system>\` (`BiosImporter`, `docs/plans/phase-17-performance.md` §4).
 
 ### GV-010
 
@@ -275,4 +277,5 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 | N64 GPU renderer and recompiler, Rumble Pak, Transfer Pak, 64DD, GameShark | README status, `docs/plans/phase-16.md` |
 | Apple II monochrome, user character ROM, mid-frame mode changes | `docs/plans/phase-12.md` |
 | RetroAchievements approval for hardcore unlocks; real-game and real-cartridge checks | Owner tasks in README and phase plans |
-| PlayStation 2, GameCube / Wii, Atari 2600 / 5200 | SPEC §7.11, phases 17–19 |
+| PlayStation 2 GPU renderer (GS) and VU recompilers; N64 GPU renderer | `docs/plans/phase-17-performance.md` |
+| GameCube / Wii, Atari 2600 / 5200 | SPEC §7.11, phases 18–19 |

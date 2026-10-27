@@ -453,6 +453,11 @@ public sealed partial class N64Rdp
 
             var length = _flip ? _lineLx[line] - _lineRx[line] : _lineRx[line] - _lineLx[line];
             _clock += (uint)Math.Max(0, (length + 4) >> 2); // fill mode writes four pixels per clock
+            if (!MyLine(line))
+            {
+                continue;
+            }
+
             if (length >= 0 && FillRun(line, _flip ? _lineRx[line] : _lineLx[line], length + 1))
             {
                 continue;
@@ -553,6 +558,11 @@ public sealed partial class N64Rdp
             var length = flip ? _lineLx[line] - _lineRx[line] : _lineRx[line] - _lineLx[line];
             var x = _lineRx[line];
             _clock += (uint)Math.Max(0, (length + group) / group);
+            if (!MyLine(line))
+            {
+                continue;
+            }
+
             for (var j = 0; j <= length; j += group)
             {
                 Divide(s >> 16, t >> 16, 0, out var ss, out var st);

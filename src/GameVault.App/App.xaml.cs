@@ -1,4 +1,5 @@
 using GameVault.Dumper;
+using GameVault.Library.Bios;
 using GameVault.Library.Data;
 using GameVault.Library.Family;
 using GameVault.Library.Challenges;
@@ -244,6 +245,10 @@ public partial class App : Application
                 sp.GetRequiredService<ISettingsStore>()));
             services.AddSingleton<IInputDevicesService>(sp => sp.GetRequiredService<ControllerManager>());
         }
+
+        // BIOS files chosen in Settings are copied to %LOCALAPPDATA%\GameVault\bios\<system>\, shared by every family
+        // profile. Under --sample-data the picker returns paths that don't exist, so nothing is copied.
+        services.AddSingleton(_ => new BiosImporter(new AppPaths().BiosDirectory));
 
         // Video and input (SPEC §5): shared by the emulation thread and the GameView.
         services.AddSingleton<FrameSink>();

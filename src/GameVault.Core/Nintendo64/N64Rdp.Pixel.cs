@@ -192,6 +192,7 @@ public sealed partial class N64Rdp
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void SetVector(int slot, Vector128<int> v)
     {
+        Stamp(slot);
         var low = v & Low9;
         var negative = Vector128.Equals(v & Vector128.Create(0x180), Vector128.Create(0x180));
         Vector128.ConditionalSelect(negative, v | Vector128.Create(~0x1FF), low)
@@ -217,6 +218,7 @@ public sealed partial class N64Rdp
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void SetGraySlot(int slot, int value)
     {
+        Stamp(slot);
         Vector128.Create(Ext9(value)).StoreUnsafe(ref MemoryMarshal.GetArrayDataReference(_ext), (nuint)(slot << 2));
         Vector128.Create(Sign9(value)).StoreUnsafe(ref MemoryMarshal.GetArrayDataReference(_mul), (nuint)(slot << 2));
     }
@@ -225,6 +227,7 @@ public sealed partial class N64Rdp
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void CopySlot(int from, int to)
     {
+        Stamp(to);
         ref var ext = ref MemoryMarshal.GetArrayDataReference(_ext);
         ref var mul = ref MemoryMarshal.GetArrayDataReference(_mul);
         Vector128.LoadUnsafe(ref ext, (nuint)(from << 2)).StoreUnsafe(ref ext, (nuint)(to << 2));

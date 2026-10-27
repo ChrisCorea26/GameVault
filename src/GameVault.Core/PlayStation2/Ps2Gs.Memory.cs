@@ -246,7 +246,19 @@ public sealed partial class Ps2Gs
     /// </summary>
     public uint ReadPixel(int psm, int bp, int bw, int x, int y)
     {
-        var mem = _memory;
+        Flush();
+        return ReadPixel(_memory, psm, bp, bw, x, y);
+    }
+
+    /// <summary>Writes a pixel's bits; the 24-bit and upper-byte/nibble formats leave the word's other bits alone.</summary>
+    public void WritePixel(int psm, int bp, int bw, int x, int y, uint value)
+    {
+        Flush();
+        WritePixel(_memory, psm, bp, bw, x, y, value);
+    }
+
+    private static uint ReadPixel(byte[] mem, int psm, int bp, int bw, int x, int y)
+    {
         switch (psm)
         {
             case PsmCt32:
@@ -284,10 +296,8 @@ public sealed partial class Ps2Gs
         }
     }
 
-    /// <summary>Writes a pixel's bits; the 24-bit and upper-byte/nibble formats leave the word's other bits alone.</summary>
-    public void WritePixel(int psm, int bp, int bw, int x, int y, uint value)
+    private static void WritePixel(byte[] mem, int psm, int bp, int bw, int x, int y, uint value)
     {
-        var mem = _memory;
         switch (psm)
         {
             case PsmCt32:
@@ -297,10 +307,10 @@ public sealed partial class Ps2Gs
                 Write32(mem, Address32(PageZ32, bp, bw, x, y), value);
                 break;
             case PsmCt24:
-                Write24(Address32(PageCt32, bp, bw, x, y), value);
+                Write24(mem, Address32(PageCt32, bp, bw, x, y), value);
                 break;
             case PsmZ24:
-                Write24(Address32(PageZ32, bp, bw, x, y), value);
+                Write24(mem, Address32(PageZ32, bp, bw, x, y), value);
                 break;
             case PsmCt16:
                 Write16(mem, Address16(PageCt16, bp, bw, x, y), (ushort)value);
@@ -364,10 +374,10 @@ public sealed partial class Ps2Gs
     private static void Write16(byte[] memory, int address, ushort value) => Unsafe.WriteUnaligned(ref memory[address], value);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    private void Write24(int address, uint value)
+    private static void Write24(byte[] memory, int address, uint value)
     {
-        _memory[address] = (byte)value;
-        _memory[address + 1] = (byte)(value >> 8);
-        _memory[address + 2] = (byte)(value >> 16);
+        memory[address] = (byte)value;
+        memory[address + 1] = (byte)(value >> 8);
+        memory[address + 2] = (byte)(value >> 16);
     }
 }

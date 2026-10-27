@@ -61,6 +61,7 @@ public sealed partial class Ps2Gs
     /// </summary>
     public void RenderFrame(ushort[] frame, out int width, out int height)
     {
+        Flush();
         var c1 = new Circuit((_pmode & 1) != 0, _dispfb1, _display1);
         var c2 = new Circuit((_pmode & 2) != 0, _dispfb2, _display2);
         var bg = (uint)(_bgcolor & 0xFFFFFF);

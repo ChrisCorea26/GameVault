@@ -67,5 +67,37 @@ public sealed class R5900BenchmarkTests(ITestOutputHelper output)
             watch.Stop();
             output.WriteLine($"EE, {name}: {total / watch.Elapsed.TotalSeconds / 1e6:F1} M instructions/s");
         }
+
+        // Integer code only (loads, stores, ALU and a branch), which the recompiler translates inline.
+        uint[] integer =
+        [
+            Ee.Lw(5, 4, 0),
+            Ee.Addu(6, 6, 5),
+            Ee.Sw(6, 4, 4),
+            Ee.Addiu(7, 7, 3),
+            Ee.R(0x00, rd: 8, rt: 7, sa: 2), // SLL
+            Ee.Lq(9, 4, 16),
+            Ee.Addiu(10, 10, -1),
+            Ee.Bne(10, 0, -8),
+            Ee.Addu(11, 11, 6), // delay slot
+            Ee.Beq(0, 0, -10), // back to the top, reloading the counter
+            Ee.Lui(10, 0x10),
+        ];
+        machine.Load(0x8030_0000, integer);
+        foreach (var recompiler in new[] { false, true })
+        {
+            cpu.RecompilerEnabled = recompiler;
+            cpu.SetGpr64(10, 0x10_0000);
+            cpu.Jump(0x8030_0000);
+            cpu.Run(cpu.Cycles + 5_000_000);
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var target = cpu.Cycles + 200_000_000;
+            while (cpu.Cycles < target)
+            {
+                cpu.Run(cpu.Cycles + 100_000);
+            }
+
+            output.WriteLine($"EE, integer code, {(recompiler ? "recompiled" : "interpreted")}: {200_000_000 / watch.Elapsed.TotalSeconds / 1e6:F1} M instructions/s");
+        }
     }
 }

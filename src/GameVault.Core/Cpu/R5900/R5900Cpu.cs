@@ -93,6 +93,7 @@ public sealed partial class R5900Cpu : IStateful
         _rdramSize = (uint)_rdram.Length;
         _bios = bus.Bios;
         _fetchMemory = _rdram;
+        _codeGranules = new ulong[((_rdramSize >> CodeGranuleShift) + 63) / 64];
         Reset();
     }
 
@@ -271,6 +272,10 @@ public sealed partial class R5900Cpu : IStateful
             }
 
             _sliceEnd = Math.Min(untilCycle, _compareCycle);
+
+            // A block is looked for where one can start: at the slice's start, after a block, a branch's delay slot
+            // or an interrupt (not before every instruction the interpreter runs).
+            var tryBlock = _recompilerEnabled;
             while (Cycles < _sliceEnd && !StopRequested)
             {
                 if (_interruptPending)
@@ -279,7 +284,18 @@ public sealed partial class R5900Cpu : IStateful
                     _inDelaySlot = _nextIsDelaySlot;
                     Cycles++;
                     TakeInterrupt();
+                    tryBlock = _recompilerEnabled;
                     continue;
+                }
+
+                if (tryBlock)
+                {
+                    if (TryRunBlock())
+                    {
+                        continue;
+                    }
+
+                    tryBlock = false;
                 }
 
                 _currentPc = _pc;
@@ -294,6 +310,7 @@ public sealed partial class R5900Cpu : IStateful
                 _pc = _nextPc;
                 _nextPc += 4;
                 Execute(instruction);
+                tryBlock = _inDelaySlot && _recompilerEnabled;
             }
         }
 
