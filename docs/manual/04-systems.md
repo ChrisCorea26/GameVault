@@ -226,13 +226,18 @@ There's no turbo on the SNES. Use <kbd>Backspace</kbd> and <kbd>Tab</kbd> to rew
   `dsp2.rom`, `dsp3.rom` or `dsp4.rom`. Put it in a folder, then choose that folder in **Settings → Super
   Nintendo → Enhancement chip ROMs**. Either byte order works. DSP-2, DSP-3 and DSP-4 haven't been tried with real
   games yet.
+- **SA-1** (*Super Mario RPG*, *Kirby Super Star*, *Kirby's Dream Land 3*, …), **S-DD1** (*Star Ocean*, *Street
+  Fighter Alpha 2*) and **OBC1** (*Metal Combat*): work with nothing extra. SA-1 games save in the cartridge's
+  BW-RAM as `.sav`.
+- **ST010** (*F1 ROC II*, *Exhaust Heat II*) and **ST011** (*Hayazashi Nidan Morita Shogi*): like the DSP chips, they
+  need the chip's program from your own cartridge, named `st010.rom` or `st011.rom` (52 KB), in the same folder.
 
 | Message | What to do |
 |---|---|
 | *This game needs the DSP-1 chip's program ROM. Put your own dump (dsp1b.rom or dsp1.rom) in the folder chosen in Settings → Super Nintendo → Enhancement chip ROMs. GameVault doesn't include it.* | Add the file and choose its folder, then open the game again. |
 | *This game needs the … chip, which GameVault doesn't support yet.* | The chip isn't emulated yet. |
 
-**Not supported yet:** the SA-1, S-DD1, S-RTC, OBC1, Cx4, SPC7110 and ST01x chips, the Super Game Boy and the
+**Not supported yet:** the Cx4 (*Mega Man X2*, *X3*), SPC7110, ST018 and S-RTC chips, the Super Game Boy and the
 Satellaview; interlaced modes; effects that change the picture partway along a line.
 
 ## Sony PlayStation
