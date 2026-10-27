@@ -248,7 +248,7 @@ internal static class ConsoleFactory
 
             try
             {
-                return new Ps2Console(Ps2Boot.FromElf(data), bios, Ps2MemoryCard.CreateFormatted());
+                return WithRenderThreads(new Ps2Console(Ps2Boot.FromElf(data), bios, Ps2MemoryCard.CreateFormatted()));
             }
             catch (InvalidDataException ex)
             {
@@ -273,13 +273,20 @@ internal static class ConsoleFactory
 
         try
         {
-            return new Ps2Console(Ps2Boot.FromDisc(disc), bios, Ps2MemoryCard.CreateFormatted(), new Ps2ConsoleOptions { FastBoot = setup!.FastBoot });
+            return WithRenderThreads(new Ps2Console(Ps2Boot.FromDisc(disc), bios, Ps2MemoryCard.CreateFormatted(), new Ps2ConsoleOptions { FastBoot = setup!.FastBoot }));
         }
         catch
         {
             disc.Dispose();
             throw;
         }
+    }
+
+    /// <summary>The GS draws on the spare cores (the same pictures, sooner).</summary>
+    private static Ps2Console WithRenderThreads(Ps2Console console)
+    {
+        console.Gs.ParallelWork = RenderThreads.Shared;
+        return console;
     }
 
     /// <summary>Header corrections and region from the game database (SPEC §4.5, §7.5).</summary>
