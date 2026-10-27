@@ -69,8 +69,8 @@ public sealed class SnesTests
         new SnesCartridge(withHeader).Rom.Length.Should().Be(0x10000, "a copier header is skipped");
         SnesCartridge.LooksLikeSnes(withHeader).Should().BeTrue();
 
-        var act = () => new SnesCartridge(Rom([0xEA], chip: 0x43));
-        act.Should().Throw<UnsupportedChipException>().Which.Chip.Should().Be("S-DD1");
+        var act = () => new SnesCartridge(Rom([0xEA], chip: 0xE3));
+        act.Should().Throw<UnsupportedChipException>().Which.Chip.Should().Contain("Super Game Boy");
     }
 
     // ---- A program on the whole console ----

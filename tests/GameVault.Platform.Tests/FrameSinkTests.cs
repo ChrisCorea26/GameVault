@@ -23,4 +23,23 @@ public class FrameSinkTests
         frame.Span[^1].Should().Be(0x7FFF);
         frame.Span[0].Should().Be(1);
     }
+
+    [Fact]
+    public void A_true_colour_frame_reaches_the_renderer_as_argb_and_the_next_indexed_one_does_not()
+    {
+        var sink = new FrameSink();
+        sink.PresentArgb([0xFF123456, 0xFF654321], 2, 1);
+
+        sink.TryGetVideoFrame(out var frame).Should().BeTrue();
+        frame.IsArgb.Should().BeTrue();
+        var argb = new uint[2];
+        frame.ToArgb([], argb);
+        argb.Should().Equal(0xFF123456, 0xFF654321);
+
+        sink.Present([1, 0], [0xFF000000, 0xFFFFFFFF], 2, 1);
+        sink.TryGetVideoFrame(out frame).Should().BeTrue();
+        frame.IsArgb.Should().BeFalse();
+        frame.ToArgb(sink.Palette, argb);
+        argb.Should().Equal(0xFFFFFFFF, 0xFF000000);
+    }
 }

@@ -150,8 +150,8 @@ zexdoc and zexall run in their own CI job ("Z80 exerciser", Release build). Loca
 | SN76489 PSG (Sega noise variant) | ✅ Unit tests |
 | Sega mapper (with cartridge RAM, saved like a battery save), Codemasters (detected from the ROM), Korean, plain ≤48 KB | ✅ Unit tests (Sega, detection) |
 | SG-1000 8 KB RAM-expansion boards | Supported by the cartridge; not yet selected by a game database |
-| YM2413 FM sound (Japanese SMS) | Not yet |
-| SC-3000 keyboard | Not yet |
+| YM2413 FM sound (Japanese SMS): nine channels, rhythm mode, the $F0–$F2 ports and detection | 🟡 Unit tests (detection, a note's pitch, the bass drum, save states); a behavioral FM model shared with the VRC7, not checked against hardware recordings |
+| SC-3000 keyboard (8255 PPI matrix) | ✅ Unit tests (a key's row and bit, row 7 as the joypads); the PC key layout follows SMS Power!'s matrix |
 | PAL timing | Supported (313 lines), chosen by the game database's `region` |
 
 Real-game results need the owner's cartridges or ROMs (see `docs/plans/phase-11.md`, owner checklist).
@@ -163,11 +163,12 @@ Real-game results need the owner's cartridges or ROMs (see `docs/plans/phase-11.
 | 6502 with decimal mode: Klaus Dormann's `6502_functional_test` | ✅ Success trap reached |
 | 65C02: Dormann's `65C02_extended_opcodes_test` (with WDC/Rockwell instructions) | ✅ Success trap reached |
 | Memory: Language Card, IIe auxiliary memory and switches | ✅ Unit tests |
-| Video: text (GameVault's own font), lo-res, hi-res artifact colour, 80 columns, double hi-res, mixed | ✅ Unit tests |
+| Video: text (GameVault's own font, or the player's character ROM), lo-res, hi-res artifact colour, 80 columns, double hi-res, mixed | ✅ Unit tests |
 | Disk II: DSK/DO/PO (6-and-2), NIB, WOZ 1/2; reads, writes, stepper | ✅ Unit tests |
 | Speaker, keyboard, paddles and buttons | ✅ Unit tests |
 | Disk menu (drives 1 and 2, insert and eject); disk writes saved as patches | ✅ Host and ViewModel tests |
-| Mid-frame video changes, floating bus | Not yet |
+| Video drawn line by line (mid-frame mode changes); green, amber and white monitors; the player's character ROM | ✅ Unit tests |
+| Floating bus | Not yet |
 
 Real disks need the owner's Apple ROMs (Settings → Apple II) and disk images; see
 `docs/plans/phase-12.md`.
@@ -181,13 +182,15 @@ Real disks need the owner's Apple ROMs (Settings → Apple II) and disk images; 
 | 68000 reset, interrupts, STOP, trace, privilege, save states | ✅ Unit tests |
 | VDP: planes, priority, scrolling (line, cell, 2-cell columns), window, sprites, shadow/highlight | ✅ Unit tests with tiles written in the tests |
 | VDP: DMA (68000, fill, copy), status, H/V interrupts, HV counter | ✅ Unit tests |
-| VDP: interlace mode 2 (double resolution), Master System mode | Not yet |
+| VDP: interlace mode 2 (double resolution: 8×16 tiles, woven fields, 448/480 lines) | ✅ Unit test with an 8×16 tile over two fields |
+| VDP: Master System mode (Power Base Converter) | Not planned: `.sms` files play on the Master System core |
 | YM2612: pitch, envelopes, timers, DAC, panning | ✅ Unit tests (440 Hz check) |
 | YM2612: SSG-EG, LFO, channel 3 special mode | 🟡 Implemented, not checked against hardware recordings |
 | SN76489, Z80 sound CPU, bus request/reset, bank window | ✅ Unit tests |
 | Cartridges: raw and .smd, header region, SRAM (odd/even/word), SSF2 mapper | ✅ Unit tests |
 | 3- and 6-button pads | ✅ Unit tests |
-| EEPROM saves (I²C), Sega CD, 32X | Not yet |
+| EEPROM saves (I²C: X24C01 and 24C01–24C512), with Sega's header-declared wiring on $200001 | ✅ Unit tests (page writes, wrap, random reads, the cartridge's lines, save states); EA, Acclaim and Codemasters wiring not yet |
+| Sega CD, 32X | Not yet |
 
 Real games are the owner's to try; see `docs/plans/phase-13.md`.
 
@@ -205,7 +208,11 @@ Real games are the owner's to try; see `docs/plans/phase-13.md`.
 | Interlace, mid-line register changes, exact PPU timing | Not yet |
 | Super FX (GSU-1/GSU-2): instructions, pipeline delay slot, cache, ROM buffer, PLOT/RPIX, bus ownership, IRQ | 🟡 Unit tests on hand-assembled GSU programs and a whole console starting the GSU; no freely redistributable Super FX test ROM to check against; real games are the owner's |
 | DSP-1/2/3/4 (µPD7725, with the player's own program ROM): OP/RT/JP/LD, multiplier, DR/SR handshake | 🟡 Unit tests on hand-assembled µPD7725 programs and a whole console talking to one; real games with the player's DSP dump are the owner's |
-| SA-1, Cx4, S-DD1, SPC7110, OBC1, ST01x, S-RTC | Not yet: such games get a message naming the chip |
+| SA-1: second 65C816, I-RAM, BW-RAM and its bitmap view, Super MMC, arithmetic, variable-length reads, timer, DMA, character conversion 1 and 2 | 🟡 Unit tests, and a whole console with both CPUs talking; no freely redistributable SA-1 test ROM; real games are the owner's |
+| S-DD1: memory controller and the decompressor on the DMA | 🟡 Unit tests for the mapping, the DMA hookup and save states; the decoder follows Andreas Naive's description but hasn't been checked against real compressed data |
+| OBC1 | ✅ Unit test of its sprite table |
+| ST010/ST011 (µPD96050, with the player's own program ROM): two program halves, shared data RAM (the ST010's save) | 🟡 Unit tests on hand-assembled programs; real games are the owner's |
+| Cx4, SPC7110, ST018, S-RTC | Not yet: such games get a message naming the chip |
 
 Real games are the owner's to try; see `docs/plans/phase-14.md`.
 
@@ -228,7 +235,9 @@ Real games are the owner's to try; see `docs/plans/phase-14.md`.
 | Disc images: .cue/.bin, .chd (cdzl, cdlz, cdfl), .m3u | ✅ Unit tests; CHD verified against chdman's output |
 | Fast boot and PS-EXE loading | ✅ Unit tests with a stand-in BIOS |
 | Whole machine: PeterLemon's `printgpu` demo through the frame loop | ✅ Golden image |
-| DualShock, multitap, mouse, light guns; GameShark codes | Not yet |
+| DualShock: digital, analog and config modes, the motors (passed to the player's pad); 24-bit display at full depth | ✅ Unit tests |
+| GunCon and mouse (port 1, from Game Details) | ✅ Unit tests; aiming against real games is the owner's to check |
+| Multitap, Justifier; GameShark codes | Not yet |
 
 Real discs need the owner's BIOS (Settings → PlayStation); real games are the owner's to try. See
 `docs/plans/phase-15.md`.
@@ -246,11 +255,13 @@ Real discs need the owner's BIOS (Settings → PlayStation); real games are the 
 | RDP: PeterLemon's 115 drawing programs through the whole console (CPU, RSP over XBUS, RDP, VI) | ✅ Golden images; 105 are also held to their reference pictures (89–100% of pixels identical; the references are an emulator's captures, some a row off) |
 | RDP: coverage anti-aliasing, the VI's filters (anti-aliasing, divot, gamma) | 🟡 Coverage is computed per pixel but the hidden RDRAM bits aren't kept; the VI shows the framebuffer without its filters |
 | PI DMA, including unaligned addresses and odd lengths (`DMAAlignment-PI`, recorded on hardware) | ✅ All pass |
+| VI: 16-bit and 32-bit framebuffers (32-bit shown at full depth) | ✅ Unit tests |
 | SI and the joybus: controllers, Controller Pak, EEPROM | ✅ Unit tests |
 | SRAM and FlashRAM | ✅ Unit tests (FlashRAM follows Mupen64Plus's command set) |
 | AI: audio buffers and the DAC rate | ✅ Unit tests and PeterLemon's PCM demos (not committed: their samples' origin isn't stated) |
 | Boot: simulated PIF, the cartridge's own IPL3; CIC seeds 6101–6106 | 🟡 PeterLemon's programs boot through krom's IPL3; Nintendo's IPL3s are the owner's to try with their cartridges |
-| 64DD, Rumble Pak, Transfer Pak, mouse, VRU | Not yet |
+| Rumble Pak (probe and motor; passed to the player's pad through SDL) | ✅ Unit tests; how it feels on a real pad is the owner's to check |
+| 64DD, Transfer Pak, mouse, VRU | Not yet |
 
 Real cartridges are the owner's to try; see `docs/plans/phase-16.md`.
 

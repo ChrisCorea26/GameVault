@@ -24,8 +24,37 @@ public enum N64Buttons : ushort
     A = 1 << 15,
 }
 
+/// <summary>Something plugged into a controller's accessory slot, read and written 32 bytes at a time.</summary>
+public interface IN64Accessory
+{
+    /// <summary>Reads the 32 bytes at <paramref name="address"/> (a multiple of 32, $0000–$FFE0).</summary>
+    void Read(int address, Span<byte> data);
+
+    void Write(int address, ReadOnlySpan<byte> data);
+}
+
+/// <summary>
+/// The Rumble Pak (outstanding-work plan §10): writing 1 to $C000 starts its motor and 0 stops it; $8000 reads $80
+/// once it's been probed, which is how games tell it from a Controller Pak (n64brew: "Rumble Pak").
+/// </summary>
+public sealed class N64RumblePak : IN64Accessory
+{
+    /// <summary>The motor is running. Only the picture of it moves; it isn't part of the save state.</summary>
+    public bool Rumbling { get; private set; }
+
+    public void Read(int address, Span<byte> data) => data.Fill(address is >= 0x8000 and < 0x9000 ? (byte)0x80 : (byte)0x00);
+
+    public void Write(int address, ReadOnlySpan<byte> data)
+    {
+        if (address is >= 0xC000 and < 0xD000)
+        {
+            Rumbling = (data[31] & 1) != 0;
+        }
+    }
+}
+
 /// <summary>The Controller Pak: 32 KB of battery-backed memory that plugs into a controller.</summary>
-public sealed class N64ControllerPak : IBatteryBacked
+public sealed class N64ControllerPak : IBatteryBacked, IN64Accessory
 {
     public const int Size = 32 * 1024;
 
@@ -35,6 +64,26 @@ public sealed class N64ControllerPak : IBatteryBacked
     }
 
     public byte[] Memory { get; } = new byte[Size];
+
+    public void Read(int address, Span<byte> data)
+    {
+        if (address < Size)
+        {
+            Memory.AsSpan(address, 32).CopyTo(data);
+        }
+        else
+        {
+            data.Clear();
+        }
+    }
+
+    public void Write(int address, ReadOnlySpan<byte> data)
+    {
+        if (address < Size)
+        {
+            data.CopyTo(Memory.AsSpan(address));
+        }
+    }
 
     public bool HasBattery => true;
 
@@ -121,16 +170,27 @@ public sealed class N64Pif : IStateful
     private readonly sbyte[] _stickX = new sbyte[4];
     private readonly sbyte[] _stickY = new sbyte[4];
 
+    private readonly IN64Accessory?[] _accessories = new IN64Accessory?[4];
+
     public N64Pif(N64Cartridge? cartridge, N64ControllerPak? pak)
     {
         _cartridge = cartridge;
         Pak = pak;
+        _accessories[0] = pak;
     }
 
     public byte[] Ram { get; } = new byte[RamSize];
 
     /// <summary>The Controller Pak in the first controller, or null for none.</summary>
     public N64ControllerPak? Pak { get; }
+
+    /// <summary>
+    /// Puts <paramref name="accessory"/> (or nothing) in a controller's slot. The first controller's Controller Pak,
+    /// when there is one, stays its own and is still saved; a different accessory there replaces it while playing.
+    /// </summary>
+    public void SetAccessory(int port, IN64Accessory? accessory) => _accessories[port] = accessory;
+
+    public IN64Accessory? Accessory(int port) => _accessories[port];
 
     /// <summary>Controllers plugged in (the first <see cref="ConnectedPads"/> ports).</summary>
     public int ConnectedPads { get; set; } = 4;
@@ -235,7 +295,7 @@ public sealed class N64Pif : IStateful
                 {
                     rx[0] = 0x05;
                     rx[1] = 0x00;
-                    rx[2] = port == 0 && Pak is not null ? (byte)0x01 : (byte)0x02;
+                    rx[2] = _accessories[port] is not null ? (byte)0x01 : (byte)0x02;
                 }
 
                 return true;
@@ -255,16 +315,17 @@ public sealed class N64Pif : IStateful
                 {
                     var address = ((tx[1] << 8) | tx[2]) & 0xFFE0;
                     var data = rx[..32];
-                    if (port == 0 && Pak is not null && address < N64ControllerPak.Size)
+                    var accessory = _accessories[port];
+                    if (accessory is not null)
                     {
-                        Pak.Memory.AsSpan(address, 32).CopyTo(data);
+                        accessory.Read(address, data);
                     }
                     else
                     {
-                        data.Clear(); // the accessory area ($8000 up): no rumble pak or transfer pak
+                        data.Clear();
                     }
 
-                    rx[32] = port == 0 && Pak is not null ? DataCrc(data) : (byte)(DataCrc(data) ^ 0xFF);
+                    rx[32] = accessory is not null ? DataCrc(data) : (byte)(DataCrc(data) ^ 0xFF);
                 }
 
                 return true;
@@ -273,12 +334,9 @@ public sealed class N64Pif : IStateful
                 {
                     var address = ((tx[1] << 8) | tx[2]) & 0xFFE0;
                     var data = tx.Slice(3, 32);
-                    if (port == 0 && Pak is not null && address < N64ControllerPak.Size)
-                    {
-                        data.CopyTo(Pak.Memory.AsSpan(address));
-                    }
-
-                    rx[0] = port == 0 && Pak is not null ? DataCrc(data) : (byte)(DataCrc(data) ^ 0xFF);
+                    var accessory = _accessories[port];
+                    accessory?.Write(address, data);
+                    rx[0] = accessory is not null ? DataCrc(data) : (byte)(DataCrc(data) ^ 0xFF);
                 }
 
                 return true;

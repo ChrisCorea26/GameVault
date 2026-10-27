@@ -39,6 +39,29 @@ public sealed partial class GameView : Control
         set => SetValue(PaddleEnabledProperty, value);
     }
 
+    /// <summary>When true the mouse aims the PlayStation's GunCon: left button the trigger, right A, middle B.</summary>
+    public static readonly DependencyProperty GunEnabledProperty = DependencyProperty.Register(
+        nameof(GunEnabled), typeof(bool), typeof(GameView), new PropertyMetadata(false, OnZapperEnabledChanged));
+
+    public bool GunEnabled
+    {
+        get => (bool)GetValue(GunEnabledProperty);
+        set => SetValue(GunEnabledProperty, value);
+    }
+
+    /// <summary>When true moving the mouse over the picture moves the PlayStation Mouse.</summary>
+    public static readonly DependencyProperty MouseEnabledProperty = DependencyProperty.Register(
+        nameof(MouseEnabled), typeof(bool), typeof(GameView), new PropertyMetadata(false));
+
+    public bool MouseEnabled
+    {
+        get => (bool)GetValue(MouseEnabledProperty);
+        set => SetValue(MouseEnabledProperty, value);
+    }
+
+    /// <summary>The pointer's last position, in device pixels, for the PlayStation Mouse's movement.</summary>
+    private Windows.Foundation.Point? _lastPointer;
+
     private const int FrameWidth = 256;
     private const int FrameHeight = 240;
     private const int OverscanLines = 8;
@@ -81,12 +104,14 @@ public sealed partial class GameView : Control
     private static void OnZapperEnabledChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
     {
         var view = (GameView)d;
-        view.ProtectedCursor = (bool)e.NewValue
+        var aiming = view.ZapperEnabled || view.GunEnabled;
+        view.ProtectedCursor = aiming
             ? Microsoft.UI.Input.InputSystemCursor.Create(Microsoft.UI.Input.InputSystemCursorShape.Cross)
             : null;
         if (!(bool)e.NewValue)
         {
             view._input?.SetZapper(null, trigger: false);
+            view._input?.SetGun(null, false, false, false);
         }
     }
 
@@ -116,6 +141,13 @@ public sealed partial class GameView : Control
             _input?.SetZapper(null, trigger: false); // pointing away from the screen
         }
 
+        if (GunEnabled)
+        {
+            _input?.SetGun(null, false, false, false);
+        }
+
+        _lastPointer = null;
+
         base.OnPointerExited(e);
     }
 
@@ -125,6 +157,12 @@ public sealed partial class GameView : Control
         if (PaddleEnabled && _input is not null)
         {
             UpdatePaddle(e);
+            return;
+        }
+
+        if ((GunEnabled || MouseEnabled) && _input is not null)
+        {
+            UpdatePlayStationPointer(e);
             return;
         }
 
@@ -147,6 +185,43 @@ public sealed partial class GameView : Control
             ? ((int)(px * FrameWidth / rect.Width), rect.SourceTop + (int)(py * rect.SourceHeight / rect.Height))
             : null;
         _input.SetZapper(aim, point.Properties.IsLeftButtonPressed);
+        e.Handled = true;
+    }
+
+    /// <summary>
+    /// The GunCon aims where the pointer is, as fractions of the picture; the PlayStation Mouse moves by how far the
+    /// pointer moved, one count per pixel of the original picture.
+    /// </summary>
+    private void UpdatePlayStationPointer(PointerRoutedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(this);
+        var scale = XamlRoot?.RasterizationScale ?? 1.0;
+        var rect = DisplayLayout.Compute(
+            (int)(ActualWidth * scale),
+            (int)(ActualHeight * scale),
+            _settings.DisplayPreset,
+            CropLines,
+            _settings.TvPixelShape);
+        var px = point.Position.X * scale - rect.X;
+        var py = point.Position.Y * scale - rect.Y;
+        var properties = point.Properties;
+        if (GunEnabled)
+        {
+            (double X, double Y)? aim = px >= 0 && py >= 0 && px < rect.Width && py < rect.Height
+                ? (px / rect.Width, py / rect.Height)
+                : null;
+            _input!.SetGun(aim, properties.IsLeftButtonPressed, properties.IsRightButtonPressed, properties.IsMiddleButtonPressed);
+        }
+        else
+        {
+            var position = new Windows.Foundation.Point(px, py);
+            var (dx, dy) = _lastPointer is { } last
+                ? ((position.X - last.X) * 320 / Math.Max(1, rect.Width), (position.Y - last.Y) * 240 / Math.Max(1, rect.Height))
+                : (0.0, 0.0);
+            _lastPointer = position;
+            _input!.MoveMouse(dx, dy, properties.IsLeftButtonPressed, properties.IsRightButtonPressed);
+        }
+
         e.Handled = true;
     }
 
@@ -437,15 +512,11 @@ public sealed partial class GameView : Control
                     }
 
                     _pixelAspect = frame.PixelAspect;
-                    var palette = _frames.Palette;
-                    var pixels = frame.Span;
-                    for (var i = 0; i < pixels.Length; i++)
-                    {
-                        _pixels[i] = palette[pixels[i] & 0x7FFF]; // up to 32,768 colours (the SNES uses all of them)
-                    }
+                    var count = frame.Width * frame.Height;
+                    frame.ToArgb(_frames.Palette, _pixels);
 
                     // ARGB as little-endian uint is BGRA in memory, which is the bitmap's format.
-                    MemoryMarshal.AsBytes(_pixels.AsSpan(0, pixels.Length)).CopyTo(_bytes);
+                    MemoryMarshal.AsBytes(_pixels.AsSpan(0, count)).CopyTo(_bytes);
                     bitmap.SetPixelBytes(_bytes);
                 }
 
