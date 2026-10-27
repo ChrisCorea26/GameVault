@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <EmbeddedResource Include="Video\Shaders\Display.hlsl" LogicalName="GameVault.Display.hlsl" />
+    <EmbeddedResource Include="Video\Shaders\PsGpu.hlsl" LogicalName="GameVault.PsGpu.hlsl" />
   </ItemGroup>
 
   <!--
