@@ -277,5 +277,5 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 | N64 GPU renderer and recompiler, Rumble Pak, Transfer Pak, 64DD, GameShark | README status, `docs/plans/phase-16.md` |
 | Apple II monochrome, user character ROM, mid-frame mode changes | `docs/plans/phase-12.md` |
 | RetroAchievements approval for hardcore unlocks; real-game and real-cartridge checks | Owner tasks in README and phase plans |
-| PlayStation 2 GPU renderer (GS) and VU recompilers; N64 GPU renderer | `docs/plans/phase-17-performance.md` |
+| PlayStation 2 GPU renderer (GS); N64 GPU renderer | `docs/plans/phase-17-performance.md`, `docs/plans/outstanding-work.md` §14 |
 | GameCube / Wii, Atari 2600 / 5200 | SPEC §7.11, phases 18–19 |
