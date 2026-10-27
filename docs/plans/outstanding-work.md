@@ -145,6 +145,17 @@ SA-1 (a second 65C816 at 10.74 MHz with its DMA, character conversion and arithm
 ST010/011 (on the µPD77C25 / µPD96050 core, each with the player's program ROM), S-DD1 decompression, OBC1, and
 SPC7110 with its decompression and RTC. Same rules and tests as item 4.
 
+**As built.** `Sa1` (a second `W65816Cpu` on its own bus: I-RAM, BW-RAM and the $60–$6F bitmap view, CXB–FXB,
+BMAPS/BMAP, the multiplier, divider and 40-bit sum of products, variable-length reads, the H/V and linear timer,
+normal DMA, and character conversion types 1 and 2; DMA finishes at once and write protection isn't enforced). `Sdd1`
+(the $C0–$FF memory controller, and Andreas Naive's decompressor answering the DMA's reads while the channel's count
+lasts; the console shows the chip its DMA register writes). `Obc1`. `NecDsp` now also runs the µPD96050 of the ST010
+and ST011 (`st010.rom`, `st011.rom`, 52 KB) with the SNES's window onto its data RAM, which is the ST010's save file.
+DSP-2/3/4 came with item 4. **Not done:** the Cx4 (its HG51B needs a low-level core and the player's data ROM) and the
+SPC7110 (its context-model decompressor), the ST018 (an ARM) and the S-RTC. Each is a large job that can't be
+checked here without the games; they stay in `docs/bugs.md` as a later item. Tests: `Sa1Tests`, `Sdd1Tests`,
+`Obc1Tests`, `SetaDspTests`.
+
 ## 6. `--sample-data` Player on every system
 The sample Apple II, Genesis and SNES games show a test pattern. Run a freely licensed homebrew for each instead,
 from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Player shows real pictures under

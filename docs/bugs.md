@@ -286,7 +286,7 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 |---|---|
 | Internet netplay (relay/STUN); the first release is LAN only | SPEC §7.7, `docs/plans/phase-7.md` |
 | Netplay for Famicom Disk System games | `EmulatorHost.cs:382` |
-| SNES enhancement chips beyond the DSP-n and Super FX (SA-1, Cx4, S-DD1, SPC7110, …) | `docs/plans/outstanding-work.md` §5 |
+| SNES enhancement chips still missing: Cx4, SPC7110, ST018, S-RTC (the SA-1, S-DD1, OBC1, ST010 and ST011 are done) | `docs/plans/outstanding-work.md` §5 |
 | Genesis stereo, EEPROM saves on EA/Acclaim/Codemasters boards, Sega CD, 32X | `docs/plans/phase-13.md`, `docs/plans/outstanding-work.md` §7, §17 |
 | PlayStation DualShock analog and vibration, multitap, light guns, GameShark, memory card manager, GPU renderer | `docs/plans/phase-15.md` |
 | N64 GPU renderer and recompiler, Rumble Pak, Transfer Pak, 64DD, GameShark | README status, `docs/plans/phase-16.md` |
