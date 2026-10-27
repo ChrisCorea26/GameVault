@@ -411,7 +411,7 @@ GameVault tells them apart by the file's size and code. If a game shows garbage,
 model to the board's name (`F8`, `F8SC`, `F6`, `F6SC`, `F4`, `F4SC`, `E0`, `FE`, `3F` or `FA`).
 
 **Not supported yet:** paddles, keypads and the driving controller; the rarer boards (Pitfall II's DPC, M-Network
-E7, the Supercharger); PAL games' own colours (they show NTSC colours); and the Atari 5200.
+E7, the Supercharger); PAL games' own colours (they show NTSC colours).
 
 **Messages:**
 
@@ -420,3 +420,40 @@ E7, the Supercharger); PAL games' own colours (they show NTSC colours); and the 
 | *GameVault doesn't know how a … KB Atari 2600 cartridge switches its banks.* | The file isn't a 2600 image GameVault knows, or it's a rarer board. |
 | *That isn't an Atari 2600 cartridge image.* | Wrong file. |
 
+## Atari 5200
+
+| | |
+|---|---|
+| **Files** | `.a52` (or a `.zip` with one inside) |
+| **You supply** | The 5200's BIOS, `5200.rom` (2 KB), from your own console: **Settings → Atari 5200** |
+| **Saves** | None: 5200 games don't save. Use save states. |
+
+**Controls** (the 5200 controller: an analog stick, two fire buttons and a keypad):
+
+| Atari 5200 | Keyboard | Controller |
+|---|---|---|
+| Stick | Arrow keys (pushed fully) | Left stick (analog), or the D-pad |
+| Bottom fire button | <kbd>Z</kbd> | Bottom button |
+| Top fire button | <kbd>X</kbd> | Right button |
+| **Start** | <kbd>Enter</kbd> | Start |
+| **Pause** | <kbd>Right Shift</kbd> | Back |
+| Keypad **0**–**9** | <kbd>0</kbd>–<kbd>9</kbd> on the number row | — |
+| Keypad **\*** and **#** | <kbd>-</kbd> and <kbd>=</kbd> | — |
+| Keypad **Reset** | <kbd>R</kbd> | — |
+
+While a 5200 game runs, the number row is controller 1's keypad, so <kbd>1</kbd>–<kbd>4</kbd> don't do what they do
+for other systems. Controllers 2–4 are the second to fourth controllers; their keypads aren't on the keyboard.
+
+**Cartridges:** 4K to 32K games. A few 16K games are built from two 8K chips; if one of them shows garbage, set
+**Game Details → Properties**' model to `two-chip`.
+
+**Not supported yet:** *Bounty Bob Strikes Back!* (its 40K board), the trak-ball, PAL 5200s, and light pens. The
+keypad's codes follow published hardware notes and haven't been checked against a real console.
+
+**Messages:**
+
+| Message | What to do |
+|---|---|
+| *This is an Atari 5200 game. To play it, choose your own Atari 5200 BIOS…* | Choose `5200.rom` in **Settings → Atari 5200**. |
+| *The Atari 5200 BIOS file should be 2 KB.* | The file chosen isn't the 5200 BIOS. |
+| *That isn't an Atari 5200 cartridge image.* | Wrong file, or one of a size the 5200 doesn't use. |

@@ -40,6 +40,16 @@ public sealed partial class SettingsViewModel(
     }
 
     [RelayCommand]
+    private async Task ChooseAtari5200BiosAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            Atari5200BiosPath = await ImportAsync(BiosKind.Atari5200, path);
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
     private async Task ChooseAppleRomAsync()
     {
         if (await PickAsync(".rom", ".bin") is { } path)
@@ -131,6 +141,10 @@ public sealed partial class SettingsViewModel(
     /// </summary>
     [ObservableProperty]
     public partial string FdsBiosPath { get; set; } = string.Empty;
+
+    /// <summary>The player's own Atari 5200 BIOS (5200.rom). GameVault never includes it. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string Atari5200BiosPath { get; set; } = string.Empty;
 
     /// <summary>The player's own Apple II ROM (SPEC §7.11). Saved when the text box loses focus.</summary>
     [ObservableProperty]
@@ -278,6 +292,7 @@ public sealed partial class SettingsViewModel(
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
         DumperPath = settings.DumperPath;
         FdsBiosPath = settings.FdsBiosPath;
+        Atari5200BiosPath = settings.Atari5200BiosPath;
         AppleIIRomPath = settings.AppleIIRomPath;
         AppleIIDiskRomPath = settings.AppleIIDiskRomPath;
         PlayStationBiosPath = settings.PlayStationBiosPath;
@@ -350,6 +365,9 @@ public sealed partial class SettingsViewModel(
     private void SaveFdsBiosPath() => SaveIfLoaded();
 
     [RelayCommand]
+    private void SaveAtari5200BiosPath() => SaveIfLoaded();
+
+    [RelayCommand]
     private void SaveAppleRomPaths() => SaveIfLoaded();
 
     [RelayCommand]
@@ -417,6 +435,7 @@ public sealed partial class SettingsViewModel(
             MonoAudio = MonoAudio,
             DumperPath = DumperPath.Trim().Trim('"'),
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),
+            Atari5200BiosPath = Atari5200BiosPath.Trim().Trim('"'),
             AppleIIRomPath = AppleIIRomPath.Trim().Trim('"'),
             AppleIIDiskRomPath = AppleIIDiskRomPath.Trim().Trim('"'),
             PlayStationBiosPath = PlayStationBiosPath.Trim().Trim('"'),

@@ -1,5 +1,5 @@
 ---
-edition: "Edition 16 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2 and Atari 2600"
+edition: "Edition 17 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, Atari 2600 and Atari 5200"
 ---
 
 # Introduction
@@ -28,6 +28,7 @@ four freely licensed NES homebrew games, so there is something to play the first
 | Nintendo 64 | `.z64`, `.v64`, `.n64` | No |
 | Sony PlayStation 2 | `.iso`, `.chd`, `.cue` + `.bin`, `.elf` | **Yes, for discs**: a 4 MB console BIOS such as SCPH-39001. Homebrew `.elf` programs run without it. |
 | Atari 2600 | `.a26` | No |
+| Atari 5200 | `.a52` | **Yes**: `5200.rom` (2 KB) |
 
 Cartridge games can also be inside a `.zip` file. Details for each system, including what isn't supported yet, are
 in [Supported systems](#supported-systems).

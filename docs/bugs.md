@@ -294,4 +294,4 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 | Apple II monochrome, user character ROM, mid-frame mode changes | `docs/plans/phase-12.md` |
 | RetroAchievements approval for hardcore unlocks; real-game and real-cartridge checks | Owner tasks in README and phase plans |
 | PlayStation 2 GPU renderer (GS); N64 GPU renderer | `docs/plans/phase-17-performance.md`, `docs/plans/outstanding-work.md` §14 |
-| GameCube / Wii, Atari 5200; the 2600's paddles, rarer boards and PAL colours | SPEC §7.11, phases 18–19, `docs/plans/phase-19.md` |
+| GameCube / Wii; the 2600's paddles, rarer boards and PAL colours; the 5200's trak-ball, 40 KB boards and PAL machines | SPEC §7.11, phases 18–19, `docs/plans/phase-19.md` |
