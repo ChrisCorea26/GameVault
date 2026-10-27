@@ -1,0 +1,24 @@
+{
+  "sha1": "fdbfc7871962f72a1ef57e5a7e456164fb93430b",
+  "title": "Metroid (USA)",
+  "values": {
+    "mode": { "address": "0x001D" },
+    "routine": { "address": "0x001E" },
+    "area": { "address": "0x0074", "mask": "0x0F" },
+    "energyTens": { "address": "0x0107", "mask": "0x0F" },
+    "energyOnes": { "address": "0x0106", "mask": "0xF0", "shift": 4 },
+    "fullTanks": { "address": "0x0107", "mask": "0xF0", "shift": 4 },
+    "tanks": { "address": "0x6877" },
+    "missiles": { "address": "0x6879" }
+  },
+  "playing": [
+    { "value": "mode", "op": "==", "target": 0 },
+    { "value": "routine", "op": "==", "target": 3 }
+  ],
+  "overlay": [
+    { "value": "energyTens", "label": "Energy (tens)" },
+    { "value": "energyOnes", "label": "Energy (ones)" },
+    { "value": "fullTanks", "label": "Full energy tanks" },
+    { "value": "missiles", "label": "Missiles" }
+  ]
+}
