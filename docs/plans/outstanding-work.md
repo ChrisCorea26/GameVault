@@ -220,6 +220,11 @@ SH-2s and its VDP). Its own plan file first.
 discs from PlayStation ones; the player's BIOS in **Settings → Sega CD**. Tests: `SegaCdTests`, `SegaCdHostTests`.
 The 32X is milestone 2.
 
+**As built (32X).** Milestone 2: `Sh2Cpu` and `Sh2OnChip` (the SH7604), `Sega32XUnit` (both SH-2s, SDRAM, both
+sides' registers, interrupts, the FIFO, PWM) and `Mars32XVdp`, plugged into `GenesisConsole`, which lays the 32X
+picture over its own (`GenesisVdp.Backdrop`). `.32x` files and **Settings → 32X**. Tests: `Sh2CpuTests`,
+`Sega32XTests`, `Sega32XHostTests`.
+
 ## 18. Phase 18: GameCube / Wii
 As SPEC §7.11 and §12. Its own `docs/plans/phase-18.md` first.
 

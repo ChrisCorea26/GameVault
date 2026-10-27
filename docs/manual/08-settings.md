@@ -89,6 +89,12 @@ The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`, or 
 The path to your Sega CD BIOS (128 KB), for example `C:\Sega\bios_CD_U.bin`, or **Choose…** to pick it. A chosen
 file is checked and copied into GameVault's own folder.
 
+## 32X
+
+The paths to your three 32X BIOS files: the 68000's (256 bytes, for example `C:\Sega\32X_G_BIOS.BIN`), the master
+SH-2's (2 KB) and the slave SH-2's (1 KB), or **Choose…** for each. Each chosen file is checked and copied into
+GameVault's own folder.
+
 ## Apple II
 
 | Setting | Example |

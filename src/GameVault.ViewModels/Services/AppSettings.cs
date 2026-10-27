@@ -79,6 +79,13 @@ public sealed record AppSettings
     /// </summary>
     public string SegaCdBiosPath { get; init; } = string.Empty;
 
+    /// <summary>The player's own 32X BIOS files: the 68000's (256 bytes), the master SH-2's (2 KB) and the slave's (1 KB).</summary>
+    public string Sega32XGenesisBiosPath { get; init; } = string.Empty;
+
+    public string Sega32XMasterBiosPath { get; init; } = string.Empty;
+
+    public string Sega32XSlaveBiosPath { get; init; } = string.Empty;
+
     /// <summary>
     /// The player's own Apple II system ROM (12 KB for the II/II+, 16 KB for the IIe), or empty. GameVault never ships,
     /// downloads or links to it (SPEC §7.11).

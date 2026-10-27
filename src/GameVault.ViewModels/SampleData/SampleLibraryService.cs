@@ -63,6 +63,8 @@ public sealed class SampleLibraryService : ILibraryService
             Ownership.Box | Ownership.Manual | Ownership.DigitalDump, PlayStatus.Playing, hours: 6.5, lastPlayedDaysAgo: 2, system: GameSystem.PlayStation2),
         Game(25, "Tidewater Tales", GameRegion.NorthAmerica, "Polyline Works", 1993, "Adventure",
             Ownership.Box | Ownership.Manual | Ownership.DigitalDump, PlayStatus.Playing, hours: 4.0, lastPlayedDaysAgo: 3, system: GameSystem.SegaCd),
+        Game(26, "Neon Relay", GameRegion.NorthAmerica, "Bitwave", 1995, "Racing",
+            Ownership.Cartridge | Ownership.DigitalDump, PlayStatus.Unplayed, system: GameSystem.Sega32X),
     ];
 
     private readonly List<GameEntry> _games;
@@ -223,6 +225,7 @@ public sealed class SampleLibraryService : ILibraryService
                     GameSystem.Nintendo64 => $@"C:\Games\Nintendo 64\{title}.z64",
                     GameSystem.PlayStation2 => $@"C:\Games\PlayStation 2\{title}.iso",
                     GameSystem.SegaCd => $@"C:\Games\Sega CD\{title}.cue",
+                    GameSystem.Sega32X => $@"C:\Games\32X\{title}.32x",
                     _ => $@"C:\Games\NES\{title}.nes",
                 }
                 : null,

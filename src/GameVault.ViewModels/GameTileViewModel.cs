@@ -23,6 +23,7 @@ public sealed class GameTileViewModel(GameEntry game)
         GameVault.Core.Systems.GameSystem.Nintendo64 => "Nintendo 64",
         GameVault.Core.Systems.GameSystem.PlayStation2 => "PlayStation 2",
         GameVault.Core.Systems.GameSystem.SegaCd => "Sega CD",
+        GameVault.Core.Systems.GameSystem.Sega32X => "32X",
         _ => "NES",
     };
 

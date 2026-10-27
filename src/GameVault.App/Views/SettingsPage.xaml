@@ -164,7 +164,7 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="GameVault looks in these folders for games for every system it plays (NES and Disk System, SG-1000, Master System, Apple II, Genesis, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2 and Sega CD), including games inside .zip files, and notices when you add or remove them."
+              Text="GameVault looks in these folders for games for every system it plays (NES and Disk System, SG-1000, Master System, Apple II, Genesis, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, Sega CD and 32X), including games inside .zip files, and notices when you add or remove them."
               TextWrapping="Wrap" />
           <ItemsRepeater ItemsSource="{x:Bind ViewModel.Library.Folders}">
             <ItemsRepeater.ItemTemplate>
@@ -597,6 +597,72 @@
                 VerticalAlignment="Center"
                 AutomationProperties.Name="Choose the Sega CD BIOS file"
                 Command="{x:Bind ViewModel.ChooseSegaCdBiosCommand}"
+                Content="Choose…" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- 32X (sega-cd-32x.md): the player's own BIOS files; GameVault never ships them -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="32X" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="32X cartridges (.32x) need the 32X's three BIOS files from your own 32X: the 68000's (256 bytes), the master SH-2's (2 KB) and the slave SH-2's (1 KB). GameVault doesn't include them."
+              TextWrapping="Wrap" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="32X 68000 BIOS file"
+                Header="68000 BIOS"
+                LostFocus="Sega32XBios_LostFocus"
+                PlaceholderText="C:\Sega\32X_G_BIOS.BIN"
+                Text="{x:Bind ViewModel.Sega32XGenesisBiosPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                AutomationProperties.Name="Choose the 32X 68000 BIOS file"
+                Command="{x:Bind ViewModel.ChooseSega32XGenesisBiosCommand}"
+                Content="Choose…" />
+          </Grid>
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="32X master SH-2 BIOS file"
+                Header="Master SH-2 BIOS"
+                LostFocus="Sega32XBios_LostFocus"
+                PlaceholderText="C:\Sega\32X_M_BIOS.BIN"
+                Text="{x:Bind ViewModel.Sega32XMasterBiosPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                AutomationProperties.Name="Choose the 32X master SH-2 BIOS file"
+                Command="{x:Bind ViewModel.ChooseSega32XMasterBiosCommand}"
+                Content="Choose…" />
+          </Grid>
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="32X slave SH-2 BIOS file"
+                Header="Slave SH-2 BIOS"
+                LostFocus="Sega32XBios_LostFocus"
+                PlaceholderText="C:\Sega\32X_S_BIOS.BIN"
+                Text="{x:Bind ViewModel.Sega32XSlaveBiosPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                AutomationProperties.Name="Choose the 32X slave SH-2 BIOS file"
+                Command="{x:Bind ViewModel.ChooseSega32XSlaveBiosCommand}"
                 Content="Choose…" />
           </Grid>
         </StackPanel>

@@ -50,6 +50,36 @@ public sealed partial class SettingsViewModel(
     }
 
     [RelayCommand]
+    private async Task ChooseSega32XGenesisBiosAsync()
+    {
+        if (await PickAsync(".bin", ".rom") is { } path)
+        {
+            Sega32XGenesisBiosPath = await ImportAsync(BiosKind.Sega32XGenesis, path);
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChooseSega32XMasterBiosAsync()
+    {
+        if (await PickAsync(".bin", ".rom") is { } path)
+        {
+            Sega32XMasterBiosPath = await ImportAsync(BiosKind.Sega32XMaster, path);
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ChooseSega32XSlaveBiosAsync()
+    {
+        if (await PickAsync(".bin", ".rom") is { } path)
+        {
+            Sega32XSlaveBiosPath = await ImportAsync(BiosKind.Sega32XSlave, path);
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
     private async Task ChooseAppleRomAsync()
     {
         if (await PickAsync(".rom", ".bin") is { } path)
@@ -145,6 +175,16 @@ public sealed partial class SettingsViewModel(
     /// <summary>The player's own Sega CD BIOS. GameVault never includes it. Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string SegaCdBiosPath { get; set; } = string.Empty;
+
+    /// <summary>The player's own 32X BIOS files. GameVault never includes them. Saved when a text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string Sega32XGenesisBiosPath { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string Sega32XMasterBiosPath { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial string Sega32XSlaveBiosPath { get; set; } = string.Empty;
 
     /// <summary>The player's own Apple II ROM (SPEC §7.11). Saved when the text box loses focus.</summary>
     [ObservableProperty]
@@ -293,6 +333,9 @@ public sealed partial class SettingsViewModel(
         DumperPath = settings.DumperPath;
         FdsBiosPath = settings.FdsBiosPath;
         SegaCdBiosPath = settings.SegaCdBiosPath;
+        Sega32XGenesisBiosPath = settings.Sega32XGenesisBiosPath;
+        Sega32XMasterBiosPath = settings.Sega32XMasterBiosPath;
+        Sega32XSlaveBiosPath = settings.Sega32XSlaveBiosPath;
         AppleIIRomPath = settings.AppleIIRomPath;
         AppleIIDiskRomPath = settings.AppleIIDiskRomPath;
         PlayStationBiosPath = settings.PlayStationBiosPath;
@@ -368,6 +411,9 @@ public sealed partial class SettingsViewModel(
     private void SaveSegaCdBiosPath() => SaveIfLoaded();
 
     [RelayCommand]
+    private void SaveSega32XBiosPaths() => SaveIfLoaded();
+
+    [RelayCommand]
     private void SaveAppleRomPaths() => SaveIfLoaded();
 
     [RelayCommand]
@@ -436,6 +482,9 @@ public sealed partial class SettingsViewModel(
             DumperPath = DumperPath.Trim().Trim('"'),
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),
             SegaCdBiosPath = SegaCdBiosPath.Trim().Trim('"'),
+            Sega32XGenesisBiosPath = Sega32XGenesisBiosPath.Trim().Trim('"'),
+            Sega32XMasterBiosPath = Sega32XMasterBiosPath.Trim().Trim('"'),
+            Sega32XSlaveBiosPath = Sega32XSlaveBiosPath.Trim().Trim('"'),
             AppleIIRomPath = AppleIIRomPath.Trim().Trim('"'),
             AppleIIDiskRomPath = AppleIIDiskRomPath.Trim().Trim('"'),
             PlayStationBiosPath = PlayStationBiosPath.Trim().Trim('"'),

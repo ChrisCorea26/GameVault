@@ -29,11 +29,17 @@ internal static class ConsoleFactory
         N64Setup? n64 = null,
         PlayStation2Setup? playStation2 = null,
         SnesSetup? snes = null,
-        byte[]? segaCdBios = null)
+        byte[]? segaCdBios = null,
+        GameVault.Core.Sega32X.Sega32XBios? sega32XBios = null)
     {
         if (system == GameSystem.SegaCd)
         {
             return CreateSegaCd(data, profile, segaCdBios);
+        }
+
+        if (system == GameSystem.Sega32X)
+        {
+            return Create32X(data, profile, sega32XBios);
         }
 
         if (system == GameSystem.PlayStation)
@@ -203,6 +209,35 @@ internal static class ConsoleFactory
     /// A PlayStation with the player's BIOS and the game's first disc (for an .m3u, the first in the list), or a
     /// PS-EXE: run after the BIOS boots, or straight away without one (bare-metal homebrew).
     /// </summary>
+    /// <summary>A Genesis with a 32X cartridge: the 32X holds the cartridge and the player's three BIOS files.</summary>
+    private static GenesisConsole Create32X(byte[] data, GameProfile profile, GameVault.Core.Sega32X.Sega32XBios? bios)
+    {
+        if (bios is null)
+        {
+            throw new GameLoadException(
+                "This is a 32X game. To play it, choose your own 32X BIOS files in Settings → 32X. GameVault doesn't include them.");
+        }
+
+        try
+        {
+            var cartridge = new GenesisCartridge(data);
+            var region = profile.Region?.ToLowerInvariant() switch
+            {
+                "usa" or "ntsc" => GenesisRegion.Americas,
+                "japan" => GenesisRegion.Japan,
+                "europe" or "pal" => GenesisRegion.Europe,
+                _ => cartridge.Region,
+            };
+            var pal = region == GenesisRegion.Europe;
+            var unit = new GameVault.Core.Sega32X.Sega32XUnit(cartridge.Rom.ToArray(), bios, pal, pal ? GenesisConsole.PalMasterClock : GenesisConsole.NtscMasterClock);
+            return new GenesisConsole(cartridge, region, sixButton: profile.Pad != "3", sega32X: unit);
+        }
+        catch (RomFormatException ex)
+        {
+            throw new GameLoadException(ex.Message, ex);
+        }
+    }
+
     /// <summary>A Genesis with the Sega CD under it, the disc in its drive and the player's BIOS.</summary>
     private static GenesisConsole CreateSegaCd(byte[] data, GameProfile profile, byte[]? bios)
     {
