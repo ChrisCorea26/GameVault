@@ -304,6 +304,13 @@ and `Atari2600Cartridge` (2K/4K, F8/F6/F4 with SuperChip detection, E0, FE, 3F, 
 one). `.a26` files, the library's system filter, No-Intro DATs, RetroAchievements console 25, the sample library.
 Tests: `Atari2600Tests`, `Atari2600CartridgeTests`, `Atari2600HostTests`. The 5200 is milestone 2.
 
+**As built (5200).** `docs/plans/phase-19.md` milestone 2: `Atari5200Console` (the 6502 halted for ANTIC's DMA and
+WSYNC), `Antic` (display lists, modes 2–F, scrolling, player/missile DMA, DLI/VBI NMIs, stolen cycles), `Gtia` (drawn
+a colour clock at a time; players, missiles, the priority equations, collisions, GTIA modes), `Pokey` (sound, timers,
+pots, keypad, RANDOM), `Atari5200Cartridge` and the keypad in `ControllerState`. The player's own BIOS in **Settings
+→ Atari 5200**, `.a52` files, `InputService.KeypadMode`, the sample library. Tests: `Atari5200Tests`,
+`Atari5200HostTests`.
+
 
 ## Not in this plan (needs the owner)
 - Real-game and real-cartridge checks in every phase's owner checklist.

@@ -40,6 +40,7 @@ public sealed partial class SettingsPage : Page
 
     private void FdsBiosPath_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveFdsBiosPathCommand.Execute(null);
 
+    private void Atari5200BiosPath_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveAtari5200BiosPathCommand.Execute(null);
     private void NetplayRelay_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveNetplayRelayServerCommand.Execute(null);
 
     private void AppleRoms_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveAppleRomPathsCommand.Execute(null);

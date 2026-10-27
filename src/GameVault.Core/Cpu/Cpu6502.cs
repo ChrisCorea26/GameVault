@@ -118,6 +118,12 @@ public sealed class Cpu6502 : IStateful
 
     public void SetIrq(IrqSource source) => _irqLines |= source;
 
+    /// <summary>
+    /// An NMI requested directly, as an edge on <see cref="NmiLine"/> would (the Atari 5200's ANTIC, whose requests can
+    /// land while the CPU is halted for DMA and so between the cycles that sample the line).
+    /// </summary>
+    public void TriggerNmi() => _needNmi = true;
+
     public void ClearIrq(IrqSource source) => _irqLines &= ~source;
 
     /// <summary>Starts a 256-byte OAM DMA from <c>$XX00</c>. Called by the bus on a write to $4014.</summary>
