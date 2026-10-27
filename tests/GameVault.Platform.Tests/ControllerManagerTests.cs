@@ -83,6 +83,25 @@ public class ControllerManagerTests
     }
 
     [Fact]
+    public void PlayStation_2_games_get_how_far_each_trigger_is_pulled()
+    {
+        _manager.OnConnected(Pad(1));
+        _manager.GameHasFocus = true;
+        _input.Layout = PadLayout.PlayStation2;
+
+        _manager.OnAxis(1, PadAxis.TriggerLeft, 20000);
+        _manager.OnAxis(1, PadAxis.TriggerRight, 32767);
+
+        var state = _input.Sample(0);
+        state.L2Pressure().Should().Be(20000 >> 8);
+        state.R2Pressure().Should().Be(127);
+        (state & ControllerState.L2).Should().Be(ControllerState.L2);
+
+        _manager.OnAxis(1, PadAxis.TriggerLeft, 0);
+        _input.Sample(0).L2Pressure().Should().Be(0);
+    }
+
+    [Fact]
     public void PlayStation_2_games_get_both_sticks_and_the_stick_clicks_as_l3_and_r3()
     {
         _manager.OnConnected(Pad(1));

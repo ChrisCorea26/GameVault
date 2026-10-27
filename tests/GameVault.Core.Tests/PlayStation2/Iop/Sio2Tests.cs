@@ -79,6 +79,21 @@ public sealed class Sio2Tests
     }
 
     [Fact]
+    public void Analog_triggers_report_their_pressure_and_keys_report_full_pressure()
+    {
+        Transfer(0, Padded(5, 0x01, 0x43, 0x00, 0x01));
+        Transfer(0, Padded(9, 0x01, 0x44, 0x00, 0x01, 0x03));
+        Transfer(0, Padded(9, 0x01, 0x4F, 0x00, 0xFF, 0xFF, 0x03, 0x00, 0x00, 0x00));
+        Transfer(0, Padded(9, 0x01, 0x43, 0x00, 0x00));
+
+        Iop.SetControllerState(0, (ControllerState.L2 | ControllerState.R2).WithTriggerPressure(64, 0));
+        var poll = Transfer(0, Padded(21, 0x01, 0x42, 0x00));
+
+        poll[19].Should().Be(0x81, "L2 half pulled");
+        poll[20].Should().Be(0xFF, "R2 held with no analog value: all the way");
+    }
+
+    [Fact]
     public void A_missing_pad_on_port_2_is_reported_in_recv1()
     {
         Iop.Sio2.PadConnected[1] = false;

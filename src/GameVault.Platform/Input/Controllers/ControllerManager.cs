@@ -737,7 +737,22 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
             down = _input.Layout is PadLayout.PlayStation or PadLayout.Nintendo64 or PadLayout.PlayStation2 && AppActive && (held ? value > 8000 : value > 16000);
             changed = held != down;
             pad.Triggers = down ? pad.Triggers | button : pad.Triggers & ~button;
+            if (left)
+            {
+                pad.TriggerLeft = value;
+            }
+            else
+            {
+                pad.TriggerRight = value;
+            }
+
             port = _model.Policy.PortOf(instanceId);
+            if (port is { } pressurePort && _input.Layout == PadLayout.PlayStation2)
+            {
+                // How far each trigger is pulled, for the DualShock 2's pressure-sensitive L2 and R2.
+                var inGame = GameHasFocus && AppActive;
+                _input.SetTriggers(SourceOf(instanceId), pressurePort, inGame ? pad.TriggerLeft : (short)0, inGame ? pad.TriggerRight : (short)0);
+            }
         }
 
         if (uiPressed)
@@ -882,6 +897,10 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
 
         /// <summary>The triggers held past the menus' threshold, which scroll a page (input.md §7.1).</summary>
         public bool UiTriggerLeft { get; set; }
+
+        public short TriggerLeft { get; set; }
+
+        public short TriggerRight { get; set; }
 
         public bool UiTriggerRight { get; set; }
 
