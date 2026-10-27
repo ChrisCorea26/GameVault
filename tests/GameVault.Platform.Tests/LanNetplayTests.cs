@@ -147,6 +147,27 @@ public sealed class LanNetplayTests : IDisposable
     }
 
     [Fact]
+    public async Task Disk_system_games_play_and_change_sides_on_both_machines()
+    {
+        var disk = GameVault.Core.Tests.Fds.FdsTestImages.Image(2, header: false);
+        var bios = GameVault.Core.Tests.Fds.FdsTestImages.StubBios();
+        _hostA.Load(disk, "Disk game", bios);
+        _hostB.Load(disk, "Disk game", bios);
+        Describe = () => $"A {_hostA.NetplayStatus} side {_hostA.InsertedDiskSide} B {_hostB.NetplayStatus} side {_hostB.InsertedDiskSide}";
+
+        var code = await _hostA.HostNetplayAsync(IPAddress.Loopback);
+        await _hostB.JoinNetplayAsync(code);
+        WaitFor(() => _hostA.NetplayStatus == NetplayStatus.Playing && _hostB.NetplayStatus == NetplayStatus.Playing);
+
+        _hostB.InsertDiskSide(1); // player 2 turns the disk over: it travels with their input
+        WaitFor(() => _hostA.InsertedDiskSide == 1 && _hostB.InsertedDiskSide == 1);
+        var frame = _hostA.FrameCount;
+        WaitFor(() => _hostA.FrameCount > frame + 60);
+        _hostA.NetplayStatus.Should().NotBe(NetplayStatus.OutOfSync);
+        _hostB.NetplayStatus.Should().NotBe(NetplayStatus.OutOfSync);
+    }
+
+    [Fact]
     public async Task A_different_game_is_refused()
     {
         _hostA.Load(Game(), "Game");

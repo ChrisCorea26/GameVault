@@ -7,7 +7,8 @@ namespace GameVault.Core.Input;
 /// (Phase 14), and L2 and R2 for the PlayStation (Phase 15). Bits 16–31 hold the left analog stick for the Nintendo 64
 /// (Phase 16): X in bits 16–23 and Y in bits 24–31, each a signed byte (up is positive, as the N64 reports it).
 /// Bits 32–47 hold the right stick the same way, and bits 48 and 49 the stick clicks L3 and R3, for the PlayStation 2's
-/// DualShock 2 (Phase 17).
+/// DualShock 2 (Phase 17). On the NES, bits 50–55 carry a Disk System command for netplay: 1 + a side to insert it,
+/// 63 to eject the disk, for one frame (outstanding-work plan §13).
 /// </summary>
 /// <remarks>
 /// Each console maps these to its own pad and reads only its bits. On the Genesis, B is the pad's A button, A is its B
@@ -64,6 +65,17 @@ public static class ControllerStick
     public static sbyte RightStickX(this ControllerState state) => (sbyte)((ulong)state >> 32);
 
     public static sbyte RightStickY(this ControllerState state) => (sbyte)((ulong)state >> 40);
+
+    public const int DiskCommandShift = 50;
+
+    /// <summary>The Disk System command eject (bits 50–55).</summary>
+    public const int EjectDisk = 63;
+
+    /// <summary>A Disk System command: 0 for none, 1 + a side to insert it, <see cref="EjectDisk"/> to eject.</summary>
+    public static int DiskCommand(this ControllerState state) => (int)((ulong)state >> DiskCommandShift) & 0x3F;
+
+    public static ControllerState WithDiskCommand(this ControllerState state, int command) =>
+        (state & ~(ControllerState)(0x3FUL << DiskCommandShift)) | (ControllerState)((ulong)(command & 0x3F) << DiskCommandShift);
 
     /// <summary>The buttons only (every bit but the sticks').</summary>
     public static ControllerState Buttons(this ControllerState state) => state & ~SticksMask;

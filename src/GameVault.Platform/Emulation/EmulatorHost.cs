@@ -170,6 +170,12 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
     private GameSystem _romSystem;
     private string _romExtension = "";
+
+    // The Disk System BIOS the game started with, so a netplay session can start the same machine.
+    private byte[]? _fdsBios;
+
+    // A disk change asked for during netplay, sent with the next frame's input (Emulation thread).
+    private int _pendingDiskCommand;
     private AppleRoms? _appleRoms;
     private SnesSetup? _snes;
 
@@ -389,10 +395,6 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             throw new NetplayException(SystemBudgets.PlayStation2NetplayMessage);
         }
 
-        if (FdsImage.IsFdsImage(_romData))
-        {
-            throw new NetplayException("Netplay works with cartridge games for now, not Disk System games.");
-        }
     }
 
     /// <summary>
@@ -403,7 +405,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     {
         var data = _romData!;
         var profile = Profile ?? new GameProfile { Sha1 = string.Empty };
-        var console = ConsoleFactory.Create(data, _romSystem, profile, fdsBios: null, _romExtension, _appleRoms, _playStation, _n64, _playStation2, _snes);
+        var console = ConsoleFactory.Create(data, _romSystem, profile, _fdsBios, _romExtension, _appleRoms, _playStation, _n64, _playStation2, _snes);
         if (_audioActive && _audio is not null)
         {
             console.EnableAudio(_audio.SampleRate);
@@ -465,7 +467,22 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     /// <summary>One netplay frame: exchange inputs, roll back if needed, run, show it. Emulation thread.</summary>
     private void RunNetplayFrame(IEmulatedConsole console, RollbackSession session, UdpNetplayLink link)
     {
-        var ran = session.AdvanceFrame(_input.Sample(0, session.Frame));
+        var local = _input.Sample(0, session.Frame);
+        if (_pendingDiskCommand != 0)
+        {
+            local = local.WithDiskCommand(_pendingDiskCommand);
+        }
+
+        var ran = session.AdvanceFrame(local);
+        if (ran)
+        {
+            _pendingDiskCommand = 0; // sent with this frame's input
+            if (console is NesConsole { Fds: { } drive })
+            {
+                UpdateDiskSide(drive);
+            }
+        }
+
         var status = session.State switch
         {
             NetplayState.Desynced => NetplayStatus.OutOfSync,
@@ -740,6 +757,12 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         else if (Nes?.Fds is { } fds && side >= 0 && side < fds.SideCount)
         {
             _diskSideRequested = side;
+            if (_netplayActive)
+            {
+                _pendingDiskCommand = side + 1; // both players' machines change it on the same frame
+                return;
+            }
+
             fds.InsertSide(side);
             UpdateDiskSide(fds);
         }
@@ -753,6 +776,12 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         }
         else if (Nes?.Fds is { } fds)
         {
+            if (_netplayActive)
+            {
+                _pendingDiskCommand = ControllerStick.EjectDisk;
+                return;
+            }
+
             fds.Eject();
             UpdateDiskSide(fds);
         }
@@ -1068,6 +1097,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _romData = data;
         _romSystem = system;
         _romExtension = extension;
+        _fdsBios = fdsBios;
         _appleRoms = appleRoms;
         _playStation = playStation;
         _n64 = n64;
