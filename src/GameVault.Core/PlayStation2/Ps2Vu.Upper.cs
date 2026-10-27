@@ -183,52 +183,79 @@ public sealed partial class Ps2Vu
     /// </summary>
     private void ExecuteUpper(ref DecodedPair d)
     {
-        int fs = d.Fs;
-        int ft = d.Ft;
         switch (d.Upper)
         {
             case UpperKind.Nop:
                 return;
             case UpperKind.OpMula:
-                OuterProduct(fs, ft, -1);
+                UpperOpMula(d.Fs, d.Ft, d.Fd, d.UDest, d.Bc);
                 return;
             case UpperKind.OpMsub:
-                OuterProduct(fs, ft, d.Fd);
+                UpperOpMsub(d.Fs, d.Ft, d.Fd, d.UDest, d.Bc);
                 return;
             case UpperKind.Abs:
-                for (var lane = 0; lane < 4; lane++)
-                {
-                    _stage[lane] = _vf[(fs << 2) | lane] & Ps2VuFloat.Max;
-                }
-
-                SetStage(ft, d.UDest);
+                UpperAbs(d.Fs, d.Ft, d.Fd, d.UDest, d.Bc);
                 return;
             case UpperKind.Ftoi:
-                var toInt = s_fixedPoint[d.Bc];
-                for (var lane = 0; lane < 4; lane++)
-                {
-                    _stage[lane] = Ps2VuFloat.ToInt(_vf[(fs << 2) | lane], toInt);
-                }
-
-                SetStage(ft, d.UDest);
+                UpperFtoi(d.Fs, d.Ft, d.Fd, d.UDest, d.Bc);
                 return;
             case UpperKind.Itof:
-                var fromInt = s_fixedPoint[d.Bc];
-                for (var lane = 0; lane < 4; lane++)
-                {
-                    _stage[lane] = Ps2VuFloat.FromInt(_vf[(fs << 2) | lane], fromInt);
-                }
-
-                SetStage(ft, d.UDest);
+                UpperItof(d.Fs, d.Ft, d.Fd, d.UDest, d.Bc);
                 return;
             case UpperKind.Clip:
-                Clip(fs, ft);
+                UpperClip(d.Fs, d.Ft, d.Fd, d.UDest, d.Bc);
                 return;
             default:
-                Arithmetic(ref d);
+                Arithmetic(d.Upper, d.Operand, d.ToAcc, d.Fs, d.Ft, d.Fd, d.UDest, d.Bc);
                 return;
         }
     }
+
+    // One method per upper instruction, all with the same parameters, so the recompiler can call each with constants.
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void UpperOpMula(int fs, int ft, int fd, int dest, int bc) => OuterProduct(fs, ft, -1);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void UpperOpMsub(int fs, int ft, int fd, int dest, int bc) => OuterProduct(fs, ft, fd);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void UpperAbs(int fs, int ft, int fd, int dest, int bc)
+    {
+        for (var lane = 0; lane < 4; lane++)
+        {
+            _stage[lane] = _vf[(fs << 2) | lane] & Ps2VuFloat.Max;
+        }
+
+        SetStage(ft, dest);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void UpperFtoi(int fs, int ft, int fd, int dest, int bc)
+    {
+        var toInt = s_fixedPoint[bc];
+        for (var lane = 0; lane < 4; lane++)
+        {
+            _stage[lane] = Ps2VuFloat.ToInt(_vf[(fs << 2) | lane], toInt);
+        }
+
+        SetStage(ft, dest);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void UpperItof(int fs, int ft, int fd, int dest, int bc)
+    {
+        var fromInt = s_fixedPoint[bc];
+        for (var lane = 0; lane < 4; lane++)
+        {
+            _stage[lane] = Ps2VuFloat.FromInt(_vf[(fs << 2) | lane], fromInt);
+        }
+
+        SetStage(ft, dest);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void UpperClip(int fs, int ft, int fd, int dest, int bc) => Clip(fs, ft);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void SetStage(int reg, int mask)
@@ -237,15 +264,19 @@ public sealed partial class Ps2Vu
         _stageMask = mask;
     }
 
-    /// <summary>ADD/SUB/MUL/MADD/MSUB/MAX/MINI in every operand form, to a VF register or ACC, four lanes at once.</summary>
-    private void Arithmetic(ref DecodedPair d)
+    /// <summary>
+    /// ADD/SUB/MUL/MADD/MSUB/MAX/MINI in every operand form, to a VF register or ACC, four lanes at once. Inlined with
+    /// constant arguments (a recompiled block), the kind and operand switches fold away.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void Arithmetic(UpperKind kind, byte operand, bool toAcc, int fs, int ft, int fd, int dest, int bc)
     {
         ref var vf = ref MemoryMarshal.GetArrayDataReference(_vf);
-        var s = Vector128.LoadUnsafe(ref vf, (nuint)(d.Fs << 2));
-        var t = d.Operand switch
+        var s = Vector128.LoadUnsafe(ref vf, (nuint)(fs << 2));
+        var t = operand switch
         {
-            OperandVector => Vector128.LoadUnsafe(ref vf, (nuint)(d.Ft << 2)),
-            OperandBroadcast => Vector128.Create(_vf[(d.Ft << 2) | d.Bc]),
+            OperandVector => Vector128.LoadUnsafe(ref vf, (nuint)(ft << 2)),
+            OperandBroadcast => Vector128.Create(_vf[(ft << 2) | bc]),
             OperandI => Vector128.Create(_i),
             _ => Vector128.Create(_q),
         };
@@ -255,7 +286,6 @@ public sealed partial class Ps2Vu
         Vector128<uint> result;
         Vector128<uint> overflow;
         Vector128<uint> underflow;
-        var kind = d.Upper;
         switch (kind)
         {
             case UpperKind.Add:
@@ -283,19 +313,19 @@ public sealed partial class Ps2Vu
                 break;
         }
 
-        if (d.ToAcc)
+        if (toAcc)
         {
-            Vector128.ConditionalSelect(s_laneMasks[d.UDest], result, Vector128.LoadUnsafe(ref accRef)).StoreUnsafe(ref accRef);
+            Vector128.ConditionalSelect(s_laneMasks[dest], result, Vector128.LoadUnsafe(ref accRef)).StoreUnsafe(ref accRef);
         }
         else
         {
             result.StoreUnsafe(ref MemoryMarshal.GetArrayDataReference(_stage));
-            SetStage(d.Fd, d.UDest);
+            SetStage(fd, dest);
         }
 
         if (kind != UpperKind.Max && kind != UpperKind.Mini)
         {
-            QueueFlag(FlagKindMac, Ps2VuFloat.MacBits4(result, overflow, underflow, d.UDest));
+            QueueFlag(FlagKindMac, Ps2VuFloat.MacBits4(result, overflow, underflow, dest));
         }
     }
 

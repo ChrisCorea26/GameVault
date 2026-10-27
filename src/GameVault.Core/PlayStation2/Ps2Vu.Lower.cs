@@ -253,250 +253,664 @@ public sealed partial class Ps2Vu
     /// <summary>Runs a lower instruction; <paramref name="pc"/> is its pair's byte address (for branches and links).</summary>
     private void ExecuteLower(ref DecodedPair d, uint pc)
     {
-        int ft = d.It;
-        int fs = d.Is;
-        var it = ft & 15;
-        var @is = fs & 15;
-        int dest = d.LDest;
-        var vi = _vi;
         switch (d.Lower)
         {
             case LowerOp.Nop:
+                LowerNop(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Lq: // LQ.dest ft, imm(is)
-                Load(ft, dest, vi[@is] + d.Imm);
+            case LowerOp.Lq:
+                LowerLq(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Sq: // SQ.dest fs, imm(it)
-                Store(fs, dest, vi[it] + d.Imm);
+            case LowerOp.Sq:
+                LowerSq(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Ilw: // ILW.dest it, imm(is)
-                LoadInteger(it, vi[@is] + d.Imm, dest);
+            case LowerOp.Ilw:
+                LowerIlw(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Isw: // ISW.dest it, imm(is)
-                StoreInteger(it, vi[@is] + d.Imm, dest);
+            case LowerOp.Isw:
+                LowerIsw(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Iaddiu:
-                AluWrite(it, vi[@is] + d.Imm);
+                LowerIaddiu(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Isubiu:
-                AluWrite(it, vi[@is] - d.Imm);
+                LowerIsubiu(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Fceq:
-                SetVi(1, (ushort)(_clip == d.Imm ? 1 : 0));
+                LowerFceq(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Fcset:
-                _clip = d.Imm;
+                LowerFcset(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Fcand:
-                SetVi(1, (ushort)((_clip & d.Imm) != 0 ? 1 : 0));
+                LowerFcand(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Fcor:
-                SetVi(1, (ushort)((_clip | d.Imm) == 0xFFFFFF ? 1 : 0));
+                LowerFcor(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Fseq:
-                SetVi(it, (ushort)(_status == d.Imm ? 1 : 0));
+                LowerFseq(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Fsset: // the sticky bits only
-                _status = (_status & 0x3F) | (d.Imm & 0xFC0);
+            case LowerOp.Fsset:
+                LowerFsset(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Fsand:
-                SetVi(it, (ushort)(_status & d.Imm));
+                LowerFsand(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Fsor:
-                SetVi(it, (ushort)(_status | d.Imm));
+                LowerFsor(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Fmeq:
-                SetVi(it, (ushort)(_mac == vi[@is] ? 1 : 0));
+                LowerFmeq(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Fmand:
-                SetVi(it, (ushort)(_mac & vi[@is]));
+                LowerFmand(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Fmor:
-                SetVi(it, (ushort)(_mac | vi[@is]));
+                LowerFmor(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Fcget:
-                SetVi(it, (ushort)(_clip & 0xFFF));
+                LowerFcget(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.B:
-                Branch(pc, d.Imm);
+                LowerB(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Bal:
-                SetVi(it, (ushort)((pc + 16) >> 3));
-                Branch(pc, d.Imm);
+                LowerBal(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Jr:
-                Jump((uint)vi[@is] << 3);
+                LowerJr(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Jalr: // the target is read before the link is written
-                var target = (uint)vi[@is] << 3;
-                SetVi(it, (ushort)((pc + 16) >> 3));
-                Jump(target);
+            case LowerOp.Jalr:
+                LowerJalr(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Ibeq:
-                if (BranchVi(it) == BranchVi(@is))
-                {
-                    Branch(pc, d.Imm);
-                }
-
+                LowerIbeq(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Ibne:
-                if (BranchVi(it) != BranchVi(@is))
-                {
-                    Branch(pc, d.Imm);
-                }
-
+                LowerIbne(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Ibltz:
-                if ((short)BranchVi(@is) < 0)
-                {
-                    Branch(pc, d.Imm);
-                }
-
+                LowerIbltz(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Ibgtz:
-                if ((short)BranchVi(@is) > 0)
-                {
-                    Branch(pc, d.Imm);
-                }
-
+                LowerIbgtz(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Iblez:
-                if ((short)BranchVi(@is) <= 0)
-                {
-                    Branch(pc, d.Imm);
-                }
-
+                LowerIblez(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Ibgez:
-                if ((short)BranchVi(@is) >= 0)
-                {
-                    Branch(pc, d.Imm);
-                }
-
+                LowerIbgez(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Iadd:
-                AluWrite(d.Id & 15, vi[@is] + vi[it]);
+                LowerIadd(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Isub:
-                AluWrite(d.Id & 15, vi[@is] - vi[it]);
+                LowerIsub(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Iaddi:
-                AluWrite(it, vi[@is] + d.Imm);
+                LowerIaddi(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Iand:
-                AluWrite(d.Id & 15, vi[@is] & vi[it]);
+                LowerIand(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Ior:
-                AluWrite(d.Id & 15, vi[@is] | vi[it]);
+                LowerIor(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Move: // MOVE.dest ft, fs
-                {
-                    var b = fs << 2;
-                    WriteLanes(ft, dest, _vf[b], _vf[b + 1], _vf[b + 2], _vf[b + 3]);
-                }
-
+            case LowerOp.Move:
+                LowerMove(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Mr32: // MR32.dest ft, fs: each field from the next one round (x ← y, …, w ← x)
-                {
-                    var b = fs << 2;
-                    WriteLanes(ft, dest, _vf[b + 1], _vf[b + 2], _vf[b + 3], _vf[b]);
-                }
-
+            case LowerOp.Mr32:
+                LowerMr32(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Lqi: // LQI.dest ft, (is++)
-                Load(ft, dest, vi[@is]);
-                AluWrite(@is, vi[@is] + 1);
+            case LowerOp.Lqi:
+                LowerLqi(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Sqi: // SQI.dest fs, (it++)
-                Store(fs, dest, vi[it]);
-                AluWrite(it, vi[it] + 1);
+            case LowerOp.Sqi:
+                LowerSqi(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Lqd: // LQD.dest ft, (--is)
-                AluWrite(@is, vi[@is] - 1);
-                Load(ft, dest, vi[@is]);
+            case LowerOp.Lqd:
+                LowerLqd(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Sqd: // SQD.dest fs, (--it)
-                AluWrite(it, vi[it] - 1);
-                Store(fs, dest, vi[it]);
+            case LowerOp.Sqd:
+                LowerSqd(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Div: // DIV Q, fs.fsf, ft.ftf
-                {
-                    var q = Ps2VuFloat.Div(_vf[(fs << 2) | d.Fsf], _vf[(ft << 2) | d.Ftf], out var flags);
-                    StartFdiv(q, flags, DivLatency);
-                }
-
+            case LowerOp.Div:
+                LowerDiv(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Sqrt: // SQRT Q, ft.ftf
-                {
-                    var q = Ps2VuFloat.Sqrt(_vf[(ft << 2) | d.Ftf], out var flags);
-                    StartFdiv(q, flags, DivLatency);
-                }
-
+            case LowerOp.Sqrt:
+                LowerSqrt(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Rsqrt: // RSQRT Q, fs.fsf, ft.ftf
-                {
-                    var q = Ps2VuFloat.Rsqrt(_vf[(fs << 2) | d.Fsf], _vf[(ft << 2) | d.Ftf], out var flags);
-                    StartFdiv(q, flags, RsqrtLatency);
-                }
-
+            case LowerOp.Rsqrt:
+                LowerRsqrt(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Waitq: // the stall did the work
+            case LowerOp.Waitq:
+                LowerWaitq(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
+                break;
             case LowerOp.Waitp:
+                LowerWaitp(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Mtir: // MTIR it, fs.fsf
-                AluWrite(it, (int)_vf[(fs << 2) | d.Fsf]);
+            case LowerOp.Mtir:
+                LowerMtir(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Mfir: // MFIR.dest ft, is: sign-extended
-                {
-                    var value = (uint)(short)vi[@is];
-                    WriteLanes(ft, dest, value, value, value, value);
-                }
-
+            case LowerOp.Mfir:
+                LowerMfir(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Ilwr: // ILWR.dest it, (is)
-                LoadInteger(it, vi[@is], dest);
+            case LowerOp.Ilwr:
+                LowerIlwr(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Iswr: // ISWR.dest it, (is)
-                StoreInteger(it, vi[@is], dest);
+            case LowerOp.Iswr:
+                LowerIswr(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
-            case LowerOp.Rnext: // RNEXT.dest ft
-                {
-                    // A 23-bit LFSR with taps at bits 4 and 22 (ps2autotests random reproduces its sequence).
-                    var feedback = ((_r >> 4) ^ (_r >> 22)) & 1;
-                    _r = ((_r << 1) | feedback) & 0x7FFFFF;
-                    WriteLanes(ft, dest, R, R, R, R);
-                }
-
+            case LowerOp.Rnext:
+                LowerRnext(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Rget:
-                WriteLanes(ft, dest, R, R, R, R);
+                LowerRget(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Rinit:
-                _r = _vf[(fs << 2) | d.Fsf] & 0x7FFFFF;
+                LowerRinit(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Rxor:
-                _r ^= _vf[(fs << 2) | d.Fsf] & 0x7FFFFF;
+                LowerRxor(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Mfp:
-                WriteLanes(ft, dest, _p, _p, _p, _p);
+                LowerMfp(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Xtop:
-                SetVi(it, (ushort)(_host.ReadTop(Index) & 0x3FF));
-                _viReady[it] = 0;
+                LowerXtop(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Xitop:
-                SetVi(it, (ushort)(_host.ReadItop(Index) & (_isVu1 ? 0x3FFu : 0xFFu)));
-                _viReady[it] = 0;
+                LowerXitop(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             case LowerOp.Xgkick:
-                _host.XgKick((uint)vi[@is] & 0x3FF);
+                LowerXgkick(d.It, d.Is, d.Id, d.LDest, d.Fsf, d.Ftf, d.Imm, pc);
                 break;
             default:
-                ExecuteEfu(d.Lower, fs, d.Fsf);
+                ExecuteEfu(d.Lower, d.Is, d.Fsf);
                 break;
         }
     }
 
+    // One method per lower instruction, all with the same parameters (ft and fs are the 5-bit fields; the VI forms use
+    // their low 4 bits), so the recompiler can call each with constants.
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerNop(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+    }
+
+    // LQ.dest ft, imm(is)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerLq(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var @is = fs & 15;
+        var vi = _vi;
+        Load(ft, dest, vi[@is] + imm);
+    }
+
+    // SQ.dest fs, imm(it)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerSq(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var vi = _vi;
+        Store(fs, dest, vi[it] + imm);
+    }
+
+    // ILW.dest it, imm(is)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIlw(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        LoadInteger(it, vi[@is] + imm, dest);
+    }
+
+    // ISW.dest it, imm(is)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIsw(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        StoreInteger(it, vi[@is] + imm, dest);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIaddiu(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        AluWrite(it, vi[@is] + imm);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIsubiu(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        AluWrite(it, vi[@is] - imm);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerFceq(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        SetVi(1, (ushort)(_clip == imm ? 1 : 0));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerFcset(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        _clip = imm;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerFcand(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        SetVi(1, (ushort)((_clip & imm) != 0 ? 1 : 0));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerFcor(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        SetVi(1, (ushort)((_clip | imm) == 0xFFFFFF ? 1 : 0));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerFseq(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        SetVi(it, (ushort)(_status == imm ? 1 : 0));
+    }
+
+    // the sticky bits only
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerFsset(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        _status = (_status & 0x3F) | (imm & 0xFC0);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerFsand(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        SetVi(it, (ushort)(_status & imm));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerFsor(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        SetVi(it, (ushort)(_status | imm));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerFmeq(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        SetVi(it, (ushort)(_mac == vi[@is] ? 1 : 0));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerFmand(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        SetVi(it, (ushort)(_mac & vi[@is]));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerFmor(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        SetVi(it, (ushort)(_mac | vi[@is]));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerFcget(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        SetVi(it, (ushort)(_clip & 0xFFF));
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerB(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        Branch(pc, imm);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerBal(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        SetVi(it, (ushort)((pc + 16) >> 3));
+        Branch(pc, imm);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerJr(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var @is = fs & 15;
+        var vi = _vi;
+        Jump((uint)vi[@is] << 3);
+    }
+
+    // the target is read before the link is written
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerJalr(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        var target = (uint)vi[@is] << 3;
+        SetVi(it, (ushort)((pc + 16) >> 3));
+        Jump(target);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIbeq(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        if (BranchVi(it) == BranchVi(@is))
+        {
+            Branch(pc, imm);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIbne(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        if (BranchVi(it) != BranchVi(@is))
+        {
+            Branch(pc, imm);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIbltz(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var @is = fs & 15;
+        if ((short)BranchVi(@is) < 0)
+        {
+            Branch(pc, imm);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIbgtz(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var @is = fs & 15;
+        if ((short)BranchVi(@is) > 0)
+        {
+            Branch(pc, imm);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIblez(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var @is = fs & 15;
+        if ((short)BranchVi(@is) <= 0)
+        {
+            Branch(pc, imm);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIbgez(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var @is = fs & 15;
+        if ((short)BranchVi(@is) >= 0)
+        {
+            Branch(pc, imm);
+        }
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIadd(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        AluWrite(id & 15, vi[@is] + vi[it]);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIsub(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        AluWrite(id & 15, vi[@is] - vi[it]);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIaddi(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        AluWrite(it, vi[@is] + imm);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIand(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        AluWrite(id & 15, vi[@is] & vi[it]);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIor(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        AluWrite(id & 15, vi[@is] | vi[it]);
+    }
+
+    // MOVE.dest ft, fs
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerMove(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var b = fs << 2;
+        WriteLanes(ft, dest, _vf[b], _vf[b + 1], _vf[b + 2], _vf[b + 3]);
+    }
+
+    // MR32.dest ft, fs: each field from the next one round (x ← y, …, w ← x)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerMr32(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var b = fs << 2;
+        WriteLanes(ft, dest, _vf[b + 1], _vf[b + 2], _vf[b + 3], _vf[b]);
+    }
+
+    // LQI.dest ft, (is++)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerLqi(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var @is = fs & 15;
+        var vi = _vi;
+        Load(ft, dest, vi[@is]);
+        AluWrite(@is, vi[@is] + 1);
+    }
+
+    // SQI.dest fs, (it++)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerSqi(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var vi = _vi;
+        Store(fs, dest, vi[it]);
+        AluWrite(it, vi[it] + 1);
+    }
+
+    // LQD.dest ft, (--is)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerLqd(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var @is = fs & 15;
+        var vi = _vi;
+        AluWrite(@is, vi[@is] - 1);
+        Load(ft, dest, vi[@is]);
+    }
+
+    // SQD.dest fs, (--it)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerSqd(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var vi = _vi;
+        AluWrite(it, vi[it] - 1);
+        Store(fs, dest, vi[it]);
+    }
+
+    // DIV Q, fs.fsf, ft.ftf
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerDiv(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var q = Ps2VuFloat.Div(_vf[(fs << 2) | fsf], _vf[(ft << 2) | ftf], out var flags);
+        StartFdiv(q, flags, DivLatency);
+    }
+
+    // SQRT Q, ft.ftf
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerSqrt(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var q = Ps2VuFloat.Sqrt(_vf[(ft << 2) | ftf], out var flags);
+        StartFdiv(q, flags, DivLatency);
+    }
+
+    // RSQRT Q, fs.fsf, ft.ftf
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerRsqrt(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var q = Ps2VuFloat.Rsqrt(_vf[(fs << 2) | fsf], _vf[(ft << 2) | ftf], out var flags);
+        StartFdiv(q, flags, RsqrtLatency);
+    }
+
+    // the stall did the work
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerWaitq(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerWaitp(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+    }
+
+    // MTIR it, fs.fsf
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerMtir(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        AluWrite(it, (int)_vf[(fs << 2) | fsf]);
+    }
+
+    // MFIR.dest ft, is: sign-extended
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerMfir(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var @is = fs & 15;
+        var vi = _vi;
+        var value = (uint)(short)vi[@is];
+        WriteLanes(ft, dest, value, value, value, value);
+    }
+
+    // ILWR.dest it, (is)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIlwr(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        LoadInteger(it, vi[@is], dest);
+    }
+
+    // ISWR.dest it, (is)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerIswr(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        var @is = fs & 15;
+        var vi = _vi;
+        StoreInteger(it, vi[@is], dest);
+    }
+
+    // RNEXT.dest ft
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerRnext(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        // A 23-bit LFSR with taps at bits 4 and 22 (ps2autotests random reproduces its sequence).
+        var feedback = ((_r >> 4) ^ (_r >> 22)) & 1;
+        _r = ((_r << 1) | feedback) & 0x7FFFFF;
+        WriteLanes(ft, dest, R, R, R, R);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerRget(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        WriteLanes(ft, dest, R, R, R, R);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerRinit(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        _r = _vf[(fs << 2) | fsf] & 0x7FFFFF;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerRxor(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        _r ^= _vf[(fs << 2) | fsf] & 0x7FFFFF;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerMfp(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        WriteLanes(ft, dest, _p, _p, _p, _p);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerXtop(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        SetVi(it, (ushort)(_host.ReadTop(Index) & 0x3FF));
+        _viReady[it] = 0;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerXitop(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var it = ft & 15;
+        SetVi(it, (ushort)(_host.ReadItop(Index) & (_isVu1 ? 0x3FFu : 0xFFu)));
+        _viReady[it] = 0;
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void LowerXgkick(int ft, int fs, int id, int dest, int fsf, int ftf, int imm, uint pc)
+    {
+        var @is = fs & 15;
+        var vi = _vi;
+        _host.XgKick((uint)vi[@is] & 0x3FF);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Branch(uint pc, int offset)
     {
         _branchPending = true;
@@ -533,6 +947,7 @@ public sealed partial class Ps2Vu
         _viReady[reg] = 0;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Load(int ft, int dest, int qword)
     {
         if (ft == 0 || dest == 0)
@@ -553,6 +968,7 @@ public sealed partial class Ps2Vu
         WriteVfMasked(ft, dest, value);
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void Store(int fs, int dest, int qword)
     {
         if (BitConverter.IsLittleEndian && (_isVu1 || (qword & 0x400) == 0))
@@ -598,6 +1014,7 @@ public sealed partial class Ps2Vu
         }
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void WriteLanes(int ft, int dest, uint x, uint y, uint z, uint w)
     {
         if (ft == 0)
@@ -608,6 +1025,7 @@ public sealed partial class Ps2Vu
         WriteVfMasked(ft, dest, Vector128.Create(x, y, z, w));
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void StartFdiv(uint value, int flags, int latency)
     {
         _qNext = value;
@@ -624,6 +1042,7 @@ public sealed partial class Ps2Vu
     }
 
     /// <summary>VU1's elementary functions into P (ps2tek: "EFU Pipeline"; the series are Play!'s, BSD-2-Clause).</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private void ExecuteEfu(LowerOp op, int fs, int fsfLane)
     {
         var baseIndex = fs << 2;

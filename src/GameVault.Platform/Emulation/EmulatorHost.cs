@@ -1009,7 +1009,11 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             var disk = string.IsNullOrWhiteSpace(settings.AppleIIDiskRomPath)
                 ? null
                 : await File.ReadAllBytesAsync(settings.AppleIIDiskRomPath, cancellationToken).ConfigureAwait(false);
-            return new AppleRoms(system, disk);
+            var character = string.IsNullOrWhiteSpace(settings.AppleIICharacterRomPath)
+                ? null
+                : await File.ReadAllBytesAsync(settings.AppleIICharacterRomPath, cancellationToken).ConfigureAwait(false);
+            var monitor = Enum.IsDefined((AppleMonitor)settings.AppleIIMonitor) ? (AppleMonitor)settings.AppleIIMonitor : AppleMonitor.Color;
+            return new AppleRoms(system, disk, character) { Monitor = monitor };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
@@ -1092,7 +1096,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         LoadControllerPak(console);
         LoadPs2MemoryCard(console);
         SetUpDiscs(data, system);
-        _input.TypingMode = console is AppleConsole;
+        _input.TypingMode = console is AppleConsole or SegaConsole { HasKeyboard: true };
         if (console is AppleConsole && appleRoms?.DiskBoot is null)
         {
             // Without the Disk II controller's ROM the Apple starts with no disk drive, so the disk can't boot (GV-010).
@@ -1564,6 +1568,10 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             if (console is AppleConsole apple)
             {
                 Type(apple);
+            }
+            else if (console is SegaConsole { HasKeyboard: true } sc3000)
+            {
+                sc3000.SetKeyboardRows(Sc3000Keyboard.Matrix(_input.TypingKeysHeld));
             }
 
             if (console is NesConsole { InputSetup: InputSetup.Zapper } nes)

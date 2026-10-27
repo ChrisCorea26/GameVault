@@ -51,39 +51,59 @@ public static class AppleVideo
     /// <param name="flashOn">The flashing-character phase.</param>
     public static void Render(Span<ushort> frame, ReadOnlySpan<byte> main, ReadOnlySpan<byte> aux, AppleVideoMode mode, bool flashOn)
     {
-        Span<byte> dots = stackalloc byte[Width];
-        var page2 = mode.Page2 && !mode.Store80;
         for (var line = 0; line < 192; line++)
         {
-            var text = mode.Text || (mode.Mixed && line >= 160);
-            if (text)
-            {
-                TextLine(dots, main, aux, line, page2, mode, flashOn);
-            }
-            else if (mode.HiRes && mode.DoubleHiRes && mode.Col80 && !aux.IsEmpty)
-            {
-                DoubleHiResLine(dots, main, aux, line, page2);
-            }
-            else if (mode.HiRes)
-            {
-                HiResLine(dots, main, line, page2);
-            }
-            else
-            {
-                LoResLine(dots, main, line, page2);
-            }
-
-            var upper = frame.Slice(line * 2 * Width, Width);
-            for (var x = 0; x < Width; x++)
-            {
-                upper[x] = dots[x];
-            }
-
-            upper.CopyTo(frame.Slice((line * 2 + 1) * Width, Width));
+            RenderLine(frame, main, aux, mode, flashOn, line);
         }
     }
 
-    private static void TextLine(Span<byte> dots, ReadOnlySpan<byte> main, ReadOnlySpan<byte> aux, int line, bool page2, AppleVideoMode mode, bool flashOn)
+    /// <summary>
+    /// Draws one of the 192 lines from the memory and soft switches as they are now: the console draws each line as
+    /// the beam reaches it, so a program that changes mode partway down the screen (split screens) shows both.
+    /// </summary>
+    /// <param name="monochrome">A monochrome monitor: every dot the colour circuits would tint is just lit or dark.</param>
+    /// <param name="font">The character ROM to use, or null for GameVault's own font.</param>
+    public static void RenderLine(
+        Span<ushort> frame, ReadOnlySpan<byte> main, ReadOnlySpan<byte> aux, AppleVideoMode mode, bool flashOn, int line,
+        bool monochrome = false, AppleCharacterRom? font = null)
+    {
+        Span<byte> dots = stackalloc byte[Width];
+        var page2 = mode.Page2 && !mode.Store80;
+        var text = mode.Text || (mode.Mixed && line >= 160);
+        if (text)
+        {
+            TextLine(dots, main, aux, line, page2, mode, flashOn, font);
+        }
+        else if (mode.HiRes && mode.DoubleHiRes && mode.Col80 && !aux.IsEmpty)
+        {
+            DoubleHiResLine(dots, main, aux, line, page2, monochrome);
+        }
+        else if (mode.HiRes)
+        {
+            if (monochrome)
+            {
+                MonochromeHiResLine(dots, main, line, page2);
+            }
+            else
+            {
+                HiResLine(dots, main, line, page2);
+            }
+        }
+        else
+        {
+            LoResLine(dots, main, line, page2, monochrome);
+        }
+
+        var upper = frame.Slice(line * 2 * Width, Width);
+        for (var x = 0; x < Width; x++)
+        {
+            upper[x] = dots[x];
+        }
+
+        upper.CopyTo(frame.Slice((line * 2 + 1) * Width, Width));
+    }
+
+    private static void TextLine(Span<byte> dots, ReadOnlySpan<byte> main, ReadOnlySpan<byte> aux, int line, bool page2, AppleVideoMode mode, bool flashOn, AppleCharacterRom? font)
     {
         var row = line >> 3;
         var glyphRow = line & 7;
@@ -94,7 +114,7 @@ public static class AppleVideo
             for (var column = 0; column < 80; column++)
             {
                 var code = (column & 1) == 0 ? aux[address + column / 2] : main[address + column / 2];
-                var bits = CharacterDots(code, glyphRow, mode, flashOn);
+                var bits = CharacterDots(code, glyphRow, mode, flashOn, font);
                 for (var d = 0; d < 7; d++)
                 {
                     dots[column * 7 + d] = (byte)(((bits >> (6 - d)) & 1) != 0 ? White : Black);
@@ -106,7 +126,7 @@ public static class AppleVideo
 
         for (var column = 0; column < 40; column++)
         {
-            var bits = CharacterDots(main[address + column], glyphRow, mode, flashOn);
+            var bits = CharacterDots(main[address + column], glyphRow, mode, flashOn, font);
             for (var d = 0; d < 7; d++)
             {
                 var color = (byte)(((bits >> (6 - d)) & 1) != 0 ? White : Black);
@@ -117,7 +137,7 @@ public static class AppleVideo
     }
 
     /// <summary>The 7 dots of a character row, bit 6 leftmost, with inverse and flashing applied.</summary>
-    private static int CharacterDots(byte code, int row, AppleVideoMode mode, bool flashOn)
+    private static int CharacterDots(byte code, int row, AppleVideoMode mode, bool flashOn, AppleCharacterRom? font)
     {
         int ascii;
         bool inverse;
@@ -148,11 +168,11 @@ public static class AppleVideo
             ascii -= 0x20;
         }
 
-        var dots = AppleFont.Row(ascii, row);
+        var dots = font is { } rom ? rom.Row(ascii, row) : AppleFont.Row(ascii, row);
         return inverse ? ~dots & 0x7F : dots;
     }
 
-    private static void LoResLine(Span<byte> dots, ReadOnlySpan<byte> main, int line, bool page2)
+    private static void LoResLine(Span<byte> dots, ReadOnlySpan<byte> main, int line, bool page2, bool monochrome)
     {
         var address = TextRowAddress(line >> 3) + (page2 ? 0x400 : 0);
         var lowerHalf = (line & 4) != 0;
@@ -160,7 +180,43 @@ public static class AppleVideo
         {
             var value = main[address + column];
             var color = (byte)(lowerHalf ? value >> 4 : value & 0x0F);
-            dots.Slice(column * 14, 14).Fill(color);
+            if (!monochrome)
+            {
+                dots.Slice(column * 14, 14).Fill(color);
+                continue;
+            }
+
+            // On a monochrome monitor a lo-res block is its colour's four bits repeated as a dot pattern.
+            for (var d = 0; d < 14; d++)
+            {
+                dots[column * 14 + d] = (byte)(((color >> ((column * 14 + d) & 3)) & 1) != 0 ? White : Black);
+            }
+        }
+    }
+
+    /// <summary>Hi-res on a monochrome monitor: each lit bit is two white dots, half a pixel later with the high bit.</summary>
+    private static void MonochromeHiResLine(Span<byte> dots, ReadOnlySpan<byte> main, int line, bool page2)
+    {
+        var address = HiResLineAddress(line) + (page2 ? 0x2000 : 0);
+        dots.Clear();
+        for (var b = 0; b < 40; b++)
+        {
+            var value = main[address + b];
+            var shift = (value & 0x80) != 0 ? 1 : 0;
+            for (var bit = 0; bit < 7; bit++)
+            {
+                if (((value >> bit) & 1) == 0)
+                {
+                    continue;
+                }
+
+                var start = (b * 7 + bit) * 2 + shift;
+                dots[start] = White;
+                if (start + 1 < Width)
+                {
+                    dots[start + 1] = White;
+                }
+            }
         }
     }
 
@@ -209,7 +265,7 @@ public static class AppleVideo
     private static byte ColorAt(int x, bool shifted) =>
         (byte)((x & 1) == 0 ? (shifted ? Blue : Violet) : (shifted ? Orange : Green));
 
-    private static void DoubleHiResLine(Span<byte> dots, ReadOnlySpan<byte> main, ReadOnlySpan<byte> aux, int line, bool page2)
+    private static void DoubleHiResLine(Span<byte> dots, ReadOnlySpan<byte> main, ReadOnlySpan<byte> aux, int line, bool page2, bool monochrome)
     {
         Span<bool> bits = stackalloc bool[Width];
         var address = HiResLineAddress(line) + (page2 ? 0x2000 : 0);
@@ -220,6 +276,16 @@ public static class AppleVideo
                 bits[b * 14 + bit] = ((aux[address + b] >> bit) & 1) != 0;
                 bits[b * 14 + 7 + bit] = ((main[address + b] >> bit) & 1) != 0;
             }
+        }
+
+        if (monochrome)
+        {
+            for (var x = 0; x < Width; x++)
+            {
+                dots[x] = bits[x] ? (byte)White : (byte)Black;
+            }
+
+            return;
         }
 
         // Each group of four dots is one of the 16 colours (dot n is colour bit n).

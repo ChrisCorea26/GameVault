@@ -145,6 +145,17 @@ SA-1 (a second 65C816 at 10.74 MHz with its DMA, character conversion and arithm
 ST010/011 (on the µPD77C25 / µPD96050 core, each with the player's program ROM), S-DD1 decompression, OBC1, and
 SPC7110 with its decompression and RTC. Same rules and tests as item 4.
 
+**As built.** `Sa1` (a second `W65816Cpu` on its own bus: I-RAM, BW-RAM and the $60–$6F bitmap view, CXB–FXB,
+BMAPS/BMAP, the multiplier, divider and 40-bit sum of products, variable-length reads, the H/V and linear timer,
+normal DMA, and character conversion types 1 and 2; DMA finishes at once and write protection isn't enforced). `Sdd1`
+(the $C0–$FF memory controller, and Andreas Naive's decompressor answering the DMA's reads while the channel's count
+lasts; the console shows the chip its DMA register writes). `Obc1`. `NecDsp` now also runs the µPD96050 of the ST010
+and ST011 (`st010.rom`, `st011.rom`, 52 KB) with the SNES's window onto its data RAM, which is the ST010's save file.
+DSP-2/3/4 came with item 4. **Not done:** the Cx4 (its HG51B needs a low-level core and the player's data ROM) and the
+SPC7110 (its context-model decompressor), the ST018 (an ARM) and the S-RTC. Each is a large job that can't be
+checked here without the games; they stay in `docs/bugs.md` as a later item. Tests: `Sa1Tests`, `Sdd1Tests`,
+`Obc1Tests`, `SetaDspTests`.
+
 ## 6. `--sample-data` Player on every system
 The sample Apple II, Genesis and SNES games show a test pattern. Run a freely licensed homebrew for each instead,
 from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Player shows real pictures under
@@ -155,16 +166,33 @@ from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Pla
 - Interlace mode 2: 448-line double-resolution frames through the variable-size video path.
 - Master System mode (the Power Base Converter): the VDP's mode 4 and the SMS memory map, for `.sms` files the
   player chooses to run on the Genesis core.
+- **As built:** the I²C EEPROM (X24C01 and the 24Cxx family) with the wiring Sega's boards declare in the header
+  ("RA" $E8 $40 on $200001). EA, Acclaim and Codemasters boards wire it differently and need a per-game database
+  entry first, so they wait. Interlace mode 2 is done. Master System mode was dropped: a Power Base Converter just
+  runs the Master System's own hardware, which GameVault already has as the Master System core, so `.sms` files open
+  there.
 
 ## 8. Master System FM and the SC-3000 keyboard
 - YM2413 (OPLL) for Japanese Master System games, with its built-in instrument patches computed from the published
   register values; the FM unit's detection port.
 - The SC-3000 keyboard matrix on the PPI, mapped to the PC keyboard (like the Apple II), so BASIC cartridges run.
+- **As built:** the VRC7's FM engine became `Opll`, shared by both (the VRC7's output is pinned sample for sample by
+  a fingerprint test); the YM2413 adds three channels, the rhythm sounds and the YM2413's instruments (emu2413's
+  table, MIT). The unit is there for Japanese cartridges (header region 3, or a Japan profile). `.sc` files get the
+  keyboard.
 
 ## 9. Apple II: monochrome, character ROM, mid-frame changes
 - Settings → Apple II → "Monochrome" (green, amber or white).
 - The player's own character ROM (Settings), with the built-in font as today when none is chosen.
 - Draw the video per scanline from the soft switches then, so mid-frame mode changes show.
+
+**As built.** `AppleConsole.RunFrame` runs the CPU 65 cycles at a time and draws each of the 192 visible lines
+(`AppleVideo.RenderLine`) from the memory and switches when the beam finishes it. `AppleMonitor` (Color, Green,
+Amber, White) picks the palette; on a monochrome monitor hi-res, lo-res and double hi-res show their dots, with no
+artifact colour, in the phosphor's colour. `AppleCharacterRom` reads the player's 2, 4 or 8 KB character ROM and
+finds its layout (index by ASCII, low six bits or screen code; active high or low; bit order; first line) by how
+well A–Z and 0–9 match GameVault's own font, refusing files under 85 % agreement. Settings → Apple II gains
+**Character ROM** and **Monitor**. Tests: `AppleDisplayTests`. The floating bus stays open.
 
 ## 10. N64 accessories and video
 - The Rumble Pak (rumble through SDL) and the Transfer Pak (the player's own Game Boy cartridge dump and save).
@@ -220,6 +248,11 @@ protocol can't be checked here. Tests: `PsDualShockTests`,
 ## 15. N64 recompiler
 A VR4300 block recompiler to IL like the EE's, with the interpreter as the reference and the same kind of
 differential tests.
+
+**Measured first, and not needed now.** A loop of RDRAM loads, adds, stores and a branch runs at 369 M CPU cycles a
+second on the interpreter (Release, the Linux build machine): about four times the VR4300's 93.75 MHz, so the CPU
+isn't what holds N64 games below full speed; the RDP is (phase-17-performance.md §3). The recompiler waits until a
+profile of real games shows the CPU on top; until then the GPU renderer (item 14) is where N64 speed comes from.
 
 ## 16. PS2 netplay and run-ahead
 Make PS2 save states small and fast enough (dirty-page tracking for the 32 MB of RAM and the GS's 4 MB), then

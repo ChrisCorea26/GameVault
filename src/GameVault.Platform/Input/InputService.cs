@@ -336,6 +336,18 @@ public sealed class InputService
     }
 
     /// <summary>True while any typing key is held (the Apple IIe reads it).</summary>
+    /// <summary>The keys held now while typing into a computer (the SC-3000 reads its whole keyboard matrix).</summary>
+    public IReadOnlyCollection<int> TypingKeysHeld
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _typingHeld];
+            }
+        }
+    }
+
     public bool AnyTypingKeyHeld
     {
         get

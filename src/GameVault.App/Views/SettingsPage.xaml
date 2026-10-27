@@ -618,6 +618,29 @@
                 Command="{x:Bind ViewModel.ChooseAppleDiskRomCommand}"
                 Content="Choose…" />
           </Grid>
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="Apple II character ROM file (optional)"
+                Header="Character ROM (optional, for text in your own Apple's font)"
+                LostFocus="AppleRoms_LostFocus"
+                PlaceholderText="C:\Apple\apple2e-video.rom"
+                Text="{x:Bind ViewModel.AppleIICharacterRomPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                AutomationProperties.Name="Choose the Apple II character ROM file"
+                Command="{x:Bind ViewModel.ChooseAppleCharacterRomCommand}"
+                Content="Choose…" />
+          </Grid>
+          <ComboBox
+              AutomationProperties.Name="Apple II monitor"
+              Header="Monitor"
+              ItemsSource="{x:Bind ViewModel.AppleIIMonitors}"
+              SelectedIndex="{x:Bind ViewModel.AppleIIMonitorIndex, Mode=TwoWay}" />
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
@@ -634,7 +657,7 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="Games with a DSP chip (such as Pilotwings and Super Mario Kart) need that chip's program, dumped from your own cartridge: dsp1b.rom (or dsp1.rom), dsp2.rom, dsp3.rom or dsp4.rom. Put the files in a folder and choose it here. GameVault doesn't include them. Super FX games, such as Star Fox, need nothing extra."
+              Text="Games with a DSP chip (such as Pilotwings and Super Mario Kart) need that chip's program, dumped from your own cartridge: dsp1b.rom (or dsp1.rom), dsp2.rom, dsp3.rom or dsp4.rom; Seta's F1 ROC II and Morita Shogi need st010.rom or st011.rom. Put the files in a folder and choose it here. GameVault doesn't include them. Super FX, SA-1, S-DD1 and OBC1 games, such as Star Fox and Super Mario RPG, need nothing extra."
               TextWrapping="Wrap" />
           <Grid ColumnSpacing="8">
             <Grid.ColumnDefinitions>
