@@ -162,6 +162,12 @@ public sealed record AppSettings
     public bool PlayStation2FastBoot { get; init; }
 
     /// <summary>
+    /// The PlayStation 2's internal resolution: 1 is the software GS's picture; 2 to 4 draw it again on the GPU
+    /// (Direct3D 11) at that many times the size, for sharper 3D (docs/plans/gpu-renderers.md, milestone 3).
+    /// </summary>
+    public int PlayStation2InternalResolution { get; init; } = 1;
+
+    /// <summary>
     /// The folder holding the player's own Super Nintendo enhancement chip program ROMs (dsp1b.rom and the others), or
     /// empty. GameVault never ships, downloads or links to them (SPEC §7.11).
     /// </summary>

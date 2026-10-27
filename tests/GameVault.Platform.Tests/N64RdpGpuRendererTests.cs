@@ -13,6 +13,7 @@ namespace GameVault.Platform.Tests;
 /// Direct3D 11's WARP on Windows and on a Vulkan software device (SwiftShader or lavapipe) elsewhere; without either
 /// the tests return early.
 /// </summary>
+[Collection(GpuKernelCollection.Name)]
 public sealed class N64RdpGpuRendererTests(ITestOutputHelper output)
 {
     private const uint Frame = 0x100000;
@@ -35,7 +36,22 @@ public sealed class N64RdpGpuRendererTests(ITestOutputHelper output)
     private const ulong BiLerp0 = 1UL << 43;
     private const ulong Bilinear = 1UL << 45;
 
+    /// <summary>
+    /// A GPU to run the kernels on, or null (with why) when there's none; with <c>GAMEVAULT_REQUIRE_GPU=1</c> (CI) a
+    /// missing device fails the test instead.
+    /// </summary>
     internal static IGpuCompute? CreateGpu(out string why)
+    {
+        var gpu = TryCreateGpu(out why);
+        if (gpu is null && Environment.GetEnvironmentVariable("GAMEVAULT_REQUIRE_GPU") == "1")
+        {
+            throw new InvalidOperationException("GAMEVAULT_REQUIRE_GPU is set, but there is no GPU device: " + why);
+        }
+
+        return gpu;
+    }
+
+    private static IGpuCompute? TryCreateGpu(out string why)
     {
         why = "";
         if (OperatingSystem.IsWindows())
@@ -567,4 +583,14 @@ public sealed class N64RdpGpuRendererTests(ITestOutputHelper output)
         {
         }
     }
+}
+
+/// <summary>
+/// Runs the GPU kernel tests alone, after the tests that run in parallel: on a software device (WARP, lavapipe) they
+/// keep every core busy, which starved the host tests that wait on the real-time frame loop.
+/// </summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class GpuKernelCollection
+{
+    public const string Name = "GPU kernels";
 }

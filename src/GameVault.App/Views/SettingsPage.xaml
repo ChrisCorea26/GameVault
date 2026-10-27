@@ -1053,6 +1053,26 @@
                 OffContent=""
                 OnContent="" />
           </Grid>
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Internal resolution" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Draws games at two to four times the PlayStation 2's resolution with your graphics card, for sharper 3D. Videos and pictures the game sends straight to the screen look as they always do. Needs Direct3D 11. Takes effect the next time a game starts."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <ComboBox
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="PlayStation 2 internal resolution"
+                ItemsSource="{x:Bind ViewModel.PlayStation2ResolutionOptions}"
+                SelectedIndex="{x:Bind ViewModel.PlayStation2ResolutionIndex, Mode=TwoWay}" />
+          </Grid>
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"

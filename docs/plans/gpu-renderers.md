@@ -113,10 +113,77 @@ renderer makes N64 games sharper, not faster. Letting the software RDP skip pixe
   SwiftShader most of a minute), so it is for runs on a real GPU or for a few programs at a time.
 - **The host:** at 2× the GPU picture shows on Windows and the VI's frame elsewhere.
 
-## Later milestones
-- **3. The PlayStation 2 GS:** the GS drawn on the GPU with its local-memory formats and render-target tracking; this
-  is also where the PS2 gains speed, so the GS's software renderer would stop drawing frames nobody reads back.
+## Milestone 3: the PlayStation 2 GS (`Ps2GsGpuRenderer`)
+
+### Why scaled local memory
+PS2 games draw into the GS's 4 MB of local memory through swizzled page layouts (32-, 24-, 16-, 8- and 4-bit, colour
+and Z), and read it back as textures all the time: render targets become textures for bloom, shadows, depth of
+field and the half-resolution passes most games use; frame and Z buffers are cleared through other formats; the
+CLUT is loaded from what was drawn. Tracking "surfaces" for all that is where GPU PS2 renderers spend most of their
+complexity. So the GPU keeps **local memory itself at S×S**: every native pixel slot holds S×S samples, and a pixel
+(x, y) of any buffer at any layout addresses native slot `PixelAddress(psm, bp, bw, x, y)`, sample `(fy × S + fx)`.
+Drawing, texturing, reading a frame buffer as a texture through another format, and the CLUT all go through the GS's
+own address functions, so every format and every reinterpretation works at the internal resolution with no surface
+tracking.
+
+### How it fits
+- **The software GS stays authoritative**, as for the PlayStation and the N64: local memory, downloads to the EE,
+  save states, rewind, run-ahead and netplay are unchanged. The GPU draws the picture only.
+- **The tap:** `IPs2GsBackend` (core, internal; the Platform assembly sees the GS's batch types). The GS already
+  queues primitives with their draw state and draws them in batches (Ps2Gs.Batch.cs: a batch never reads pages it
+  draws to, or draws them through two layouts; states whose own rows share memory are serial). Before drawing a
+  batch the GS hands it over (commands, states with their CLUT snapshots, and the pages it draws to and reads), and
+  after drawing it says which pages it drew.
+- **Memory:** one GPU buffer of `LocalMemorySize / 4 × S²` words: native 32-bit word `w`, sample `k` at
+  `w × S² + k`. 16-, 8- and 4-bit pixels share a word as they do natively, each sample word holding that sample of
+  every pixel in the word (sub-word writes are atomic, as neighbouring pixels belong to other threads).
+- **Keeping in step without hooks:** before a batch uses a page (and before the picture shows one), a hash of the
+  page in local memory is compared with the one taken after the GPU last drew it; a page changed any other way (an
+  upload, a local copy, the CPU, a reset or a state load) is seeded again from local memory, each word in every
+  sample, so the CPU's pictures and videos show at native resolution, as they are. A state load needs nothing more:
+  a page it left as the GPU drew it keeps its detail (run-ahead loads a state every frame).
+- **HD pages:** pages the GPU drew are sampled on their sample grid when read as textures (S texels to the native
+  texel), so render targets keep their detail; pages seeded from local memory are sampled as at 1×, so uploaded
+  textures filter as they do natively.
+- **The kernel:** a port of `Renderer` (points, lines, sprites, triangles; texturing with every PSM and the CLUT,
+  bilinear, mipmaps, the region clamps; fog; the alpha, destination-alpha and Z tests; the blender; dithering;
+  FBMSK; the 16/24/32-bit frame and Z formats). One thread per scaled pixel of the batch's bounding box walks the
+  batch's primitives in order, as the N64 kernel does. Coverage is tested at the sample's position (pixel + (f + ½)/S),
+  attributes are evaluated there, and textures are sampled at the scaled texel position: a texel's native slot, then
+  its sample from the coordinate's fraction, so a 2× render target read as a texture gives back its 2× detail. Serial
+  states are dispatched a primitive at a time.
+- **Arithmetic:** the CPU sets each primitive up in doubles as the software GS does (edge functions, attribute planes);
+  the kernel evaluates edges in 64-bit integers (emulated with 32-bit words) and Z in 48.16 fixed point, so coverage
+  and depth match, and the other attributes in 32-bit floats (Direct3D 11 can't divide doubles), which round a few
+  colours and texture coordinates the other way.
+- **The picture:** the PCRTC's two circuits read from scaled memory at S× (their merge, the background colour and
+  field mode as in Ps2Gs.Output.cs).
+
+### Not reproduced
+- Bit-exactness: float interpolation (above). Comparisons allow a few words in a thousand.
+- Local-to-host downloads read the software GS's memory, so effects the EE computes from a downloaded picture show
+  at native resolution; so do CLUTs loaded from what was drawn.
+- A serial state's primitive whose texture is its own frame buffer (feedback) is drawn by many threads at once, so
+  which texels it sees of its own pixels can differ from the software GS's row order.
+
+### Speed
+The software GS keeps drawing (it is what downloads and save states read), so this makes PS2 games sharper, not
+faster. Skipping the software draw of frames nothing reads back is the step after, and needs the GPU memory to be
+authoritative for those pages (written back on a download).
+
+### Tests
+- **The kernel on Linux** (lavapipe in CI, SwiftShader locally) and **on Windows** (WARP), with
+  `GAMEVAULT_REQUIRE_GPU=1` in CI so a missing device fails instead of skipping: register writes through both GSs at
+  1×, comparing local memory where the GPU's copy is in step. Untextured and Gouraud triangles with Z, CLUT and
+  bilinear textured sprites, a perspective triangle blended, a render target read back as a texture, a 16-bit
+  dithered frame with alpha test and FBMSK, and random scenes (Ps2GsParallelTests's generator: every primitive and
+  format, overlapping buffers, uploads, copies, CLUT loads).
+- **The picture:** at 1× it is the software GS's; at 2× each block of a uniform area holds the 1× pixel; GameVault's
+  PS2 homebrew through the whole console draws the same frames on the GPU.
+- **The host:** at 2× the GPU picture (1280×896 for a 640×448 game) shows on Windows and the software one elsewhere.
+- **Settings → PlayStation 2 → Internal resolution:** 1× (original), 2×, 3×, 4×.
 
 ## Owner checks
-With the owner's games at 2× and 3×: 3D games (Ridge Racer, Gran Turismo, Final Fantasy VII's battles) look sharper
-and the same otherwise; 2D games and menus look the same as at 1×; switching resolution mid-game works.
+With the owner's games at 2× and 3×: 3D games (Ridge Racer, Gran Turismo, Final Fantasy VII's battles; Super Mario 64,
+GoldenEye; Gran Turismo 3, Shadow of the Colossus's bloom) look sharper and the same otherwise; 2D games, menus and
+videos look the same as at 1×; switching resolution between games works.

@@ -5,9 +5,10 @@ namespace GameVault.Platform.Emulation;
 
 /// <summary>
 /// What a PlayStation 2 needs besides the game (Phase 17): the player's BIOS from Settings (null when none is chosen:
-/// ELFs then run on GameVault's own kernel) and the "Skip the startup screens" choice.
+/// ELFs then run on GameVault's own kernel), the "Skip the startup screens" choice, and the GPU renderer's internal
+/// resolution (1: the software picture).
 /// </summary>
-public sealed record PlayStation2Setup(byte[]? Bios, bool FastBoot = false)
+public sealed record PlayStation2Setup(byte[]? Bios, bool FastBoot = false, int InternalResolution = 1)
 {
     /// <summary>The message for a disc opened without a BIOS.</summary>
     public const string NeedsBiosMessage =
@@ -19,7 +20,7 @@ public sealed record PlayStation2Setup(byte[]? Bios, bool FastBoot = false)
     {
         if (string.IsNullOrWhiteSpace(settings.PlayStation2BiosPath))
         {
-            return new PlayStation2Setup(null, settings.PlayStation2FastBoot);
+            return new PlayStation2Setup(null, settings.PlayStation2FastBoot, settings.PlayStation2InternalResolution);
         }
 
         byte[] bios;
@@ -38,6 +39,6 @@ public sealed record PlayStation2Setup(byte[]? Bios, bool FastBoot = false)
                 "The PlayStation 2 BIOS chosen in Settings → PlayStation 2 isn't a 4 MB BIOS file. Choose the BIOS dumped from your own console.");
         }
 
-        return new PlayStation2Setup(bios, settings.PlayStation2FastBoot);
+        return new PlayStation2Setup(bios, settings.PlayStation2FastBoot, settings.PlayStation2InternalResolution);
     }
 }

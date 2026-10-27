@@ -25,7 +25,7 @@ public sealed partial class Ps2Gs
     public const int MaxFrameWidth = 640;
     public const int MaxFrameHeight = 512;
 
-    private readonly struct Circuit
+    internal readonly struct Circuit
     {
         public readonly bool Enabled;
         public readonly int Fbp;
@@ -54,6 +54,16 @@ public sealed partial class Ps2Gs
             Height = ((int)((display >> 44) & 0x7FF) + 1) / magv;
         }
     }
+
+    /// <summary>
+    /// How the last picture <see cref="RenderFrame"/> made was put together: the two read circuits, the background,
+    /// the picture's size and where it starts, field mode and the circuits' merge (a GPU renderer draws the same picture
+    /// at its own resolution from this).
+    /// </summary>
+    internal readonly record struct DisplayLayout(Circuit C1, Circuit C2, uint Background, int MinDx, int MinDy, int SourceWidth, int Width,
+        int Height, bool FieldMode, bool FixedAlpha, bool BackgroundUnder, int Alpha);
+
+    internal DisplayLayout LastDisplay { get; private set; }
 
     /// <summary>
     /// Renders the displayed picture into <paramref name="frame"/> (at least <see cref="MaxFrameWidth"/> ×
@@ -89,6 +99,7 @@ public sealed partial class Ps2Gs
         var mmod = (_pmode & (1 << 5)) != 0;
         var slbg = (_pmode & (1 << 7)) != 0;
         var alp = (int)((_pmode >> 8) & 0xFF);
+        LastDisplay = new DisplayLayout(c1, c2, bg, minDx, minDy, sourceWidth, width, height, fieldMode, mmod, slbg, alp);
 
         for (var y = 0; y < height; y++)
         {

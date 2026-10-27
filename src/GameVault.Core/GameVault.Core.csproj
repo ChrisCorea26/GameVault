@@ -13,6 +13,8 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="GameVault.Core.Tests" />
+    <InternalsVisibleTo Include="GameVault.Platform" />
+    <InternalsVisibleTo Include="GameVault.Platform.Tests" />
   </ItemGroup>
 
 </Project>

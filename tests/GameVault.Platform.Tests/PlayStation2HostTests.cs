@@ -97,6 +97,34 @@ public sealed class PlayStation2HostTests(ITestOutputHelper output) : IDisposabl
     }
 
     [Fact]
+    public async Task At_2x_the_gpu_renderer_draws_the_picture_on_windows_and_the_software_gs_elsewhere()
+    {
+        var frames = new FrameSink();
+        var settings = new InMemorySettingsStore(new AppSettings { PlayStation2InternalResolution = 2 });
+        using var host = new EmulatorHost(frames, new InputService(KeyboardMapping.CreateDefault()), settings);
+
+        await host.LoadAsync(ElfPath("gs-basic"));
+
+        // Direct3D only exists on Windows (CI's Windows runner has WARP); elsewhere the software picture stays.
+        var (width, height) = OperatingSystem.IsWindows() ? (1280, 896) : (640, 448);
+        var colours = 0;
+        await WaitFor(() =>
+        {
+            if (frames.TryGetVideoFrame(out var frame) && frame.Width == width && frame.Height == height)
+            {
+                var argb = new uint[width * height];
+                frame.ToArgb(frames.Palette, argb);
+                colours = argb.Distinct().Count();
+                return Task.FromResult(colours > 8);
+            }
+
+            return Task.FromResult(false);
+        }, seconds: 600); // the renderer is made in the background, and the first start compiles its kernel
+        colours.Should().BeGreaterThan(8, "gs-basic draws many colours");
+        host.Stop();
+    }
+
+    [Fact]
     public async Task Ps2_input_reaches_the_consoles_pad()
     {
         var input = new InputService(KeyboardMapping.CreateDefault());
@@ -373,9 +401,9 @@ public sealed class PlayStation2HostTests(ITestOutputHelper output) : IDisposabl
         return directory?.FullName ?? throw new DirectoryNotFoundException("The repository root wasn't found.");
     }
 
-    private static async Task WaitFor(Func<Task<bool>> condition)
+    private static async Task WaitFor(Func<Task<bool>> condition, int seconds = 30)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(30);
+        var deadline = DateTime.UtcNow.AddSeconds(seconds);
         while (!await condition())
         {
             if (DateTime.UtcNow > deadline)

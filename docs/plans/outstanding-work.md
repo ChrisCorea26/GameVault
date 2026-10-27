@@ -267,9 +267,10 @@ datagrams; with **Settings → Netplay → Relay server** set, hosting goes thro
   differences fixed-function blending makes.
 - Software stays the default where results must be exact (netplay, verified challenges).
 - Its own plan file first.
-- **Status:** milestone 1, the PlayStation GPU at 2× and 3×, and milestone 2, the N64 RDP at 2× to 4× (a compute
-  port of the RDP; sharper, not faster, as the software RDP still draws RDRAM), are done
-  (`docs/plans/gpu-renderers.md`). The PS2 GS milestone is next, in that plan.
+- **Status:** done (`docs/plans/gpu-renderers.md`): the PlayStation GPU at 2× and 3×, the N64 RDP at 2× to 4× (a
+  compute port of the RDP) and the PS2 GS at 2× to 4× (a compute port of the GS into local memory kept at S×S
+  samples a pixel). They make games sharper, not faster: the software renderers still draw what the consoles read
+  back. Letting them skip pictures nothing reads is the next step for speed.
 
 ## 15. N64 recompiler
 A VR4300 block recompiler to IL like the EE's, with the interpreter as the reference and the same kind of

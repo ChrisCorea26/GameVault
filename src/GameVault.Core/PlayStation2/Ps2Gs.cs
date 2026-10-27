@@ -199,6 +199,7 @@ public sealed partial class Ps2Gs : IStateful
         _cbp0 = _cbp1 = 0;
         ResetDrawing();
         ResetTransfer();
+        Backend?.Resync();
     }
 
     // ---- General registers ------------------------------------------------------------------------------------
@@ -618,6 +619,7 @@ public sealed partial class Ps2Gs : IStateful
         LoadDrawing(reader);
         LoadTransfer(reader);
         reader.EndChunk();
+        Backend?.Resync();
         _drawStateDirty = true;
     }
 }

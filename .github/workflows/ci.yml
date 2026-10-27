@@ -52,6 +52,8 @@ jobs:
       - name: Test
         # One test project at a time (-m:1): the Core tests' PS2 programs keep every core busy for minutes, which starved
         # the Platform tests that wait on the real-time frame loop (netplay, zero-config start, challenges).
+        env:
+          GAMEVAULT_REQUIRE_GPU: 1 # WARP: the GPU renderer tests must run, not return early
         run: dotnet test GameVault.sln -c Debug --no-build -m:1 --logger trx --results-directory TestResults
 
       - name: Smoke test (app launches in real mode and every screen renders under --sample-data)
@@ -119,6 +121,8 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mesa-vulkan-drivers libvulkan1
 
       - name: Build and test
+        env:
+          GAMEVAULT_REQUIRE_GPU: 1 # lavapipe: the GPU renderer tests must run, not return early
         run: dotnet test GameVault.CrossPlatform.slnf -c Debug
 
   z80-exerciser:

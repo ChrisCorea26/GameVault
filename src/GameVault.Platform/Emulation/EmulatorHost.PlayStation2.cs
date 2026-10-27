@@ -1,6 +1,7 @@
 using GameVault.Core.PlayStation2;
 using GameVault.Core.Systems;
 using GameVault.Platform.Storage;
+using GameVault.Platform.Video;
 
 namespace GameVault.Platform.Emulation;
 
@@ -11,6 +12,9 @@ namespace GameVault.Platform.Emulation;
 public sealed partial class EmulatorHost
 {
     private PlayStation2Setup? _playStation2;
+
+    /// <summary>The GPU renderer drawing the running PS2's picture at a higher resolution; null at 1×.</summary>
+    private Ps2GsGpuRenderer? _ps2Renderer;
 
     // One 8 MB card per game in slot 1, saved as a raw .ps2 image (Ps2MemoryCardStore).
     private Ps2MemoryCardStore? _ps2Cards;
@@ -178,5 +182,61 @@ public sealed partial class EmulatorHost
         {
             (ps2.Iop.Disc as IDisposable)?.Dispose();
         }
+    }
+
+    /// <summary>
+    /// Attaches the GPU renderer to a PS2 that has just started, when Settings asks for more than 1×
+    /// (docs/plans/gpu-renderers.md, milestone 3). The software GS still draws local memory. As for the N64, the
+    /// renderer is made in the background and attached when it's ready; until then, and without Direct3D 11, the
+    /// software picture shows. Emulation thread.
+    /// </summary>
+    private void AttachPs2Renderer(IEmulatedConsole console)
+    {
+        var scale = Math.Clamp(_playStation2?.InternalResolution ?? 1, 1, Ps2GsGpuRenderer.MaxScale);
+        if (console is not Ps2Console ps2 || scale <= 1 || !OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        AttachInBackground(
+            gpu => new Ps2GsGpuRenderer(gpu, ps2.Gs, scale, ownsGpu: true),
+            renderer =>
+            {
+                _ps2Renderer = renderer;
+                ps2.Gs.Backend = renderer;
+            },
+            console,
+            "Direct3D 11 isn't available, so the PlayStation 2 is drawn at its own resolution.");
+    }
+
+    /// <summary>The PS2 GPU renderer's picture of what the PCRTC showed this frame.</summary>
+    private bool TryPresentPs2Picture(IEmulatedConsole console)
+    {
+        if (_ps2Renderer is null || console is not Ps2Console)
+        {
+            return false;
+        }
+
+        var picture = _ps2Renderer.ReadDisplay(out var width, out var height);
+        if (picture.IsEmpty)
+        {
+            return false;
+        }
+
+        _video.PresentArgb(picture, width, height, console.PixelAspect);
+        return true;
+    }
+
+    /// <summary>Detaches and disposes the PS2 GPU renderer of a console that is being replaced. Emulation thread.</summary>
+    private void ReleasePs2Renderer(IEmulatedConsole? console)
+    {
+        _gpuAttach++;
+        if (console is Ps2Console ps2)
+        {
+            ps2.Gs.Backend = null;
+        }
+
+        _ps2Renderer?.Dispose();
+        _ps2Renderer = null;
     }
 }
