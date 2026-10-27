@@ -286,10 +286,10 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 |---|---|
 | SNES enhancement chips still missing: Cx4, SPC7110, ST018, S-RTC (the SA-1, S-DD1, OBC1, ST010 and ST011 are done) | `docs/plans/outstanding-work.md` §5 |
 | Genesis stereo, EEPROM saves on EA/Acclaim/Codemasters boards; the Sega CD's mode 1, CD+G and 1M cell-image view; the 32X's SH-2 caches and mid-frame picture changes | `docs/plans/phase-13.md`, `docs/plans/outstanding-work.md` §7, §17, `docs/plans/sega-cd-32x.md` |
-| PlayStation multitap, Justifier, GameShark, memory card manager, GPU renderer (the DualShock, GunCon and mouse are done) | `docs/plans/phase-15.md` |
+| PlayStation multitap, Justifier, GameShark, memory card manager (the DualShock, GunCon, mouse and GPU renderer are done) | `docs/plans/phase-15.md` |
 | N64 GPU renderer and recompiler, Transfer Pak, 64DD, GameShark (the Rumble Pak is done) | README status, `docs/plans/phase-16.md` |
 | ~~Apple II monochrome, user character ROM, mid-frame mode changes~~ Done (outstanding-work §9) | `docs/plans/phase-12.md` |
 | RetroAchievements approval for hardcore unlocks; real-game and real-cartridge checks | Owner tasks in README and phase plans |
 | PlayStation 2 GPU renderer (GS); N64 GPU renderer | `docs/plans/phase-17-performance.md`, `docs/plans/outstanding-work.md` §14 |
 | PlayStation 2 multitap and DualShock 2 vibration (slot 2, pressure and mipmapping are done) | `docs/plans/outstanding-work.md` §12 |
-| GameCube / Wii, Atari 5200; the 2600's paddles, rarer boards and PAL colours | SPEC §7.11, phases 18–19, `docs/plans/phase-19.md` |
+| GameCube / Wii; the 2600's paddles, rarer boards and PAL colours; the 5200's trak-ball, 40 KB boards and PAL machines | SPEC §7.11, phases 18–19, `docs/plans/phase-19.md` |

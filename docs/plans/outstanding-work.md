@@ -263,6 +263,8 @@ datagrams; with **Settings → Netplay → Relay server** set, hosting goes thro
   differences fixed-function blending makes.
 - Software stays the default where results must be exact (netplay, verified challenges).
 - Its own plan file first.
+- **Status:** milestone 1, the PlayStation GPU at 2× and 3×, is done (`docs/plans/gpu-renderers.md`). The N64 RDP
+  and PS2 GS milestones are future work, in that plan.
 
 ## 15. N64 recompiler
 A VR4300 block recompiler to IL like the EE's, with the interpreter as the reference and the same kind of
@@ -312,6 +314,13 @@ ball, HMOVE, collisions, VSYNC framing with the picture's top where VBLANK ends,
 and `Atari2600Cartridge` (2K/4K, F8/F6/F4 with SuperChip detection, E0, FE, 3F, FA; the profile's model can name
 one). `.a26` files, the library's system filter, No-Intro DATs, RetroAchievements console 25, the sample library.
 Tests: `Atari2600Tests`, `Atari2600CartridgeTests`, `Atari2600HostTests`. The 5200 is milestone 2.
+
+**As built (5200).** `docs/plans/phase-19.md` milestone 2: `Atari5200Console` (the 6502 halted for ANTIC's DMA and
+WSYNC), `Antic` (display lists, modes 2–F, scrolling, player/missile DMA, DLI/VBI NMIs, stolen cycles), `Gtia` (drawn
+a colour clock at a time; players, missiles, the priority equations, collisions, GTIA modes), `Pokey` (sound, timers,
+pots, keypad, RANDOM), `Atari5200Cartridge` and the keypad in `ControllerState`. The player's own BIOS in **Settings
+→ Atari 5200**, `.a52` files, `InputService.KeypadMode`, the sample library. Tests: `Atari5200Tests`,
+`Atari5200HostTests`.
 
 
 ## Not in this plan (needs the owner)

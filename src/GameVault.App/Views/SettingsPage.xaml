@@ -164,7 +164,7 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="GameVault looks in these folders for games for every system it plays (NES and Disk System, SG-1000, Master System, Apple II, Genesis, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, Sega CD and 32X), including games inside .zip files, and notices when you add or remove them."
+              Text="GameVault looks in these folders for games for every system it plays (NES and Disk System, SG-1000, Master System, Apple II, Genesis, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, Atari 2600, Atari 5200, Sega CD and 32X), including games inside .zip files, and notices when you add or remove them."
               TextWrapping="Wrap" />
           <ItemsRepeater ItemsSource="{x:Bind ViewModel.Library.Folders}">
             <ItemsRepeater.ItemTemplate>
@@ -686,6 +686,40 @@
         </StackPanel>
       </Border>
 
+      <!-- Atari 5200 (phase 19): the player's own BIOS; GameVault never ships it -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Atari 5200" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Atari 5200 games (.a52) need the 5200's BIOS (5200.rom, 2 KB) from your own console. GameVault doesn't include it. Choose the file, or paste where it is."
+              TextWrapping="Wrap" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="Atari 5200 BIOS file"
+                LostFocus="Atari5200BiosPath_LostFocus"
+                PlaceholderText="C:\Atari\5200.rom"
+                Text="{x:Bind ViewModel.Atari5200BiosPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Choose the Atari 5200 BIOS file"
+                Command="{x:Bind ViewModel.ChooseAtari5200BiosCommand}"
+                Content="Choose…" />
+          </Grid>
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="While a 5200 game runs, the number row is controller 1's keypad: 0–9, minus for *, equals for # and R for Reset. Enter is Start and Right Shift is Pause."
+              TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
       <!-- Apple II (SPEC §7.11): the player's own ROMs; GameVault never ships them -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Apple II" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
@@ -865,6 +899,26 @@
               Style="{StaticResource CaptionTextBlockStyle}"
               Text="Each game gets its own memory card in slot 1, saved with your other game saves."
               TextWrapping="Wrap" />
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Internal resolution" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Draws 3D games at two or three times the PlayStation's resolution with your graphics card, for sharper edges. Videos and the BIOS screens look as they always do. Needs Direct3D 11. Takes effect the next time a game starts."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <ComboBox
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="PlayStation internal resolution"
+                ItemsSource="{x:Bind ViewModel.PlayStationResolutionOptions}"
+                SelectedIndex="{x:Bind ViewModel.PlayStationResolutionIndex, Mode=TwoWay}" />
+          </Grid>
         </StackPanel>
       </Border>
 

@@ -330,3 +330,16 @@ Real BIOSes and discs are the owner's to try; see `docs/plans/phase-17.md`.
 
 No freely redistributable 2600 test ROM is used yet; real games are the owner's to try (`docs/plans/phase-19.md`).
 
+## Atari 5200 (Phase 19)
+
+| Part | State |
+|---|---|
+| 6502C: GameVault's NMOS 6502, halted for ANTIC's DMA and WSYNC | ✅ Unit tests (cycles a frame with and without DMA) |
+| ANTIC: display lists (blank, JMP, JVB, LMS), modes 2–F, character sets and CHACTL, narrow/normal/wide playfields, HSCROL and VSCROL, player/missile DMA, DLI and VBI NMIs, VCOUNT, WSYNC | ✅ Unit tests on hand-written programs; VSCROL by the hardware's rule but untested |
+| GTIA: players and missiles (sizes, VDELAY, fifth player), PRIOR's priority logic, collisions, hi-res colours, GTIA modes 9–11, triggers | ✅ Unit tests; mid-line colour changes land at the colour clock the CPU reaches |
+| POKEY: four channels, polys, 16-bit pairs, high-pass filters, timers and their IRQs, pots, keypad scan, RANDOM | 🟡 Timers and pure tones checked; the noise modes aren't checked against hardware recordings |
+| Keypad codes | 🟡 From published notes, not a real console |
+| 40K boards, trak-ball, PAL 5200s | Not yet |
+
+No freely redistributable 5200 test ROM is used yet; the BIOS and real games are the owner's to try
+(`docs/plans/phase-19.md`).

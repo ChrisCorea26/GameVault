@@ -74,6 +74,9 @@ public sealed partial class PsGpu : IStateful
 
     public ReadOnlySpan<ushort> Vram => _vram;
 
+    /// <summary>A renderer that draws the primitives again for the picture (gpu-renderers.md); null for none.</summary>
+    public IPsGpuBackend? Backend { get; set; }
+
     /// <summary>The VRAM pixel at (<paramref name="x"/>, <paramref name="y"/>), in BGR555 with the mask bit.</summary>
     public ushort Pixel(int x, int y) => _vram[(y & (VramHeight - 1)) * VramWidth + (x & (VramWidth - 1))];
 
@@ -362,6 +365,8 @@ public sealed partial class PsGpu : IStateful
                 _vram[row + ((x0 + x) & (VramWidth - 1))] = color;
             }
         }
+
+        Backend?.Fill(x0, y0, width, height);
     }
 
     private void CopyVramToVram()
@@ -371,6 +376,7 @@ public sealed partial class PsGpu : IStateful
         var dx = (int)(_command[2] & 0x3FF);
         var dy = (int)((_command[2] >> 16) & 0x1FF);
         var (width, height) = TransferSize(_command[3]);
+        Backend?.Copy(sx, sy, dx, dy, width, height, _setMask, _checkMask);
         for (var y = 0; y < height; y++)
         {
             for (var x = 0; x < width; x++)
@@ -411,6 +417,7 @@ public sealed partial class PsGpu : IStateful
         if (++_transferIndex >= _transferWidth * _transferHeight)
         {
             _transfer = TransferMode.None;
+            Backend?.Upload(_transferX, _transferY, _transferWidth, _transferHeight);
         }
     }
 
@@ -603,5 +610,6 @@ public sealed partial class PsGpu : IStateful
         _displayMode = reader.ReadUInt32();
         _irq = reader.ReadBool();
         reader.EndChunk();
+        Backend?.Resync();
     }
 }

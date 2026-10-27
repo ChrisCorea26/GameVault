@@ -1,5 +1,5 @@
 ---
-edition: "Edition 19 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, Atari 2600, Sega CD and 32X"
+edition: "Edition 21 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, Atari 2600, Atari 5200, Sega CD and 32X"
 ---
 
 # Introduction
@@ -30,6 +30,7 @@ four freely licensed NES homebrew games, so there is something to play the first
 | Sega CD / Mega-CD | `.cue` + `.bin`, `.chd` | **Yes**: a 128 KB Sega CD BIOS of the discs' region |
 | Sony PlayStation 2 | `.iso`, `.chd`, `.cue` + `.bin`, `.elf` | **Yes, for discs**: a 4 MB console BIOS such as SCPH-39001. Homebrew `.elf` programs run without it. |
 | Atari 2600 | `.a26` | No |
+| Atari 5200 | `.a52` | **Yes**: `5200.rom` (2 KB) |
 
 Cartridge games can also be inside a `.zip` file. Details for each system, including what isn't supported yet, are
 in [Supported systems](#supported-systems).
@@ -44,6 +45,7 @@ GameVault works out of the box, but some things only you can provide. This check
 | **Famicom Disk System BIOS** (`disksys.rom`, 8 KB) | Only for `.fds` games | Settings → Disk System | [Famicom Disk System](#famicom-disk-system) |
 | **Apple II system ROM** (12 KB for II/II+, 16 KB for IIe) and **Disk II boot ROM** (256 bytes) | Only for Apple II | Settings → Apple II | [Apple II](#apple-ii-ii-and-iie) |
 | **Super Nintendo DSP chip ROMs** (`dsp1b.rom` and the others, 8 KB each; `st010.rom` and `st011.rom`, 52 KB) | Only for games with a DSP or ST01x chip, such as *Super Mario Kart* | Settings → Super Nintendo | [Super Nintendo](#super-nintendo) |
+| **Atari 5200 BIOS** (`5200.rom`, 2 KB) | Only for Atari 5200 games | Settings → Atari 5200 | [Atari 5200](#atari-5200) |
 | **32X BIOS files** (256 bytes, 2 KB and 1 KB) | Only for 32X games | Settings → 32X | [32X](#sega-32x) |
 | **Sega CD BIOS** (128 KB, of your discs' region) | Only for Sega CD discs | Settings → Sega CD | [Sega CD](#sega-cd-mega-cd) |
 | **PlayStation BIOS** (512 KB, e.g. SCPH-1001) | Only for PlayStation discs | Settings → PlayStation | [PlayStation](#sony-playstation) |

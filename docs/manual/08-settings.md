@@ -90,6 +90,10 @@ file. See [Code collections](#code-collections).
 
 The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`, or **Choose…** to pick it.
 
+## Atari 5200
+
+The path to your Atari 5200 BIOS, for example `C:\Atari\5200.rom`, or **Choose…** to pick it. A chosen file is
+checked (it must be 2 KB) and copied into GameVault's own folder.
 ## Sega CD
 
 The path to your Sega CD BIOS (128 KB), for example `C:\Sega\bios_CD_U.bin`, or **Choose…** to pick it. A chosen
@@ -127,6 +131,7 @@ game started.
 | **BIOS** | Path, for example `C:\PlayStation\scph1001.bin`, or **Choose…** | Empty |
 | **Skip the startup screens** | On / Off | Off |
 | **Analog mode** | On starts the controllers in analog mode, as if you'd pressed the DualShock's Analog button. Takes effect the next time a game starts. | Off |
+| **Internal resolution** | **1× (original)**, **2×** or **3×**. Above 1×, your graphics card draws 3D games at two or three times the PlayStation's resolution, for sharper edges; videos and the BIOS screens look as they always do. Needs Direct3D 11 (without it the picture stays at 1×). Takes effect the next time a game starts. | 1× (original) |
 
 ## PlayStation 2
 

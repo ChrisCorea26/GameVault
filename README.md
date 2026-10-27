@@ -39,7 +39,7 @@ system, the BIOS and ROM files you must supply, controls, settings and troublesh
 | — | Sega CD / Mega-CD | 🟡 Sub CPU, gate array, Word RAM, CDD, CDC, PCM and the graphics ASIC under hand-written test programs; .cue/.bin and .chd. Needs your own BIOS; booting real discs is the owner's to check ([plan](docs/plans/sega-cd-32x.md)) |
 | — | 32X | 🟡 Both SH-2s (the SH7604 with its DMA, division unit and timers), the 32X VDP laid over the Genesis picture, PWM sound and the FIFO, under hand-written test programs; .32x files. Needs your own BIOS files; booting real games is the owner's to check ([plan](docs/plans/sega-cd-32x.md)) |
 | 18 | GameCube / Wii | Planned (SPEC §7.11) |
-| 19 | Atari 2600 (then 5200) | 🟡 2600: TIA drawn colour clock by colour clock, RIOT, sound, and the common bank-switching boards, all under hand-written test programs; real-game checks are the owner's; the 5200 is next ([plan](docs/plans/phase-19.md)) |
+| 19 | Atari 2600 and 5200 | 🟡 2600: TIA drawn colour clock by colour clock, RIOT, sound, and the common bank-switching boards. 5200: ANTIC's display lists and DMA, GTIA's players and priorities, POKEY's sound, pots and keypad, with the player's own BIOS. Both under hand-written test programs; real-game checks are the owner's ([plan](docs/plans/phase-19.md)) |
 
 Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md). Known bugs and missing features are
 tracked in [`docs/bugs.md`](docs/bugs.md).

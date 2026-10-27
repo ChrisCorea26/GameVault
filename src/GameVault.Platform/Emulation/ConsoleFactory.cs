@@ -29,6 +29,7 @@ internal static class ConsoleFactory
         N64Setup? n64 = null,
         PlayStation2Setup? playStation2 = null,
         SnesSetup? snes = null,
+        byte[]? atari5200Bios = null,
         byte[]? segaCdBios = null,
         GameVault.Core.Sega32X.Sega32XBios? sega32XBios = null)
     {
@@ -63,6 +64,25 @@ internal static class ConsoleFactory
             {
                 // The profile's model can name the bank-switching scheme ("F8SC", "E0", …) when detection guesses wrong.
                 return new GameVault.Core.Atari.Atari2600Console(new GameVault.Core.Atari.Atari2600Cartridge(data, profile.Model));
+            }
+            catch (RomFormatException ex)
+            {
+                throw new GameLoadException(ex.Message, ex);
+            }
+        }
+
+        if (system == GameSystem.Atari5200)
+        {
+            if (atari5200Bios is null)
+            {
+                throw new GameLoadException(
+                    "This is an Atari 5200 game. To play it, choose your own Atari 5200 BIOS (5200.rom, 2 KB) in Settings → Atari 5200. GameVault doesn't include it.");
+            }
+
+            try
+            {
+                // The profile's model can say a 16 KB game is built from two 8 KB chips ("two-chip").
+                return new GameVault.Core.Atari.Atari5200Console(new GameVault.Core.Atari.Atari5200Cartridge(data, profile.Model), atari5200Bios);
             }
             catch (RomFormatException ex)
             {

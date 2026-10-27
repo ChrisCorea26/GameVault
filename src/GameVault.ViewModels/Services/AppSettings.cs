@@ -74,6 +74,12 @@ public sealed record AppSettings
     public string FdsBiosPath { get; init; } = string.Empty;
 
     /// <summary>
+    /// Full path of the player's own Atari 5200 BIOS (5200.rom, 2 KB), or empty. GameVault never ships, downloads or
+    /// links to it (SPEC §4.5).
+    /// </summary>
+    public string Atari5200BiosPath { get; init; } = string.Empty;
+
+    /// <summary>
     /// Full path of the player's own Sega CD BIOS (128 KB), or empty. GameVault never ships, downloads or links to it
     /// (SPEC §4.5).
     /// </summary>
@@ -115,6 +121,12 @@ public sealed record AppSettings
     /// use the sticks but don't switch the mode themselves. Off by default, since digital-only games want digital pads.
     /// </summary>
     public bool PlayStationAnalog { get; init; }
+
+    /// <summary>
+    /// The PlayStation GPU renderer's internal resolution: 1 (the software picture, the default), 2 or 3 times the
+    /// console's own, drawn with Direct3D 11 (docs/plans/gpu-renderers.md).
+    /// </summary>
+    public int PlayStationInternalResolution { get; init; } = 1;
 
     /// <summary>
     /// Give N64 games the Expansion Pak's extra 4 MB (8 MB in all). On by default, as most homebrew and many games
