@@ -11,7 +11,8 @@ namespace GameVault.Core.Input;
 /// triggers, for the DualShock 2's pressure-sensitive buttons; 0 with the button held means all the way (a key).
 /// On the NES the same bits 50–55 carry a Disk System command for netplay instead: 1 + a side to insert it, 63 to
 /// eject the disk, for one frame (outstanding-work plan §13). Only the PlayStation 2 layout fills in pressure and only
-/// the NES reads a disk command, so the two never meet.
+/// the NES reads a disk command, so the two never meet. The Atari 5200's keypad key uses bits 50–53 the same way
+/// (<c>Atari5200Keypad</c>), filled in only in the 5200's keypad mode.
 /// </summary>
 /// <remarks>
 /// Each console maps these to its own pad and reads only its bits. On the Genesis, B is the pad's A button, A is its B

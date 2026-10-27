@@ -12,12 +12,16 @@ public static class VirtualKeys
     public const int Up = 0x26;
     public const int Right = 0x27;
     public const int Down = 0x28;
+    public const int Digit0 = 0x30;
     public const int Digit1 = 0x31;
     public const int Digit2 = 0x32;
     public const int Digit3 = 0x33;
     public const int Digit4 = 0x34;
     public const int Digit5 = 0x35;
     public const int Digit6 = 0x36;
+    public const int Digit7 = 0x37;
+    public const int Digit8 = 0x38;
+    public const int Digit9 = 0x39;
     public const int A = 0x41;
     public const int C = 0x43;
     public const int D = 0x44;
@@ -30,6 +34,7 @@ public static class VirtualKeys
     public const int K = 0x4B;
     public const int L = 0x4C;
     public const int Q = 0x51;
+    public const int R = 0x52;
     public const int S = 0x53;
     public const int T = 0x54;
     public const int W = 0x57;
@@ -41,6 +46,8 @@ public static class VirtualKeys
     public const int U = 0x55;
     public const int Semicolon = 0xBA;
     public const int Slash = 0xBF;
+    public const int Minus = 0xBD;
+    public const int EqualsKey = 0xBB;
     public const int Comma = 0xBC;
     public const int Period = 0xBE;
     public const int F2 = 0x71;

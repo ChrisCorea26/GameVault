@@ -90,6 +90,11 @@ file. See [Code collections](#code-collections).
 
 The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`, or **Choose…** to pick it.
 
+## Atari 5200
+
+The path to your Atari 5200 BIOS, for example `C:\Atari\5200.rom`, or **Choose…** to pick it. A chosen file is
+checked (it must be 2 KB) and copied into GameVault's own folder.
+
 ## Apple II
 
 | Setting | Example |
