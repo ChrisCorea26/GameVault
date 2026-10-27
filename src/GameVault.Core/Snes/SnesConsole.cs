@@ -41,6 +41,7 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
     private readonly ControllerState[] _pads = new ControllerState[2];
     private readonly ushort[] _joypads = new ushort[4];
     private readonly int[] _serial = new int[2];
+    private readonly ISnesCoprocessor? _coprocessor;
 
     private long _clock;        // master clocks since the frame started
     private long _apuClock;     // master clocks the sound module has caught up to
@@ -64,7 +65,8 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
     private bool _joypadLatch;
     private int _wramAddress;
     private int _samples;
-    private float _lastSample;
+    private float _lastLeft;
+    private float _lastRight;
 
     public SnesConsole(SnesCartridge cartridge, bool? pal = null)
     {
@@ -75,6 +77,7 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
         Apu = new SnesApu();
         Apu.Dsp.SampleReady = OnSample;
         RomHash = HashRom(cartridge.Rom);
+        _coprocessor = cartridge.Coprocessor;
     }
 
     public GameSystem System => GameSystem.Snes;
@@ -133,6 +136,7 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
         Array.Clear(_dma);
         Ppu.Power();
         Apu.Power();
+        _coprocessor?.Power();
         ResetState();
         FrameCount = 0;
     }
@@ -140,6 +144,7 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
     public void Reset()
     {
         Apu.Reset();
+        _coprocessor?.Reset();
         ResetState();
     }
 
@@ -188,6 +193,12 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
         }
 
         CatchUpApu();
+        if (_coprocessor is { } chip)
+        {
+            chip.CatchUp(_clock);
+            chip.EndFrame((long)lines * ClocksPerLine);
+        }
+
         _clock -= (long)lines * ClocksPerLine;
         _apuClock -= (long)lines * ClocksPerLine;
         Audio?.EndFrame(_samples);
@@ -252,7 +263,17 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
         while (_clock < end)
         {
             CheckIrq(start);
-            Cpu.Irq = _irqFlag;
+            if (_coprocessor is { } chip)
+            {
+                // The chip runs alongside the CPU; its interrupt (the Super FX's STOP) joins the timer's.
+                chip.CatchUp(_clock);
+                Cpu.Irq = _irqFlag || chip.Irq;
+            }
+            else
+            {
+                Cpu.Irq = _irqFlag;
+            }
+
             Cpu.Step();
             if (!_hdmaDone && _clock - start >= HdmaClock)
             {
@@ -293,18 +314,20 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
         }
     }
 
-    private void OnSample(short left, short right)
+    internal void OnSample(short left, short right)
     {
         if (Audio is not { } audio)
         {
             return;
         }
 
-        var level = (left + right) * (0.9f / 65536);
-        if (level != _lastSample)
+        var l = left * (0.9f / 32768);
+        var r = right * (0.9f / 32768);
+        if (l != _lastLeft || r != _lastRight)
         {
-            audio.AddDelta(_samples, level - _lastSample);
-            _lastSample = level;
+            audio.AddDelta(_samples, l - _lastLeft, r - _lastRight);
+            _lastLeft = l;
+            _lastRight = r;
         }
 
         _samples++;
@@ -385,6 +408,12 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
             return _wram[(int)(bank & 1) << 16 | offset];
         }
 
+        if (_coprocessor is { } chip && chip.Claims(address))
+        {
+            chip.CatchUp(_clock);
+            return chip.Read(address, _openBus);
+        }
+
         if ((bank & 0x40) == 0)
         {
             switch (offset)
@@ -425,6 +454,13 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
         if (bank is 0x7E or 0x7F)
         {
             _wram[(int)(bank & 1) << 16 | offset] = value;
+            return;
+        }
+
+        if (_coprocessor is { } chip && chip.Claims(address))
+        {
+            chip.CatchUp(_clock);
+            chip.Write(address, value);
             return;
         }
 

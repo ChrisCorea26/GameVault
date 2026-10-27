@@ -41,8 +41,8 @@ public class AudioSoakTests
         var resampler = new BandLimitedResampler(CpuClock, SampleRate);
         var pacing = new AudioPacing(SampleRate);
         var ring = new AudioRingBuffer(SampleRate / 4);
-        var scratch = new float[8192];
-        var period = new float[2048];
+        var scratch = new float[8192 * 2];
+        var period = new float[2048 * 2];
 
         long underruns = 0, frames = 0, bufferedSum = 0, bufferedSamples = 0, consumed = 0;
         var deviceStartMs = 0;
@@ -76,8 +76,8 @@ public class AudioSoakTests
                     }
 
                     resampler.EndFrame(clocks);
-                    var n = resampler.Read(scratch);
-                    ring.Write(scratch.AsSpan(0, n));
+                    var n = resampler.ReadStereo(scratch);
+                    ring.Write(scratch.AsSpan(0, n * 2));
                     frames++;
                 }
 
@@ -98,7 +98,7 @@ public class AudioSoakTests
                     deviceDebt += SampleRate * DevicePeriodMs / 1000.0 * (1 + deviceDrift);
                     var want = (int)deviceDebt;
                     deviceDebt -= want;
-                    var got = ring.Read(period.AsSpan(0, want));
+                    var got = ring.Read(period.AsSpan(0, want * 2));
                     consumed += want;
                     if (got < want)
                     {

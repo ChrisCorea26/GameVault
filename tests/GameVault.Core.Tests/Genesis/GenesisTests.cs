@@ -481,6 +481,24 @@ public sealed class GenesisTests
     }
 
     [Fact]
+    public void Fm_panning_reaches_the_left_and_right_channels()
+    {
+        var console = Console(Rom([0x60FE]));
+        var audio = console.EnableAudio();
+        Ym(console.Fm, 0, 0x2B, 0x80); // the DAC replaces channel 6
+        Ym(console.Fm, 0, 0x2A, 0xFF); // at full scale
+        Ym(console.Fm, 1, 0xB6, 0x80); // channel 6 on the left speaker only
+        console.RunFrame();
+        console.RunFrame();
+
+        var frames = new float[16384];
+        var count = audio.ReadStereo(frames);
+        count.Should().BeGreaterThan(1000);
+        frames[2 * (count - 1)].Should().BeGreaterThan(0.1f, "the DAC plays on the left");
+        frames[2 * (count - 1) + 1].Should().BeApproximately(0, 1e-3f, "and not on the right");
+    }
+
+    [Fact]
     public void A_68000_program_sets_up_the_vdp_and_the_frame_shows_its_colour()
     {
         var rom = Rom(Program(

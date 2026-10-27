@@ -40,6 +40,11 @@ aren't deleted, and adding the folder again brings them back with their saves an
 | Setting | Values | Default |
 |---|---|---|
 | **Game volume** | 0 to 100 | 80 |
+| **Mono** | On / Off. Plays both stereo channels on both speakers, for one speaker or one ear. | Off |
+
+Sound is in stereo where the console had it: the Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64
+and PlayStation 2. The NES, SG-1000, Master System and Apple II were mono, so their sound is the same on both
+speakers.
 
 ## Gameplay
 
@@ -87,6 +92,12 @@ The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`, or 
 | **Disk II boot ROM** | `C:\Apple\disk2.rom` |
 
 Each box has **Choose…** to pick the file.
+
+## Super Nintendo
+
+| Setting | Values | Default |
+|---|---|---|
+| **Enhancement chip ROMs** | A folder holding your own `dsp1b.rom` (or `dsp1.rom`), `dsp2.rom`, `dsp3.rom` or `dsp4.rom`, or **Choose…** | Empty |
 
 ## PlayStation
 

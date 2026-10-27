@@ -288,28 +288,51 @@
       <!-- Audio -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Audio" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
-        <Grid ColumnSpacing="16">
-          <Grid.ColumnDefinitions>
-            <ColumnDefinition Width="*" />
-            <ColumnDefinition Width="240" />
-          </Grid.ColumnDefinitions>
-          <StackPanel>
-            <TextBlock Text="Game volume" />
-            <TextBlock
-                Foreground="{ThemeResource TextFillColorSecondaryBrush}"
-                Style="{StaticResource CaptionTextBlockStyle}"
-                Text="Takes effect the next time you start a game."
-                TextWrapping="Wrap" />
-          </StackPanel>
-          <Slider
-              Grid.Column="1"
-              VerticalAlignment="Center"
-              AutomationProperties.Name="Game volume"
-              Maximum="100"
-              Minimum="0"
-              StepFrequency="5"
-              Value="{x:Bind ViewModel.Volume, Mode=TwoWay}" />
-        </Grid>
+        <StackPanel Spacing="12">
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="240" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Game volume" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Takes effect the next time you start a game."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <Slider
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Game volume"
+                Maximum="100"
+                Minimum="0"
+                StepFrequency="5"
+                Value="{x:Bind ViewModel.Volume, Mode=TwoWay}" />
+          </Grid>
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Mono" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Plays both stereo channels on both speakers, for one speaker or one ear. Takes effect the next time you start a game."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch
+                Grid.Column="1"
+                MinWidth="0"
+                AutomationProperties.Name="Mono"
+                IsOn="{x:Bind ViewModel.MonoAudio, Mode=TwoWay}"
+                OffContent=""
+                OnContent="" />
+          </Grid>
+        </StackPanel>
       </Border>
 
       <!-- Gameplay -->
@@ -600,6 +623,36 @@
               Style="{StaticResource CaptionTextBlockStyle}"
               Text="While an Apple II game runs, the keyboard types into it. F1 is the Apple's Esc key, Backspace is its left arrow, Shift+Backspace rewinds, and Ctrl+F12 is Reset."
               TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
+      <!-- Super Nintendo (outstanding-work plan §4): the player's own enhancement chip ROMs; GameVault never ships them -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Super Nintendo" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Enhancement chip ROMs" />
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Games with a DSP chip (such as Pilotwings and Super Mario Kart) need that chip's program, dumped from your own cartridge: dsp1b.rom (or dsp1.rom), dsp2.rom, dsp3.rom or dsp4.rom. Put the files in a folder and choose it here. GameVault doesn't include them. Super FX games, such as Star Fox, need nothing extra."
+              TextWrapping="Wrap" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="Enhancement chip ROM folder"
+                LostFocus="SnesChipRomFolder_LostFocus"
+                PlaceholderText="C:\Super Nintendo\Chips"
+                Text="{x:Bind ViewModel.SnesChipRomFolder, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Choose the enhancement chip ROM folder"
+                Command="{x:Bind ViewModel.ChooseSnesChipRomFolderCommand}"
+                Content="Choose…" />
+          </Grid>
         </StackPanel>
       </Border>
 

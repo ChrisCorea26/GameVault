@@ -110,7 +110,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     private bool _profileRemovesSpriteLimit;
     private AssistOptions _assist = AssistOptions.Off;
     private readonly Action<IEmulatedConsole> _present;
-    private readonly float[] _samples = new float[8192];
+    private readonly float[] _samples = new float[8192 * 2]; // interleaved left and right
     private AudioPacing? _pacing;
     private bool _audioActive;
 
@@ -171,6 +171,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     private GameSystem _romSystem;
     private string _romExtension = "";
     private AppleRoms? _appleRoms;
+    private SnesSetup? _snes;
 
     /// <summary>The system of the running game; null when idle.</summary>
     public GameSystem? System { get; private set; }
@@ -402,7 +403,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     {
         var data = _romData!;
         var profile = Profile ?? new GameProfile { Sha1 = string.Empty };
-        var console = ConsoleFactory.Create(data, _romSystem, profile, fdsBios: null, _romExtension, _appleRoms, _playStation, _n64, _playStation2);
+        var console = ConsoleFactory.Create(data, _romSystem, profile, fdsBios: null, _romExtension, _appleRoms, _playStation, _n64, _playStation2, _snes);
         if (_audioActive && _audio is not null)
         {
             console.EnableAudio(_audio.SampleRate);
@@ -485,11 +486,11 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         if (console.Audio is { } resampler)
         {
             int count;
-            while ((count = resampler.Read(_samples)) > 0)
+            while ((count = resampler.ReadStereo(_samples)) > 0)
             {
                 if (_audioActive)
                 {
-                    _audio!.Write(_samples.AsSpan(0, count));
+                    _audio!.Write(_samples.AsSpan(0, count * 2));
                 }
             }
         }
@@ -654,7 +655,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         var system = _romSystem;
         return rom is null
             ? Task.FromResult(new ChallengeCheck(false, "Open the challenge's game first, to check results against it."))
-            : Task.Run(() => ChallengeVerifier.Verify(rom, challenge, result, system, _playStation, _n64, _playStation2));
+            : Task.Run(() => ChallengeVerifier.Verify(rom, challenge, result, system, _playStation, _n64, _playStation2, _snes));
     }
 
     /// <summary>Emulation thread: records this frame's buttons and checks the goal and the time limit.</summary>
@@ -931,6 +932,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             if (_audio is not null)
             {
                 _audio.Volume = Math.Clamp(settings.Volume, 0, 100) / 100f;
+                _audio.Mono = settings.MonoAudio;
             }
         }
 
@@ -966,7 +968,10 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         var playStation2 = rom.System == GameSystem.PlayStation2
             ? await LoadPlayStation2SetupAsync(cancellationToken).ConfigureAwait(false)
             : null;
-        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation, n64, playStation2);
+        var snes = rom.System == GameSystem.Snes && _settings is not null
+            ? await SnesSetup.LoadAsync(await _settings.LoadAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false)
+            : null;
+        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation, n64, playStation2, snes);
     }
 
     /// <summary>Shown when an Apple II disk starts without the Disk II boot ROM chosen in Settings.</summary>
@@ -1009,7 +1014,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         AppleRoms? appleRoms = null,
         PlayStationSetup? playStation = null,
         N64Setup? n64 = null,
-        PlayStation2Setup? playStation2 = null)
+        PlayStation2Setup? playStation2 = null,
+        SnesSetup? snes = null)
     {
         RomHashes hashes;
         try
@@ -1023,7 +1029,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
         var profile = ProfileResolver?.Invoke(hashes.Sha1) ?? new GameProfile { Sha1 = hashes.Sha1 };
         n64 ??= IsNintendo64(system) ? new N64Setup(SaveTypes: N64SaveTypes) : null;
-        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation, n64, playStation2);
+        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation, n64, playStation2, snes);
         var nes = console as NesConsole;
 
         if (_audio is not null)
@@ -1066,6 +1072,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _playStation = playStation;
         _n64 = n64;
         _playStation2 = playStation2;
+        _snes = snes;
         LoadControllerPak(console);
         LoadPs2MemoryCard(console);
         SetUpDiscs(data, system);
@@ -1456,7 +1463,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             wasFastForward = fastForward;
             var audioClocked = _audioActive && !fastForward && !rewinding && console.Audio is not null;
 
-            if (audioClocked && !_pacing!.ShouldRunFrame(_audio!.BufferedSamples))
+            if (audioClocked && !_pacing!.ShouldRunFrame(_audio!.BufferedFrames))
             {
                 _wake.WaitOne(1);
                 nextFrame = clock.ElapsedTicks;
@@ -1466,7 +1473,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             if (audioClocked)
             {
                 _rateClock ??= Stopwatch.StartNew();
-                var consumed = _samplesWritten - _audio!.BufferedSamples;
+                var consumed = _samplesWritten - _audio!.BufferedFrames;
                 // Slow motion: telling the resampler the CPU runs slower stretches each frame's sound, so the
                 // audio clock paces fewer frames per second and the pitch drops with the speed.
                 console.Audio!.ClockRate = console.CpuClockRate * Speed * _pacing!.ClockRateFactor(consumed, _rateClock.Elapsed.TotalSeconds);
@@ -1486,11 +1493,11 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             if (console.Audio is { } resampler)
             {
                 int count;
-                while ((count = resampler.Read(_samples)) > 0)
+                while ((count = resampler.ReadStereo(_samples)) > 0)
                 {
                     if (audioClocked)
                     {
-                        _samplesWritten += _audio!.Write(_samples.AsSpan(0, count));
+                        _samplesWritten += _audio!.Write(_samples.AsSpan(0, count * 2));
                     }
                 }
             }

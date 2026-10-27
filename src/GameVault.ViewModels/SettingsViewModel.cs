@@ -60,6 +60,16 @@ public sealed partial class SettingsViewModel(
     }
 
     [RelayCommand]
+    private async Task ChooseSnesChipRomFolderAsync()
+    {
+        if (picker is not null && await picker.PickFolderAsync() is { } folder)
+        {
+            SnesChipRomFolder = folder;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
     private async Task ChoosePlayStationBiosAsync()
     {
         if (await PickAsync(".bin", ".rom") is { } path)
@@ -129,6 +139,10 @@ public sealed partial class SettingsViewModel(
     /// <summary>The player's own Disk II boot ROM. Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string AppleIIDiskRomPath { get; set; } = string.Empty;
+
+    /// <summary>The folder of the player's own Super Nintendo enhancement chip ROMs. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string SnesChipRomFolder { get; set; } = string.Empty;
 
     /// <summary>The player's own PlayStation BIOS (SPEC §7.11). Saved when the text box loses focus.</summary>
     [ObservableProperty]
@@ -235,6 +249,12 @@ public sealed partial class SettingsViewModel(
 
     partial void OnSavesNextToRomChanged(bool value) => SaveIfLoaded();
 
+    /// <summary>Both stereo channels on both speakers.</summary>
+    [ObservableProperty]
+    public partial bool MonoAudio { get; set; }
+
+    partial void OnMonoAudioChanged(bool value) => SaveIfLoaded();
+
     /// <summary>0–100. Bound to a Slider (double), so it is a double here.</summary>
     [ObservableProperty]
     public partial double Volume { get; set; } = 80;
@@ -254,12 +274,14 @@ public sealed partial class SettingsViewModel(
         AllowOppositeDirections = settings.AllowOppositeDirections;
         SavesNextToRom = settings.SavesNextToRom;
         Volume = Math.Clamp(settings.Volume, 0, 100);
+        MonoAudio = settings.MonoAudio;
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
         DumperPath = settings.DumperPath;
         FdsBiosPath = settings.FdsBiosPath;
         AppleIIRomPath = settings.AppleIIRomPath;
         AppleIIDiskRomPath = settings.AppleIIDiskRomPath;
         PlayStationBiosPath = settings.PlayStationBiosPath;
+        SnesChipRomFolder = settings.SnesChipRomFolder;
         PlayStationFastBoot = settings.PlayStationFastBoot;
         N64ExpansionPak = settings.N64ExpansionPak;
         PlayStation2BiosPath = settings.PlayStation2BiosPath;
@@ -283,6 +305,7 @@ public sealed partial class SettingsViewModel(
         PlayFullScreen = defaults.PlayFullScreen;
         AllowOppositeDirections = defaults.AllowOppositeDirections;
         Volume = defaults.Volume;
+        MonoAudio = defaults.MonoAudio;
         RewindMemoryIndex = Array.IndexOf(RewindMemoryValues, defaults.RewindMemoryMb);
         _isLoaded = true;
         return SaveAsync();
@@ -331,6 +354,9 @@ public sealed partial class SettingsViewModel(
 
     [RelayCommand]
     private void SavePlayStationBiosPath() => SaveIfLoaded();
+
+    [RelayCommand]
+    private void SaveSnesChipRomFolder() => SaveIfLoaded();
 
     partial void OnPlayStationFastBootChanged(bool value) => SaveIfLoaded();
 
@@ -388,11 +414,13 @@ public sealed partial class SettingsViewModel(
             AllowOppositeDirections = AllowOppositeDirections,
             SavesNextToRom = SavesNextToRom,
             Volume = (int)Math.Round(Math.Clamp(Volume, 0, 100)),
+            MonoAudio = MonoAudio,
             DumperPath = DumperPath.Trim().Trim('"'),
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),
             AppleIIRomPath = AppleIIRomPath.Trim().Trim('"'),
             AppleIIDiskRomPath = AppleIIDiskRomPath.Trim().Trim('"'),
             PlayStationBiosPath = PlayStationBiosPath.Trim().Trim('"'),
+            SnesChipRomFolder = SnesChipRomFolder.Trim().Trim('"'),
             PlayStationFastBoot = PlayStationFastBoot,
             N64ExpansionPak = N64ExpansionPak,
             PlayStation2BiosPath = PlayStation2BiosPath.Trim().Trim('"'),

@@ -36,6 +36,21 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task The_snes_chip_rom_folder_is_saved_from_the_box_or_the_folder_picker()
+    {
+        var store = new InMemorySettingsStore();
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()), picker: new SampleGameFilePicker());
+        await vm.LoadCommand.ExecuteAsync(null);
+
+        vm.SnesChipRomFolder = "\"D:\\Chips\" ";
+        vm.SaveSnesChipRomFolderCommand.Execute(null);
+        store.Current.SnesChipRomFolder.Should().Be(@"D:\Chips");
+
+        await vm.ChooseSnesChipRomFolderCommand.ExecuteAsync(null);
+        store.Current.SnesChipRomFolder.Should().Be(await new SampleGameFilePicker().PickFolderAsync());
+    }
+
+    [Fact]
     public async Task The_playstation_bios_path_and_fast_boot_are_saved()
     {
         var store = new InMemorySettingsStore();

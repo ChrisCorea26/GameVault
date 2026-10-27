@@ -45,4 +45,6 @@ public sealed partial class SettingsPage : Page
     private void PlayStationBiosPath_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SavePlayStationBiosPathCommand.Execute(null);
 
     private void PlayStation2BiosPath_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SavePlayStation2BiosPathCommand.Execute(null);
+
+    private void SnesChipRomFolder_LostFocus(object sender, RoutedEventArgs e) => ViewModel.SaveSnesChipRomFolderCommand.Execute(null);
 }

@@ -59,7 +59,9 @@ public sealed partial class N64Console
     private long _aiNextSampleCycle;
     private double _aiSampleFraction;
     private long _aiBufferEndCycle;
-    private float _aiLastLevel;
+    // The last sample played on each side: the resampler is given the changes.
+    private short _aiLastLeft;
+    private short _aiLastRight;
 
     // FlashRAM (n64brew: "FlashRAM").
     private FlashMode _flashMode;
@@ -100,7 +102,7 @@ public sealed partial class N64Console
         _aiCount = 0;
         _aiDramAddress = _aiControl = _aiDacRate = _aiBitRate = 0;
         _aiSampleFraction = 0;
-        _aiLastLevel = 0;
+        _aiLastLeft = _aiLastRight = 0;
         _flashMode = FlashMode.Read;
         _flashStatus = 0;
         _flashOffset = 0;
@@ -553,12 +555,12 @@ public sealed partial class N64Console
                     var at = (int)(_aiAddress[0] & (uint)(_rdram.Length - 1));
                     var left = (short)((_rdram[at] << 8) | _rdram[at + 1]);
                     var right = (short)((_rdram[at + 2] << 8) | _rdram[at + 3]);
-                    var level = (left + right) / 65536f;
-                    if (level != _aiLastLevel)
+                    if (left != _aiLastLeft || right != _aiLastRight)
                     {
                         var clock = (int)((_aiNextSampleCycle - _frameStartCycle) / AudioClockDivider);
-                        audio.AddDelta(Math.Max(clock, 0), level - _aiLastLevel);
-                        _aiLastLevel = level;
+                        audio.AddDelta(Math.Max(clock, 0), (left - _aiLastLeft) / 32768f, (right - _aiLastRight) / 32768f);
+                        _aiLastLeft = left;
+                        _aiLastRight = right;
                     }
                 }
 
@@ -1045,7 +1047,7 @@ public sealed partial class N64Console
         writer.WriteInt64(_aiNextSampleCycle);
         writer.WriteInt64(BitConverter.DoubleToInt64Bits(_aiSampleFraction));
         writer.WriteInt64(_aiBufferEndCycle);
-        writer.WriteInt32(BitConverter.SingleToInt32Bits(_aiLastLevel));
+        writer.WriteInt32((_aiLastLeft << 16) | (ushort)_aiLastRight);
         writer.WriteByte((byte)_flashMode);
         writer.WriteUInt32(_flashStatus);
         writer.WriteUInt32(_flashOffset);
@@ -1101,7 +1103,9 @@ public sealed partial class N64Console
         _aiNextSampleCycle = reader.ReadInt64();
         _aiSampleFraction = BitConverter.Int64BitsToDouble(reader.ReadInt64());
         _aiBufferEndCycle = reader.ReadInt64();
-        _aiLastLevel = BitConverter.Int32BitsToSingle(reader.ReadInt32());
+        var lastSamples = reader.ReadInt32();
+        _aiLastLeft = (short)(lastSamples >> 16);
+        _aiLastRight = (short)lastSamples;
         _flashMode = (FlashMode)reader.ReadByte();
         _flashStatus = reader.ReadUInt32();
         _flashOffset = reader.ReadUInt32();

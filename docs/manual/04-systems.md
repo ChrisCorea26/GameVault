@@ -176,15 +176,15 @@ Acclaim, Codemasters) wire the chip differently and don't save yet. The double-r
 Hedgehog 2*'s two-player game) shows all 448 lines. Master System games play on the Master System core instead (open
 the `.sms` file).
 
-**Not supported yet:** stereo sound (audio is mono), Sega CD and 32X.
+**Not supported yet:** Sega CD and 32X.
 
 ## Super Nintendo
 
 | | |
 |---|---|
 | **Files** | `.sfc`, `.smc` (a 512-byte copier header is skipped) |
-| **You supply** | Nothing but your games. GameVault uses its own boot program, so no Nintendo ROM is needed. |
-| **Saves** | Battery saves as `.sav` |
+| **You supply** | Your games. Games with a **DSP chip** also need that chip's program ROM, dumped from your own cartridge (see below). GameVault uses its own boot program, so no other Nintendo ROM is needed. |
+| **Saves** | Battery saves as `.sav` (Super FX games' saves too) |
 
 **Controls:**
 
@@ -197,10 +197,23 @@ the `.sms` file).
 
 There's no turbo on the SNES. Use <kbd>Backspace</kbd> and <kbd>Tab</kbd> to rewind and fast-forward.
 
-**Not supported yet:** games with **enhancement chips**. These show *This game needs the … chip, which GameVault
-doesn't support yet*: DSP (for example *Super Mario Kart*, *Pilotwings*), Super FX (*Star Fox*, *Yoshi's Island*),
-SA-1, S-DD1, S-RTC, OBC1, Cx4, SPC7110, ST01x, Super Game Boy and Satellaview. Also not supported: interlaced modes and
-effects that change the picture partway along a line.
+**Enhancement chips.** Some cartridges carry an extra chip:
+
+- **Super FX** (*Star Fox*, *Yoshi's Island*, *Stunt Race FX*, …): works with nothing extra. The game's own code runs
+  on it.
+- **DSP-1** (*Super Mario Kart*, *Pilotwings*, …), DSP-2, DSP-3 and DSP-4: the chip runs a program built into it, which
+  GameVault doesn't include. Dump it from your own cartridge and name the file `dsp1b.rom` (or `dsp1.rom`),
+  `dsp2.rom`, `dsp3.rom` or `dsp4.rom`. Put it in a folder, then choose that folder in **Settings → Super
+  Nintendo → Enhancement chip ROMs**. Either byte order works. DSP-2, DSP-3 and DSP-4 haven't been tried with real
+  games yet.
+
+| Message | What to do |
+|---|---|
+| *This game needs the DSP-1 chip's program ROM. Put your own dump (dsp1b.rom or dsp1.rom) in the folder chosen in Settings → Super Nintendo → Enhancement chip ROMs. GameVault doesn't include it.* | Add the file and choose its folder, then open the game again. |
+| *This game needs the … chip, which GameVault doesn't support yet.* | The chip isn't emulated yet. |
+
+**Not supported yet:** the SA-1, S-DD1, S-RTC, OBC1, Cx4, SPC7110 and ST01x chips, the Super Game Boy and the
+Satellaview; interlaced modes; effects that change the picture partway along a line.
 
 ## Sony PlayStation
 
