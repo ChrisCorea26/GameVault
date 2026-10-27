@@ -276,6 +276,47 @@ public sealed class SegaCdTests
         unit.WordRam[3].Should().Be(0x70);
     }
 
+    [Theory]
+    [InlineData(0x00000, 32)] // the first 64 KB: columns 32 cells tall
+    [InlineData(0x10000, 16)]
+    [InlineData(0x18000, 8)]
+    [InlineData(0x1C000, 4)]
+    [InlineData(0x1E000, 4)]
+    public void In_1m_mode_the_cell_image_reads_the_main_cpus_bank_cell_by_cell(int areaStart, int cellsTall)
+    {
+        var unit = Console(Loop).SegaCd!;
+        unit.WriteByte(0xFF8003, 0x04); // 1M mode
+
+        // The bank as a bitmap 512 dots (256 bytes) wide: give each byte its line and its column of cells.
+        var lineBase = areaStart / 256;
+        for (var line = 0; line < cellsTall * 8; line++)
+        {
+            for (var column = 0; column < 64; column++)
+            {
+                for (var b = 0; b < 4; b++)
+                {
+                    unit.MainWriteByte((uint)(0x200000 + (lineBase + line) * 256 + column * 4 + b), (byte)(line * 4 + b ^ column));
+                }
+            }
+        }
+
+        // In the cell image the area's long words run down each column: 8 lines make a cell, then the next cell below.
+        for (var column = 0; column < 64; column += 21)
+        {
+            for (var line = 0; line < cellsTall * 8; line += 5)
+            {
+                var image = (uint)(0x220000 + areaStart + (column * cellsTall * 8 + line) * 4);
+                for (var b = 0; b < 4; b++)
+                {
+                    unit.MainReadByte(image + (uint)b).Should().Be((byte)(line * 4 + b ^ column), $"column {column}, line {line}");
+                }
+            }
+        }
+
+        unit.MainWriteByte((uint)(0x220000 + areaStart + 4), 0xEE); // the second long word: line 1 of column 0
+        unit.MainReadByte((uint)(0x200000 + (lineBase + 1) * 256)).Should().Be(0xEE, "writes go through the view as well");
+    }
+
     // ---- The drive ----
 
     [Fact]

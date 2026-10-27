@@ -373,6 +373,40 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
 
     private bool MainHasWordRam => _mode1M || _ret;
 
+    /// <summary>
+    /// The main CPU's 1M-mode cell image ($220000–$23FFFF): its bank read as a bitmap 64 cells (512 dots) wide, long
+    /// words re-ordered so that consecutive ones run down a column of cells, and a VDP DMA from it moves whole tiles.
+    /// The column is 32 cells tall over the first 64 KB, 16 over the next 32 KB, 8 over the next 16 KB, and 4 over
+    /// each of the last two 8 KB. Returns the byte's place in the bank. Mega-CD hardware manual, "Word RAM: cell
+    /// image"; PicoDrive's cell_map gives the same order.
+    /// </summary>
+    internal static int CellImageAddress(int offset)
+    {
+        var cell = (offset >> 2) & 0x7FFF; // the long word within the image
+        int column, row;
+        switch (cell >> 12)
+        {
+            case < 4: // 32 cells tall: 256 lines
+                column = cell >> 8;
+                row = cell & 0xFF;
+                break;
+            case < 6: // 16 cells: lines 256–383
+                column = cell >> 7;
+                row = 0x100 | (cell & 0x7F);
+                break;
+            case 6: // 8 cells: lines 384–447
+                column = cell >> 6;
+                row = 0x180 | (cell & 0x3F);
+                break;
+            default: // 4 cells: lines 448–479, then 480–511
+                column = cell >> 5;
+                row = ((cell & 0x7800) >> 6) | (cell & 0x1F);
+                break;
+        }
+
+        return (((column & 0x3F) + row * 64) << 2) | (offset & 3);
+    }
+
     private bool SubHasWordRam => _mode1M || !_ret;
 
     /// <summary>A dot written into 1M mode's dot image (or by the graphics ASIC), as the priority mode allows.</summary>
@@ -420,7 +454,7 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
         var word = (int)(address & 0x3FFFF);
         if (_mode1M)
         {
-            return word < 0x20000 ? _wordRam[BankAddress(MainBank, word)] : (byte)0;
+            return _wordRam[BankAddress(MainBank, word < 0x20000 ? word : CellImageAddress(word - 0x20000))];
         }
 
         return MainHasWordRam ? _wordRam[word] : (byte)0;
@@ -445,10 +479,7 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
         var word = (int)(address & 0x3FFFF);
         if (_mode1M)
         {
-            if (word < 0x20000)
-            {
-                _wordRam[BankAddress(MainBank, word)] = value;
-            }
+            _wordRam[BankAddress(MainBank, word < 0x20000 ? word : CellImageAddress(word - 0x20000))] = value;
         }
         else if (MainHasWordRam)
         {
