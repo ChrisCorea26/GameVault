@@ -70,6 +70,12 @@ Properties. Higher settings need a faster PC.
 | **Two players, one keyboard** | On / Off | Off |
 | **Turbo speed** | 30, 20, 15, 12, 10 or 7.5 presses per second | 15 |
 
+## Netplay
+
+| Setting | Values | Default |
+|---|---|---|
+| **Relay server (optional)** | `server:port` of a GameVault relay, for hosting over the internet when the two PCs can't reach each other directly. See [Netplay](#netplay). | Empty |
+
 ## Cartridge dumper
 
 The path to `inlretro.exe`, the INL Retro-Prog command-line tool, for example `C:\INL-retro\inlretro.exe`. Type or
@@ -90,14 +96,18 @@ The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`, or 
 |---|---|
 | **System ROM** | `C:\Apple\apple2e-enhanced.rom` |
 | **Disk II boot ROM** | `C:\Apple\disk2.rom` |
+| **Character ROM** (optional) | `C:\Apple\apple2e-video.rom`: text is drawn in your own Apple's font instead of GameVault's |
+| **Monitor** | **Colour TV** (default), **Green monitor**, **Amber monitor** or **White monitor** |
 
-Each box has **Choose…** to pick the file.
+Each box has **Choose…** to pick the file. The character ROM can be the 2 KB one from a II or II+ or the 4 or 8 KB
+video ROM from a IIe; GameVault works out how it's laid out. A new monitor or character ROM applies from the next
+game started.
 
 ## Super Nintendo
 
 | Setting | Values | Default |
 |---|---|---|
-| **Enhancement chip ROMs** | A folder holding your own `dsp1b.rom` (or `dsp1.rom`), `dsp2.rom`, `dsp3.rom` or `dsp4.rom`, or **Choose…** | Empty |
+| **Enhancement chip ROMs** | A folder holding your own `dsp1b.rom` (or `dsp1.rom`), `dsp2.rom`, `dsp3.rom`, `dsp4.rom`, `st010.rom` or `st011.rom`, or **Choose…** | Empty |
 
 ## PlayStation
 

@@ -60,6 +60,16 @@ public sealed partial class SettingsViewModel(
     }
 
     [RelayCommand]
+    private async Task ChooseAppleCharacterRomAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            AppleIICharacterRomPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
     private async Task ChooseSnesChipRomFolderAsync()
     {
         if (picker is not null && await picker.PickFolderAsync() is { } folder)
@@ -132,6 +142,10 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial string FdsBiosPath { get; set; } = string.Empty;
 
+    /// <summary>The netplay relay server ("host:port"), or empty to connect directly. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string NetplayRelayServer { get; set; } = string.Empty;
+
     /// <summary>The player's own Apple II ROM (SPEC §7.11). Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string AppleIIRomPath { get; set; } = string.Empty;
@@ -139,6 +153,17 @@ public sealed partial class SettingsViewModel(
     /// <summary>The player's own Disk II boot ROM. Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string AppleIIDiskRomPath { get; set; } = string.Empty;
+
+    /// <summary>The player's own Apple II character ROM, optional. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string AppleIICharacterRomPath { get; set; } = string.Empty;
+
+    /// <summary>The Apple II monitors, in the order of <see cref="AppleIIMonitorIndex"/>.</summary>
+    public IReadOnlyList<string> AppleIIMonitors { get; } = ["Colour TV", "Green monitor", "Amber monitor", "White monitor"];
+
+    /// <summary>The Apple II's monitor; applies from the next game started.</summary>
+    [ObservableProperty]
+    public partial int AppleIIMonitorIndex { get; set; }
 
     /// <summary>The folder of the player's own Super Nintendo enhancement chip ROMs. Saved when the text box loses focus.</summary>
     [ObservableProperty]
@@ -292,8 +317,11 @@ public sealed partial class SettingsViewModel(
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
         DumperPath = settings.DumperPath;
         FdsBiosPath = settings.FdsBiosPath;
+        NetplayRelayServer = settings.NetplayRelayServer;
         AppleIIRomPath = settings.AppleIIRomPath;
         AppleIIDiskRomPath = settings.AppleIIDiskRomPath;
+        AppleIICharacterRomPath = settings.AppleIICharacterRomPath;
+        AppleIIMonitorIndex = Math.Clamp(settings.AppleIIMonitor, 0, AppleIIMonitors.Count - 1);
         PlayStationBiosPath = settings.PlayStationBiosPath;
         SnesChipRomFolder = settings.SnesChipRomFolder;
         PlayStationFastBoot = settings.PlayStationFastBoot;
@@ -367,7 +395,12 @@ public sealed partial class SettingsViewModel(
     private void SaveFdsBiosPath() => SaveIfLoaded();
 
     [RelayCommand]
+    private void SaveNetplayRelayServer() => SaveIfLoaded();
+
+    [RelayCommand]
     private void SaveAppleRomPaths() => SaveIfLoaded();
+
+    partial void OnAppleIIMonitorIndexChanged(int value) => SaveIfLoaded();
 
     [RelayCommand]
     private void SavePlayStationBiosPath() => SaveIfLoaded();
@@ -440,8 +473,11 @@ public sealed partial class SettingsViewModel(
             MonoAudio = MonoAudio,
             DumperPath = DumperPath.Trim().Trim('"'),
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),
+            NetplayRelayServer = NetplayRelayServer.Trim(),
             AppleIIRomPath = AppleIIRomPath.Trim().Trim('"'),
             AppleIIDiskRomPath = AppleIIDiskRomPath.Trim().Trim('"'),
+            AppleIICharacterRomPath = AppleIICharacterRomPath.Trim().Trim('"'),
+            AppleIIMonitor = Math.Clamp(AppleIIMonitorIndex, 0, AppleIIMonitors.Count - 1),
             PlayStationBiosPath = PlayStationBiosPath.Trim().Trim('"'),
             SnesChipRomFolder = SnesChipRomFolder.Trim().Trim('"'),
             PlayStationFastBoot = PlayStationFastBoot,

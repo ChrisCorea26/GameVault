@@ -68,7 +68,8 @@ wrong extension.
 **Changing disk sides:** when the game asks you to turn the disk over, press <kbd>F4</kbd> for the next side, or pick
 one from the disk drop-down in the Player (*No disk*, *Disk 1, side A*, *Disk 1, side B*, …).
 
-**Not supported yet:** netplay with Disk System games.
+**Netplay:** Disk System games play over netplay when both players have the same BIOS; disk changes happen on both
+PCs at once.
 
 **Messages:**
 
@@ -93,8 +94,23 @@ buttons by their Sega names.
 **Region:** games run at NTSC speed (60 Hz). For a European game, set **Game Details → Properties → Region** to
 *PAL (50 Hz)*.
 
-**Not supported yet:** the SC-3000 keyboard (so BASIC cartridges can't be used) and FM sound for Japanese Master
-System games.
+**FM sound:** Japanese Master System games play with the console's built-in FM Sound Unit, so their FM music plays.
+GameVault knows a game is Japanese from its header, or when **Game Details → Properties → Region** is *Japan*.
+
+**SC-3000 keyboard:** `.sc` files run as an SC-3000, the SG-1000 with a keyboard, so BASIC and other keyboard
+cartridges work. While one runs, the PC keyboard types into it, key for key where the SC-3000 has the same key:
+
+| SC-3000 | PC |
+|---|---|
+| Letters, digits, `,` `.` `/` `;` `-` Space, Return, the arrows | The same keys |
+| `:` | <kbd>'</kbd> |
+| `@`, `[`, `]` | <kbd>[</kbd>, <kbd>]</kbd>, <kbd>\</kbd> |
+| `^`, `¥` | <kbd>=</kbd>, <kbd>End</kbd> |
+| Ins/Del, Home/Clr | <kbd>Backspace</kbd> or <kbd>Delete</kbd>, <kbd>Home</kbd> |
+| Shift, Ctrl, Graph | <kbd>Shift</kbd>, <kbd>Ctrl</kbd>, <kbd>Alt</kbd> |
+| Eng Dier's, Func, π | <kbd>F2</kbd>, <kbd>F3</kbd>, <kbd>F4</kbd> |
+
+Shift+Backspace rewinds, as on the Apple II. To use an SG-1000 game's file as an SC-3000 one, rename it to `.sc`.
 
 ## Apple II, II+ and IIe
 
@@ -118,6 +134,11 @@ game that needs another model (for example an unenhanced IIe), set **Game Detail
 > GameVault then shows *This disk can't start without the Disk II boot ROM. Choose your own Disk II boot ROM (256
 > bytes) in Settings → Apple II. GameVault doesn't include it.*
 
+**Display:** **Settings → Apple II → Monitor** shows the Apple on a colour TV (the default) or on a green, amber or
+white monochrome monitor, where hi-res pictures show every dot sharply instead of in colour. To see text in your own
+Apple's font, choose its character ROM under **Character ROM**. Games that change mode partway down the screen show
+as they did on the Apple.
+
 **Keyboard:** while an Apple II game runs, the whole keyboard types into the computer.
 
 | Apple key | PC key |
@@ -132,8 +153,7 @@ the same for drive 2. Use it for games on more than one disk.
 
 **Netplay:** both players need the same ROM files as well as the same disk.
 
-**Not supported yet:** loading an older save state doesn't undo later disk writes; no monochrome display option;
-your own character ROM isn't used; video mode changes in the middle of a frame aren't shown.
+**Not supported yet:** loading an older save state doesn't undo later disk writes.
 
 **Messages:**
 
@@ -142,6 +162,7 @@ your own character ROM isn't used; video mode changes in the middle of a frame a
 | *To play it, choose your own Apple II ROM files in Settings → Apple II.* | Set the System ROM path. |
 | *The Apple II ROM must be 12 KB (II/II+) or 16 KB (IIe).* | Wrong file or bad dump. |
 | *The Disk II boot ROM must be 256 bytes.* | Wrong file. |
+| *An Apple II character ROM is 2, 4 or 8 KB.* or *That file doesn't look like an Apple II character ROM.* | Wrong file for **Character ROM**, or a bad dump. Clear the box to use GameVault's own font. |
 | *This disk can't start without the Disk II boot ROM. Choose your own Disk II boot ROM (256 bytes) in Settings → Apple II. GameVault doesn't include it.* | Set the Disk II boot ROM path. |
 | *A .dsk, .do or .po disk image is 143,360 bytes.* | The image is damaged or isn't a 5.25-inch disk. |
 | *GameVault reads 5.25-inch WOZ images; this one is for 3.5-inch disks.* | 3.5-inch disks aren't supported. |
@@ -170,8 +191,13 @@ Properties → Controller** to *3-button*.
 While a Genesis game runs the shoulder buttons are game buttons, so use <kbd>Backspace</kbd> and <kbd>Tab</kbd> to
 rewind and fast-forward.
 
-**Not supported yet:** interlaced high-resolution mode, Master System mode, EEPROM
-saves, Sega CD and 32X.
+Games that save to a serial EEPROM chip and say so in their header (Sega's own, such as *Wonder Boy in Monster
+World* and *Mega Man: The Wily Wars*) save as `.sav` like battery games. EEPROM games from other publishers (EA,
+Acclaim, Codemasters) wire the chip differently and don't save yet. The double-resolution interlaced mode (*Sonic the
+Hedgehog 2*'s two-player game) shows all 448 lines. Master System games play on the Master System core instead (open
+the `.sms` file).
+
+**Not supported yet:** Sega CD and 32X.
 
 ## Super Nintendo
 
@@ -201,13 +227,18 @@ There's no turbo on the SNES. Use <kbd>Backspace</kbd> and <kbd>Tab</kbd> to rew
   `dsp2.rom`, `dsp3.rom` or `dsp4.rom`. Put it in a folder, then choose that folder in **Settings → Super
   Nintendo → Enhancement chip ROMs**. Either byte order works. DSP-2, DSP-3 and DSP-4 haven't been tried with real
   games yet.
+- **SA-1** (*Super Mario RPG*, *Kirby Super Star*, *Kirby's Dream Land 3*, …), **S-DD1** (*Star Ocean*, *Street
+  Fighter Alpha 2*) and **OBC1** (*Metal Combat*): work with nothing extra. SA-1 games save in the cartridge's
+  BW-RAM as `.sav`.
+- **ST010** (*F1 ROC II*, *Exhaust Heat II*) and **ST011** (*Hayazashi Nidan Morita Shogi*): like the DSP chips, they
+  need the chip's program from your own cartridge, named `st010.rom` or `st011.rom` (52 KB), in the same folder.
 
 | Message | What to do |
 |---|---|
 | *This game needs the DSP-1 chip's program ROM. Put your own dump (dsp1b.rom or dsp1.rom) in the folder chosen in Settings → Super Nintendo → Enhancement chip ROMs. GameVault doesn't include it.* | Add the file and choose its folder, then open the game again. |
 | *This game needs the … chip, which GameVault doesn't support yet.* | The chip isn't emulated yet. |
 
-**Not supported yet:** the SA-1, S-DD1, S-RTC, OBC1, Cx4, SPC7110 and ST01x chips, the Super Game Boy and the
+**Not supported yet:** the Cx4 (*Mega Man X2*, *X3*), SPC7110, ST018 and S-RTC chips, the Super Game Boy and the
 Satellaview; interlaced modes; effects that change the picture partway along a line.
 
 ## Sony PlayStation
@@ -342,7 +373,7 @@ video filters.
 |---|---|
 | **Files** | `.iso` (DVD or CD images); `.chd` (version 5, CD or DVD); `.cue` with its `.bin` tracks (CD games); `.elf` (homebrew programs) |
 | **You supply** | **A PlayStation 2 BIOS**, 4 MB, dumped from your own console (for example SCPH-39001), for discs. Homebrew `.elf` programs run without one. |
-| **Saves** | One 8 MB memory card per game in slot 1, as `.ps2` |
+| **Saves** | One 8 MB memory card per game in slot 1, as `.ps2`, and one card in slot 2 shared by every game |
 
 **Setup:**
 
@@ -376,11 +407,13 @@ from where they are; they're never copied or loaded into memory whole.
 | Left stick | Arrow keys (full push) | Left stick | Left stick |
 | Right stick | <kbd>I</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> (full push) | Right stick | Right stick |
 
-The pressure-sensitive buttons report full presses. While a PlayStation 2 game runs the left shoulder button is L1,
+The pressure-sensitive buttons report full presses, except L2 and R2 on a controller with analog triggers: they
+report how far you pull them. While a PlayStation 2 game runs the left shoulder button is L1,
 so use <kbd>Backspace</kbd> to rewind.
 
 **Memory cards:** each game gets its own 8 MB card in slot 1, created already formatted and saved with your other game
-saves. Slot 2 is empty.
+saves. Slot 2 holds one more card, the same for every game (`Memory card (slot 2).ps2` in the saves folder), so a
+sequel can find a save that the earlier game wrote there.
 
 **Rewind, run-ahead and netplay:** a PlayStation 2 is much larger than the other consoles, so:
 
@@ -394,8 +427,8 @@ helps. Lighter games can reach full speed on a fast PC, but many games still run
 lean on the PS2's vector units. Enhanced graphics and more speed-ups are planned.
 
 **Not supported yet:** changing discs in multi-disc games (an `.m3u` starts its first disc), vibration, the multitap,
-PlayStation games on the PlayStation 2, USB devices, the network adapter and hard drive, GameShark codes, memory card
-slot 2, and enhanced (upscaled) graphics.
+PlayStation games on the PlayStation 2, USB devices, the network adapter and hard drive, GameShark codes, and enhanced
+(upscaled) graphics.
 
 **Messages:**
 

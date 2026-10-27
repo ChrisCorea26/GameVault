@@ -196,6 +196,19 @@ public sealed class NesConsole : IEmulatedConsole
             _ => throw new ArgumentOutOfRangeException(nameof(port), port, "Ports 0-3 only."),
         };
         controller.State = state;
+
+        // A disk change that came with the input (netplay, so both players' machines change disks on the same frame).
+        if (Fds is { } drive && state.DiskCommand() is var command and not 0)
+        {
+            if (command == ControllerStick.EjectDisk)
+            {
+                drive.Eject();
+            }
+            else if (command - 1 < drive.SideCount)
+            {
+                drive.InsertSide(command - 1);
+            }
+        }
     }
 
     /// <summary>The active Game Genie and RAM codes (SPEC §7.8).</summary>

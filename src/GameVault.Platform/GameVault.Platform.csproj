@@ -63,6 +63,7 @@
     <ProjectReference Include="..\GameVault.Dumper\GameVault.Dumper.csproj" />
     <!-- Only for the service interfaces it implements (see docs/plans/phase-0.md). -->
     <ProjectReference Include="..\GameVault.ViewModels\GameVault.ViewModels.csproj" />
+    <ProjectReference Include="..\GameVault.Relay\GameVault.Relay.csproj" />
   </ItemGroup>
 
 </Project>
