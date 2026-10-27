@@ -21,7 +21,8 @@ namespace GameVault.Core.Genesis;
 public sealed class GenesisVdp : IStateful
 {
     public const int MaxWidth = 320;
-    public const int MaxHeight = 240;
+    /// <summary>Interlace mode 2 weaves two 240-line fields into 480 lines.</summary>
+    public const int MaxHeight = 480;
 
     /// <summary>Master clocks per line (3420), so 488.57 68000 cycles and 228 Z80 cycles.</summary>
     public const int MasterClocksPerLine = 3420;
@@ -96,6 +97,18 @@ public sealed class GenesisVdp : IStateful
 
     public int ActiveHeight => V30 ? 240 : 224;
 
+    /// <summary>
+    /// Interlace mode 2 (R12's LSM = 11): double resolution. Tiles are 8×16, each field draws every other line of a
+    /// 448- or 480-line picture (the odd field the odd lines), and the frame weaves the last two fields together.
+    /// </summary>
+    public bool Interlace2 => (_registers[12] & 6) == 6;
+
+    /// <summary>The field's offset in interlace mode 2: 1 on odd fields.</summary>
+    private int FieldLine => Interlace2 && _oddFrame ? 1 : 0;
+
+    /// <summary>Pixel rows per tile: 16 in interlace mode 2, else 8.</summary>
+    private int TileHeight => Interlace2 ? 16 : 8;
+
     public byte Register(int index) => _registers[index];
 
     public ReadOnlySpan<byte> Vram => _vram;
@@ -160,8 +173,8 @@ public sealed class GenesisVdp : IStateful
             _hintCounter = _registers[10];
             _vblank = false;
             _frameWidth = H40 ? 320 : 256;
-            _frameHeight = active;
             _oddFrame = !_oddFrame && (_registers[12] & 2) != 0;
+            _frameHeight = Interlace2 ? active * 2 : active;
         }
 
         if (line < active)
@@ -511,7 +524,15 @@ public sealed class GenesisVdp : IStateful
     private void RenderLine(int line)
     {
         var width = H40 ? 320 : 256;
-        var output = _frame.AsSpan(line * _frameWidth, _frameWidth);
+
+        // In interlace mode 2 the picture's line is twice the field's, plus one on odd fields.
+        var y = Interlace2 ? line * 2 + FieldLine : line;
+        if ((y + 1) * _frameWidth > _frame.Length)
+        {
+            return;
+        }
+
+        var output = _frame.AsSpan(y * _frameWidth, _frameWidth);
         var background = (ushort)(512 + Color9(_cram[_registers[7] & 0x3F]));
         if (!DisplayEnabled || (_registers[1] & 0x04) == 0)
         {
@@ -536,10 +557,10 @@ public sealed class GenesisVdp : IStateful
 
         var planeABase = (_registers[2] & 0x38) << 10;
         var planeBBase = (_registers[4] & 0x07) << 13;
-        RenderPlane(_planeB, line, width, planeBBase, planeWidth, planeHeight, hB, columnScroll: 1);
-        RenderPlane(_planeA, line, width, planeABase, planeWidth, planeHeight, hA, columnScroll: 0);
-        RenderWindow(line, width, cells);
-        RenderSprites(line, width);
+        RenderPlane(_planeB, y, width, planeBBase, planeWidth, planeHeight, hB, columnScroll: 1);
+        RenderPlane(_planeA, y, width, planeABase, planeWidth, planeHeight, hA, columnScroll: 0);
+        RenderWindow(line, y, width, cells);
+        RenderSprites(y, width);
 
         var shadowHighlight = (_registers[12] & 0x08) != 0;
         var hideLeft = (_registers[0] & 0x20) != 0;
@@ -610,24 +631,27 @@ public sealed class GenesisVdp : IStateful
     private void RenderPlane(byte[] target, int line, int width, int nameBase, int planeWidth, int planeHeight, int hscroll, int columnScroll)
     {
         var columnMode = (_registers[11] & 4) != 0;
+        var tileHeight = TileHeight;
+        var tileShift = tileHeight == 16 ? 4 : 3;
         var widthMask = planeWidth * 8 - 1;
-        var heightMask = planeHeight * 8 - 1;
+        var heightMask = planeHeight * tileHeight - 1;
         for (var x = 0; x < width; x++)
         {
             var vscroll = columnMode ? _vsram[Math.Min(39, ((x >> 4) * 2) + columnScroll)] : _vsram[columnScroll];
             var px = (x - hscroll) & widthMask;
             var py = (line + vscroll) & heightMask;
-            var entry = Word(nameBase + (((py >> 3) * planeWidth) + (px >> 3)) * 2);
-            target[x] = TilePixel(entry, px & 7, py & 7);
+            var entry = Word(nameBase + (((py >> tileShift) * planeWidth) + (px >> 3)) * 2);
+            target[x] = TilePixel(entry, px & 7, py & (tileHeight - 1));
         }
     }
 
     /// <summary>One pixel of a name-table entry's tile, as priority (bit 7), palette (bits 4–5) and colour.</summary>
     private byte TilePixel(ushort entry, int column, int row)
     {
+        var tileHeight = TileHeight;
         if ((entry & 0x1000) != 0)
         {
-            row = 7 - row;
+            row = tileHeight - 1 - row;
         }
 
         if ((entry & 0x0800) != 0)
@@ -635,14 +659,15 @@ public sealed class GenesisVdp : IStateful
             column = 7 - column;
         }
 
+        // A tile is 32 bytes, or 64 for the 8×16 tiles of interlace mode 2.
         var tile = entry & 0x7FF;
-        var data = _vram[(tile * 32 + row * 4 + (column >> 1)) & 0xFFFF];
+        var data = _vram[(tile * tileHeight * 4 + row * 4 + (column >> 1)) & 0xFFFF];
         var color = (column & 1) == 0 ? data >> 4 : data & 0x0F;
         return (byte)((entry & 0x8000) >> 8 | ((entry >> 9) & 0x30) | color);
     }
 
     /// <summary>The window replaces plane A where R17/R18 put it; it doesn't scroll.</summary>
-    private void RenderWindow(int line, int width, int cells)
+    private void RenderWindow(int line, int y, int width, int cells)
     {
         var horizontal = _registers[17];
         var vertical = _registers[18];
@@ -665,7 +690,7 @@ public sealed class GenesisVdp : IStateful
             }
 
             var entry = Word(nameBase + (((line >> 3) * windowCells) + (x >> 3)) * 2);
-            _planeA[x] = TilePixel(entry, x & 7, line & 7);
+            _planeA[x] = TilePixel(entry, x & 7, y & (TileHeight - 1));
         }
 
         _ = cells;
@@ -682,15 +707,17 @@ public sealed class GenesisVdp : IStateful
         var masked = false;
         var anyBefore = false;
         var index = 0;
+        var tileHeight = TileHeight;
+        var yOffset = tileHeight == 16 ? 256 : 128; // interlace mode 2 counts sprite Y in its doubled lines
         for (var n = 0; n < maxSprites; n++)
         {
             var entry = tableBase + index * 8;
-            var y = (Word(entry) & 0x3FF) - 128;
+            var y = (Word(entry) & 0x3FF) - yOffset;
             var size = _vram[(entry + 2) & 0xFFFF];
             var link = _vram[(entry + 3) & 0xFFFF] & 0x7F;
             var heightCells = (size & 3) + 1;
             var widthCells = ((size >> 2) & 3) + 1;
-            if (line >= y && line < y + heightCells * 8)
+            if (line >= y && line < y + heightCells * tileHeight)
             {
                 if (++found > perLine)
                 {
@@ -733,8 +760,9 @@ public sealed class GenesisVdp : IStateful
     {
         var vflip = (attributes & 0x1000) != 0;
         var hflip = (attributes & 0x0800) != 0;
-        var tileRow = vflip ? heightCells * 8 - 1 - row : row;
-        var cellY = tileRow >> 3;
+        var tileHeight = TileHeight;
+        var tileRow = vflip ? heightCells * tileHeight - 1 - row : row;
+        var cellY = tileRow / tileHeight;
         var flags = (byte)((attributes & 0x8000) >> 8 | ((attributes >> 9) & 0x30));
         for (var sx = 0; sx < drawWidth; sx++)
         {
@@ -746,7 +774,7 @@ public sealed class GenesisVdp : IStateful
 
             var column = hflip ? widthCells * 8 - 1 - sx : sx;
             var tile = (attributes & 0x7FF) + (column >> 3) * heightCells + cellY;
-            var data = _vram[(tile * 32 + (tileRow & 7) * 4 + ((column & 7) >> 1)) & 0xFFFF];
+            var data = _vram[(tile * tileHeight * 4 + (tileRow & (tileHeight - 1)) * 4 + ((column & 7) >> 1)) & 0xFFFF];
             var color = (column & 1) == 0 ? data >> 4 : data & 0x0F;
             if (color == 0)
             {

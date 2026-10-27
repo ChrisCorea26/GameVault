@@ -181,13 +181,15 @@ Real disks need the owner's Apple ROMs (Settings → Apple II) and disk images; 
 | 68000 reset, interrupts, STOP, trace, privilege, save states | ✅ Unit tests |
 | VDP: planes, priority, scrolling (line, cell, 2-cell columns), window, sprites, shadow/highlight | ✅ Unit tests with tiles written in the tests |
 | VDP: DMA (68000, fill, copy), status, H/V interrupts, HV counter | ✅ Unit tests |
-| VDP: interlace mode 2 (double resolution), Master System mode | Not yet |
+| VDP: interlace mode 2 (double resolution: 8×16 tiles, woven fields, 448/480 lines) | ✅ Unit test with an 8×16 tile over two fields |
+| VDP: Master System mode (Power Base Converter) | Not planned: `.sms` files play on the Master System core |
 | YM2612: pitch, envelopes, timers, DAC, panning | ✅ Unit tests (440 Hz check) |
 | YM2612: SSG-EG, LFO, channel 3 special mode | 🟡 Implemented, not checked against hardware recordings |
 | SN76489, Z80 sound CPU, bus request/reset, bank window | ✅ Unit tests |
 | Cartridges: raw and .smd, header region, SRAM (odd/even/word), SSF2 mapper | ✅ Unit tests |
 | 3- and 6-button pads | ✅ Unit tests |
-| EEPROM saves (I²C), Sega CD, 32X | Not yet |
+| EEPROM saves (I²C: X24C01 and 24C01–24C512), with Sega's header-declared wiring on $200001 | ✅ Unit tests (page writes, wrap, random reads, the cartridge's lines, save states); EA, Acclaim and Codemasters wiring not yet |
+| Sega CD, 32X | Not yet |
 
 Real games are the owner's to try; see `docs/plans/phase-13.md`.
 
