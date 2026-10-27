@@ -1083,6 +1083,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             PlayStationConsole => PadLayout.PlayStation,
             N64Console => PadLayout.Nintendo64,
             Core.PlayStation2.Ps2Console => PadLayout.PlayStation2,
+            SegaConsole => PadLayout.Sega,
             _ => PadLayout.Nes,
         };
         var appleBoot = console is AppleConsole { Disk: var drives } && drives.DiskIn(0) is { } bootDisk

@@ -46,6 +46,9 @@ public sealed record AppSettings
     /// </summary>
     public int TurboPeriodFrames { get; init; } = 4;
 
+    /// <summary>The player's button remaps (SPEC §5.4, GV-001) as JSON; see <c>Input.InputRemapSet</c>. Empty for none.</summary>
+    public string InputRemaps { get; init; } = string.Empty;
+
     /// <summary>Pinned controllers as "key=port" entries separated by '|' (input.md §3.5).</summary>
     public string ControllerPins { get; init; } = string.Empty;
 

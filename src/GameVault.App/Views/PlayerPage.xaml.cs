@@ -115,6 +115,13 @@ public sealed partial class PlayerPage : Page
 
     private void Flyout_Closed(object sender, object e) => ReturnFocusToGame();
 
+    // Closing the Controllers flyout stops Remap… waiting for a key or button.
+    private void ControllersFlyout_Closed(object sender, object e)
+    {
+        ViewModel.Controllers.Remap.CancelListening();
+        ReturnFocusToGame();
+    }
+
     // The list is read when it opens, so it shows the latest unlocks and progress.
     private void AchievementsFlyout_Opening(object sender, object e) => ViewModel.Achievements?.RefreshCommand.Execute(null);
 

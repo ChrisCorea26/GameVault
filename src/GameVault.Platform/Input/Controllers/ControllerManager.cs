@@ -97,6 +97,115 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         set => _input.TurboPeriodFrames = value;
     }
 
+    // ------------------------------------------------------------ remaps (GV-001)
+
+    private InputRemapSet _remaps = InputRemapSet.Empty;
+    private string? _gameKey;
+
+    // Each pad model's buttons per port and layout, when the player changed any; null means the defaults.
+    private readonly Dictionary<(string Model, int Port, PadLayout Layout), Dictionary<PadButton, (ControllerState State, bool Turbo)>?> _padTables = [];
+
+    public InputRemapSet Remaps
+    {
+        get => _remaps;
+        set
+        {
+            lock (_gate)
+            {
+                _remaps = value;
+                _padTables.Clear();
+                ReleaseAllPads();
+            }
+
+            _input.SetKeyboardRemaps(KeyboardRemaps);
+        }
+    }
+
+    public string? GameKey
+    {
+        get => _gameKey;
+        set
+        {
+            if (_gameKey == value)
+            {
+                return;
+            }
+
+            lock (_gate)
+            {
+                _gameKey = value;
+                _padTables.Clear();
+                ReleaseAllPads();
+            }
+
+            _input.SetKeyboardRemaps(KeyboardRemaps);
+        }
+    }
+
+    /// <summary>While on, pad buttons are reported through <see cref="InputCaptured"/> and go nowhere else.</summary>
+    public bool CaptureMode { get; set; }
+
+    public event EventHandler<CapturedInput>? InputCaptured;
+
+    /// <summary>The system whose remaps a pad layout uses (the names match).</summary>
+    public static InputSystem SystemOf(PadLayout layout) => Enum.Parse<InputSystem>(layout.ToString());
+
+    private IReadOnlyList<(int Port, ResolvedRemap Remap)> KeyboardRemaps(PadLayout layout)
+    {
+        var system = SystemOf(layout);
+        var result = new List<(int, ResolvedRemap)>();
+        for (var player = 0; player < PortAssignmentPolicy.MaxPorts; player++)
+        {
+            foreach (var remap in _remaps.Resolve(IInputDevicesService.KeyboardId, player, system, _gameKey))
+            {
+                result.Add((player, remap));
+            }
+        }
+
+        return result;
+    }
+
+    /// <summary>A pad's buttons on a port for the running layout, with its model's remaps; null when it has none.</summary>
+    private Dictionary<PadButton, (ControllerState State, bool Turbo)>? PadTable(int instanceId, int port, PadLayout layout)
+    {
+        lock (_gate)
+        {
+            if (!_model.TryGetController($"pad:{instanceId}", out var controller))
+            {
+                return null;
+            }
+
+            var key = (InputDevicesModel.ModelOf(controller), port, layout);
+            if (!_padTables.TryGetValue(key, out var table))
+            {
+                var remaps = _remaps.Resolve(key.Item1, port, SystemOf(layout), _gameKey);
+                if (remaps.Count > 0)
+                {
+                    table = Enum.GetValues<PadButton>().ToDictionary(b => b, b => DefaultButton(layout, b));
+                    foreach (var remap in remaps)
+                    {
+                        foreach (var (button, target) in table.ToList())
+                        {
+                            if (target.State == remap.Button && target.Turbo == remap.Turbo)
+                            {
+                                table[button] = (ControllerState.None, false);
+                            }
+                        }
+
+                        if (InputCodes.TryPad(remap.Input, out var name) && Enum.TryParse<PadButton>(name, out var padButton))
+                        {
+                            table[padButton] = (remap.Button, remap.Turbo);
+                        }
+                    }
+                }
+
+                _padTables[key] = table;
+            }
+
+            return table;
+        }
+    }
+
     /// <summary>Loads pins, the keyboard preset and the turbo speed, then starts the backend. Call once the window is up.</summary>
     public async Task StartAsync()
     {
@@ -118,6 +227,8 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
             {
                 TwoPlayerKeyboard = true;
             }
+
+            Remaps = InputRemapSet.Parse(settings.InputRemaps);
 
             TurboPeriodFrames = settings.TurboPeriodFrames;
         }
@@ -248,6 +359,19 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
             }
 
             pad.Buttons[(int)button] = down;
+            if (CaptureMode)
+            {
+                // Remap… is waiting for a button: report it, and keep it from the game and the menus until released.
+                if (down)
+                {
+                    var id = $"pad:{instanceId}";
+                    Raise(() => InputCaptured?.Invoke(this, new CapturedInput(id, InputCodes.Pad(button.ToString()))));
+                }
+
+                pad.SuppressUntilRelease = true;
+                return;
+            }
+
             var assigned = _model.Policy.PortOf(instanceId);
 
             // Take over a port that is waiting for a disconnected pad (input.md §5).
@@ -472,21 +596,8 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
     private void ApplyToGame(int instanceId, int port, PadButton button, bool down)
     {
         var source = SourceOf(instanceId);
-        var (state, turbo) = _input.Layout == PadLayout.Genesis ? SixButton(button) : _input.Layout == PadLayout.PlayStation2 ? DualShock2Button(button) : _input.Layout is PadLayout.Snes or PadLayout.PlayStation or PadLayout.Nintendo64 ? SnesButton(button) : button switch
-        {
-            PadButton.South => (ControllerState.B, false),
-            PadButton.East => (ControllerState.A, false),
-            PadButton.West => (ControllerState.B, true),
-            PadButton.North => (ControllerState.A, true),
-            PadButton.Back => (ControllerState.Select, false),
-            PadButton.Start => (ControllerState.Start, false),
-            PadButton.DPadUp => (ControllerState.Up, false),
-            PadButton.DPadDown => (ControllerState.Down, false),
-            PadButton.DPadLeft => (ControllerState.Left, false),
-            PadButton.DPadRight => (ControllerState.Right, false),
-            _ => (ControllerState.None, false),
-        };
-
+        var layout = _input.Layout;
+        var (state, turbo) = PadTable(instanceId, port, layout) is { } table ? table[button] : DefaultButton(layout, button);
         if (state != ControllerState.None)
         {
             switch (turbo, down)
@@ -500,7 +611,7 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
             return;
         }
 
-        // Shoulder hotkeys (input.md §8): right = fast-forward, left = rewind (Phase 5).
+        // Shoulder hotkeys (input.md §8): right = fast-forward, left = rewind (Phase 5), unless remapped to a button.
         var hotkey = button switch
         {
             PadButton.RightShoulder => VirtualKeys.Tab,
@@ -512,6 +623,23 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
             _input.SetPadHotkey(source, hotkey, down);
         }
     }
+
+    /// <summary>A pad button's default meaning for a layout (input.md §6), before any remap.</summary>
+    private static (ControllerState State, bool Turbo) DefaultButton(PadLayout layout, PadButton button) =>
+        layout == PadLayout.Genesis ? SixButton(button) : layout == PadLayout.PlayStation2 ? DualShock2Button(button) : layout is PadLayout.Snes or PadLayout.PlayStation or PadLayout.Nintendo64 ? SnesButton(button) : button switch
+        {
+            PadButton.South => (ControllerState.B, false),
+            PadButton.East => (ControllerState.A, false),
+            PadButton.West => (ControllerState.B, true),
+            PadButton.North => (ControllerState.A, true),
+            PadButton.Back => (ControllerState.Select, false),
+            PadButton.Start => (ControllerState.Start, false),
+            PadButton.DPadUp => (ControllerState.Up, false),
+            PadButton.DPadDown => (ControllerState.Down, false),
+            PadButton.DPadLeft => (ControllerState.Left, false),
+            PadButton.DPadRight => (ControllerState.Right, false),
+            _ => (ControllerState.None, false),
+        };
 
     /// <summary>
     /// The right stick is the N64's C buttons (Phase 16), pushed past half way like the left stick's directions, and

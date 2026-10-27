@@ -154,6 +154,12 @@ public sealed partial class PlayerViewModel(
     /// <summary>Game Genie and RAM codes for the running game (SPEC §7.8).</summary>
     public CodesViewModel Codes => codes;
 
+    /// <summary>
+    /// The controller port cards in the Player (input.md §9, GV-003): swap, reassign and remap without leaving the game,
+    /// with remaps for this game only.
+    /// </summary>
+    public InputSettingsViewModel Controllers { get; } = new(devices, settingsStore);
+
     /// <summary>Verified challenges (SPEC §7.9).</summary>
     public ChallengesViewModel Challenges => challenges;
 
@@ -446,6 +452,8 @@ public sealed partial class PlayerViewModel(
         {
             emulator.SetAssist(assist.Options); // a new session starts with Assist off
             devices.SetPlayerCount(emulator.UsesFourScore ? 4 : 2);
+            devices.GameKey = key;
+            Controllers.SetGame(key, Title, emulator.System);
             timeline.CanSave = true;
             await timeline.ShowAsync(key);
             await recap.ShowAsync(key, (await library.GetGameAsync(key))?.Title ?? Title, DateTimeOffset.Now);
@@ -673,6 +681,8 @@ public sealed partial class PlayerViewModel(
             challenges.PropertyChanged -= OnChallengesChanged;
             devices.SetGameRunning(false);
             devices.SetPlayerCount(2);
+            devices.GameKey = null;
+            Controllers.SetGame(null, null, null);
             _attached = false;
         }
     }

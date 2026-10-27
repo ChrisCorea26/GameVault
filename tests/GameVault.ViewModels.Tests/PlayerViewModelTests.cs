@@ -53,6 +53,32 @@ public class PlayerViewModelTests
     }
 
     [Fact]
+    public async Task Challenges_are_offered_only_for_games_with_a_memory_map()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+        _vm.ShowChallenges.Should().BeFalse("without a memory map there's nothing to make or take (GV-017)");
+        _vm.Stop();
+
+        _emulator.HasMemoryMap = true;
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+        _vm.ShowChallenges.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task The_player_has_the_port_cards_with_remaps_for_the_running_game()
+    {
+        await _vm.StartCommand.ExecuteAsync("game.nes");
+
+        _devices.GameKey.Should().Be(_emulator.GameKey);
+        _vm.Controllers.Ports.Should().NotBeEmpty();
+        _vm.Controllers.Ports[0].Sources[0].RemapCommand.Execute(null);
+        _vm.Controllers.Remap.HasGame.Should().BeTrue("remaps can be kept for this game (GV-003)");
+
+        _vm.Stop();
+        _devices.GameKey.Should().BeNull();
+    }
+
+    [Fact]
     public async Task The_stat_overlay_shows_the_games_values_and_is_remembered_per_game()
     {
         _emulator.HasMemoryMap = true;
