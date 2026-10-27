@@ -197,7 +197,7 @@ Acclaim, Codemasters) wire the chip differently and don't save yet. The double-r
 Hedgehog 2*'s two-player game) shows all 448 lines. Master System games play on the Master System core instead (open
 the `.sms` file).
 
-**Not supported yet:** the 32X.
+The 32X has its own section below.
 
 ## Sega CD / Mega-CD
 
@@ -223,6 +223,29 @@ boots is the first thing to check.
 | *This is a Sega CD disc. To play it, choose your own Sega CD BIOS…* | Choose the BIOS in **Settings → Sega CD**. |
 | *The Sega CD BIOS file should be 128 KB.* | The file chosen isn't a Sega CD BIOS. |
 | *GameVault couldn't open that Sega CD disc image…* | A `.bin` the `.cue` names is missing or renamed. |
+
+## 32X {#sega-32x}
+
+| | |
+|---|---|
+| **Files** | `.32x` |
+| **You supply** | The 32X's three BIOS files from your own 32X: the 68000's (256 bytes), the master SH-2's (2 KB) and the slave SH-2's (1 KB), in **Settings → 32X** |
+| **Saves** | Battery saves (SRAM) as `.sav`, for the few games that have it |
+
+**Controls** are the Genesis pad's (see above).
+
+The 32X's picture is laid over the Genesis' once a frame; games that change it partway down the screen show the
+whole frame as it was at the end. The SH-2s' caches aren't emulated, which a few games notice.
+
+**Not supported yet:** 32X games on Sega CD discs; PAL 32X games' 240-line mode. Each part is tested with programs
+written for GameVault, not yet with the real BIOS files, so whether a game boots is the first thing to check.
+
+**Messages:**
+
+| Message | What to do |
+|---|---|
+| *This is a 32X game. To play it, choose your own 32X BIOS files…* | Choose all three in **Settings → 32X**. |
+| *The 32X BIOS files should be 256 bytes…, 2 KB… and 1 KB…* | One of the files is the wrong one. |
 
 ## Super Nintendo
 

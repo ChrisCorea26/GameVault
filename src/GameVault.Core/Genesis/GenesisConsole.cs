@@ -5,6 +5,7 @@ using GameVault.Core.Cpu.Z80;
 using GameVault.Core.Input;
 using GameVault.Core.Sega;
 using GameVault.Core.SegaCd;
+using GameVault.Core.Sega32X;
 using GameVault.Core.State;
 using GameVault.Core.Systems;
 
@@ -50,10 +51,12 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
     private float _lastFmRight;
 
     /// <param name="segaCd">The Sega CD plugged in underneath, for a disc (the cartridge is then an empty stand-in).</param>
-    public GenesisConsole(GenesisCartridge cartridge, GenesisRegion? region = null, bool sixButton = true, SegaCdUnit? segaCd = null)
+    /// <param name="sega32X">The 32X in the cartridge slot, for a 32X cartridge (which it holds).</param>
+    public GenesisConsole(GenesisCartridge cartridge, GenesisRegion? region = null, bool sixButton = true, SegaCdUnit? segaCd = null, Sega32XUnit? sega32X = null)
     {
         Cartridge = cartridge;
         SegaCd = segaCd;
+        Sega32X = sega32X;
         Region = region ?? cartridge.Region;
         Pal = Region == GenesisRegion.Europe;
         SixButton = sixButton;
@@ -66,7 +69,10 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         RomHash = segaCd is null ? HashRom(cartridge.Rom) : segaCd.DiscHash;
     }
 
-    public GameSystem System => SegaCd is null ? GameSystem.Genesis : GameSystem.SegaCd;
+    public GameSystem System => SegaCd is not null ? GameSystem.SegaCd : Sega32X is not null ? GameSystem.Sega32X : GameSystem.Genesis;
+
+    /// <summary>The 32X in the cartridge slot, or null.</summary>
+    public Sega32XUnit? Sega32X { get; }
 
     /// <summary>The Sega CD under the console, or null for a cartridge.</summary>
     public SegaCdUnit? SegaCd { get; }
@@ -101,7 +107,9 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
 
     public ReadOnlySpan<ushort> FrameBuffer => Vdp.Frame;
 
-    public ReadOnlySpan<uint> Palette => GenesisVdp.Palette;
+    public ReadOnlySpan<uint> Palette => Sega32X is null ? GenesisVdp.Palette : Combined32XPalette.Value;
+
+    private static readonly Lazy<uint[]> Combined32XPalette = new(() => Sega32XPalette.Combined(GenesisVdp.Palette));
 
     public long FrameCount { get; private set; }
 
@@ -125,6 +133,11 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         if (SegaCd is { } cd)
         {
             cd.Audio = Audio;
+        }
+
+        if (Sega32X is { } mars)
+        {
+            mars.Audio = Audio;
         }
 
         return Audio;
@@ -153,6 +166,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         _lastFmRight = 0;
         FrameCount = 0;
         SegaCd?.Power();
+        Sega32X?.Power();
         Cpu.Reset();
     }
 
@@ -165,6 +179,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         _z80Reset = true;
         _z80BusRequested = false;
         SegaCd?.Reset();
+        Sega32X?.Reset();
         Cpu.Reset();
     }
 
@@ -195,6 +210,8 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         _ymMaster -= frameClocks;
         SegaCd?.RunTo(frameClocks);
         SegaCd?.EndFrame(frameClocks);
+        Sega32X?.RunTo(frameClocks);
+        Sega32X?.EndFrame(frameClocks);
         Psg.EndAudioFrame();
         Audio?.EndFrame((int)frameClocks);
         FrameCount++;
@@ -220,9 +237,22 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
     {
         var start = (long)line * GenesisVdp.MasterClocksPerLine;
         _lineStart[0] = start;
+        if (Sega32X is { } mars)
+        {
+            if (line == Vdp.ActiveHeight)
+            {
+                // The picture is done: the 32X's goes over it before the 32X's frame buffers can swap.
+                mars.Compose(Vdp.WritableFrame, Vdp.Backdrop, Vdp.FrameWidth, Math.Min(Vdp.FrameHeight, Vdp.ActiveHeight));
+            }
+
+            mars.SetHBlank(false);
+            mars.BeginLine(line, Vdp.ActiveHeight);
+        }
+
         Vdp.BeginLine(line);
         RunTo(start + ActiveMasterClocks, line);
         Vdp.BeginHBlank();
+        Sega32X?.SetHBlank(true);
         RunTo(start + GenesisVdp.MasterClocksPerLine, line);
     }
 
@@ -253,6 +283,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
             RunYmTo(_master);
             RunZ80To(_master);
             SegaCd?.RunTo(_master);
+            Sega32X?.RunTo(_master);
         }
     }
 
@@ -315,10 +346,18 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         switch (address >> 16)
         {
             case < 0x40:
-                return SegaCd is { } cd ? cd.MainReadByte(address) : Cartridge.ReadByte(address);
+                return SegaCd is { } cd ? cd.MainReadByte(address) : Sega32X is { } mars ? mars.MainReadByte(address) : Cartridge.ReadByte(address);
+            case >= 0x84 and < 0xA0 when Sega32X is { } mars32:
+                return mars32.MainReadByte(address);
             case 0xA0:
                 return Z80AreaRead(address);
             case 0xA1:
+                if (Sega32X is { } marsGate && Is32XRegister(address))
+                {
+                    var word = marsGate.MainReadRegister(address);
+                    return (address & 1) == 0 ? (byte)(word >> 8) : (byte)word;
+                }
+
                 return SegaCd is { } gate && (address & 0xFFC0) == 0x2000 ? gate.MainReadGate(address) : IoReadByte(address);
             case >= 0xC0 and < 0xE0:
             {
@@ -338,7 +377,9 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         switch (address >> 16)
         {
             case < 0x40:
-                return SegaCd is { } cd ? cd.MainReadWord(address) : Cartridge.ReadWord(address);
+                return SegaCd is { } cd ? cd.MainReadWord(address) : Sega32X is { } mars ? mars.MainReadWord(address) : Cartridge.ReadWord(address);
+            case >= 0x84 and < 0xA0 when Sega32X is { } mars32:
+                return mars32.MainReadWord(address);
             case 0xA0:
             {
                 // Word reads of the Z80's space return the byte in both halves.
@@ -347,6 +388,11 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
             }
 
             case 0xA1:
+                if (Sega32X is { } marsGate && Is32XRegister(address))
+                {
+                    return marsGate.MainReadRegister(address);
+                }
+
                 if (SegaCd is { } gate && (address & 0xFFC0) == 0x2000)
                 {
                     return gate.MainReadGateWord(address);
@@ -384,10 +430,22 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
                 }
 
                 break;
+            case >= 0x84 and < 0xA0 when Sega32X is { } mars32:
+                mars32.MainWriteByte(address, value);
+                break;
             case 0xA0:
                 Z80AreaWrite(address, value);
                 break;
             case 0xA1:
+                if (Sega32X is { } marsGate && Is32XRegister(address))
+                {
+                    // A byte write to a 32X register writes its half of the word.
+                    var word = marsGate.MainReadRegister(address);
+                    word = (address & 1) == 0 ? (ushort)((word & 0x00FF) | (value << 8)) : (ushort)((word & 0xFF00) | value);
+                    marsGate.MainWriteRegister(address, word);
+                    break;
+                }
+
                 if (SegaCd is { } gate && (address & 0xFFC0) == 0x2000)
                 {
                     gate.MainWriteGate(address, value);
@@ -428,10 +486,19 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
                 }
 
                 break;
+            case >= 0x84 and < 0xA0 when Sega32X is { } mars32:
+                mars32.MainWriteWord(address, value);
+                break;
             case 0xA0:
                 Z80AreaWrite(address, (byte)(value >> 8));
                 break;
             case 0xA1:
+                if (Sega32X is { } marsGate && Is32XRegister(address))
+                {
+                    marsGate.MainWriteRegister(address, value);
+                    break;
+                }
+
                 if (SegaCd is { } gate && (address & 0xFFC0) == 0x2000)
                 {
                     gate.MainWriteGateWord(address, value);
@@ -472,6 +539,10 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
     private double LineFraction() =>
         Math.Clamp((_master - _lineStart[0]) / (double)GenesisVdp.MasterClocksPerLine, 0, 0.999);
 
+    /// <summary>The 32X's registers at $A15100–$A153FF, and its "MARS" ID at $A130EC.</summary>
+    private static bool Is32XRegister(uint address) =>
+        (address & 0xFFFF) is >= 0x5100 and < 0x5400 or >= 0x30EC and < 0x30F0;
+
     private ushort VdpRead(uint address) => (address & 0x1F) switch
     {
         < 0x04 => Vdp.ReadData(),
@@ -495,7 +566,8 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
 
     private ushort DmaRead(uint address) => (address >> 16) switch
     {
-        < 0x40 => SegaCd is { } cd ? cd.MainReadWord(address) : Cartridge.ReadWord(address),
+        < 0x40 => SegaCd is { } cd ? cd.MainReadWord(address) : Sega32X is { } mars ? mars.MainReadWord(address) : Cartridge.ReadWord(address),
+        >= 0x84 and < 0xA0 when Sega32X is { } mars32 => mars32.MainReadWord(address),
         >= 0xE0 => (ushort)(_ram[address & 0xFFFF] << 8 | _ram[(address + 1) & 0xFFFF]),
         _ => 0,
     };
@@ -741,6 +813,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         writer.WriteInt32(_cpuDebt);
         writer.WriteInt64(FrameCount);
         SegaCd?.SaveState(writer);
+        Sega32X?.SaveState(writer);
         writer.EndChunk();
     }
 
@@ -771,6 +844,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         _cpuDebt = reader.ReadInt32();
         FrameCount = reader.ReadInt64();
         SegaCd?.LoadState(reader);
+        Sega32X?.LoadState(reader);
         reader.EndChunk();
     }
 

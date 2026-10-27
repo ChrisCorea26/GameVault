@@ -53,10 +53,45 @@ Milestone 1 is the Sega CD; milestone 2, the 32X, is planned in full once milest
   extras; the LaserActive.
 
 ## 2. Milestone 2: the 32X
-Two SH-2s (a new CPU core, with its own test suite), the 32X VDP (packed, direct-colour and run-length frame buffers,
-its palette and the priority over the Genesis picture), PWM sound, the communication and interrupt registers, and the
-player's own BIOS files. Planned in full when milestone 1 is merged.
+
+### Core
+- **`Sh2Cpu`** (`GameVault.Core.Cpu.Sh2`): the SH7604: every SH-1/SH-2 instruction with delayed branches and slot
+  rules, MAC and step division, TRAPA, exceptions and interrupts through VBR, SLEEP; the 4 KB cache's data array as
+  RAM at $C0000000 (the cache itself isn't modelled); `Sh2OnChip`: DIVU (32/32 and 64/32, overflow), the DMAC's two
+  channels (auto-request and DREQ, every size and address mode, TE and its interrupt), FRT (compare A/B, overflow),
+  the WDT's interval mode, and the interrupt controller's priorities and vectors.
+- **`Sega32XUnit`**: the master and slave SH-2 at 3/7 of the master clock, run in 32-clock turns; 256 KB of SDRAM;
+  the 68000's side (ADEN, the SH-2s' reset, FM, the vector BIOS at 0, the cartridge at $880000 and the 1 MB bank at
+  $900000, the frame buffer at $840000 and $860000, "MARS" at $A130EC); the SH-2s' side (boot ROMs, registers at
+  $4000, the VDP, the palette, the cartridge at $02000000, the frame buffer at $04000000, SDRAM at $06000000); the
+  communication ports; each SH-2's interrupt mask and its VRES/V/H/CMD/PWM interrupts (14/12/10/8/6, auto-vectored);
+  the 68000-to-SH-2 FIFO feeding the master's DMA channel 0; PWM sound (cycle, left/right/mono, the TM interrupt and
+  DREQ on channel 1).
+- **`Mars32XVdp`**: two frame buffers swapped at vertical blank (FS), the line table, packed/direct/run-length lines,
+  the shift, auto fill, the overwrite image, the 15-bit palette with its priority bit.
+- **Over the Genesis' picture:** at vertical blank each 32X line is laid over the Genesis frame: a 32X pixel shows in
+  front when PRI (swapped by its colour's bit 15) says so, and wherever only the Genesis' background shows
+  (`GenesisVdp.Backdrop`). 32X colours go into the Genesis frame as indices 1536 + their 15-bit colour, with a
+  palette that adds the 32,768 colours.
+
+### Platform, Library and UI
+- `GameSystem.Sega32X`; `.32x` files; No-Intro DATs ("32X"); the player's three BIOS files in **Settings → 32X**
+  (`BiosKind.Sega32XGenesis`, `Sega32XMaster`, `Sega32XSlave`); the Genesis pad; the sample library.
+
+### Tests
+- `Sh2CpuTests`: the manual's division programs, ALU, shifts, memory forms, delayed branches, BSR/RTS, TRAPA/RTE,
+  interrupts and SLEEP, MAC.L/MAC.W, DIVU, the DMAC (auto-request and DREQ), the FRT, a save state.
+- `Sega32XTests`: the adapter's mapping, both SH-2s booting, the CMD interrupt, a packed-pixel picture over the
+  Genesis', direct-colour and run-length lines, the overwrite image, auto fill, the FIFO into DMA, a save state.
+- `Sega32XHostTests`: a `.32x` through the host, the missing-BIOS message.
+
+### Not in milestone 2
+- The SH-2s' cache (games that rely on stale cache lines), the 68000's ROM-to-VDP DMA (RV) beyond mapping, the
+  32X picture's changes partway down the screen (it's laid on at vertical blank), 32X Sega CD games, PAL 240-line mode.
 
 ## Owner checks
+With the owner's 32X BIOS files: the 32X's logo and Doom, Virtua Racing Deluxe, Star Wars Arcade, Knuckles' Chaotix
+and Kolibri boot and play, with their PWM sound.
+
 With the owner's BIOS: the Sega CD's own menu appears, and Sonic CD, Lunar: The Silver Star, Snatcher and Final
 Fight CD boot, play their CD music and save to backup RAM.
