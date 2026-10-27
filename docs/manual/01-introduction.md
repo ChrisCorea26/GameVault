@@ -43,6 +43,7 @@ GameVault works out of the box, but some things only you can provide. This check
 | **Famicom Disk System BIOS** (`disksys.rom`, 8 KB) | Only for `.fds` games | Settings → Disk System | [Famicom Disk System](#famicom-disk-system) |
 | **Apple II system ROM** (12 KB for II/II+, 16 KB for IIe) and **Disk II boot ROM** (256 bytes) | Only for Apple II | Settings → Apple II | [Apple II](#apple-ii-ii-and-iie) |
 | **Super Nintendo DSP chip ROMs** (`dsp1b.rom` and the others, 8 KB each) | Only for games with a DSP chip, such as *Super Mario Kart* | Settings → Super Nintendo | [Super Nintendo](#super-nintendo) |
+| **Atari 5200 BIOS** (`5200.rom`, 2 KB) | Only for Atari 5200 games | Settings → Atari 5200 | [Atari 5200](#atari-5200) |
 | **PlayStation BIOS** (512 KB, e.g. SCPH-1001) | Only for PlayStation discs | Settings → PlayStation | [PlayStation](#sony-playstation) |
 | **PlayStation 2 BIOS** (4 MB, e.g. SCPH-39001) | Only for PlayStation 2 discs | Settings → PlayStation 2 | [PlayStation 2](#sony-playstation-2) |
 | **Catalog DAT files** (Logiqx XML, such as No-Intro or Redump) | Optional: names your games and gives a complete checklist | Library → Import catalog | [Importing a catalog](#importing-a-catalog) |
