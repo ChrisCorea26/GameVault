@@ -240,7 +240,10 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
         var end = start + cycles;
         while (_running && _cycle < end)
         {
-            Step();
+            if (!_recompilerEnabled || _branchPending || _endPending || !TryRunBlock(end))
+            {
+                Step();
+            }
         }
 
         return _cycle - start;
@@ -313,38 +316,16 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
 
         if (d.Waits != 0)
         {
-            if (d.Waits == WaitsForFdiv)
-            {
-                if (_qPending)
-                {
-                    ready = Math.Max(ready, _qReady);
-                }
-            }
-            else if (_pPending)
-            {
-                ready = Math.Max(ready, _pReady);
-            }
+            ready = d.Waits == WaitsForFdiv ? WaitFdiv(ready) : WaitEfu(ready);
         }
 
-        _pairStalled = ready > _cycle;
-        if (_pairStalled)
-        {
-            _cycle = ready;
-        }
-
-        CommitPipeline();
-        _prevIntWriteReg = _intWriteReg;
-        _prevIntWriteOld = _intWriteOld;
-        _intWriteReg = -1;
-
+        BeginPair(ready);
         var nextPc = pc + 8;
         if (_branchPending)
         {
-            nextPc = _branchTarget;
-            _branchPending = false;
+            nextPc = TakeBranch(nextPc);
         }
 
-        _stageReg = -1;
         ExecuteUpper(ref d);
         if (d.Immediate)
         {
@@ -355,38 +336,88 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
             ExecuteLower(ref d, pc);
         }
 
-        CommitStage();
-        _cycle++;
+        EndPair();
         _pc = nextPc & _microMask;
 
         // The E bit ends the program after the next pair; D and T stop it now when FBRST enables them.
         var bits = d.UpperBits;
         var end = _endPending;
         _endPending = !end && (bits & EBit) != 0;
-        if ((bits & (DBit | TBit)) != 0)
+        if ((bits & (DBit | TBit)) != 0 && DebugOrTrapStop(bits))
         {
-            if ((bits & DBit) != 0 && DebugEnable)
-            {
-                _dStop = true;
-            }
-
-            if ((bits & TBit) != 0 && TrapEnable)
-            {
-                _tStop = true;
-            }
-
-            if (_dStop || _tStop)
-            {
-                Stop();
-                _host.RaiseInterrupt(Index);
-                return;
-            }
+            return;
         }
 
         if (end)
         {
             Stop();
         }
+    }
+
+    // ---- The steps of a pair, shared by Step and the recompiled blocks (Ps2Vu.Recompiler.cs) ----
+
+    /// <summary>A busy FDIV (DIV/SQRT/RSQRT or WAITQ) holds the pair until Q is written.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private long WaitFdiv(long ready) => _qPending ? Math.Max(ready, _qReady) : ready;
+
+    /// <summary>A busy EFU (an EFU instruction or WAITP) holds the pair until P is written.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private long WaitEfu(long ready) => _pPending ? Math.Max(ready, _pReady) : ready;
+
+    /// <summary>Stalls until <paramref name="ready"/>, retires what is due, and starts the pair's integer hazard window.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void BeginPair(long ready)
+    {
+        _pairStalled = ready > _cycle;
+        if (_pairStalled)
+        {
+            _cycle = ready;
+        }
+
+        CommitPipeline();
+        _prevIntWriteReg = _intWriteReg;
+        _prevIntWriteOld = _intWriteOld;
+        _intWriteReg = -1;
+        _stageReg = -1;
+    }
+
+    /// <summary>The previous pair branched: this pair is its delay slot, and the next one is the target.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private uint TakeBranch(uint fallthrough)
+    {
+        _branchPending = false;
+        return _branchTarget;
+    }
+
+    /// <summary>Writes the upper result once the lower instruction has read its operands, and ends the cycle.</summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private void EndPair()
+    {
+        CommitStage();
+        _cycle++;
+    }
+
+    /// <summary>A D or T bit: stops the program and interrupts when FBRST enables it. True when it stopped.</summary>
+    private bool DebugOrTrapStop(uint bits)
+    {
+        if ((bits & DBit) != 0 && DebugEnable)
+        {
+            _dStop = true;
+        }
+
+        if ((bits & TBit) != 0 && TrapEnable)
+        {
+            _tStop = true;
+        }
+
+        if (!_dStop && !_tStop)
+        {
+            return false;
+        }
+
+        Stop();
+        _host.RaiseInterrupt(Index);
+        return true;
     }
 
     /// <summary>Decodes an instruction pair into the cache entry for its address.</summary>
@@ -564,14 +595,27 @@ public sealed partial class Ps2Vu : IPs2VectorUnit, IR5900Cop2, IStateful
             return 0;
         }
 
+        // Unrolled, so a constant mask (a recompiled block) leaves only the lanes it reads.
         long ready = 0;
         var baseIndex = reg << 2;
-        for (var lane = 0; lane < 4; lane++)
+        if ((mask & 8) != 0)
         {
-            if ((mask & (8 >> lane)) != 0 && _vfReady[baseIndex + lane] > ready)
-            {
-                ready = _vfReady[baseIndex + lane];
-            }
+            ready = _vfReady[baseIndex];
+        }
+
+        if ((mask & 4) != 0)
+        {
+            ready = Math.Max(ready, _vfReady[baseIndex + 1]);
+        }
+
+        if ((mask & 2) != 0)
+        {
+            ready = Math.Max(ready, _vfReady[baseIndex + 2]);
+        }
+
+        if ((mask & 1) != 0)
+        {
+            ready = Math.Max(ready, _vfReady[baseIndex + 3]);
         }
 
         return ready;

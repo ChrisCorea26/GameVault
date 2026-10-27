@@ -27,7 +27,8 @@ internal static class ConsoleFactory
         AppleRoms? appleRoms = null,
         PlayStationSetup? playStation = null,
         N64Setup? n64 = null,
-        PlayStation2Setup? playStation2 = null)
+        PlayStation2Setup? playStation2 = null,
+        SnesSetup? snes = null)
     {
         if (system == GameSystem.PlayStation)
         {
@@ -100,9 +101,13 @@ internal static class ConsoleFactory
                     "ntsc" or "usa" or "japan" => false,
                     _ => (bool?)null,
                 };
-                return new SnesConsole(new SnesCartridge(data), pal);
+                return new SnesConsole(new SnesCartridge(data, (snes ?? SnesSetup.None).ChipRom), pal);
             }
             catch (UnsupportedChipException ex)
+            {
+                throw new GameLoadException(ex.Message, ex);
+            }
+            catch (MissingChipRomException ex)
             {
                 throw new GameLoadException(ex.Message, ex);
             }

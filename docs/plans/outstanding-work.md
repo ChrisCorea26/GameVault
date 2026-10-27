@@ -132,6 +132,10 @@ pipeline bookkeeping (stalls, the MAC/status/clip flag queues, Q and P), not the
   mapper.
 - **Tests:** µPD77C25 instruction tests, Super FX instruction and PLOT tests on synthetic programs, and freely
   licensed Super FX homebrew if a redistributable one exists (listed in `tests/TestRoms/SOURCES.md`).
+- **As built:** one folder setting (Settings → Super Nintendo → Enhancement chip ROMs) holds every chip dump, and the
+  same µPD7725 core also runs DSP-2, DSP-3 and DSP-4 (chosen by the game's title, each at its board's addresses), so
+  those moved here from item 5. No redistributable Super FX test ROM was found, so the GSU is checked by
+  hand-assembled programs and a whole-console test.
 
 **Owner checks:** Pilotwings and Super Mario Kart (DSP-1) with your own DSP-1 dump; Star Fox and Yoshi's Island
 (Super FX).

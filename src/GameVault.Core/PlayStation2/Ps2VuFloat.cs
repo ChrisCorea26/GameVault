@@ -355,7 +355,9 @@ public static class Ps2VuFloat
         // Drop the bits the alignment loses below the guard bit: clear the low (align − 1) mantissa bits, with
         // 2^(align − 1) made by the float conversion (there's no per-lane shift on every platform).
         var lost = Vector128.Min(Vector128.Max(align - Vector128<int>.One, Vector128<int>.Zero), Vector128.Create(23));
-        var power = Vector128.ConvertToInt32(((lost + Vector128.Create(127)) << 23).AsSingle()).AsUInt32();
+        var power = System.Runtime.Intrinsics.X86.Avx2.IsSupported
+            ? System.Runtime.Intrinsics.X86.Avx2.ShiftLeftLogicalVariable(Vector128<uint>.One, lost.AsUInt32())
+            : Vector128.ConvertToInt32(((lost + Vector128.Create(127)) << 23).AsSingle()).AsUInt32();
         small &= ~(power - Vector128<uint>.One);
         smallAbs = small & max;
 
