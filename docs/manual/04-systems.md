@@ -458,3 +458,39 @@ PlayStation games on the PlayStation 2, USB devices, the network adapter and har
 | *GameVault couldn't open your PlayStation 2 BIOS. Check the file chosen in Settings → PlayStation 2.* | The file was moved, deleted or is locked. |
 | *That file isn't a PlayStation 2 program (ELF) or disc, or it's damaged.* | Check the file; re-dump the disc if needed. |
 | *Netplay isn't available for PlayStation 2 games: its rollback saves and loads the whole console every frame, and a PlayStation 2 is too large for that.* | Play it locally. |
+
+## Atari 2600
+
+| | |
+|---|---|
+| **Files** | `.a26` (or a `.zip` with one inside) |
+| **You supply** | Nothing: the 2600 has no BIOS |
+| **Saves** | None: 2600 games don't save. Use save states. |
+
+**Controls** (the joystick):
+
+| Atari 2600 | Keyboard | Controller |
+|---|---|---|
+| Joystick | Arrow keys | D-pad or left stick |
+| Fire | <kbd>Z</kbd> or <kbd>X</kbd> | Bottom or right button |
+| Console **Reset** switch | <kbd>Enter</kbd> | Start |
+| Console **Select** switch | <kbd>Right Shift</kbd> | Back |
+
+The second player's joystick is the second controller (or the second keyboard player). The difficulty switches stay
+on **B** (the easier setting) and the TV switch on colour.
+
+**Cartridges:** 2K and 4K games, and the bank-switching boards most games use: Atari's 8K, 16K and 32K (with or
+without the SuperChip's extra RAM), Parker Brothers (E0), Activision (FE), Tigervision (3F) and CBS RAM Plus (FA).
+GameVault tells them apart by the file's size and code. If a game shows garbage, set **Game Details → Properties**'
+model to the board's name (`F8`, `F8SC`, `F6`, `F6SC`, `F4`, `F4SC`, `E0`, `FE`, `3F` or `FA`).
+
+**Not supported yet:** paddles, keypads and the driving controller; the rarer boards (Pitfall II's DPC, M-Network
+E7, the Supercharger); PAL games' own colours (they show NTSC colours); and the Atari 5200.
+
+**Messages:**
+
+| Message | What to do |
+|---|---|
+| *GameVault doesn't know how a … KB Atari 2600 cartridge switches its banks.* | The file isn't a 2600 image GameVault knows, or it's a rarer board. |
+| *That isn't an Atari 2600 cartridge image.* | Wrong file. |
+

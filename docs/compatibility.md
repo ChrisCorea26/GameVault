@@ -303,3 +303,17 @@ Real cartridges are the owner's to try; see `docs/plans/phase-16.md`.
 | GS anti-aliasing, the IPU's command timing, PS1 mode, multitap | Not yet |
 
 Real BIOSes and discs are the owner's to try; see `docs/plans/phase-17.md`.
+
+## Atari 2600 (Phase 19)
+
+| Part | State |
+|---|---|
+| 6507: GameVault's NMOS 6502 (Dormann's functional test, as for the Apple II) on a 13-bit bus | ✅ |
+| TIA: playfield (repeat, reflect, score, priority), players (copies, sizes, reflection, delay), missiles, ball, RESPx positions, HMOVE and its black bar, collisions, mid-line register changes, VSYNC/VBLANK framing, fire buttons | ✅ Unit tests on hand-written programs |
+| TIA sound (Ron Fries' counters) | 🟡 A pure tone plays at its divider's pitch; the noise modes aren't checked against hardware recordings |
+| RIOT: RAM, joysticks, console switches, timer | ✅ Unit tests |
+| Bank switching: 2K/4K, F8/F6/F4 (and SuperChip), E0, FE, 3F, FA | ✅ Unit tests and a save/load round trip each |
+| Paddles, keypads, DPC, E7, Supercharger, PAL/SECAM palettes, the TIA's HMOVE quirks beyond the black bar | Not yet |
+
+No freely redistributable 2600 test ROM is used yet; real games are the owner's to try (`docs/plans/phase-19.md`).
+
