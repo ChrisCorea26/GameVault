@@ -142,6 +142,10 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial string FdsBiosPath { get; set; } = string.Empty;
 
+    /// <summary>The netplay relay server ("host:port"), or empty to connect directly. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string NetplayRelayServer { get; set; } = string.Empty;
+
     /// <summary>The player's own Apple II ROM (SPEC §7.11). Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string AppleIIRomPath { get; set; } = string.Empty;
@@ -307,6 +311,7 @@ public sealed partial class SettingsViewModel(
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
         DumperPath = settings.DumperPath;
         FdsBiosPath = settings.FdsBiosPath;
+        NetplayRelayServer = settings.NetplayRelayServer;
         AppleIIRomPath = settings.AppleIIRomPath;
         AppleIIDiskRomPath = settings.AppleIIDiskRomPath;
         AppleIICharacterRomPath = settings.AppleIICharacterRomPath;
@@ -383,6 +388,9 @@ public sealed partial class SettingsViewModel(
     private void SaveFdsBiosPath() => SaveIfLoaded();
 
     [RelayCommand]
+    private void SaveNetplayRelayServer() => SaveIfLoaded();
+
+    [RelayCommand]
     private void SaveAppleRomPaths() => SaveIfLoaded();
 
     partial void OnAppleIIMonitorIndexChanged(int value) => SaveIfLoaded();
@@ -456,6 +464,7 @@ public sealed partial class SettingsViewModel(
             MonoAudio = MonoAudio,
             DumperPath = DumperPath.Trim().Trim('"'),
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),
+            NetplayRelayServer = NetplayRelayServer.Trim(),
             AppleIIRomPath = AppleIIRomPath.Trim().Trim('"'),
             AppleIIDiskRomPath = AppleIIDiskRomPath.Trim().Trim('"'),
             AppleIICharacterRomPath = AppleIICharacterRomPath.Trim().Trim('"'),

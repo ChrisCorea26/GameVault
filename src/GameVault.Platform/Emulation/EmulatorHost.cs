@@ -180,6 +180,12 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
     private GameSystem _romSystem;
     private string _romExtension = "";
+
+    // The Disk System BIOS the game started with, so a netplay session can start the same machine.
+    private byte[]? _fdsBios;
+
+    // A disk change asked for during netplay, sent with the next frame's input (Emulation thread).
+    private int _pendingDiskCommand;
     private AppleRoms? _appleRoms;
     private SnesSetup? _snes;
 
@@ -359,16 +365,143 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         return Task.FromResult(code);
     }
 
-    public Task JoinNetplayAsync(string inviteCode)
+    /// <summary>The joiner's reply code for an internet host, while it's waiting to hear from them.</summary>
+    public string? NetplayReplyCode { get; private set; }
+
+    /// <summary>Hosting over the internet without a relay: the joiner's reply code is still to come.</summary>
+    public bool NetplayNeedsReply { get; private set; }
+
+    /// <summary>STUN servers, or a stand-in (tests).</summary>
+    internal Func<CancellationToken, Task<IReadOnlyList<IPEndPoint>>> StunServers { get; set; } =
+        token => UdpNetplayLink.ResolveAsync(StunMessage.PublicServers, token);
+
+    private static readonly TimeSpan InternetSetupTimeout = TimeSpan.FromSeconds(4);
+
+    /// <summary>
+    /// Hosts over the internet (outstanding-work plan §13): through the relay chosen in Settings → Netplay when there is
+    /// one, otherwise from this PC's public address, which STUN tells us; the joiner then sends a reply code back.
+    /// </summary>
+    public async Task<string> HostInternetNetplayAsync()
     {
         EnsureNetplayPossible();
-        if (!InviteCode.TryDecode(inviteCode, out var host))
+        var relay = await RelayServerAsync().ConfigureAwait(false);
+        var link = UdpNetplayLink.Listen(0);
+        try
         {
-            throw new NetplayException("That invite code isn't right. It has 10 letters and digits, like ABCDE-12345.");
+            if (relay is not null)
+            {
+                var room = (uint)Random.Shared.NextInt64(1, uint.MaxValue);
+                if (!await link.JoinRelayAsync(relay, room, InternetSetupTimeout).ConfigureAwait(false))
+                {
+                    throw new NetplayException("The relay server chosen in Settings → Netplay didn't answer. Check its address, or clear it to connect directly.");
+                }
+
+                var relayCode = InviteCode.EncodeRelay(relay, room);
+                StartNetplay(link, localPlayer: 0, relayCode);
+                return relayCode;
+            }
+
+            var servers = await StunServers(CancellationToken.None).ConfigureAwait(false);
+            var mapped = await link.DiscoverPublicEndPointAsync(servers, InternetSetupTimeout).ConfigureAwait(false)
+                ?? throw new NetplayException("GameVault couldn't find this PC's internet address. Check the internet connection, or play on the same network.");
+            var code = InviteCode.Encode(mapped, internet: true);
+            StartNetplay(link, localPlayer: 0, code, needsReply: true);
+            return code;
+        }
+        catch
+        {
+            link.Dispose();
+            throw;
+        }
+    }
+
+    /// <summary>The internet host types the joiner's reply code: both now send to each other until the routers let them through.</summary>
+    public Task AcceptNetplayReplyAsync(string replyCode)
+    {
+        if (!InviteCode.TryDecode(replyCode, out var joiner, out var internet) || !internet)
+        {
+            throw new NetplayException("That reply code isn't right. It has 10 letters and digits, like ABCDE-12345.");
+        }
+
+        NetplayNeedsReply = false;
+        Post(() => _netLink?.ExpectPeer(joiner));
+        Raise(() => NetplayChanged?.Invoke(this, EventArgs.Empty));
+        return Task.CompletedTask;
+    }
+
+    /// <summary>The relay server from Settings → Netplay ("host:port", the port 47801 if left out), or null for none.</summary>
+    private async Task<IPEndPoint?> RelayServerAsync()
+    {
+        var text = _settings is null ? string.Empty : (await _settings.LoadAsync().ConfigureAwait(false)).NetplayRelayServer.Trim();
+        if (text.Length == 0)
+        {
+            return null;
+        }
+
+        var colon = text.LastIndexOf(':');
+        var host = colon > 0 ? text[..colon] : text;
+        var port = GameVault.Relay.NetplayRelay.DefaultPort;
+        if (colon > 0 && (!int.TryParse(text[(colon + 1)..], out port) || port is <= 0 or > 65535))
+        {
+            throw new NetplayException("The relay server in Settings → Netplay should look like relay.example.com:47801.");
+        }
+
+        if (IPAddress.TryParse(host, out var address))
+        {
+            return new IPEndPoint(address, port);
+        }
+
+        try
+        {
+            var addresses = await Dns.GetHostAddressesAsync(host, global::System.Net.Sockets.AddressFamily.InterNetwork).ConfigureAwait(false);
+            return addresses.Length > 0
+                ? new IPEndPoint(addresses[0], port)
+                : throw new NetplayException($"GameVault couldn't find the relay server {host}.");
+        }
+        catch (global::System.Net.Sockets.SocketException ex)
+        {
+            throw new NetplayException($"GameVault couldn't find the relay server {host}.", ex);
+        }
+    }
+
+    public async Task JoinNetplayAsync(string inviteCode)
+    {
+        EnsureNetplayPossible();
+        if (!InviteCode.TryDecode(inviteCode, out var host, out var kind, out var room))
+        {
+            throw new NetplayException("That invite code isn't right. It has 10 letters and digits, like ABCDE-12345, or 16 for a relay.");
+        }
+
+        if (kind == InviteKind.Relay)
+        {
+            var viaRelay = UdpNetplayLink.Connect(host);
+            if (!await viaRelay.JoinRelayAsync(host, room, InternetSetupTimeout).ConfigureAwait(false))
+            {
+                viaRelay.Dispose();
+                throw new NetplayException("The relay server in that code didn't answer, or the game there already has two players.");
+            }
+
+            StartNetplay(viaRelay, localPlayer: 1, code: null);
+            return;
+        }
+
+        if (kind == InviteKind.Internet)
+        {
+            var direct = UdpNetplayLink.Connect(host);
+            var servers = await StunServers(CancellationToken.None).ConfigureAwait(false);
+            var mapped = await direct.DiscoverPublicEndPointAsync(servers, InternetSetupTimeout).ConfigureAwait(false);
+            if (mapped is null)
+            {
+                direct.Dispose();
+                throw new NetplayException("GameVault couldn't find this PC's internet address. Check the internet connection.");
+            }
+
+            direct.ExpectPeer(host);
+            StartNetplay(direct, localPlayer: 1, code: null, replyCode: InviteCode.Encode(mapped, internet: true));
+            return;
         }
 
         StartNetplay(UdpNetplayLink.Connect(host), localPlayer: 1, code: null);
-        return Task.CompletedTask;
     }
 
     public void LeaveNetplay()
@@ -399,21 +532,17 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             throw new NetplayException(SystemBudgets.PlayStation2NetplayMessage);
         }
 
-        if (FdsImage.IsFdsImage(_romData))
-        {
-            throw new NetplayException("Netplay works with cartridge games for now, not Disk System games.");
-        }
     }
 
     /// <summary>
     /// Both players start from power-on with no save file and no codes, so the two games are identical; the
     /// player's own save file is left alone for the rest of the session.
     /// </summary>
-    private void StartNetplay(UdpNetplayLink link, int localPlayer, string? code)
+    private void StartNetplay(UdpNetplayLink link, int localPlayer, string? code, bool needsReply = false, string? replyCode = null)
     {
         var data = _romData!;
         var profile = Profile ?? new GameProfile { Sha1 = string.Empty };
-        var console = ConsoleFactory.Create(data, _romSystem, profile, fdsBios: null, _romExtension, _appleRoms, _playStation, _n64, _playStation2, _snes);
+        var console = ConsoleFactory.Create(data, _romSystem, profile, _fdsBios, _romExtension, _appleRoms, _playStation, _n64, _playStation2, _snes);
         if (_audioActive && _audio is not null)
         {
             console.EnableAudio(_audio.SampleRate);
@@ -426,6 +555,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         {
             EndNetplay();
             NetplayInviteCode = code;
+            NetplayNeedsReply = needsReply;
+            NetplayReplyCode = replyCode;
             FlushBattery();
             ReleaseDiscs(_console);
             _console = console;
@@ -458,6 +589,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _netplay = null;
         _netplayActive = false;
         NetplayInviteCode = null;
+        NetplayReplyCode = null;
+        NetplayNeedsReply = false;
         SetNetplayStatus(NetplayStatus.Off);
     }
 
@@ -475,7 +608,22 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     /// <summary>One netplay frame: exchange inputs, roll back if needed, run, show it. Emulation thread.</summary>
     private void RunNetplayFrame(IEmulatedConsole console, RollbackSession session, UdpNetplayLink link)
     {
-        var ran = session.AdvanceFrame(_input.Sample(0, session.Frame));
+        var local = _input.Sample(0, session.Frame);
+        if (_pendingDiskCommand != 0)
+        {
+            local = local.WithDiskCommand(_pendingDiskCommand);
+        }
+
+        var ran = session.AdvanceFrame(local);
+        if (ran)
+        {
+            _pendingDiskCommand = 0; // sent with this frame's input
+            if (console is NesConsole { Fds: { } drive })
+            {
+                UpdateDiskSide(drive);
+            }
+        }
+
         var status = session.State switch
         {
             NetplayState.Desynced => NetplayStatus.OutOfSync,
@@ -750,6 +898,12 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         else if (Nes?.Fds is { } fds && side >= 0 && side < fds.SideCount)
         {
             _diskSideRequested = side;
+            if (_netplayActive)
+            {
+                _pendingDiskCommand = side + 1; // both players' machines change it on the same frame
+                return;
+            }
+
             fds.InsertSide(side);
             UpdateDiskSide(fds);
         }
@@ -763,6 +917,12 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         }
         else if (Nes?.Fds is { } fds)
         {
+            if (_netplayActive)
+            {
+                _pendingDiskCommand = ControllerStick.EjectDisk;
+                return;
+            }
+
             fds.Eject();
             UpdateDiskSide(fds);
         }
@@ -1088,6 +1248,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _romData = data;
         _romSystem = system;
         _romExtension = extension;
+        _fdsBios = fdsBios;
         _appleRoms = appleRoms;
         _playStation = playStation;
         _n64 = n64;

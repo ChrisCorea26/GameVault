@@ -110,6 +110,12 @@ public sealed record AppSettings
     public bool N64ExpansionPak { get; init; } = true;
 
     /// <summary>
+    /// A netplay relay server ("host:port") for hosting over the internet when the two players' routers can't reach
+    /// each other directly (outstanding-work plan §13), or empty to connect directly. Players run their own relay.
+    /// </summary>
+    public string NetplayRelayServer { get; init; } = string.Empty;
+
+    /// <summary>
     /// A Rumble Pak in every N64 controller instead of the Controller Pak in the first, so games can shake the player's
     /// pad. Off by default, since games can't save to the Controller Pak while it's out.
     /// </summary>

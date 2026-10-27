@@ -68,7 +68,8 @@ wrong extension.
 **Changing disk sides:** when the game asks you to turn the disk over, press <kbd>F4</kbd> for the next side, or pick
 one from the disk drop-down in the Player (*No disk*, *Disk 1, side A*, *Disk 1, side B*, …).
 
-**Not supported yet:** netplay with Disk System games.
+**Netplay:** Disk System games play over netplay when both players have the same BIOS; disk changes happen on both
+PCs at once.
 
 **Messages:**
 

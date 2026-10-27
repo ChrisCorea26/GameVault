@@ -9,6 +9,9 @@ namespace GameVault.Core.Input;
 /// Bits 32–47 hold the right stick the same way, and bits 48 and 49 the stick clicks L3 and R3, for the PlayStation 2's
 /// DualShock 2 (Phase 17). Bits 50–56 and 57–63 hold how far L2 and R2 are pulled (0–127), from a pad's analog
 /// triggers, for the DualShock 2's pressure-sensitive buttons; 0 with the button held means all the way (a key).
+/// On the NES the same bits 50–55 carry a Disk System command for netplay instead: 1 + a side to insert it, 63 to
+/// eject the disk, for one frame (outstanding-work plan §13). Only the PlayStation 2 layout fills in pressure and only
+/// the NES reads a disk command, so the two never meet.
 /// </summary>
 /// <remarks>
 /// Each console maps these to its own pad and reads only its bits. On the Genesis, B is the pad's A button, A is its B
@@ -84,6 +87,17 @@ public static class ControllerStick
 
     /// <summary>The buttons only (every bit but the sticks' and the triggers' pressure).</summary>
     public static ControllerState Buttons(this ControllerState state) => state & ~SticksMask & ~PressureMask;
+
+    public const int DiskCommandShift = 50;
+
+    /// <summary>The Disk System command eject (bits 50–55, on the NES only).</summary>
+    public const int EjectDisk = 63;
+
+    /// <summary>A Disk System command: 0 for none, 1 + a side to insert it, <see cref="EjectDisk"/> to eject.</summary>
+    public static int DiskCommand(this ControllerState state) => (int)((ulong)state >> DiskCommandShift) & 0x3F;
+
+    public static ControllerState WithDiskCommand(this ControllerState state, int command) =>
+        (state & ~(ControllerState)(0x3FUL << DiskCommandShift)) | (ControllerState)((ulong)(command & 0x3F) << DiskCommandShift);
 
     /// <summary>The same buttons and right stick with the left stick at (<paramref name="x"/>, <paramref name="y"/>).</summary>
     public static ControllerState WithStick(this ControllerState state, sbyte x, sbyte y) =>

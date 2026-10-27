@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The netplay relay (outstanding-work plan §13): a small UDP forwarder that anyone can run on a server, for players
+       whose routers can't reach each other directly. It never sees game data, only the two players' netplay packets. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <RootNamespace>GameVault.Relay</RootNamespace>
+  </PropertyGroup>
+
+</Project>
