@@ -59,6 +59,12 @@ public sealed partial class N64Rdp : IStateful, IN64DpRegisters
     /// <summary>The 4 KB texture memory, big-endian.</summary>
     public ReadOnlySpan<byte> Tmem => _tmem;
 
+    /// <summary>
+    /// A second renderer the RDP hands every primitive and TMEM load to (docs/plans/gpu-renderers.md); null for none.
+    /// Only the RDP itself calls it, never its batch replicas.
+    /// </summary>
+    public IN64RdpBackend? Backend { get; set; }
+
     /// <summary>Commands executed since power-on (for tests and diagnostics).</summary>
     public long CommandsExecuted { get; private set; }
 
@@ -189,6 +195,11 @@ public sealed partial class N64Rdp : IStateful, IN64DpRegisters
         {
             FlushBatch(); // the CPU may read RDRAM as soon as the run returns
         }
+
+        if (!_replica)
+        {
+            Backend?.CommandsDone();
+        }
     }
 
     private ulong ReadCommandWord(uint address)
@@ -208,10 +219,12 @@ public sealed partial class N64Rdp : IStateful, IN64DpRegisters
         switch (id)
         {
             case >= 0x08 and <= 0x0F:
+                EmitPrimitive(id);
                 DrawTriangle(id);
                 break;
             case 0x24:
             case 0x25:
+                EmitPrimitive(id);
                 TextureRectangle(w, _command[1], id == 0x25);
                 break;
             case 0x26: // Sync Load
@@ -246,20 +259,24 @@ public sealed partial class N64Rdp : IStateful, IN64DpRegisters
                 break;
             case 0x30:
                 LoadTlut(w);
+                EmitTmem();
                 break;
             case 0x32:
                 SetTileSize(w);
                 break;
             case 0x33:
                 LoadBlock(w);
+                EmitTmem();
                 break;
             case 0x34:
                 LoadTile(w);
+                EmitTmem();
                 break;
             case 0x35:
                 SetTile(w);
                 break;
             case 0x36:
+                EmitPrimitive(id);
                 FillRectangle(w);
                 break;
             case 0x37:
@@ -295,6 +312,53 @@ public sealed partial class N64Rdp : IStateful, IN64DpRegisters
             case 0x3F:
                 _colorImage = DecodeImage(w);
                 break;
+        }
+    }
+
+    /// <summary>Hands the drawing command in <see cref="_command"/> to the backend, with the state that draws it.</summary>
+    private void EmitPrimitive(int id)
+    {
+        if (Backend is not { } backend || _replica)
+        {
+            return;
+        }
+
+        var p = default(N64RdpPrimitive);
+        DecodePrimitive(id, ref p.Edges);
+        p.OtherModes = _otherModes;
+        p.Combine = _combineMode;
+        p.FillColor = _fillColor;
+        p.FogColor = _fogColor;
+        p.BlendColor = _blendColor;
+        p.PrimColor = _primColor;
+        p.EnvColor = _envColor;
+        p.PrimLodFraction = _primLodFraction;
+        p.PrimMinLevel = _primMinLevel;
+        p.PrimZ = _primZ;
+        p.PrimDeltaZ = _primDeltaZ;
+        p.KeyGb = _keyGb;
+        p.KeyR = _keyR;
+        p.Convert = _convert;
+        p.Scissor = _scissor;
+        p.ColorFormat = _colorImage.Format;
+        p.ColorSize = _colorImage.Size;
+        p.ColorWidth = _colorImage.Width;
+        p.ColorAddress = _colorImage.Address;
+        p.ZAddress = _zImageAddress;
+        for (var i = 0; i < 8; i++)
+        {
+            ref var tile = ref _tiles[i];
+            p.Tiles[i] = new N64RdpTile { SetTile = tile.SetTileWord, Sl = tile.Sl, Tl = tile.Tl, Sh = tile.Sh, Th = tile.Th };
+        }
+
+        backend.Primitive(p);
+    }
+
+    private void EmitTmem()
+    {
+        if (Backend is { } backend && !_replica)
+        {
+            backend.TmemLoaded(_tmem);
         }
     }
 
@@ -561,6 +625,7 @@ public sealed partial class N64Rdp : IStateful, IN64DpRegisters
         }
         UpdateConstantInputs();
         reader.EndChunk();
+        Backend?.Resync();
     }
 
     private static void WriteImage(StateWriter writer, Image image)

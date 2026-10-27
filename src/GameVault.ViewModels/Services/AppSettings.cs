@@ -147,6 +147,12 @@ public sealed record AppSettings
     public bool N64RumblePak { get; init; }
 
     /// <summary>
+    /// The N64's internal resolution: 1 is the software RDP's picture; 2 to 4 draw it again on the GPU (Direct3D 11) at
+    /// that many times the size, for sharper 3D (docs/plans/gpu-renderers.md, milestone 2).
+    /// </summary>
+    public int N64InternalResolution { get; init; } = 1;
+
+    /// <summary>
     /// The player's own PlayStation 2 BIOS (4 MB, such as SCPH-39001), or empty. Discs need it; ELF programs run on
     /// GameVault's own kernel without it. GameVault never ships, downloads or links to it (SPEC §7.11).
     /// </summary>

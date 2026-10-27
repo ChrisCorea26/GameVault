@@ -253,6 +253,12 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial int PlayStationResolutionIndex { get; set; }
 
+    public IReadOnlyList<string> N64ResolutionOptions { get; } = ["1× (original)", "2×", "3×", "4×"];
+
+    /// <summary>The N64's internal resolution, as an index into <see cref="N64ResolutionOptions"/>.</summary>
+    [ObservableProperty]
+    public partial int N64ResolutionIndex { get; set; }
+
     /// <summary>N64 games get the Expansion Pak (takes effect the next time a game starts).</summary>
     [ObservableProperty]
     public partial bool N64ExpansionPak { get; set; } = true;
@@ -400,6 +406,7 @@ public sealed partial class SettingsViewModel(
         PlayStationResolutionIndex = Math.Clamp(settings.PlayStationInternalResolution, 1, 3) - 1;
         N64ExpansionPak = settings.N64ExpansionPak;
         N64RumblePak = settings.N64RumblePak;
+        N64ResolutionIndex = Math.Clamp(settings.N64InternalResolution, 1, 4) - 1;
         PlayStation2BiosPath = settings.PlayStation2BiosPath;
         PlayStation2FastBoot = settings.PlayStation2FastBoot;
         await CheckPlayStation2BiosAsync();
@@ -498,6 +505,8 @@ public sealed partial class SettingsViewModel(
 
     partial void OnN64RumblePakChanged(bool value) => SaveIfLoaded();
 
+    partial void OnN64ResolutionIndexChanged(int value) => SaveIfLoaded();
+
     /// <summary>Called when the PS2 BIOS path box loses focus: saves it and checks the file (size and version).</summary>
     [RelayCommand]
     private async Task SavePlayStation2BiosPathAsync()
@@ -570,6 +579,7 @@ public sealed partial class SettingsViewModel(
             PlayStationInternalResolution = Math.Clamp(PlayStationResolutionIndex, 0, 2) + 1,
             N64ExpansionPak = N64ExpansionPak,
             N64RumblePak = N64RumblePak,
+            N64InternalResolution = Math.Clamp(N64ResolutionIndex, 0, 3) + 1,
             PlayStation2BiosPath = PlayStation2BiosPath.Trim().Trim('"'),
             PlayStation2FastBoot = PlayStation2FastBoot,
             RewindMemoryMb = RewindMemoryIndex >= 0 && RewindMemoryIndex < RewindMemoryValues.Length

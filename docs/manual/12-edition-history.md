@@ -23,3 +23,4 @@
 | 19 | October 2026 | Adds the 32X: its section in Supported systems and **Settings → 32X** for your three BIOS files. |
 | 20 | October 2026 | Adds the GameCube's first milestone: its section in Supported systems (homebrew `.dol` and `.elf` programs, the controller). |
 | 21 | October 2026 | PlayStation: **Settings → PlayStation → Internal resolution** draws 3D games at 2× or 3× on your graphics card. |
+| 22 | October 2026 | Nintendo 64: **Settings → Nintendo 64 → Internal resolution** draws games at 2×, 3× or 4× on your graphics card. |
