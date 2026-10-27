@@ -82,12 +82,13 @@ uint Texel(int u, int v)
 
 float4 PS(PixelIn input) : SV_Target
 {
-    float3 color = input.Color;
+    // Attributes are rounded, as the GPU's interpolators add half a step before truncating.
+    float3 color = floor(input.Color + 0.5);
     float mask = (Flags & SetMask) != 0 ? 1.0 : 0.0;
     if ((Flags & Textured) != 0)
     {
-        int u = int(floor(input.Uv.x)) & 255;
-        int v = int(floor(input.Uv.y)) & 255;
+        int u = int(floor(input.Uv.x + 0.5)) & 255;
+        int v = int(floor(input.Uv.y + 0.5)) & 255;
         uint texel = Texel(u, v);
         if (texel == 0u)
         {

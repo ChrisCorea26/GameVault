@@ -151,10 +151,12 @@ public sealed class D3D11PsGpuRenderer : IPsGpuBackend, IDisposable
             return; // the GPU skips these (psx-spx)
         }
 
+        // The GPU samples a pixel at its integer corner, Direct3D at its centre: moving the triangle half a pixel
+        // lines the two up, so coverage and the attributes match the software GPU's.
         var flat = !draw.Gouraud;
-        Put(0, a.X, a.Y, a, a.U, a.V, a, flat);
-        Put(1, b.X, b.Y, b, b.U, b.V, a, flat);
-        Put(2, c.X, c.Y, c, c.U, c.V, a, flat);
+        Put(0, a.X + 0.5f, a.Y + 0.5f, a, a.U, a.V, a, flat);
+        Put(1, b.X + 0.5f, b.Y + 0.5f, b, b.U, b.V, a, flat);
+        Put(2, c.X + 0.5f, c.Y + 0.5f, c, c.U, c.V, a, flat);
         Submit(3, draw, minY, maxY);
     }
 
@@ -165,9 +167,10 @@ public sealed class D3D11PsGpuRenderer : IPsGpuBackend, IDisposable
             return;
         }
 
-        // Pixel centres sample u0 ± dx: a flipped edge starts a texel on (gpu-renderers.md).
+        // Pixel centres sample u0 ± dx, and the shader rounds (adds half a texel), so u0 starts half a texel early;
+        // a flipped edge starts a texel on (gpu-renderers.md).
         float x0 = corner.X, y0 = corner.Y, x1 = corner.X + width, y1 = corner.Y + height;
-        float u0 = flipX ? corner.U + 1 : corner.U, v0 = flipY ? corner.V + 1 : corner.V;
+        float u0 = flipX ? corner.U + 0.5f : corner.U - 0.5f, v0 = flipY ? corner.V + 0.5f : corner.V - 0.5f;
         var u1 = flipX ? u0 - width : u0 + width;
         var v1 = flipY ? v0 - height : v0 + height;
         Put(0, x0, y0, corner, u0, v0, corner, true);

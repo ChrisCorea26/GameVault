@@ -45,11 +45,16 @@ public sealed class D3D11PsGpuRendererTests
         return [.. frame.Select(p => 0xFF000000 | Widen(p & 31) << 16 | Widen((p >> 5) & 31) << 8 | Widen((p >> 10) & 31))];
     }
 
-    /// <summary>The share of pixels whose colour differs by more than <paramref name="tolerance"/> in any channel.</summary>
-    private static double Differing(ReadOnlySpan<uint> expected, ReadOnlySpan<uint> actual, int scale, int width, int tolerance = 24)
+    /// <summary>
+    /// The share of pixels whose colour differs by more than <paramref name="tolerance"/> in any channel, and where
+    /// they are (in 32×32 blocks, with the first one's colours) for the failure message.
+    /// </summary>
+    private static (double Share, string Where) Differing(ReadOnlySpan<uint> expected, ReadOnlySpan<uint> actual, int scale, int width, int tolerance = 24)
     {
         var height = expected.Length / width;
         var different = 0;
+        var blocks = new SortedDictionary<(int, int), int>();
+        var first = "";
         for (var y = 0; y < height; y++)
         {
             for (var x = 0; x < width; x++)
@@ -61,13 +66,21 @@ public sealed class D3D11PsGpuRendererTests
                     if (Math.Abs((int)((e >> shift) & 0xFF) - (int)((a >> shift) & 0xFF)) > tolerance)
                     {
                         different++;
+                        var block = (y / 32 * 32, x / 32 * 32);
+                        blocks[block] = blocks.GetValueOrDefault(block) + 1;
+                        if (first.Length == 0)
+                        {
+                            first = $"first at ({x}, {y}): expected {e:X8}, drew {a:X8}";
+                        }
+
                         break;
                     }
                 }
             }
         }
 
-        return (double)different / expected.Length;
+        var where = string.Join(", ", blocks.Select(b => $"(x {b.Key.Item2}, y {b.Key.Item1}): {b.Value}"));
+        return ((double)different / expected.Length, $"{first}; by block {where}");
     }
 
     private static void Scene(PsGpu gpu)
@@ -137,7 +150,8 @@ public sealed class D3D11PsGpuRendererTests
         var picture = renderer.ReadDisplay(out var width, out var height);
         width.Should().Be(320 * scale);
         height.Should().Be(240 * scale);
-        Differing(expected, picture, scale, 320).Should().BeLessThan(allowed);
+        var (share, where) = Differing(expected, picture, scale, 320);
+        share.Should().BeLessThan(allowed, where);
     }
 
     [Fact]
