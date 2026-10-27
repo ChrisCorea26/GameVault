@@ -205,7 +205,11 @@ Real games are the owner's to try; see `docs/plans/phase-13.md`.
 | Interlace, mid-line register changes, exact PPU timing | Not yet |
 | Super FX (GSU-1/GSU-2): instructions, pipeline delay slot, cache, ROM buffer, PLOT/RPIX, bus ownership, IRQ | 🟡 Unit tests on hand-assembled GSU programs and a whole console starting the GSU; no freely redistributable Super FX test ROM to check against; real games are the owner's |
 | DSP-1/2/3/4 (µPD7725, with the player's own program ROM): OP/RT/JP/LD, multiplier, DR/SR handshake | 🟡 Unit tests on hand-assembled µPD7725 programs and a whole console talking to one; real games with the player's DSP dump are the owner's |
-| SA-1, Cx4, S-DD1, SPC7110, OBC1, ST01x, S-RTC | Not yet: such games get a message naming the chip |
+| SA-1: second 65C816, I-RAM, BW-RAM and its bitmap view, Super MMC, arithmetic, variable-length reads, timer, DMA, character conversion 1 and 2 | 🟡 Unit tests, and a whole console with both CPUs talking; no freely redistributable SA-1 test ROM; real games are the owner's |
+| S-DD1: memory controller and the decompressor on the DMA | 🟡 Unit tests for the mapping, the DMA hookup and save states; the decoder follows Andreas Naive's description but hasn't been checked against real compressed data |
+| OBC1 | ✅ Unit test of its sprite table |
+| ST010/ST011 (µPD96050, with the player's own program ROM): two program halves, shared data RAM (the ST010's save) | 🟡 Unit tests on hand-assembled programs; real games are the owner's |
+| Cx4, SPC7110, ST018, S-RTC | Not yet: such games get a message naming the chip |
 
 Real games are the owner's to try; see `docs/plans/phase-14.md`.
 
