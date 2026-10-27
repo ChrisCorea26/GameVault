@@ -72,8 +72,8 @@ public sealed class PsMemoryCard : IBatteryBacked
 }
 
 /// <summary>
-/// SIO0, the controller and memory card port at $1F801040 (SPEC §7.11, Phase 15): digital pads (SCPH-1080) and
-/// memory cards in both slots, with the transfer time from the baud rate and the /ACK pulse that raises IRQ 7.
+/// SIO0, the controller and memory card port at $1F801040 (SPEC §7.11, Phase 15): DualShock pads (outstanding-work
+/// plan §11; digital until a game or the player switches them to analog) and memory cards in both slots, with the transfer time from the baud rate and the /ACK pulse that raises IRQ 7.
 /// </summary>
 /// <remarks>Reference: psx-spx "Controllers and Memory Cards", "Controller and Memory Card I/O Ports".</remarks>
 public sealed class PsSio : IStateful
@@ -84,6 +84,10 @@ public sealed class PsSio : IStateful
     private static readonly byte[] DiscardBuffer = new byte[PsMemoryCard.Size];
 
     private readonly ControllerState[] _pads = new ControllerState[2];
+    private readonly PsDualShock[] _dualShocks = [new PsDualShock(), new PsDualShock()];
+    private readonly PsGunCon[] _guns = [new PsGunCon(), new PsGunCon()];
+    private readonly PsMouse[] _mice = [new PsMouse(), new PsMouse()];
+    private readonly PsPortDevice[] _devices = new PsPortDevice[2];
     private readonly PsMemoryCard?[] _cards = new PsMemoryCard?[2];
     private readonly byte[] _cardFlag = [0x08, 0x08];
 
@@ -126,7 +130,24 @@ public sealed class PsSio : IStateful
 
     public PsMemoryCard? Card(int slot) => _cards[slot];
 
-    public void SetPad(int port, ControllerState state) => _pads[port] = state;
+    public void SetPad(int port, ControllerState state)
+    {
+        _pads[port] = state;
+        _dualShocks[port].Input = state;
+    }
+
+    /// <summary>The DualShock in a port.</summary>
+    public PsDualShock Pad(int port) => _dualShocks[port];
+
+    /// <summary>The GunCon and the mouse of a port, used when <see cref="SetDevice"/> plugs them in.</summary>
+    public PsGunCon Gun(int port) => _guns[port];
+
+    public PsMouse Mouse(int port) => _mice[port];
+
+    /// <summary>What answers in a port (the game's setting); a configuration choice, not part of the save state.</summary>
+    public void SetDevice(int port, PsPortDevice device) => _devices[port] = device;
+
+    public PsPortDevice DeviceIn(int port) => _devices[port];
 
     public void Reset()
     {
@@ -136,6 +157,10 @@ public sealed class PsSio : IStateful
         _rxReady = _irq = _ackLow = false;
         _transferDoneAt = _ackAt = long.MaxValue;
         _device = Device.None;
+        foreach (var pad in _dualShocks)
+        {
+            pad.Reset();
+        }
     }
 
     public long NextEvent => Math.Min(_transferDoneAt, _ackAt);
@@ -280,43 +305,14 @@ public sealed class PsSio : IStateful
         };
     }
 
-    // ---- Digital pad ----
+    // ---- The pad ----
 
-    private byte PadExchange(int port, byte data, out bool ack)
+    private byte PadExchange(int port, byte data, out bool ack) => _devices[port] switch
     {
-        var buttons = PadBits(_pads[port]);
-        var step = _step++;
-        ack = step < 3;
-        return step switch
-        {
-            0 => data == 0x42 ? (byte)0x41 : (byte)0xFF, // ID low: digital pad
-            1 => 0x5A, // ID high
-            2 => (byte)~buttons,
-            3 => (byte)~(buttons >> 8),
-            _ => 0xFF,
-        };
-    }
-
-    /// <summary>The pad's button bits (active high here): Select, Start, D-pad, then L2, R2, L1, R1, △, ○, ×, □.</summary>
-    private static int PadBits(ControllerState state)
-    {
-        var bits = 0;
-        bits |= state.HasFlag(ControllerState.Select) ? 1 << 0 : 0;
-        bits |= state.HasFlag(ControllerState.Start) ? 1 << 3 : 0;
-        bits |= state.HasFlag(ControllerState.Up) ? 1 << 4 : 0;
-        bits |= state.HasFlag(ControllerState.Right) ? 1 << 5 : 0;
-        bits |= state.HasFlag(ControllerState.Down) ? 1 << 6 : 0;
-        bits |= state.HasFlag(ControllerState.Left) ? 1 << 7 : 0;
-        bits |= state.HasFlag(ControllerState.L2) ? 1 << 8 : 0;
-        bits |= state.HasFlag(ControllerState.R2) ? 1 << 9 : 0;
-        bits |= state.HasFlag(ControllerState.L) ? 1 << 10 : 0;
-        bits |= state.HasFlag(ControllerState.R) ? 1 << 11 : 0;
-        bits |= state.HasFlag(ControllerState.X) ? 1 << 12 : 0; // Triangle (north)
-        bits |= state.HasFlag(ControllerState.A) ? 1 << 13 : 0; // Circle (east)
-        bits |= state.HasFlag(ControllerState.B) ? 1 << 14 : 0; // Cross (south)
-        bits |= state.HasFlag(ControllerState.Y) ? 1 << 15 : 0; // Square (west)
-        return bits;
-    }
+        PsPortDevice.GunCon => _guns[port].Exchange(_step++, out ack),
+        PsPortDevice.Mouse => _mice[port].Exchange(_step++, out ack),
+        _ => _dualShocks[port].Exchange(_step++, data, out ack),
+    };
 
     // ---- Memory card ----
 
@@ -426,7 +422,7 @@ public sealed class PsSio : IStateful
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 1);
+        writer.BeginChunk(Tag, 2);
         writer.WriteUInt16(_mode);
         writer.WriteUInt16(_control);
         writer.WriteUInt16(_baud);
@@ -455,12 +451,23 @@ public sealed class PsSio : IStateful
             }
         }
 
+        foreach (var pad in _dualShocks)
+        {
+            pad.SaveState(writer);
+        }
+
+        for (var i = 0; i < 2; i++)
+        {
+            _guns[i].SaveState(writer);
+            _mice[i].SaveState(writer);
+        }
+
         writer.EndChunk();
     }
 
     public void LoadState(StateReader reader)
     {
-        reader.BeginChunk(Tag);
+        var version = reader.BeginChunk(Tag);
         _mode = reader.ReadUInt16();
         _control = reader.ReadUInt16();
         _baud = reader.ReadUInt16();
@@ -486,6 +493,28 @@ public sealed class PsSio : IStateful
             {
                 // A card in the state replaces the card's contents, so saves rewind with everything else.
                 reader.ReadBytes(_cards[i] is { } card ? card.BatteryRam : DiscardBuffer);
+            }
+        }
+
+        // Version 1 had digital pads only, which is how a DualShock starts.
+        foreach (var pad in _dualShocks)
+        {
+            if (version >= 2)
+            {
+                pad.LoadState(reader);
+            }
+            else
+            {
+                pad.Reset();
+            }
+        }
+
+        if (version >= 2)
+        {
+            for (var i = 0; i < 2; i++)
+            {
+                _guns[i].LoadState(reader);
+                _mice[i].LoadState(reader);
             }
         }
 

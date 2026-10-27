@@ -98,6 +98,12 @@ public sealed record AppSettings
     public bool PlayStationFastBoot { get; init; }
 
     /// <summary>
+    /// PlayStation controllers start in analog mode, as if the DualShock's Analog button were pressed: for games that
+    /// use the sticks but don't switch the mode themselves. Off by default, since digital-only games want digital pads.
+    /// </summary>
+    public bool PlayStationAnalog { get; init; }
+
+    /// <summary>
     /// Give N64 games the Expansion Pak's extra 4 MB (8 MB in all). On by default, as most homebrew and many games
     /// use it; a few older games expect 4 MB.
     /// </summary>

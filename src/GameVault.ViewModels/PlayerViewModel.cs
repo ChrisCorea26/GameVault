@@ -352,6 +352,14 @@ public sealed partial class PlayerViewModel(
     [ObservableProperty]
     public partial bool UsesPaddle { get; private set; }
 
+    /// <summary>The game is set up for the PlayStation's GunCon, so the mouse aims it.</summary>
+    [ObservableProperty]
+    public partial bool UsesGun { get; private set; }
+
+    /// <summary>The game is set up for the PlayStation Mouse.</summary>
+    [ObservableProperty]
+    public partial bool UsesMouse { get; private set; }
+
     private bool _attached;
     private bool _pauseWhenInactive = true;
     private bool _pausedForInactive;
@@ -774,6 +782,8 @@ public sealed partial class PlayerViewModel(
         Title = emulator.GameTitle ?? "Player";
         UsesZapper = emulator.UsesZapper;
         UsesPaddle = emulator.UsesPaddle;
+        UsesGun = emulator.UsesGun;
+        UsesMouse = emulator.UsesMouse;
         IsNesGame = emulator.System is null or GameVault.Core.Systems.GameSystem.Nes;
         if (emulator.Status == EmulatorStatus.Faulted)
         {

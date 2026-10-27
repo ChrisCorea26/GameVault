@@ -4,8 +4,8 @@ using GameVault.ViewModels.Services;
 
 namespace GameVault.Platform.Emulation;
 
-/// <summary>What a PlayStation needs besides the game: the player's BIOS from Settings and the fast-boot choice.</summary>
-public sealed record PlayStationSetup(byte[]? Bios, bool FastBoot = false);
+/// <summary>What a PlayStation needs besides the game: the player's BIOS from Settings, fast boot, and analog pads.</summary>
+public sealed record PlayStationSetup(byte[]? Bios, bool FastBoot = false, bool AnalogPads = false);
 
 /// <summary>PlayStation games (SPEC §7.11, Phase 15): the BIOS from Settings, and changing discs in multi-disc games.</summary>
 public sealed partial class EmulatorHost
@@ -27,13 +27,13 @@ public sealed partial class EmulatorHost
         var settings = await _settings.LoadAsync(cancellationToken).ConfigureAwait(false);
         if (string.IsNullOrWhiteSpace(settings.PlayStationBiosPath))
         {
-            return new PlayStationSetup(null, settings.PlayStationFastBoot);
+            return new PlayStationSetup(null, settings.PlayStationFastBoot, settings.PlayStationAnalog);
         }
 
         try
         {
             var bios = await File.ReadAllBytesAsync(settings.PlayStationBiosPath, cancellationToken).ConfigureAwait(false);
-            return new PlayStationSetup(bios, settings.PlayStationFastBoot);
+            return new PlayStationSetup(bios, settings.PlayStationFastBoot, settings.PlayStationAnalog);
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

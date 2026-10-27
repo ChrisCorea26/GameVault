@@ -128,6 +128,19 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task PlayStation_analog_mode_is_off_by_default_and_saved()
+    {
+        var store = new InMemorySettingsStore();
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.PlayStationAnalog.Should().BeFalse();
+
+        vm.PlayStationAnalog = true;
+
+        store.Current.PlayStationAnalog.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task The_n64_rumble_pak_is_off_by_default_and_saved()
     {
         var store = new InMemorySettingsStore();
