@@ -17,6 +17,7 @@ public enum GameSystem
     PlayStation,
     Nintendo64,
     PlayStation2,
+    SegaCd,
 }
 
 /// <summary>
