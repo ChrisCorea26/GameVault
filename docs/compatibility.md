@@ -150,8 +150,8 @@ zexdoc and zexall run in their own CI job ("Z80 exerciser", Release build). Loca
 | SN76489 PSG (Sega noise variant) | ✅ Unit tests |
 | Sega mapper (with cartridge RAM, saved like a battery save), Codemasters (detected from the ROM), Korean, plain ≤48 KB | ✅ Unit tests (Sega, detection) |
 | SG-1000 8 KB RAM-expansion boards | Supported by the cartridge; not yet selected by a game database |
-| YM2413 FM sound (Japanese SMS) | Not yet |
-| SC-3000 keyboard | Not yet |
+| YM2413 FM sound (Japanese SMS): nine channels, rhythm mode, the $F0–$F2 ports and detection | 🟡 Unit tests (detection, a note's pitch, the bass drum, save states); a behavioral FM model shared with the VRC7, not checked against hardware recordings |
+| SC-3000 keyboard (8255 PPI matrix) | ✅ Unit tests (a key's row and bit, row 7 as the joypads); the PC key layout follows SMS Power!'s matrix |
 | PAL timing | Supported (313 lines), chosen by the game database's `region` |
 
 Real-game results need the owner's cartridges or ROMs (see `docs/plans/phase-11.md`, owner checklist).
@@ -163,11 +163,12 @@ Real-game results need the owner's cartridges or ROMs (see `docs/plans/phase-11.
 | 6502 with decimal mode: Klaus Dormann's `6502_functional_test` | ✅ Success trap reached |
 | 65C02: Dormann's `65C02_extended_opcodes_test` (with WDC/Rockwell instructions) | ✅ Success trap reached |
 | Memory: Language Card, IIe auxiliary memory and switches | ✅ Unit tests |
-| Video: text (GameVault's own font), lo-res, hi-res artifact colour, 80 columns, double hi-res, mixed | ✅ Unit tests |
+| Video: text (GameVault's own font, or the player's character ROM), lo-res, hi-res artifact colour, 80 columns, double hi-res, mixed | ✅ Unit tests |
 | Disk II: DSK/DO/PO (6-and-2), NIB, WOZ 1/2; reads, writes, stepper | ✅ Unit tests |
 | Speaker, keyboard, paddles and buttons | ✅ Unit tests |
 | Disk menu (drives 1 and 2, insert and eject); disk writes saved as patches | ✅ Host and ViewModel tests |
-| Mid-frame video changes, floating bus | Not yet |
+| Video drawn line by line (mid-frame mode changes); green, amber and white monitors; the player's character ROM | ✅ Unit tests |
+| Floating bus | Not yet |
 
 Real disks need the owner's Apple ROMs (Settings → Apple II) and disk images; see
 `docs/plans/phase-12.md`.

@@ -29,8 +29,14 @@ public sealed class SegaConsole : IEmulatedConsole, IZ80Bus
     private bool _pausePressed;
     private byte _ioControl = 0xFF;
     private byte _memoryControl;
+    private int _frameCycles;
+    private float _lastFm;
+    private readonly ushort[] _keyRows = new ushort[7];
+    private byte _ppiPortC = 0x07;
 
-    public SegaConsole(GameSystem system, SegaCartridge cartridge, bool pal = false)
+    /// <param name="fmUnit">Give a Master System the FM Sound Unit (the Japanese model's YM2413).</param>
+    /// <param name="keyboard">Make an SG-1000 an SC-3000, with its keyboard on the 8255 PPI.</param>
+    public SegaConsole(GameSystem system, SegaCartridge cartridge, bool pal = false, bool fmUnit = false, bool keyboard = false)
     {
         if (system is not (GameSystem.Sg1000 or GameSystem.MasterSystem))
         {
@@ -43,15 +49,19 @@ public sealed class SegaConsole : IEmulatedConsole, IZ80Bus
         _ram = new byte[system == GameSystem.MasterSystem ? 0x2000 : 0x0400];
         Vdp = new SegaVdp(system == GameSystem.MasterSystem ? VdpModel.Sms2 : VdpModel.Tms9918, pal);
         Psg = new Sn76489();
+        Fm = fmUnit && system == GameSystem.MasterSystem ? new Ym2413() : null;
+        HasKeyboard = keyboard && system == GameSystem.Sg1000;
         Cpu = new Z80Cpu(this);
         RomHash = HashRom(cartridge.Rom);
     }
 
     /// <summary>A console for a ROM file, with the board detected from the ROM (a 512-byte copier header is skipped).</summary>
-    public static SegaConsole FromBytes(GameSystem system, ReadOnlySpan<byte> file, SegaMapper? mapper = null, bool pal = false)
+    /// <param name="fmUnit">The FM Sound Unit: null gives it to Japanese Master System cartridges (by their header).</param>
+    /// <param name="keyboard">An SC-3000 (an SG-1000 with its keyboard): for .sc files and BASIC cartridges.</param>
+    public static SegaConsole FromBytes(GameSystem system, ReadOnlySpan<byte> file, SegaMapper? mapper = null, bool pal = false, bool? fmUnit = null, bool keyboard = false)
     {
         var rom = (file.Length % 0x4000 == 512 ? file[512..] : file).ToArray();
-        return new SegaConsole(system, new SegaCartridge(rom, mapper ?? SegaCartridge.DetectMapper(rom)), pal);
+        return new SegaConsole(system, new SegaCartridge(rom, mapper ?? SegaCartridge.DetectMapper(rom)), pal, fmUnit ?? SegaCartridge.IsJapaneseMasterSystem(rom), keyboard);
     }
 
     public GameSystem System { get; }
@@ -63,6 +73,28 @@ public sealed class SegaConsole : IEmulatedConsole, IZ80Bus
     public SegaVdp Vdp { get; }
 
     public Sn76489 Psg { get; }
+
+    /// <summary>The FM Sound Unit, on a Japanese Master System; null otherwise.</summary>
+    public Ym2413? Fm { get; }
+
+    /// <summary>
+    /// True for the SC-3000 (outstanding-work plan §8): its keyboard is a matrix of seven rows of twelve keys on the
+    /// 8255 PPI. Port $DE's low three bits pick a row; $DC reads the row's first eight keys and $DD the other four,
+    /// active low. Row 7 is the joypads, so games read them as on the SG-1000 (SMS Power! "SC-3000 keyboard").
+    /// </summary>
+    public bool HasKeyboard { get; }
+
+    /// <summary>
+    /// The SC-3000's keys held now: one 12-bit mask per row (bits 0–7 are PA0–PA7, 8–11 PB0–PB3), set while held.
+    /// The host sets it every frame from the PC keyboard.
+    /// </summary>
+    public void SetKeyboardRows(ReadOnlySpan<ushort> rows)
+    {
+        for (var row = 0; row < _keyRows.Length; row++)
+        {
+            _keyRows[row] = row < rows.Length ? (ushort)(rows[row] & 0x0FFF) : (ushort)0;
+        }
+    }
 
     public SegaCartridge Cartridge { get; }
 
@@ -98,8 +130,13 @@ public sealed class SegaConsole : IEmulatedConsole, IZ80Bus
         Array.Clear(_ram);
         Vdp.Power();
         Psg.Power();
+        Fm?.Power();
         Cartridge.Reset();
         Cpu.Power();
+        _frameCycles = 0;
+        _lastFm = 0;
+        _ppiPortC = 0x07;
+        Array.Clear(_keyRows);
         _lineCycles = 0;
         _pausePressed = false;
         _ioControl = 0xFF;
@@ -153,6 +190,7 @@ public sealed class SegaConsole : IEmulatedConsole, IZ80Bus
         }
 
         Psg.EndAudioFrame();
+        _frameCycles = 0;
     }
 
     public void RunFrameSilently()
@@ -183,10 +221,28 @@ public sealed class SegaConsole : IEmulatedConsole, IZ80Bus
             Cpu.IrqLine = Vdp.Irq;
             var cycles = Cpu.Step();
             Psg.Run(cycles);
+            if (Fm is { } fm)
+            {
+                RunFm(fm, cycles);
+            }
+
             _lineCycles += cycles;
         }
 
         _lineCycles -= CyclesPerLine;
+    }
+
+    /// <summary>The FM unit's samples join the PSG's in the same audio frame, as changes stamped with the Z80 cycle.</summary>
+    private void RunFm(Ym2413 fm, int cycles)
+    {
+        for (var i = 0; i < cycles; i++, _frameCycles++)
+        {
+            if (fm.Clock() && Psg.AudioSink is { } sink && fm.Output != _lastFm)
+            {
+                sink.AddDelta(_frameCycles, fm.Output - _lastFm);
+                _lastFm = fm.Output;
+            }
+        }
     }
 
     // ---------------------------------------------------------------- the Z80's view
@@ -246,6 +302,18 @@ public sealed class SegaConsole : IEmulatedConsole, IZ80Bus
     public byte In(ushort port)
     {
         var low = (byte)port;
+        if (Fm is { } fm && low == 0xF2)
+        {
+            return fm.Control; // the FM unit answers its control port, so games can find it
+        }
+
+        if (HasKeyboard && (low & 0xC1) is 0xC0 or 0xC1 && (_ppiPortC & 7) < 7)
+        {
+            // A keyboard row: PA0–PA7 on $DC, PB0–PB3 on $DD (the other bits read high).
+            var keys = _keyRows[_ppiPortC & 7];
+            return (low & 1) == 0 ? (byte)~keys : (byte)(~(keys >> 8) | 0xF0);
+        }
+
         switch (low & 0xC1)
         {
             case 0x40:
@@ -268,6 +336,34 @@ public sealed class SegaConsole : IEmulatedConsole, IZ80Bus
     public void Out(ushort port, byte value)
     {
         var low = (byte)port;
+        if (HasKeyboard && (low & 0xC2) == 0xC2)
+        {
+            if ((low & 1) == 0)
+            {
+                _ppiPortC = value; // $DE: port C, the row select
+            }
+            else if ((value & 0x80) == 0)
+            {
+                // $DF with bit 7 clear sets or clears one bit of port C.
+                var bit = (value >> 1) & 7;
+                _ppiPortC = (byte)((value & 1) != 0 ? _ppiPortC | (1 << bit) : _ppiPortC & ~(1 << bit));
+            }
+
+            return;
+        }
+
+        if (Fm is { } fm && low is 0xF0 or 0xF1 or 0xF2)
+        {
+            switch (low)
+            {
+                case 0xF0: fm.WriteRegister(value); break;
+                case 0xF1: fm.WriteData(value); break;
+                default: fm.WriteControl(value); break;
+            }
+
+            return;
+        }
+
         switch (low & 0xC1)
         {
             case 0x00:
@@ -370,6 +466,23 @@ public sealed class SegaConsole : IEmulatedConsole, IZ80Bus
         writer.WriteByte(_memoryControl);
         writer.WriteByte((byte)_pads[0]);
         writer.WriteByte((byte)_pads[1]);
+        if (Fm is { } fm)
+        {
+            // Only consoles with the FM unit have this, so other games' states are unchanged.
+            fm.SaveState(writer);
+            writer.WriteInt32(_frameCycles);
+            writer.WriteInt32(BitConverter.SingleToInt32Bits(_lastFm));
+        }
+
+        if (HasKeyboard)
+        {
+            writer.WriteByte(_ppiPortC);
+            foreach (var row in _keyRows)
+            {
+                writer.WriteUInt16(row);
+            }
+        }
+
         writer.EndChunk();
     }
 
@@ -387,6 +500,22 @@ public sealed class SegaConsole : IEmulatedConsole, IZ80Bus
         _memoryControl = reader.ReadByte();
         _pads[0] = (ControllerState)reader.ReadByte();
         _pads[1] = (ControllerState)reader.ReadByte();
+        if (Fm is { } fm)
+        {
+            fm.LoadState(reader);
+            _frameCycles = reader.ReadInt32();
+            _lastFm = BitConverter.Int32BitsToSingle(reader.ReadInt32());
+        }
+
+        if (HasKeyboard)
+        {
+            _ppiPortC = reader.ReadByte();
+            for (var row = 0; row < _keyRows.Length; row++)
+            {
+                _keyRows[row] = (ushort)(reader.ReadUInt16() & 0x0FFF);
+            }
+        }
+
         reader.EndChunk();
     }
 
