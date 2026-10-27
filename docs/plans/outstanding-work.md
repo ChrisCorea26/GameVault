@@ -210,6 +210,11 @@ hidden bits yet; they wait for that (with the GPU renderer, item 14). Tests: `N6
 A VR4300 block recompiler to IL like the EE's, with the interpreter as the reference and the same kind of
 differential tests.
 
+**Measured first, and not needed now.** A loop of RDRAM loads, adds, stores and a branch runs at 369 M CPU cycles a
+second on the interpreter (Release, the Linux build machine): about four times the VR4300's 93.75 MHz, so the CPU
+isn't what holds N64 games below full speed; the RDP is (phase-17-performance.md §3). The recompiler waits until a
+profile of real games shows the CPU on top; until then the GPU renderer (item 14) is where N64 speed comes from.
+
 ## 16. PS2 netplay and run-ahead
 Make PS2 save states small and fast enough (dirty-page tracking for the 32 MB of RAM and the GS's 4 MB), then
 enable run-ahead and rollback netplay.
