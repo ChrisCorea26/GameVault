@@ -163,7 +163,17 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _controllerPaks = paths is null ? null : new BatterySaveStore(paths, ".mpk");
         _ps2Cards = paths is null ? null : new Ps2MemoryCardStore(paths);
         _context = SynchronizationContext.Current;
-        _present = console => _video.Present(console.FrameBuffer, PaletteFor(console), console.ScreenWidth, console.ScreenHeight, console.PixelAspect);
+        _present = console =>
+        {
+            if (console.TrueColorFrame is { IsEmpty: false } argb)
+            {
+                _video.PresentArgb(argb, console.ScreenWidth, console.ScreenHeight, console.PixelAspect);
+            }
+            else
+            {
+                _video.Present(console.FrameBuffer, PaletteFor(console), console.ScreenWidth, console.ScreenHeight, console.PixelAspect);
+            }
+        };
     }
 
     public EmulatorStatus Status { get; private set; }
@@ -1310,8 +1320,10 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     public async Task<byte[]?> CaptureScreenshotAsync()
     {
         var frame = await InspectAsync(console => (
-            Pixels: console.FrameBuffer.ToArray(), Palette: ScreenshotPalette(console), Width: console.ScreenWidth, Height: console.ScreenHeight)).ConfigureAwait(false);
-        return frame.Pixels is null ? null : PngEncoder.Encode(PngEncoder.ToArgb(frame.Pixels, frame.Palette), frame.Width, frame.Height);
+            Argb: console.TrueColorFrame.IsEmpty ? PngEncoder.ToArgb(console.FrameBuffer, ScreenshotPalette(console)) : console.TrueColorFrame.ToArray(),
+            Width: console.ScreenWidth,
+            Height: console.ScreenHeight)).ConfigureAwait(false);
+        return frame.Argb is null ? null : PngEncoder.Encode(frame.Argb, frame.Width, frame.Height);
     }
 
     /// <summary>Loads a save state between frames. Returns false if it doesn't fit the running game.</summary>

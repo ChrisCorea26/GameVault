@@ -246,6 +246,7 @@ Real discs need the owner's BIOS (Settings → PlayStation); real games are the 
 | RDP: PeterLemon's 115 drawing programs through the whole console (CPU, RSP over XBUS, RDP, VI) | ✅ Golden images; 105 are also held to their reference pictures (89–100% of pixels identical; the references are an emulator's captures, some a row off) |
 | RDP: coverage anti-aliasing, the VI's filters (anti-aliasing, divot, gamma) | 🟡 Coverage is computed per pixel but the hidden RDRAM bits aren't kept; the VI shows the framebuffer without its filters |
 | PI DMA, including unaligned addresses and odd lengths (`DMAAlignment-PI`, recorded on hardware) | ✅ All pass |
+| VI: 16-bit and 32-bit framebuffers (32-bit shown at full depth) | ✅ Unit tests |
 | SI and the joybus: controllers, Controller Pak, EEPROM | ✅ Unit tests |
 | SRAM and FlashRAM | ✅ Unit tests (FlashRAM follows Mupen64Plus's command set) |
 | AI: audio buffers and the DAC rate | ✅ Unit tests and PeterLemon's PCM demos (not committed: their samples' origin isn't stated) |

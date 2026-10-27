@@ -309,6 +309,8 @@ down on a CPU with few cores.
 **Rumble Pak:** turn on **Settings → Nintendo 64 → Rumble Pak** and every controller gets one, so games that use it
 shake your controller (if it has rumble motors). Games can't save to the Controller Pak while it's on.
 
+Games that draw in 32-bit colour are shown with all their colours, without the banding of 16-bit colour.
+
 **Not supported yet:** Transfer Pak, mouse, voice recognition unit, 64DD, GameShark codes, and the N64's
 video filters.
 

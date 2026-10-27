@@ -21,6 +21,9 @@ public interface IVideoSink
     /// and Sega consoles, whose TV shape is a display setting).
     /// </summary>
     void Present(ReadOnlySpan<ushort> indexedPixels, ReadOnlySpan<uint> paletteArgb, int width = Width, int height = Height, double pixelAspect = 1.0);
+
+    /// <summary>Presents a frame already in 32-bit ARGB (a console's <c>TrueColorFrame</c>).</summary>
+    void PresentArgb(ReadOnlySpan<uint> argb, int width, int height, double pixelAspect = 1.0);
 }
 
 /// <summary>One frame in the <see cref="FrameSink"/>: palette indices at the frame's own size.</summary>
@@ -38,4 +41,28 @@ public sealed class VideoFrame
     public bool IsStandard => Width == IVideoSink.Width && Height == IVideoSink.Height;
 
     public ReadOnlySpan<ushort> Span => Pixels.AsSpan(0, Width * Height);
+
+    /// <summary>The frame as ARGB, used instead of <see cref="Pixels"/> when <see cref="IsArgb"/>.</summary>
+    public uint[] Argb { get; } = new uint[IVideoSink.MaxWidth * IVideoSink.MaxHeight];
+
+    /// <summary>True when the frame came at full colour depth (<see cref="Argb"/>), not as palette indices.</summary>
+    public bool IsArgb { get; set; }
+
+    public ReadOnlySpan<uint> ArgbSpan => Argb.AsSpan(0, Width * Height);
+
+    /// <summary>The frame as ARGB, whichever way it came.</summary>
+    public void ToArgb(ReadOnlySpan<uint> palette, Span<uint> destination)
+    {
+        if (IsArgb)
+        {
+            ArgbSpan.CopyTo(destination);
+            return;
+        }
+
+        var pixels = Span;
+        for (var i = 0; i < pixels.Length; i++)
+        {
+            destination[i] = palette[pixels[i] & 0x7FFF]; // up to 32,768 colours (the SNES uses all of them)
+        }
+    }
 }

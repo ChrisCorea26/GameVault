@@ -103,6 +103,12 @@ public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHos
 
     public ReadOnlySpan<ushort> FrameBuffer => _frame.AsSpan(0, _frameWidth * _frameHeight);
 
+    // The 32-bit picture at full depth, and whether the last frame was one.
+    private readonly uint[] _argb = new uint[MaxWidth * MaxHeight];
+    private bool _trueColor;
+
+    public ReadOnlySpan<uint> TrueColorFrame => _trueColor ? _argb.AsSpan(0, _frameWidth * _frameHeight) : default;
+
     /// <summary>The frame holds BGR555 colours, the same layout as the SNES's.</summary>
     public ReadOnlySpan<uint> Palette => SnesPpu.Palette;
 
@@ -338,10 +344,12 @@ public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHos
     /// <summary>
     /// Turns the VI's picture into the frame: the framebuffer at VI_ORIGIN, VI_WIDTH pixels a line, over the area
     /// H_VIDEO and V_VIDEO show at the X and Y scales (n64brew: "Video Interface"). 16-bit pixels are RGBA5551;
-    /// 32-bit pixels are rounded to 15 bits. The VI's anti-aliasing and divot filters are left for later.
+    /// 32-bit pixels are rounded to 15 bits there, and also kept at full depth in <see cref="TrueColorFrame"/>
+    /// (outstanding-work plan §10). The VI's anti-aliasing and divot filters are left for later.
     /// </summary>
     private void CaptureFrame()
     {
+        _trueColor = false;
         var type = _vi[ViControl] & 3;
         var hStart = (int)(_vi[ViHVideo] >> 16) & 0x3FF;
         var hEnd = (int)_vi[ViHVideo] & 0x3FF;
@@ -362,6 +370,8 @@ public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHos
         var origin = (int)(_vi[ViOrigin] & 0xFF_FFFF);
         var stride = (int)(_vi[ViWidth] & 0xFFF);
         var bytes = type == 3 ? 4 : 2;
+        _trueColor = bytes == 4;
+        var argb = _argb;
         var rdram = _rdram;
         for (var y = 0; y < height; y++)
         {
@@ -372,6 +382,7 @@ public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHos
                 if ((uint)(address + bytes) > (uint)rdram.Length)
                 {
                     line[x] = 0;
+                    argb[y * width + x] = 0xFF000000;
                     continue;
                 }
 
@@ -383,6 +394,7 @@ public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHos
                 else
                 {
                     line[x] = (ushort)((rdram[address] >> 3) | ((rdram[address + 1] >> 3) << 5) | ((rdram[address + 2] >> 3) << 10));
+                    argb[y * width + x] = 0xFF000000u | (uint)(rdram[address] << 16 | rdram[address + 1] << 8 | rdram[address + 2]);
                 }
             }
         }
@@ -468,6 +480,7 @@ public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHos
         FrameCount = reader.ReadInt64();
         _frameWidth = reader.ReadInt32();
         _frameHeight = reader.ReadInt32();
+        _trueColor = false; // until the next frame is drawn, the indexed picture stands
         _miMode = reader.ReadUInt32();
         _miInterrupts = reader.ReadUInt32();
         _miMask = reader.ReadUInt32();
