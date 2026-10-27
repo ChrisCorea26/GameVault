@@ -181,6 +181,15 @@ from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Pla
 - The DualShock 2's pressure-sensitive buttons, from the analog triggers and full presses.
 - Mipmapping and LOD in the software GS.
 
+**As built.** Mipmapping in the GS: MXL, MMIN's four mipmap modes, the levels' addresses from MIPTBP1/2 or MTBA's
+packed layout, each level's size and region clamp halved, and a blend by LOD's fraction between levels. Slot 2
+holds one card shared by every game (`Memory card (slot 2).ps2`); SIO2's state is now version 2 and still loads
+version 1. L2 and R2 report how far a pad's analog triggers are pulled (`ControllerState` bits 50–63), other
+buttons report full presses. **Not done:** the multitap — SIO2's multitap commands (21h) can't be checked here
+against hardware or a test program, so rather than guess they stay open in `docs/bugs.md`; and the DualShock 2's
+vibration, which needs the rumble path from item 10. Tests: `Ps2GsRasterTests`, `Sio2Tests`,
+`PlayStation2PlatformTests`, `ControllerManagerTests`.
+
 ## 13. Internet netplay
 - A relay server option and STUN-based NAT traversal on top of the LAN rollback netplay (SPEC §7.7).
 - Netplay for Famicom Disk System games (disk contents synced at start).
