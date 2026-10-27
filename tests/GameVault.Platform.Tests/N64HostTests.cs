@@ -81,7 +81,8 @@ public sealed class N64HostTests : IDisposable
 
     /// <summary>
     /// A cartridge whose boot code shows a 320×240 16-bit framebuffer that the RDP fills green (a command list in
-    /// RDRAM at $100000), then counts in RDRAM at $10.
+    /// RDRAM at $100000), and keeps sending the list again, counting each time in RDRAM at $10 (as a game draws every
+    /// frame: the GPU renderer is attached when it's ready, and draws from then on).
     /// </summary>
     internal static byte[] GreenRdpRom()
     {
@@ -116,10 +117,12 @@ public sealed class N64HostTests : IDisposable
         program.AddRange(
         [
             Lui(8, 0xA410), // DPC_START and DPC_END
-            Lui(9, 0x0010), Sw(9, 8, 0x00),
-            Ori(9, 9, commands.Length * 4), Sw(9, 8, 0x04),
             Lui(13, 0xA000),
-            Lw(14, 13, 0x10), Addiu(14, 14, 1), Sw(14, 13, 0x10), Beq(0, 0, -4), 0,
+            Lui(9, 0x0010), Sw(9, 8, 0x00), // the loop: send the list,
+            Ori(9, 9, commands.Length * 4), Sw(9, 8, 0x04),
+            Lw(14, 13, 0x10), Addiu(14, 14, 1), Sw(14, 13, 0x10), // count,
+            Lui(15, 0x0002), Addiu(15, 15, -1), Bne(15, 0, -2), 0, // wait a while,
+            Beq(0, 0, -12), 0, // and again
         ]);
         var rom = new byte[0x10_0000];
         BinaryPrimitives.WriteUInt32BigEndian(rom, 0x8037_1240);

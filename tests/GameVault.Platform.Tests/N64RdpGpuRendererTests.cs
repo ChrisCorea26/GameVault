@@ -314,6 +314,47 @@ public sealed class N64RdpGpuRendererTests(ITestOutputHelper output)
     }
 
     /// <summary>
+    /// The host attaches the renderer when it's ready, mid-game: it draws from the next primitive on, seeding what it
+    /// needs from RDRAM, and shows the picture once the game has drawn it again.
+    /// </summary>
+    [Fact]
+    public void A_renderer_attached_mid_game_shows_the_picture_once_the_game_draws_again()
+    {
+        var gpu = CreateGpu(out var why);
+        if (gpu is null)
+        {
+            output.WriteLine("Skipped: " + why);
+            return;
+        }
+
+        using var device = gpu;
+        var console = new N64Console(new N64Cartridge(N64HostTests.GreenRdpRom()));
+        console.Power();
+        for (var frame = 0; frame < 10; frame++)
+        {
+            console.RunFrame();
+        }
+
+        using var renderer = new N64RdpGpuRenderer(gpu, console.Rdram, 2);
+        console.Rdp.Backend = renderer;
+        renderer.ReadDisplay(console.VideoOutput, out _, out _).IsEmpty.Should().BeTrue("nothing has been drawn since");
+        var shown = false;
+        for (var frame = 0; frame < 30 && !shown; frame++)
+        {
+            console.RunFrame();
+            var picture = renderer.ReadDisplay(console.VideoOutput, out var width, out var height);
+            if (!picture.IsEmpty)
+            {
+                (width, height).Should().Be((640, 474));
+                picture[(width * (height / 2)) + (width / 2)].Should().Be(0xFF00FF00u);
+                shown = true;
+            }
+        }
+
+        shown.Should().BeTrue("the game sends its list again");
+    }
+
+    /// <summary>
     /// PeterLemon's RDP test programs through the whole console with the GPU renderer attached: after they draw, the
     /// GPU's picture of the framebuffer the VI shows matches the software RDP's. Opt-in, with
     /// <c>GAMEVAULT_N64_GPU=all</c> (or a part of the programs' paths): software Vulkan devices run the kernel's every

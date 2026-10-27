@@ -82,8 +82,10 @@ public sealed partial class EmulatorHost
                 gpu = new D3D11Compute(cacheDirectory: cache);
                 renderer = create(gpu);
             }
-            catch (Exception ex) when (ex is SharpGen.Runtime.SharpGenException or DllNotFoundException or InvalidOperationException)
+            catch (Exception)
             {
+                // Any failure here (no Direct3D 11, a driver's compiler error) leaves the software picture; this runs
+                // on a pool thread, so nothing else would see it.
                 gpu?.Dispose();
                 RaiseNotice(unavailable);
                 return;
