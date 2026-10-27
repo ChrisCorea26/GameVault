@@ -64,13 +64,14 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
                 0x2 => new Obc1(),
                 0x3 => new Sa1(_rom, ramSize is > 0 and <= 8 ? 1024 << ramSize : 0, Pal),
                 0x4 => new Sdd1(_rom),
+                0xF when chip == 0xF6 => CreateSeta(chipRoms),
                 _ => throw new UnsupportedChipException(ChipName(chip)),
             };
         }
 
-        _sram = Coprocessor is SuperFx or Sa1 or Obc1 || ramSize is 0 or > 7 ? [] : new byte[1024 << ramSize];
+        _sram = Coprocessor is SuperFx or Sa1 or Obc1 or NecDsp { IsUpd96050: true } || ramSize is 0 or > 7 ? [] : new byte[1024 << ramSize];
         Array.Fill(_sram, (byte)0xFF);
-        HasBattery = battery && (_sram.Length > 0 || Coprocessor is SuperFx or Sa1 or Obc1);
+        HasBattery = battery && (_sram.Length > 0 || Coprocessor is SuperFx or Sa1 or Obc1 or NecDsp { IsUpd96050: true });
     }
 
     public ReadOnlySpan<byte> Rom => _rom;
@@ -96,6 +97,7 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
         SuperFx gsu => gsu.Ram,
         Sa1 sa1 => sa1.BwRam,
         Obc1 obc1 => obc1.Ram,
+        NecDsp { IsUpd96050: true } seta => seta.DataRam,
         _ => _sram,
     };
 
@@ -199,6 +201,24 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
         }
 
         throw new MissingChipRomException(name, files);
+    }
+
+    /// <summary>
+    /// Seta's ST010 (F1 ROC II, Exhaust Heat II) or ST011 (Hayazashi Nidan Morita Shogi), both a µPD96050 running the
+    /// player's own program ROM; the shogi game's is the ST011.
+    /// </summary>
+    private NecDsp CreateSeta(Func<string, byte[]?>? chipRoms)
+    {
+        var st011 = Title.Contains("MORITA", StringComparison.OrdinalIgnoreCase);
+        var name = st011 ? "ST011" : "ST010";
+        var file = st011 ? "st011.rom" : "st010.rom";
+        if (chipRoms?.Invoke(file) is { Length: NecDsp.Upd96050DumpSize } dump)
+        {
+            var (program, data) = NecDsp.SplitDump(dump);
+            return new NecDsp(name, program, data, NecDspMap.Seta, upd96050: true, hz: st011 ? 15_000_000 : 11_000_000);
+        }
+
+        throw new MissingChipRomException(name, [file]);
     }
 
     /// <summary>
