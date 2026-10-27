@@ -23,6 +23,7 @@
     <EmbeddedResource Include="Video\Shaders\Display.hlsl" LogicalName="GameVault.Display.hlsl" />
     <EmbeddedResource Include="Video\Shaders\PsGpu.hlsl" LogicalName="GameVault.PsGpu.hlsl" />
     <EmbeddedResource Include="Video\Shaders\N64Rdp.hlsl" LogicalName="GameVault.N64Rdp.hlsl" />
+    <EmbeddedResource Include="Video\Shaders\Ps2Gs.hlsl" LogicalName="GameVault.Ps2Gs.hlsl" />
   </ItemGroup>
 
   <!--

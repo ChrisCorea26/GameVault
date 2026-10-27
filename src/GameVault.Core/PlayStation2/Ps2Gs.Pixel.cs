@@ -21,7 +21,7 @@ public sealed partial class Ps2Gs
     private DrawState _state;
 
     /// <summary>The draw state decoded from the registers: what a queued primitive is drawn with.</summary>
-    private struct DrawState
+    internal struct DrawState
     {
         // PRIM/PRMODE attributes.
         public bool Iip;
@@ -112,13 +112,13 @@ public sealed partial class Ps2Gs
     }
 
     [InlineArray(7)]
-    private struct MipLevels
+    internal struct MipLevels
     {
         private int _element;
     }
 
     [InlineArray(16)]
-    private struct DitherMatrix
+    internal struct DitherMatrix
     {
         private int _element;
     }

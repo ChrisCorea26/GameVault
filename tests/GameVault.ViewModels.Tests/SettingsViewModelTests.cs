@@ -154,6 +154,20 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task PlayStation_2_internal_resolution_starts_at_1x_and_is_saved()
+    {
+        var store = new InMemorySettingsStore();
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.PlayStation2ResolutionIndex.Should().Be(0);
+        vm.PlayStation2ResolutionOptions.Should().HaveCount(4);
+
+        vm.PlayStation2ResolutionIndex = 1;
+
+        store.Current.PlayStation2InternalResolution.Should().Be(2);
+    }
+
+    [Fact]
     public async Task N64_internal_resolution_starts_at_1x_and_is_saved()
     {
         var store = new InMemorySettingsStore();

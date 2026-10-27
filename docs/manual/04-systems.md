@@ -480,11 +480,17 @@ sequel can find a save that the earlier game wrote there.
 **Performance:** the PlayStation 2 is emulated in software. GameVault translates the main processor's code into
 your PC's own as it runs, and draws the graphics on several processor cores at once, so a CPU with more cores
 helps. Lighter games can reach full speed on a fast PC, but many games still run below it, especially 3D games that
-lean on the PS2's vector units. Enhanced graphics and more speed-ups are planned.
+lean on the PS2's vector units. More speed-ups are planned.
+
+**Sharper 3D:** **Settings → PlayStation 2 → Internal resolution** draws games at two, three or four times the
+console's resolution on your graphics card (Direct3D 11). Polygons get smooth edges, and effects games draw into
+their own pictures first (glow, shadows, reflections) keep their detail too. Videos and pictures a game sends
+straight to the screen show at the console's own resolution. The game itself runs exactly as it does at 1× (and no
+faster), so save states and rewind are unaffected. As for the N64, the first start after installing or updating
+GameVault plays at 1× for a minute or two while the graphics card's program is prepared.
 
 **Not supported yet:** changing discs in multi-disc games (an `.m3u` starts its first disc), vibration, the multitap,
-PlayStation games on the PlayStation 2, USB devices, the network adapter and hard drive, GameShark codes, and enhanced
-(upscaled) graphics.
+PlayStation games on the PlayStation 2, USB devices, the network adapter and hard drive, and GameShark codes.
 
 **Messages:**
 

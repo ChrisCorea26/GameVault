@@ -26,7 +26,7 @@ public sealed partial class Ps2Gs
     private readonly Vertex[] _queue = new Vertex[3];
     private int _queueCount;
 
-    private struct Vertex
+    internal struct Vertex
     {
         public int X;
         public int Y;

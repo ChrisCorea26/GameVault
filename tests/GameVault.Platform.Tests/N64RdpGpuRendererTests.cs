@@ -35,7 +35,22 @@ public sealed class N64RdpGpuRendererTests(ITestOutputHelper output)
     private const ulong BiLerp0 = 1UL << 43;
     private const ulong Bilinear = 1UL << 45;
 
+    /// <summary>
+    /// A GPU to run the kernels on, or null (with why) when there's none; with <c>GAMEVAULT_REQUIRE_GPU=1</c> (CI) a
+    /// missing device fails the test instead.
+    /// </summary>
     internal static IGpuCompute? CreateGpu(out string why)
+    {
+        var gpu = TryCreateGpu(out why);
+        if (gpu is null && Environment.GetEnvironmentVariable("GAMEVAULT_REQUIRE_GPU") == "1")
+        {
+            throw new InvalidOperationException("GAMEVAULT_REQUIRE_GPU is set, but there is no GPU device: " + why);
+        }
+
+        return gpu;
+    }
+
+    private static IGpuCompute? TryCreateGpu(out string why)
     {
         why = "";
         if (OperatingSystem.IsWindows())

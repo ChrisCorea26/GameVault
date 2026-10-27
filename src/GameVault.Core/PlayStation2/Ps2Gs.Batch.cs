@@ -60,10 +60,16 @@ public sealed partial class Ps2Gs
     /// </summary>
     public IParallelWork? ParallelWork { get; set; }
 
+    /// <summary>Draws every batch again at its own resolution (the GPU renderer); null for none.</summary>
+    internal IPs2GsBackend? Backend { get; set; }
+
+    /// <summary>Local memory as it stands, without drawing the batch first (for <see cref="Backend"/>).</summary>
+    internal byte[] Memory => _memory;
+
     /// <summary>Primitives drawn by more than one renderer so far (diagnostics and tests; not part of the state).</summary>
     public long ParallelPrimitives { get; private set; }
 
-    private struct Command
+    internal struct Command
     {
         public int Kind;
         public int State;
@@ -175,6 +181,7 @@ public sealed partial class Ps2Gs
             return;
         }
 
+        Backend?.Draw(_commands.AsSpan(0, _count), _states.AsSpan(0, _stateCount), _pendingWrites, _pendingReads);
         _renderers ??= CreateRenderers();
         var bands = Math.Clamp(ParallelWork?.Concurrency ?? 1, 1, MaxBands);
         var i = 0;
@@ -217,6 +224,7 @@ public sealed partial class Ps2Gs
             i = j;
         }
 
+        Backend?.Drawn(_pendingWrites);
         DiscardBatch();
     }
 

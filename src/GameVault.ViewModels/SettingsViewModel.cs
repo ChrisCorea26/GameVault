@@ -287,6 +287,12 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial bool PlayStation2FastBoot { get; set; }
 
+    public IReadOnlyList<string> PlayStation2ResolutionOptions { get; } = ["1× (original)", "2×", "3×", "4×"];
+
+    /// <summary>The PlayStation 2's internal resolution, as an index into <see cref="PlayStation2ResolutionOptions"/>.</summary>
+    [ObservableProperty]
+    public partial int PlayStation2ResolutionIndex { get; set; }
+
     /// <summary>Index into <see cref="RewindMemoryOptions"/>.</summary>
     [ObservableProperty]
     public partial int RewindMemoryIndex { get; set; } = 2;
@@ -409,6 +415,7 @@ public sealed partial class SettingsViewModel(
         N64ResolutionIndex = Math.Clamp(settings.N64InternalResolution, 1, 4) - 1;
         PlayStation2BiosPath = settings.PlayStation2BiosPath;
         PlayStation2FastBoot = settings.PlayStation2FastBoot;
+        PlayStation2ResolutionIndex = Math.Clamp(settings.PlayStation2InternalResolution, 1, 4) - 1;
         await CheckPlayStation2BiosAsync();
         _isLoaded = true;
         await Library.LoadCommand.ExecuteAsync(null);
@@ -517,6 +524,8 @@ public sealed partial class SettingsViewModel(
 
     partial void OnPlayStation2FastBootChanged(bool value) => SaveIfLoaded();
 
+    partial void OnPlayStation2ResolutionIndexChanged(int value) => SaveIfLoaded();
+
     private async Task CheckPlayStation2BiosAsync()
     {
         var path = PlayStation2BiosPath;
@@ -582,6 +591,7 @@ public sealed partial class SettingsViewModel(
             N64InternalResolution = Math.Clamp(N64ResolutionIndex, 0, 3) + 1,
             PlayStation2BiosPath = PlayStation2BiosPath.Trim().Trim('"'),
             PlayStation2FastBoot = PlayStation2FastBoot,
+            PlayStation2InternalResolution = Math.Clamp(PlayStation2ResolutionIndex, 0, 3) + 1,
             RewindMemoryMb = RewindMemoryIndex >= 0 && RewindMemoryIndex < RewindMemoryValues.Length
                 ? RewindMemoryValues[RewindMemoryIndex]
                 : current.RewindMemoryMb,

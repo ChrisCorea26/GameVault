@@ -30,14 +30,14 @@ public sealed partial class Ps2Gs
     private const int MemoryMask = LocalMemorySize - 1;
 
     // Byte offsets inside a page, indexed [y * pageWidth + x] (PSMT4: nibble offsets).
-    private static readonly int[] PageCt32 = BuildPage32(BlockCt32);
-    private static readonly int[] PageZ32 = BuildPage32(BlockZ32);
-    private static readonly int[] PageCt16 = BuildPage16(BlockCt16);
-    private static readonly int[] PageCt16S = BuildPage16(BlockCt16S);
-    private static readonly int[] PageZ16 = BuildPage16(BlockZ16);
-    private static readonly int[] PageZ16S = BuildPage16(BlockZ16S);
-    private static readonly int[] PageT8 = BuildPageT8();
-    private static readonly int[] PageT4 = BuildPageT4();
+    internal static readonly int[] PageCt32 = BuildPage32(BlockCt32);
+    internal static readonly int[] PageZ32 = BuildPage32(BlockZ32);
+    internal static readonly int[] PageCt16 = BuildPage16(BlockCt16);
+    internal static readonly int[] PageCt16S = BuildPage16(BlockCt16S);
+    internal static readonly int[] PageZ16 = BuildPage16(BlockZ16);
+    internal static readonly int[] PageZ16S = BuildPage16(BlockZ16S);
+    internal static readonly int[] PageT8 = BuildPageT8();
+    internal static readonly int[] PageT4 = BuildPageT4();
 
     // Block numbers inside a page by [blockY, blockX].
     private static int[,] BlockCt32 => new[,]
