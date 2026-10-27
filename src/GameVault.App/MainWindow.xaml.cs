@@ -65,6 +65,7 @@ public sealed partial class MainWindow : Window
         if (App.TryGetService<ControllerManager>() is { } controllers)
         {
             var padNavigation = App.GetService<PadNavigation>();
+            padNavigation.Attach(this, ContentFrame, NavView);
             controllers.Navigate += (_, action) => padNavigation.Handle(action);
             await controllers.StartAsync();
         }

@@ -1,5 +1,5 @@
 ---
-edition: "Edition 4 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2"
+edition: "Edition 5 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2"
 ---
 
 # Introduction

@@ -92,8 +92,23 @@ A or Start on another controller to take over. Resume from the toolbar.
 
 ### Using a controller in menus
 
-Every connected controller can drive the Library and Settings: the D-pad or stick moves between items, the bottom
-button selects, and the right button goes back or closes a menu.
+Every connected controller can drive every page and menu, so you never need the mouse or keyboard to find and start
+a game. Buttons are named by position, so they're the same on Xbox, PlayStation and Switch-style controllers:
+
+| Button | In menus |
+|---|---|
+| D-pad or left stick | Move to the nearest item in that direction. Hold to keep moving. On a slider, left and right change its value. |
+| Bottom (A / Cross) | Press the button, flip the switch or check box, open the list or section, or start the game |
+| Right (B / Circle) | Close the open menu or list; otherwise go back a page |
+| Top (Y / Triangle) | The item's menu, for example **Play** on a game tile |
+| Left and right shoulders | Switch between Library and Settings |
+| Left and right triggers | Jump about a screen up or down a long page. Hold to keep going. |
+| Start | Go to the menu on the left |
+
+On a text box, such as the Library's search, the bottom button opens Windows' touch keyboard where Windows has one.
+On other PCs you still need a keyboard to type. While a game is playing, controllers go to the game. The **Guide**
+button, or **Back + Start** held for a second, brings up the toolbar, and controllers drive the menus again until you
+resume.
 
 ## Remapping buttons
 

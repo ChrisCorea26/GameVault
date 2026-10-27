@@ -39,8 +39,22 @@ public enum NavigationAction
     Down,
     Left,
     Right,
+    /// <summary>South (A / Cross).</summary>
     Activate,
+    /// <summary>East (B / Circle).</summary>
     Back,
+    /// <summary>Left shoulder: the previous main page.</summary>
+    PreviousPage,
+    /// <summary>Right shoulder: the next main page.</summary>
+    NextPage,
+    /// <summary>Left trigger: about a screen up.</summary>
+    PageUp,
+    /// <summary>Right trigger: about a screen down.</summary>
+    PageDown,
+    /// <summary>North (Y / Triangle): the focused control's context menu.</summary>
+    ContextMenu,
+    /// <summary>Start: the main menu.</summary>
+    Menu,
 }
 
 /// <summary>Raw controller events, delivered on the backend's thread.</summary>
