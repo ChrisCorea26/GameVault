@@ -137,17 +137,21 @@ public sealed partial class N64Rdp
             var spanStart = _lineLx[line];
             var spanEnd = _lineRx[line];
             var majorX = _lineMajorX[line];
-            int length, clipped;
+            var length = flip ? spanStart - spanEnd : spanEnd - spanStart;
+            var clipped = flip ? spanEnd - majorX : majorX - spanEnd;
+            _clock += (uint)Math.Max(0, length + 1);
+            if (!MyLine(line))
+            {
+                continue; // another replica's line (the clock still counts it)
+            }
+
+            _stamp = (_stamp & ~0xFFFFL) | (uint)(line + 1);
             if (flip)
             {
-                length = spanStart - spanEnd;
-                clipped = spanEnd - majorX;
                 ComputeCoverage(line, spanEnd, spanStart);
             }
             else
             {
-                length = spanEnd - spanStart;
-                clipped = majorX - spanEnd;
                 ComputeCoverage(line, spanStart, spanEnd);
             }
 
@@ -168,7 +172,6 @@ public sealed partial class N64Rdp
                 z += incZ * clipped;
             }
 
-            _clock += (uint)Math.Max(0, length + 1);
             var rowIndex = line * image.Width;
             var ditherRow = ((line >> ditherRowShift) & 3) << 2;
             var x = spanEnd;
@@ -535,6 +538,7 @@ public sealed partial class N64Rdp
             else
             {
                 _nextTexel = next;
+                Stamp(SlotNextTexel);
             }
         }
     }
