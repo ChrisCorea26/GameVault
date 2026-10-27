@@ -196,6 +196,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
     /// <summary>The player's Atari 5200 BIOS for the game loaded (netplay builds its console again).</summary>
     private byte[]? _atari5200Bios;
+    /// <summary>The player's Sega CD BIOS for the disc loaded (netplay builds its console again).</summary>
+    private byte[]? _segaCdBios;
 
     /// <summary>The system of the running game; null when idle.</summary>
     public GameSystem? System { get; private set; }
@@ -550,7 +552,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     {
         var data = _romData!;
         var profile = Profile ?? new GameProfile { Sha1 = string.Empty };
-        var console = ConsoleFactory.Create(data, _romSystem, profile, _fdsBios, _romExtension, _appleRoms, _playStation, _n64, _playStation2, _snes, _atari5200Bios);
+        var console = ConsoleFactory.Create(data, _romSystem, profile, _fdsBios, _romExtension, _appleRoms, _playStation, _n64, _playStation2, _snes, _atari5200Bios, _segaCdBios);
         if (_audioActive && _audio is not null)
         {
             console.EnableAudio(_audio.SampleRate);
@@ -1171,10 +1173,27 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             }
         }
 
+        byte[]? segaCdBios = null;
+        if (rom.System == GameSystem.SegaCd && _settings is not null)
+        {
+            var biosPath = (await _settings.LoadAsync(cancellationToken).ConfigureAwait(false)).SegaCdBiosPath;
+            if (!string.IsNullOrWhiteSpace(biosPath))
+            {
+                try
+                {
+                    segaCdBios = await File.ReadAllBytesAsync(biosPath, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    throw new GameLoadException("GameVault couldn't open your Sega CD BIOS. Check the file chosen in Settings → Sega CD.", ex);
+                }
+            }
+        }
+
         var snes = rom.System == GameSystem.Snes && _settings is not null
             ? await SnesSetup.LoadAsync(await _settings.LoadAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false)
             : null;
-        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation, n64, playStation2, snes, atari5200Bios);
+        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation, n64, playStation2, snes, atari5200Bios, segaCdBios);
     }
 
     /// <summary>Shown when an Apple II disk starts without the Disk II boot ROM chosen in Settings.</summary>
@@ -1223,7 +1242,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         N64Setup? n64 = null,
         PlayStation2Setup? playStation2 = null,
         SnesSetup? snes = null,
-        byte[]? atari5200Bios = null)
+        byte[]? atari5200Bios = null,
+        byte[]? segaCdBios = null)
     {
         RomHashes hashes;
         try
@@ -1237,7 +1257,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
         var profile = ProfileResolver?.Invoke(hashes.Sha1) ?? new GameProfile { Sha1 = hashes.Sha1 };
         n64 ??= IsNintendo64(system) ? new N64Setup(SaveTypes: N64SaveTypes) : null;
-        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation, n64, playStation2, snes, atari5200Bios);
+        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation, n64, playStation2, snes, atari5200Bios, segaCdBios);
         var nes = console as NesConsole;
 
         if (_audio is not null)
@@ -1283,6 +1303,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _playStation2 = playStation2;
         _snes = snes;
         _atari5200Bios = atari5200Bios;
+        _segaCdBios = segaCdBios;
         LoadControllerPak(console);
         LoadPs2MemoryCard(console);
         SetUpDiscs(data, system);

@@ -4,6 +4,7 @@ using GameVault.Core.Cpu.M68000;
 using GameVault.Core.Cpu.Z80;
 using GameVault.Core.Input;
 using GameVault.Core.Sega;
+using GameVault.Core.SegaCd;
 using GameVault.Core.State;
 using GameVault.Core.Systems;
 
@@ -48,9 +49,11 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
     private float _lastFmLeft;
     private float _lastFmRight;
 
-    public GenesisConsole(GenesisCartridge cartridge, GenesisRegion? region = null, bool sixButton = true)
+    /// <param name="segaCd">The Sega CD plugged in underneath, for a disc (the cartridge is then an empty stand-in).</param>
+    public GenesisConsole(GenesisCartridge cartridge, GenesisRegion? region = null, bool sixButton = true, SegaCdUnit? segaCd = null)
     {
         Cartridge = cartridge;
+        SegaCd = segaCd;
         Region = region ?? cartridge.Region;
         Pal = Region == GenesisRegion.Europe;
         SixButton = sixButton;
@@ -60,10 +63,13 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         Fm = new Ym2612();
         Psg = new Sn76489();
         _psgSink = new ScaledSink(15, 0.5f);
-        RomHash = HashRom(cartridge.Rom);
+        RomHash = segaCd is null ? HashRom(cartridge.Rom) : segaCd.DiscHash;
     }
 
-    public GameSystem System => GameSystem.Genesis;
+    public GameSystem System => SegaCd is null ? GameSystem.Genesis : GameSystem.SegaCd;
+
+    /// <summary>The Sega CD under the console, or null for a cartridge.</summary>
+    public SegaCdUnit? SegaCd { get; }
 
     public GenesisRegion Region { get; }
 
@@ -106,7 +112,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
 
     public int ControllerPorts => 2;
 
-    public IBatteryBacked? Battery => Cartridge.HasBattery ? Cartridge : null;
+    public IBatteryBacked? Battery => SegaCd is { } cd ? cd : Cartridge.HasBattery ? Cartridge : null;
 
     /// <summary>The 64 KB of 68000 work RAM ($FF0000–$FFFFFF).</summary>
     public ReadOnlySpan<byte> WorkRam => _ram;
@@ -116,6 +122,11 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         Audio ??= new BandLimitedResampler(CpuClockRate, sampleRate) { ApplyNesFilters = false };
         _psgSink.Target = Audio;
         Psg.AudioSink = _psgSink;
+        if (SegaCd is { } cd)
+        {
+            cd.Audio = Audio;
+        }
+
         return Audio;
     }
 
@@ -141,6 +152,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         _lastFmLeft = 0;
         _lastFmRight = 0;
         FrameCount = 0;
+        SegaCd?.Power();
         Cpu.Reset();
     }
 
@@ -152,6 +164,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         Z80.Reset();
         _z80Reset = true;
         _z80BusRequested = false;
+        SegaCd?.Reset();
         Cpu.Reset();
     }
 
@@ -180,6 +193,8 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         _master -= frameClocks;
         _z80Master -= frameClocks;
         _ymMaster -= frameClocks;
+        SegaCd?.RunTo(frameClocks);
+        SegaCd?.EndFrame(frameClocks);
         Psg.EndAudioFrame();
         Audio?.EndFrame((int)frameClocks);
         FrameCount++;
@@ -237,6 +252,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
             _master += cycles * 7L;
             RunYmTo(_master);
             RunZ80To(_master);
+            SegaCd?.RunTo(_master);
         }
     }
 
@@ -299,11 +315,11 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         switch (address >> 16)
         {
             case < 0x40:
-                return Cartridge.ReadByte(address);
+                return SegaCd is { } cd ? cd.MainReadByte(address) : Cartridge.ReadByte(address);
             case 0xA0:
                 return Z80AreaRead(address);
             case 0xA1:
-                return IoReadByte(address);
+                return SegaCd is { } gate && (address & 0xFFC0) == 0x2000 ? gate.MainReadGate(address) : IoReadByte(address);
             case >= 0xC0 and < 0xE0:
             {
                 var word = VdpRead(address & ~1u);
@@ -322,7 +338,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         switch (address >> 16)
         {
             case < 0x40:
-                return Cartridge.ReadWord(address);
+                return SegaCd is { } cd ? cd.MainReadWord(address) : Cartridge.ReadWord(address);
             case 0xA0:
             {
                 // Word reads of the Z80's space return the byte in both halves.
@@ -331,6 +347,11 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
             }
 
             case 0xA1:
+                if (SegaCd is { } gate && (address & 0xFFC0) == 0x2000)
+                {
+                    return gate.MainReadGateWord(address);
+                }
+
                 if ((address & 0xFFFF) == 0x1100)
                 {
                     // Z80 BUSREQ: bit 0 of the upper byte is 0 once the 68000 has the bus.
@@ -353,12 +374,26 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         switch (address >> 16)
         {
             case < 0x40:
-                Cartridge.WriteByte(address, value);
+                if (SegaCd is { } cd)
+                {
+                    cd.MainWriteByte(address, value);
+                }
+                else
+                {
+                    Cartridge.WriteByte(address, value);
+                }
+
                 break;
             case 0xA0:
                 Z80AreaWrite(address, value);
                 break;
             case 0xA1:
+                if (SegaCd is { } gate && (address & 0xFFC0) == 0x2000)
+                {
+                    gate.MainWriteGate(address, value);
+                    break;
+                }
+
                 IoWrite(address, value);
                 break;
             case >= 0xC0 and < 0xE0:
@@ -383,12 +418,26 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         switch (address >> 16)
         {
             case < 0x40:
-                Cartridge.WriteWord(address, value);
+                if (SegaCd is { } cd)
+                {
+                    cd.MainWriteWord(address, value);
+                }
+                else
+                {
+                    Cartridge.WriteWord(address, value);
+                }
+
                 break;
             case 0xA0:
                 Z80AreaWrite(address, (byte)(value >> 8));
                 break;
             case 0xA1:
+                if (SegaCd is { } gate && (address & 0xFFC0) == 0x2000)
+                {
+                    gate.MainWriteGateWord(address, value);
+                    break;
+                }
+
                 IoWrite(address, (byte)(value >> 8));
                 if ((address & 0xFFFF) >= 0x0000 && (address & 0xFFFF) < 0x0020)
                 {
@@ -446,7 +495,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
 
     private ushort DmaRead(uint address) => (address >> 16) switch
     {
-        < 0x40 => Cartridge.ReadWord(address),
+        < 0x40 => SegaCd is { } cd ? cd.MainReadWord(address) : Cartridge.ReadWord(address),
         >= 0xE0 => (ushort)(_ram[address & 0xFFFF] << 8 | _ram[(address + 1) & 0xFFFF]),
         _ => 0,
     };
@@ -493,8 +542,8 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         switch (offset)
         {
             case 0x0001:
-                // Overseas (not Japan), PAL, and no expansion unit attached (bit 5); version 0 (no TMSS).
-                return (byte)((Region == GenesisRegion.Japan ? 0 : 0x80) | (Pal ? 0x40 : 0) | 0x20);
+                // Overseas (not Japan), PAL, and bit 5 clear when the Sega CD is attached; version 0 (no TMSS).
+                return (byte)((Region == GenesisRegion.Japan ? 0 : 0x80) | (Pal ? 0x40 : 0) | (SegaCd is null ? 0x20 : 0));
             case 0x0003:
                 return _ports[0].Read(_pads[0], SixButton, _master);
             case 0x0005:
@@ -691,6 +740,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         writer.WriteBool(_z80Reset);
         writer.WriteInt32(_cpuDebt);
         writer.WriteInt64(FrameCount);
+        SegaCd?.SaveState(writer);
         writer.EndChunk();
     }
 
@@ -720,6 +770,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         _z80Reset = reader.ReadBool();
         _cpuDebt = reader.ReadInt32();
         FrameCount = reader.ReadInt64();
+        SegaCd?.LoadState(reader);
         reader.EndChunk();
     }
 

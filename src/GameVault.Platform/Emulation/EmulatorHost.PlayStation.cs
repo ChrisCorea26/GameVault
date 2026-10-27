@@ -136,13 +136,21 @@ public sealed partial class EmulatorHost
         return true;
     }
 
-    /// <summary>Closes the disc files of a console that is being replaced, and its GPU renderer. Emulation thread.</summary>
+    /// <summary>
+    /// Closes the disc files of a console that is being replaced (PlayStation, PlayStation 2, Sega CD), and its GPU
+    /// renderer. Emulation thread.
+    /// </summary>
     private void ReleaseDiscs(Core.Systems.IEmulatedConsole? console)
     {
         if (console is PlayStationConsole ps)
         {
             (ps.CdRom.Disc as IDisposable)?.Dispose();
             ps.Gpu.Backend = null;
+        }
+
+        if (console is Core.Genesis.GenesisConsole { SegaCd: { } segaCd })
+        {
+            (segaCd.Drive.Disc as IDisposable)?.Dispose();
         }
 
         _psRenderer?.Dispose();

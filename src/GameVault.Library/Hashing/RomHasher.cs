@@ -35,6 +35,12 @@ public static class RomHasher
             return new RomHashes(discCrc, discSha1);
         }
 
+        if (system == GameSystem.SegaCd && GameVault.Library.Discs.SegaCdDiscs.TryGetPath(image, out var segaCdDisc))
+        {
+            var (discCrc, discSha1) = GameVault.Library.Discs.SegaCdDiscs.HashReference(segaCdDisc);
+            return new RomHashes(discCrc, discSha1);
+        }
+
         if (system == GameSystem.PlayStation2 && GameVault.Library.Discs.Ps2Discs.TryGetPath(image, out var ps2Disc))
         {
             var (discCrc, discSha1) = GameVault.Library.Discs.Ps2Discs.HashReference(ps2Disc);

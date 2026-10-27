@@ -197,7 +197,32 @@ Acclaim, Codemasters) wire the chip differently and don't save yet. The double-r
 Hedgehog 2*'s two-player game) shows all 448 lines. Master System games play on the Master System core instead (open
 the `.sms` file).
 
-**Not supported yet:** Sega CD and 32X.
+**Not supported yet:** the 32X.
+
+## Sega CD / Mega-CD
+
+| | |
+|---|---|
+| **Files** | `.cue` + `.bin` (with the audio tracks), or `.chd` |
+| **You supply** | A Sega CD BIOS (128 KB) from your own console: **Settings → Sega CD**. Use one of the same region as your discs (a US BIOS for US discs). |
+| **Saves** | The Sega CD's own backup RAM (8 KB), as `.sav`, shared by every disc |
+
+A disc is recognised as a Sega CD disc by its first sector, so `.cue` and `.chd` files for the PlayStation and the
+Sega CD can sit in the same folder. Its region is read from the disc; **Game Details → Properties → Region** overrides it.
+
+**Controls** are the Genesis pad's (see above). The Sega CD's CD music and PCM sound play with the Genesis' sound.
+
+**Not supported yet:** cartridges that use the CD (*mode 1*), CD+G graphics, the backup RAM cartridge, and the 32X
+Sega CD games. Each part is tested with programs written for GameVault, not yet with a real BIOS, so whether a disc
+boots is the first thing to check.
+
+**Messages:**
+
+| Message | What to do |
+|---|---|
+| *This is a Sega CD disc. To play it, choose your own Sega CD BIOS…* | Choose the BIOS in **Settings → Sega CD**. |
+| *The Sega CD BIOS file should be 128 KB.* | The file chosen isn't a Sega CD BIOS. |
+| *GameVault couldn't open that Sega CD disc image…* | A `.bin` the `.cue` names is missing or renamed. |
 
 ## Super Nintendo
 

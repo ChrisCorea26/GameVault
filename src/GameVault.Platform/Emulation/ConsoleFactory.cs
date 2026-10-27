@@ -29,8 +29,14 @@ internal static class ConsoleFactory
         N64Setup? n64 = null,
         PlayStation2Setup? playStation2 = null,
         SnesSetup? snes = null,
-        byte[]? atari5200Bios = null)
+        byte[]? atari5200Bios = null,
+        byte[]? segaCdBios = null)
     {
+        if (system == GameSystem.SegaCd)
+        {
+            return CreateSegaCd(data, profile, segaCdBios);
+        }
+
         if (system == GameSystem.PlayStation)
         {
             return CreatePlayStation(data, playStation);
@@ -230,6 +236,50 @@ internal static class ConsoleFactory
     /// A PlayStation with the player's BIOS and the game's first disc (for an .m3u, the first in the list), or a
     /// PS-EXE: run after the BIOS boots, or straight away without one (bare-metal homebrew).
     /// </summary>
+    /// <summary>A Genesis with the Sega CD under it, the disc in its drive and the player's BIOS.</summary>
+    private static GenesisConsole CreateSegaCd(byte[] data, GameProfile profile, byte[]? bios)
+    {
+        if (bios is null)
+        {
+            throw new GameLoadException(
+                "This is a Sega CD disc. To play it, choose your own Sega CD BIOS (128 KB) in Settings → Sega CD. GameVault doesn't include it.");
+        }
+
+        if (!SegaCdDiscs.TryGetPath(data, out var path))
+        {
+            throw new GameLoadException("That isn't a Sega CD disc.");
+        }
+
+        GameVault.Core.PlayStation.ICdImage disc;
+        try
+        {
+            disc = DiscImages.Open(path);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            throw new GameLoadException("GameVault couldn't open that Sega CD disc image: " + ex.Message, ex);
+        }
+
+        var region = profile.Region?.ToLowerInvariant() switch
+        {
+            "usa" or "ntsc" => GenesisRegion.Americas,
+            "japan" => GenesisRegion.Japan,
+            "europe" or "pal" => GenesisRegion.Europe,
+            _ => SegaCdDiscs.Region(disc) ?? GenesisRegion.Americas,
+        };
+        try
+        {
+            var masterClock = region == GenesisRegion.Europe ? GenesisConsole.PalMasterClock : GenesisConsole.NtscMasterClock;
+            var unit = new GameVault.Core.SegaCd.SegaCdUnit(bios, disc, masterClock);
+            return new GenesisConsole(new GenesisCartridge(new byte[0x200]), region, sixButton: profile.Pad != "3", segaCd: unit);
+        }
+        catch (RomFormatException ex)
+        {
+            (disc as IDisposable)?.Dispose();
+            throw new GameLoadException(ex.Message, ex);
+        }
+    }
+
     private static PlayStationConsole CreatePlayStation(byte[] data, PlayStationSetup? setup)
     {
         var bios = setup?.Bios;

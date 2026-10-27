@@ -291,6 +291,12 @@ then.
 The Sega CD (a second 68000, the CD drive, PCM and the ASIC's scaling) with the player's own BIOS; the 32X (two
 SH-2s and its VDP). Its own plan file first.
 
+**As built (Sega CD).** `docs/plans/sega-cd-32x.md` milestone 1: `SegaCdUnit` (the sub CPU, PRG-RAM, Word RAM in
+2M and 1M mode, backup RAM, the gate array), `SegaCdDrive` (the CDD's protocol at 75 Hz), `Lc8951` (the CDC),
+`Rf5c164` (PCM) and `SegaCdGraphics` (the stamp ASIC), plugged into `GenesisConsole`. `SegaCdDiscs` tells Sega CD
+discs from PlayStation ones; the player's BIOS in **Settings → Sega CD**. Tests: `SegaCdTests`, `SegaCdHostTests`.
+The 32X is milestone 2.
+
 ## 18. Phase 18: GameCube / Wii
 As SPEC §7.11 and §12. Its own `docs/plans/phase-18.md` first.
 
