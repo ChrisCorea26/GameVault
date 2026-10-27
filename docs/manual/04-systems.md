@@ -93,8 +93,23 @@ buttons by their Sega names.
 **Region:** games run at NTSC speed (60 Hz). For a European game, set **Game Details → Properties → Region** to
 *PAL (50 Hz)*.
 
-**Not supported yet:** the SC-3000 keyboard (so BASIC cartridges can't be used) and FM sound for Japanese Master
-System games.
+**FM sound:** Japanese Master System games play with the console's built-in FM Sound Unit, so their FM music plays.
+GameVault knows a game is Japanese from its header, or when **Game Details → Properties → Region** is *Japan*.
+
+**SC-3000 keyboard:** `.sc` files run as an SC-3000, the SG-1000 with a keyboard, so BASIC and other keyboard
+cartridges work. While one runs, the PC keyboard types into it, key for key where the SC-3000 has the same key:
+
+| SC-3000 | PC |
+|---|---|
+| Letters, digits, `,` `.` `/` `;` `-` Space, Return, the arrows | The same keys |
+| `:` | <kbd>'</kbd> |
+| `@`, `[`, `]` | <kbd>[</kbd>, <kbd>]</kbd>, <kbd>\</kbd> |
+| `^`, `¥` | <kbd>=</kbd>, <kbd>End</kbd> |
+| Ins/Del, Home/Clr | <kbd>Backspace</kbd> or <kbd>Delete</kbd>, <kbd>Home</kbd> |
+| Shift, Ctrl, Graph | <kbd>Shift</kbd>, <kbd>Ctrl</kbd>, <kbd>Alt</kbd> |
+| Eng Dier's, Func, π | <kbd>F2</kbd>, <kbd>F3</kbd>, <kbd>F4</kbd> |
+
+Shift+Backspace rewinds, as on the Apple II. To use an SG-1000 game's file as an SC-3000 one, rename it to `.sc`.
 
 ## Apple II, II+ and IIe
 
@@ -175,8 +190,13 @@ Properties → Controller** to *3-button*.
 While a Genesis game runs the shoulder buttons are game buttons, so use <kbd>Backspace</kbd> and <kbd>Tab</kbd> to
 rewind and fast-forward.
 
-**Not supported yet:** interlaced high-resolution mode, Master System mode, EEPROM
-saves, Sega CD and 32X.
+Games that save to a serial EEPROM chip and say so in their header (Sega's own, such as *Wonder Boy in Monster
+World* and *Mega Man: The Wily Wars*) save as `.sav` like battery games. EEPROM games from other publishers (EA,
+Acclaim, Codemasters) wire the chip differently and don't save yet. The double-resolution interlaced mode (*Sonic the
+Hedgehog 2*'s two-player game) shows all 448 lines. Master System games play on the Master System core instead (open
+the `.sms` file).
+
+**Not supported yet:** Sega CD and 32X.
 
 ## Super Nintendo
 

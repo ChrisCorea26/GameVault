@@ -20,9 +20,11 @@ public enum GenesisRegion
 /// <summary>
 /// A Genesis / Mega Drive cartridge (SPEC §7.11, Phase 13): up to 4 MB of ROM in the 68000's first 4 MB, battery
 /// SRAM where the header's "RA" block puts it (byte-wide on odd or even addresses, or word-wide), and the Super
-/// Street Fighter II mapper for larger ROMs (512 KB banks set through $A130F3–$A130FF).
+/// Street Fighter II mapper for larger ROMs (512 KB banks set through $A130F3–$A130FF), and the serial EEPROM
+/// Sega's own boards declare in the header ("RA" $E8 $40: an X24C01 on $200001, SDA in bit 0 and SCL in bit 1).
 /// </summary>
-/// <remarks>References: Sega Retro, "ROM header" and "Sega Mapper"; Plutiedev, "Saving with SRAM".</remarks>
+/// <remarks>References: Sega Retro, "ROM header" and "Sega Mapper"; Plutiedev, "Saving with SRAM"; Genesis Plus GX's
+/// eeprom_i2c.c for the EEPROM's wiring.</remarks>
 public sealed class GenesisCartridge : IStateful, IBatteryBacked
 {
     private static readonly StateTag Tag = StateTag.From("GCRT");
@@ -31,7 +33,11 @@ public sealed class GenesisCartridge : IStateful, IBatteryBacked
     private readonly byte[] _sram;
     private readonly byte[] _banks = [0, 1, 2, 3, 4, 5, 6, 7];
     private readonly bool _mapper;
+    private readonly I2cEeprom? _eeprom;
     private bool _sramEnabled;
+
+    /// <summary>The EEPROM's lines: $200000–$200001 (the Sega boards').</summary>
+    private const uint EepromAddress = 0x200000;
 
     /// <param name="image">The file: a raw ROM, or an .smd image (512-byte header and interleaved 16 KB blocks).</param>
     public GenesisCartridge(byte[] image)
@@ -46,8 +52,13 @@ public sealed class GenesisCartridge : IStateful, IBatteryBacked
         Title = ReadTitle();
         _mapper = _rom.Length > 0x400000;
 
-        // "RA", type, $20, then the start and end addresses (big-endian) at $1B4 and $1B8.
-        if (_rom[0x1B0] == 'R' && _rom[0x1B1] == 'A')
+        // "RA", type, $20, then the start and end addresses (big-endian) at $1B4 and $1B8. Type $E8 $40 is an EEPROM.
+        if (_rom[0x1B0] == 'R' && _rom[0x1B1] == 'A' && _rom[0x1B2] == 0xE8 && _rom[0x1B3] == 0x40)
+        {
+            _eeprom = new I2cEeprom(I2cEepromKind.X24C01, 128, 4);
+            _sram = [];
+        }
+        else if (_rom[0x1B0] == 'R' && _rom[0x1B1] == 'A')
         {
             var start = ReadLong(0x1B4);
             var end = ReadLong(0x1B8);
@@ -91,9 +102,13 @@ public sealed class GenesisCartridge : IStateful, IBatteryBacked
 
     public bool SramWordWide { get; }
 
-    public bool HasBattery => _sram.Length > 0;
+    public bool HasBattery => _sram.Length > 0 || _eeprom is not null;
 
-    public Span<byte> BatteryRam => _sram;
+    /// <summary>The battery SRAM, or the EEPROM's contents.</summary>
+    public Span<byte> BatteryRam => _eeprom is { } eeprom ? eeprom.Data : _sram;
+
+    /// <summary>The cartridge's serial EEPROM, when it has one.</summary>
+    public I2cEeprom? Eeprom => _eeprom;
 
     /// <summary>True for .smd copier images: a 512-byte header whose bytes 8 and 9 are $AA $BB, and 16 KB blocks.</summary>
     public static bool IsInterleaved(ReadOnlySpan<byte> image) =>
@@ -135,6 +150,13 @@ public sealed class GenesisCartridge : IStateful, IBatteryBacked
 
     public byte ReadByte(uint address)
     {
+        if (_eeprom is { } eeprom && (address & ~1u) == EepromAddress)
+        {
+            // SDA reads back on bit 0 of the odd byte; the rest reads as the ROM would.
+            var rom = Map(address) < (uint)_rom.Length ? _rom[Map(address)] : (byte)0xFF;
+            return (address & 1) != 0 ? (byte)((rom & 0xFE) | (eeprom.Sda ? 1 : 0)) : rom;
+        }
+
         if (_sram.Length > 0 && _sramEnabled && address >= SramStart && address <= SramEnd && TrySram(address, out var index))
         {
             return _sram[index];
@@ -146,6 +168,11 @@ public sealed class GenesisCartridge : IStateful, IBatteryBacked
 
     public ushort ReadWord(uint address)
     {
+        if (_eeprom is not null && (address & ~1u) == EepromAddress)
+        {
+            return (ushort)((ReadByte(address & ~1u) << 8) | ReadByte(address | 1));
+        }
+
         if (_sram.Length > 0 && _sramEnabled && address >= SramStart && address <= SramEnd)
         {
             return (ushort)((ReadByte(address) << 8) | ReadByte(address + 1));
@@ -157,10 +184,23 @@ public sealed class GenesisCartridge : IStateful, IBatteryBacked
 
     public void WriteByte(uint address, byte value)
     {
+        if (_eeprom is { } eeprom && address == EepromAddress + 1)
+        {
+            eeprom.Drive(scl: (value & 2) != 0, sda: (value & 1) != 0);
+            return;
+        }
+
         if (_sram.Length > 0 && _sramEnabled && address >= SramStart && address <= SramEnd && TrySram(address, out var index))
         {
             _sram[index] = value;
         }
+    }
+
+    /// <summary>A word write: the high byte to the even address and the low byte to the odd one (SRAM, the EEPROM's lines).</summary>
+    public void WriteWord(uint address, ushort value)
+    {
+        WriteByte(address & ~1u, (byte)(value >> 8));
+        WriteByte(address | 1, (byte)value);
     }
 
     /// <summary>$A130F1: SRAM enable (bit 0); $A130F3–$A130FF: the SSF2 banks for 512 KB windows 1–7.</summary>
@@ -241,6 +281,7 @@ public sealed class GenesisCartridge : IStateful, IBatteryBacked
         writer.WriteBytes(_banks);
         writer.WriteBool(_sramEnabled);
         writer.WriteBytes(_sram);
+        _eeprom?.SaveState(writer); // only EEPROM cartridges have this, so other games' states are unchanged
         writer.EndChunk();
     }
 
@@ -250,6 +291,7 @@ public sealed class GenesisCartridge : IStateful, IBatteryBacked
         reader.ReadBytes(_banks);
         _sramEnabled = reader.ReadBool();
         reader.ReadBytes(_sram);
+        _eeprom?.LoadState(reader);
         reader.EndChunk();
     }
 }
