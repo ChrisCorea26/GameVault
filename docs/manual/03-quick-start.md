@@ -2,7 +2,8 @@
 
 You can be playing within a minute, without opening Settings.
 
-1. **Start GameVault.** The Library opens and says *Your library is empty*.
+1. **Start GameVault.** The Library opens with four homebrew games that come with GameVault (see
+   [Bundled homebrew](#bundled-homebrew)). You can play one of those straight away.
 2. **Choose Add a ROM folder** and pick the folder where you keep your games. GameVault searches it and every
    folder inside it, and lists every game it finds.
 3. **Click a game**, then **Play**. Or right-click its tile and choose **Play**.

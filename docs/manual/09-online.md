@@ -110,7 +110,7 @@ GameVault can dump NES cartridges with an **INL Retro-Prog**, an open-source USB
 1. Install the INL Retro-Prog software and its **USB driver** from the INL website, following its instructions. Note
    the folder that contains `inlretro.exe`; GameVault runs it from that folder and uses its `scripts\inlretro2.lua`.
 2. Plug in the INL Retro-Prog.
-3. In **Settings → Cartridge dumper**, paste the full path to `inlretro.exe`, for example
+3. In **Settings → Cartridge dumper**, choose **Choose…** and pick `inlretro.exe`, or paste its full path, for example
    `C:\INL-retro\inlretro.exe`.
 4. **Restart GameVault.**
 

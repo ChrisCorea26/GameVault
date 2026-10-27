@@ -3,12 +3,13 @@
 ## Where GameVault keeps things
 
 Everything GameVault creates is in `%LOCALAPPDATA%\GameVault\` (usually
-`C:\Users\<you>\AppData\Local\GameVault\`). Your ROM folders are only ever read, never written to, and your BIOS
+`C:\Users\<you>\AppData\Local\GameVault\`). Your ROM folders are only ever read, never written to (unless you turn
+on **Keep game saves next to the game files**, which writes each cartridge save beside its game), and your BIOS
 files are read from where you put them.
 
 | Path | Contents |
 |---|---|
-| `settings.json` | Your settings |
+| `settings.json` | Your settings, including your button remaps |
 | `library.db` | Library: games found, catalog, ownership, status, ratings, notes, playtime |
 | `Saves\` | Battery saves (`.sav`), Disk System and Apple II disk writes (`.fdssave`, `.a2save`), PlayStation memory cards (`.mcd`), N64 Controller Paks (`.mpk`), PlayStation 2 memory cards (`.ps2`) |
 | `States\` | Save states and their thumbnails |
@@ -47,7 +48,10 @@ The RetroAchievements sign-in is tied to your Windows account, so sign in again 
 | *That file isn't a game GameVault can open.* | The file is damaged, has the wrong extension, or is for a system GameVault doesn't support. |
 | *GameVault couldn't open that file.* | It was moved, deleted, or is open in another program. |
 | A game shows a BIOS or ROM message | Set the file in Settings for that system. See [What you must supply](#what-you-must-supply). |
-| A game has the wrong name or shows as Unknown | Import a catalog for that system, or type the title in Game Details. Bad or modified dumps don't match the catalog. |
+| A game has the wrong name or shows as Unknown | Import a catalog for that system, or type the title and details in Game Details → **Edit details**. Bad or modified dumps don't match the catalog. |
+| A key or button does the wrong thing | It may be remapped. Open **Remap…** for that keyboard or controller and choose **Back to the standard layout**; in the Player, check whether a remap is set **Only for** this game. |
+| A European game runs too fast, or a US game too slow | Set **Game Details → Properties → Region**. |
+| An Apple II disk shows only the startup screen | Set the Disk II boot ROM in **Settings → Apple II**. |
 | No sound | Check **Settings → Audio → Game volume** and the Windows volume mixer. Sound is muted while fast-forwarding. |
 | Sound or picture stutters | Close other heavy programs, set **Reduce input lag** to *Low* or *Off*, and choose **Sharp pixels**. Nintendo 64 3D scenes can run below full speed. |
 | The game pauses when I click another window | That's **Pause when GameVault is in the background**; turn it off in Settings → Gameplay. |
@@ -57,7 +61,7 @@ The RetroAchievements sign-in is tied to your Windows account, so sign in again 
 | A game freezes or glitches with Reduce input lag on | Set **Game Details → Properties → Reduce input lag** to *Off* for that game. |
 | NES sprites flicker | Turn on **Game Details → Properties → Reduce flicker**, or Assist → **Reduce flicker**. |
 | An N64 game won't start | Turn off **Settings → Nintendo 64 → Expansion Pak**. |
-| An N64 game doesn't keep its save | Its save type may be missing from GameVault's database. |
+| An N64 game doesn't keep its save | Its save type may be missing from GameVault's database. Try the cartridge's save type in **Game Details → Properties → Save type**. |
 | A PlayStation game won't start with fast boot | Turn off **Skip the startup screens**. |
 | A PlayStation 2 game won't start with fast boot | Turn off **Settings → PlayStation 2 → Skip the startup screens**. |
 | A PlayStation 2 game runs slowly | Expected for now: the PlayStation 2 is emulated in software and runs below full speed. |
