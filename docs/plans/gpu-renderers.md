@@ -90,6 +90,11 @@ the edge walk, coverage, shade and Z, the combiner, alpha compare, the blender, 
 textures (tiles, TMEM's formats and interleave, the TLUT, filtering, the LOD and detail/sharpen, perspective, YUV,
 the key), the host (**Settings → Nintendo 64 → Internal resolution**: 1× (original), 2×, 3×, 4×) and the picture.
 
+### Starting up
+The HLSL compiler takes minutes over the kernel, so `D3D11Compute` keeps compiled kernels on disk (`%LOCALAPPDATA%\GameVault\Shaders`, named by a hash of
+the source and settings), and the host makes the renderer on a background thread and attaches it between frames when
+it's ready: the game starts at 1× and turns sharp. Both renderers seed what they need when attached mid-game.
+
 ### Speed
 The software RDP still draws every frame into RDRAM (it is what the game and the CPU read back), so the GPU
 renderer makes N64 games sharper, not faster. Letting the software RDP skip pixels nobody reads back is later work.

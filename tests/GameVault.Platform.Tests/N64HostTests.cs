@@ -187,7 +187,8 @@ public sealed class N64HostTests : IDisposable
 
         await host.LoadAsync(path);
 
-        // Direct3D only exists on Windows (CI's Windows runner has WARP); elsewhere the software picture stays.
+        // Direct3D only exists on Windows (CI's Windows runner has WARP); elsewhere the software picture stays. The
+        // software picture shows first, until the GPU renderer is ready.
         var (width, height) = OperatingSystem.IsWindows() ? (640, 474) : (320, 237);
         uint color = 0;
         await WaitFor(() =>
@@ -201,7 +202,7 @@ public sealed class N64HostTests : IDisposable
             }
 
             return Task.FromResult(false);
-        });
+        }, seconds: 600); // the renderer is made in the background, and the first start compiles its kernel (minutes on WARP)
         color.Should().Be(0xFF00FF00u, "the RDP filled the screen green");
         host.Stop();
     }
@@ -375,9 +376,9 @@ public sealed class N64HostTests : IDisposable
         return directory?.FullName ?? throw new DirectoryNotFoundException("The repository root wasn't found.");
     }
 
-    private static async Task WaitFor(Func<Task<bool>> condition)
+    private static async Task WaitFor(Func<Task<bool>> condition, int seconds = 30)
     {
-        var deadline = DateTime.UtcNow.AddSeconds(30);
+        var deadline = DateTime.UtcNow.AddSeconds(seconds);
         while (!await condition())
         {
             if (DateTime.UtcNow > deadline)

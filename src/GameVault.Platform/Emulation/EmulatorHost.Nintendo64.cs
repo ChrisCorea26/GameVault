@@ -18,6 +18,12 @@ public sealed partial class EmulatorHost
     /// <summary>The GPU renderer drawing the running N64's picture at a higher resolution; null at 1×.</summary>
     private N64RdpGpuRenderer? _n64Renderer;
 
+    /// <summary>Where the GPU renderers' compiled kernels are kept (null: D3D11Compute's default).</summary>
+    private readonly string? _shaderCache;
+
+    /// <summary>Counts GPU renderer attaches, so one that finishes after its game was replaced is dropped.</summary>
+    private int _gpuAttach;
+
     // The Controller Pak is saved apart from the cartridge, as a raw .mpk image (the format other emulators read).
     private N64ControllerPak? _pak;
     private byte[] _pakSaved = [];
@@ -34,8 +40,10 @@ public sealed partial class EmulatorHost
 
     /// <summary>
     /// Attaches the GPU renderer to an N64 that has just started, when Settings asks for more than 1×
-    /// (docs/plans/gpu-renderers.md, milestone 2). The software RDP still draws RDRAM; without Direct3D 11 its picture
-    /// stays. Emulation thread.
+    /// (docs/plans/gpu-renderers.md, milestone 2). The software RDP still draws RDRAM. The renderer is made on a
+    /// background thread (the first start after an update compiles its kernel, which takes a while) and attached
+    /// between frames when it's ready; until then, and without Direct3D 11, the software picture shows. Emulation
+    /// thread.
     /// </summary>
     private void AttachN64Renderer(IEmulatedConsole console)
     {
@@ -45,19 +53,53 @@ public sealed partial class EmulatorHost
             return;
         }
 
-        D3D11Compute? gpu = null;
-        try
+        AttachInBackground(
+            gpu => new N64RdpGpuRenderer(gpu, n64.Rdram, scale, ownsGpu: true),
+            renderer =>
+            {
+                _n64Renderer = renderer;
+                n64.Rdp.Backend = renderer;
+            },
+            console,
+            "Direct3D 11 isn't available, so the N64 is drawn at its own resolution.");
+    }
+
+    /// <summary>
+    /// Makes a GPU renderer on a background thread and hands it to <paramref name="attach"/> on the emulation thread,
+    /// unless <paramref name="console"/> has been replaced since (then it's disposed).
+    /// </summary>
+    private void AttachInBackground<T>(Func<D3D11Compute, T> create, Action<T> attach, IEmulatedConsole console, string unavailable)
+        where T : class, IDisposable
+    {
+        var attempt = ++_gpuAttach;
+        var cache = _shaderCache;
+        _ = Task.Run(() =>
         {
-            gpu = new D3D11Compute();
-            _n64Renderer = new N64RdpGpuRenderer(gpu, n64.Rdram, scale, ownsGpu: true);
-            n64.Rdp.Backend = _n64Renderer;
-        }
-        catch (Exception ex) when (ex is SharpGen.Runtime.SharpGenException or DllNotFoundException or InvalidOperationException)
-        {
-            _n64Renderer = null;
-            gpu?.Dispose();
-            RaiseNotice("Direct3D 11 isn't available, so the N64 is drawn at its own resolution.");
-        }
+            D3D11Compute? gpu = null;
+            T renderer;
+            try
+            {
+                gpu = new D3D11Compute(cacheDirectory: cache);
+                renderer = create(gpu);
+            }
+            catch (Exception ex) when (ex is SharpGen.Runtime.SharpGenException or DllNotFoundException or InvalidOperationException)
+            {
+                gpu?.Dispose();
+                RaiseNotice(unavailable);
+                return;
+            }
+
+            Post(() =>
+            {
+                if (attempt != _gpuAttach || !ReferenceEquals(_console, console))
+                {
+                    renderer.Dispose();
+                    return;
+                }
+
+                attach(renderer);
+            });
+        });
     }
 
     /// <summary>The N64 GPU renderer's picture of what the VI shows, if it has one this frame.</summary>
@@ -81,6 +123,7 @@ public sealed partial class EmulatorHost
     /// <summary>Detaches and disposes the N64 GPU renderer of a console that is being replaced. Emulation thread.</summary>
     private void ReleaseN64Renderer(IEmulatedConsole? console)
     {
+        _gpuAttach++; // one still being made is dropped when it's ready
         if (console is N64Console n64)
         {
             n64.Rdp.Backend = null;

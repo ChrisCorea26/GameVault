@@ -146,7 +146,7 @@ game started.
 |---|---|---|
 | **Expansion Pak** | On / Off. Takes effect the next time a game starts. | On |
 | **Rumble Pak** | On puts a Rumble Pak in every controller instead of the Controller Pak, so games can shake your controller. Takes effect the next time a game starts. | Off |
-| **Internal resolution** | **1× (original)**, **2×**, **3×** or **4×**. Above 1×, your graphics card draws games at that many times the N64's resolution, for sharper 3D; pictures the game draws with the processor look as they always do. Needs Direct3D 11 (without it the picture stays at 1×). Takes effect the next time a game starts. | 1× (original) |
+| **Internal resolution** | **1× (original)**, **2×**, **3×** or **4×**. Above 1×, your graphics card draws games at that many times the N64's resolution, for sharper 3D; pictures the game draws with the processor look as they always do. Needs Direct3D 11 (without it the picture stays at 1×). Takes effect the next time a game starts; the first start after an update plays at 1× for a minute or two while the graphics card's program is prepared. | 1× (original) |
 
 ## Advanced
 

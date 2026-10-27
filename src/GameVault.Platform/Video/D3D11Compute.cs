@@ -1,4 +1,6 @@
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+using System.Text;
 using Vortice.D3DCompiler;
 using Vortice.Direct3D;
 using Vortice.Direct3D11;
@@ -12,16 +14,27 @@ namespace GameVault.Platform.Video;
 /// compute shaders compiled with the HLSL compiler (cs_5_0). Uses the hardware device, or WARP (Direct3D's software
 /// device) when there is none or <c>forceWarp</c> asks for it.
 /// </summary>
+/// <remarks>
+/// The renderers' kernels are big, and the HLSL compiler takes minutes over them, so compiled kernels are kept in
+/// <see cref="DefaultCacheDirectory"/> (or the directory given), named by a hash of the source and the compile
+/// settings: only the first start after an update compiles.
+/// </remarks>
 public sealed class D3D11Compute : IGpuCompute
 {
     private readonly ID3D11Device _device;
     private readonly ID3D11DeviceContext _context;
     private ID3D11Buffer? _staging;
     private int _stagingWords;
+    private readonly string? _cacheDirectory;
 
+    /// <summary>Where compiled kernels are kept when no other directory is given: the user's temporary folder.</summary>
+    public static string DefaultCacheDirectory => Path.Combine(Path.GetTempPath(), "GameVault", "Shaders");
+
+    /// <param name="cacheDirectory">Where compiled kernels are kept; null for <see cref="DefaultCacheDirectory"/>.</param>
     /// <exception cref="InvalidOperationException">Direct3D 11 isn't available.</exception>
-    public D3D11Compute(bool forceWarp = false)
+    public D3D11Compute(bool forceWarp = false, string? cacheDirectory = null)
     {
+        _cacheDirectory = cacheDirectory ?? DefaultCacheDirectory;
         var result = D3D11.D3D11CreateDevice(null, forceWarp ? DriverType.Warp : DriverType.Hardware, DeviceCreationFlags.None,
             [FeatureLevel.Level_11_0], out _device!, out _context!);
         if (result.Failure)
@@ -53,11 +66,51 @@ public sealed class D3D11Compute : IGpuCompute
     {
         if (!_kernels.TryGetValue((source, entryPoint), out var kernel))
         {
-            var bytecode = Compiler.Compile(source, entryPoint, "shader.hlsl", "cs_5_0", ShaderFlags.OptimizationLevel3);
-            _kernels[(source, entryPoint)] = kernel = new Kernel(_device.CreateComputeShader(bytecode.Span));
+            _kernels[(source, entryPoint)] = kernel = new Kernel(_device.CreateComputeShader(Bytecode(source, entryPoint)));
         }
 
         return kernel;
+    }
+
+    private byte[] Bytecode(string source, string entryPoint)
+    {
+        const string Profile = "cs_5_0";
+        const ShaderFlags Flags = ShaderFlags.OptimizationLevel3;
+        var key = Convert.ToHexStringLower(SHA256.HashData(Encoding.UTF8.GetBytes($"{Profile}|{Flags}|{entryPoint}|{source}")));
+        var path = _cacheDirectory is null ? null : Path.Combine(_cacheDirectory, key + ".dxbc");
+        if (path is not null)
+        {
+            try
+            {
+                if (File.Exists(path))
+                {
+                    return File.ReadAllBytes(path);
+                }
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Compile it again.
+            }
+        }
+
+        var bytecode = Compiler.Compile(source, entryPoint, "shader.hlsl", Profile, Flags).ToArray();
+        if (path is not null)
+        {
+            try
+            {
+                // Written beside it and moved into place, so a second process compiling the same kernel can't half-read it.
+                Directory.CreateDirectory(_cacheDirectory!);
+                var temporary = path + "." + Environment.ProcessId + ".tmp";
+                File.WriteAllBytes(temporary, bytecode);
+                File.Move(temporary, path, overwrite: true);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                // Not kept; it compiles again next time.
+            }
+        }
+
+        return bytecode;
     }
 
     private readonly Dictionary<(string, string), Kernel> _kernels = [];

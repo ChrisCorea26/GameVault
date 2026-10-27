@@ -412,7 +412,8 @@ console's resolution on your graphics card (Direct3D 11). Polygons get smooth ed
 2D games and menus look the same as at 1×. Pictures a game draws with the processor rather than the graphics chip
 show at the console's own resolution. The game itself runs exactly as it does at 1× (and no faster), so save states,
 rewind, netplay and challenges are unaffected. The N64's random dither and noise are drawn slightly differently above
-1×.
+1×. The first time you start a game after installing or updating GameVault, your PC prepares the graphics card's
+program for a minute or two; the game plays at 1× meanwhile and turns sharp when it's ready.
 
 **Rumble Pak:** turn on **Settings → Nintendo 64 → Rumble Pak** and every controller gets one, so games that use it
 shake your controller (if it has rumble motors). Games can't save to the Controller Pak while it's on.

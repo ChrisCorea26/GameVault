@@ -42,7 +42,7 @@ public sealed class N64RdpGpuRendererTests(ITestOutputHelper output)
         {
             try
             {
-                return new D3D11Compute(forceWarp: true);
+                return new D3D11Compute(forceWarp: true); // compiled kernels are kept in the default cache, for every test
             }
             catch (Exception ex) when (ex is InvalidOperationException or SharpGen.Runtime.SharpGenException)
             {

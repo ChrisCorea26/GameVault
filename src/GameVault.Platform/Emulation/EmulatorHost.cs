@@ -157,6 +157,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _settings = settings;
         _audio = audio;
         _batteries = paths is null ? null : new BatterySaveStore(paths);
+        _shaderCache = paths is null ? null : Path.Combine(paths.Root, "Shaders");
         _diskSaves = paths is null ? null : new BatterySaveStore(paths, ".fdssave");
         _appleDiskSaves = paths is null ? null : new BatterySaveStore(paths, ".a2save");
         _memoryCards = paths is null ? null : new BatterySaveStore(paths, ".mcd");
