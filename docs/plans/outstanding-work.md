@@ -145,6 +145,17 @@ SA-1 (a second 65C816 at 10.74 MHz with its DMA, character conversion and arithm
 ST010/011 (on the µPD77C25 / µPD96050 core, each with the player's program ROM), S-DD1 decompression, OBC1, and
 SPC7110 with its decompression and RTC. Same rules and tests as item 4.
 
+**As built.** `Sa1` (a second `W65816Cpu` on its own bus: I-RAM, BW-RAM and the $60–$6F bitmap view, CXB–FXB,
+BMAPS/BMAP, the multiplier, divider and 40-bit sum of products, variable-length reads, the H/V and linear timer,
+normal DMA, and character conversion types 1 and 2; DMA finishes at once and write protection isn't enforced). `Sdd1`
+(the $C0–$FF memory controller, and Andreas Naive's decompressor answering the DMA's reads while the channel's count
+lasts; the console shows the chip its DMA register writes). `Obc1`. `NecDsp` now also runs the µPD96050 of the ST010
+and ST011 (`st010.rom`, `st011.rom`, 52 KB) with the SNES's window onto its data RAM, which is the ST010's save file.
+DSP-2/3/4 came with item 4. **Not done:** the Cx4 (its HG51B needs a low-level core and the player's data ROM) and the
+SPC7110 (its context-model decompressor), the ST018 (an ARM) and the S-RTC. Each is a large job that can't be
+checked here without the games; they stay in `docs/bugs.md` as a later item. Tests: `Sa1Tests`, `Sdd1Tests`,
+`Obc1Tests`, `SetaDspTests`.
+
 ## 6. `--sample-data` Player on every system
 The sample Apple II, Genesis and SNES games show a test pattern. Run a freely licensed homebrew for each instead,
 from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Player shows real pictures under
@@ -165,20 +176,56 @@ from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Pla
 - YM2413 (OPLL) for Japanese Master System games, with its built-in instrument patches computed from the published
   register values; the FM unit's detection port.
 - The SC-3000 keyboard matrix on the PPI, mapped to the PC keyboard (like the Apple II), so BASIC cartridges run.
+- **As built:** the VRC7's FM engine became `Opll`, shared by both (the VRC7's output is pinned sample for sample by
+  a fingerprint test); the YM2413 adds three channels, the rhythm sounds and the YM2413's instruments (emu2413's
+  table, MIT). The unit is there for Japanese cartridges (header region 3, or a Japan profile). `.sc` files get the
+  keyboard.
 
 ## 9. Apple II: monochrome, character ROM, mid-frame changes
 - Settings → Apple II → "Monochrome" (green, amber or white).
 - The player's own character ROM (Settings), with the built-in font as today when none is chosen.
 - Draw the video per scanline from the soft switches then, so mid-frame mode changes show.
 
+**As built.** `AppleConsole.RunFrame` runs the CPU 65 cycles at a time and draws each of the 192 visible lines
+(`AppleVideo.RenderLine`) from the memory and switches when the beam finishes it. `AppleMonitor` (Color, Green,
+Amber, White) picks the palette; on a monochrome monitor hi-res, lo-res and double hi-res show their dots, with no
+artifact colour, in the phosphor's colour. `AppleCharacterRom` reads the player's 2, 4 or 8 KB character ROM and
+finds its layout (index by ASCII, low six bits or screen code; active high or low; bit order; first line) by how
+well A–Z and 0–9 match GameVault's own font, refusing files under 85 % agreement. Settings → Apple II gains
+**Character ROM** and **Monitor**. Tests: `AppleDisplayTests`. The floating bus stays open.
+
 ## 10. N64 accessories and video
 - The Rumble Pak (rumble through SDL) and the Transfer Pak (the player's own Game Boy cartridge dump and save).
 - GameShark button codes (88/89).
 - The VI's anti-alias and divot filters, and 32-bit frames shown at full depth.
 
+**As built (first part).** `IN64Accessory` in each controller's slot; `N64RumblePak` (probe at $8000, motor at
+$C000); `N64Console.RumblePaks` (Settings → Nintendo 64 → Rumble Pak) puts one in every controller. The host passes
+`IRumbleSource.RumbleLevel` to `InputService.SetRumble`, and `ControllerManager` sends it to the pad on that port,
+where `SdlControllerBackend` runs `SDL_GameControllerRumble` from its polling thread. The motor isn't part of the save
+state. GameShark codes turned out not to exist for the N64 at all (cheats are NES-only from the store to the UI), so
+they are a separate part with the cheat system made per-system. Tests: `N64AccessoryTests`, `ControllerManagerTests`.
+
+32-bit frames: `IEmulatedConsole.TrueColorFrame` (empty unless the console drew more colours than the 15-bit
+indexed frame holds) goes through `IVideoSink.PresentArgb` and `VideoFrame.IsArgb` to both renderers and to
+screenshots; the N64 fills it when the VI is in 32-bit mode. The PlayStation's 24-bit mode (item 11) can use the
+same path. The VI's anti-alias and divot filters need each pixel's coverage, which the RDP computes but doesn't keep in RDRAM's
+hidden bits yet; they wait for that (with the GPU renderer, item 14). Tests: `N64ConsoleTests`, `FrameSinkTests`.
+
 ## 11. PlayStation peripherals and output
 - The mouse, the GunCon and the Justifier (with the PC mouse as the gun, as the NES Zapper does).
 - 24-bit output shown at full depth (FMVs).
+
+**As built (first part).** The pads are DualShocks (`PsDualShock`, byte by byte on SIO0): digital (41h), analog
+(73h) and config (F3h) modes with 43h–4Dh, the left stick working the D-pad while digital, and the motors mapped by
+4Dh driving `IRumbleSource` like the N64's Rumble Pak. **Settings → PlayStation → Analog mode** starts them analog,
+for games that wait for the Analog button. PlayStation games get both sticks, the stick clicks and T/F/G/H as the
+D-pad, as PS2 games do. 24-bit display goes through `TrueColorFrame`. SIO0's state is version 2 and still loads
+version 1. The GunCon (`PsGunCon`: ID 63h, buttons and the latched X/Y, aimed with the PC mouse) and the mouse
+(`PsMouse`: ID 12h, movement since the last read) go in port 1 from **Game Details → Properties → Port 1**. **Not
+done:** the Justifier, which needs the lightgun interrupt (IRQ 10) timed to the beam, and the multitap, whose SIO
+protocol can't be checked here. Tests: `PsDualShockTests`,
+`PsGpuTrueColorTests`, `ControllerManagerTests`.
 - A second multitap (8 players): the input service and the Player grow to 8 ports.
 
 ## 12. PS2 peripherals and GS details
@@ -186,9 +233,28 @@ from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Pla
 - The DualShock 2's pressure-sensitive buttons, from the analog triggers and full presses.
 - Mipmapping and LOD in the software GS.
 
+**As built.** Mipmapping in the GS: MXL, MMIN's four mipmap modes, the levels' addresses from MIPTBP1/2 or MTBA's
+packed layout, each level's size and region clamp halved, and a blend by LOD's fraction between levels. Slot 2
+holds one card shared by every game (`Memory card (slot 2).ps2`); SIO2's state is now version 2 and still loads
+version 1. L2 and R2 report how far a pad's analog triggers are pulled (`ControllerState` bits 50–63), other
+buttons report full presses. **Not done:** the multitap — SIO2's multitap commands (21h) can't be checked here
+against hardware or a test program, so rather than guess they stay open in `docs/bugs.md`; and the DualShock 2's
+vibration, which needs the rumble path from item 10. Tests: `Ps2GsRasterTests`, `Sio2Tests`,
+`PlayStation2PlatformTests`, `ControllerManagerTests`.
+
 ## 13. Internet netplay
 - A relay server option and STUN-based NAT traversal on top of the LAN rollback netplay (SPEC §7.7).
 - Netplay for Famicom Disk System games (disk contents synced at start).
+
+**As built.** Disk System games start from the same image and BIOS on both PCs, and a disk change travels in the
+player's input (`ControllerState` bits 50–55 on the NES, one frame), so `NesConsole.SetControllerState` changes the
+disk on the same frame everywhere and rollback replays it. Internet hosting: `StunMessage` (RFC 5389 Binding) on the
+netplay socket gives the public address, carried in the same 10-character code with bit 48 set; the joiner learns its
+own the same way and shows it as a reply code, and `UdpNetplayLink.ExpectPeer` makes the host send to it (and accept
+its packets from another port of the same address) until the routers open. A relay (`src/GameVault.Relay`, a small
+cross-platform console program) pairs two players by room (`GVRJ` + room, answered `GVRA`) and forwards their
+datagrams; with **Settings → Netplay → Relay server** set, hosting goes through it with a 16-character code. Tests:
+`InternetNetplayTests` (a stand-in STUN server and the relay on loopback), `LanNetplayTests`, `NetplayViewModelTests`.
 
 ## 14. GPU renderers
 - Direct3D 11 renderers for the PS2 GS, the N64 RDP and the PlayStation GPU, with internal resolution scaling.
@@ -202,9 +268,22 @@ from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Pla
 A VR4300 block recompiler to IL like the EE's, with the interpreter as the reference and the same kind of
 differential tests.
 
+**Measured first, and not needed now.** A loop of RDRAM loads, adds, stores and a branch runs at 369 M CPU cycles a
+second on the interpreter (Release, the Linux build machine): about four times the VR4300's 93.75 MHz, so the CPU
+isn't what holds N64 games below full speed; the RDP is (phase-17-performance.md §3). The recompiler waits until a
+profile of real games shows the CPU on top; until then the GPU renderer (item 14) is where N64 speed comes from.
+
 ## 16. PS2 netplay and run-ahead
 Make PS2 save states small and fast enough (dirty-page tracking for the 32 MB of RAM and the GS's 4 MB), then
 enable run-ahead and rollback netplay.
+
+**Measured: not possible yet.** A PS2 state is 51 MB. Saving it into a reused writer takes 7.2 ms and loading it
+9.1 ms (Release, the Linux build machine, after the `gs-basic` homebrew's tenth frame), against a 16.7 ms frame.
+Rollback saves a state every frame and replays several frames after a late input, and run-ahead saves, runs two
+frames and loads every frame; on top of a PS2 frame, which already takes most of the frame's time in real games, either
+would roughly halve the speed. Dirty-page tracking could make the save cheaper but not the replays. This waits until
+the PS2 runs well above full speed (the GPU renderer, item 14); `SystemBudgets` keeps both off with a message until
+then.
 
 ## 17. Sega CD and 32X
 The Sega CD (a second 68000, the CD drive, PCM and the ASIC's scaling) with the player's own BIOS; the 32X (two

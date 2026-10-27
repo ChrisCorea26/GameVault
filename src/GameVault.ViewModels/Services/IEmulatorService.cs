@@ -28,6 +28,12 @@ public interface IEmulatorService
     /// <summary>True when the game is set up for the Arkanoid paddle, so the mouse turns it (SPEC §4.7).</summary>
     bool UsesPaddle => false;
 
+    /// <summary>True when the game is set up for the PlayStation's GunCon, so the mouse aims it.</summary>
+    bool UsesGun => false;
+
+    /// <summary>True when the game is set up for the PlayStation Mouse.</summary>
+    bool UsesMouse => false;
+
     /// <summary>True when the game is set up for the Four Score (four players).</summary>
     bool UsesFourScore { get; }
 
@@ -108,7 +114,22 @@ public interface IEmulatorService
     /// </summary>
     Task<string> HostNetplayAsync() => Task.FromException<string>(new NetplayException("Netplay isn't available here."));
 
-    /// <summary>Joins a game hosted on this network. The same game must be running here.</summary>
+    /// <summary>
+    /// Hosts over the internet: through the relay in Settings when there is one, or directly, in which case the joiner
+    /// sends back a reply code for <see cref="AcceptNetplayReplyAsync"/>.
+    /// </summary>
+    Task<string> HostInternetNetplayAsync() => Task.FromException<string>(new NetplayException("Netplay isn't available here."));
+
+    /// <summary>The internet host types the joiner's reply code.</summary>
+    Task AcceptNetplayReplyAsync(string replyCode) => Task.FromException(new NetplayException("Netplay isn't available here."));
+
+    /// <summary>Hosting over the internet directly: waiting for the joiner's reply code.</summary>
+    bool NetplayNeedsReply => false;
+
+    /// <summary>The joiner's reply code for an internet host, to send back to them.</summary>
+    string? NetplayReplyCode => null;
+
+    /// <summary>Joins a game with the host's invite code (on this network, over the internet or through a relay). The same game must be running here.</summary>
     Task JoinNetplayAsync(string inviteCode) => Task.FromException(new NetplayException("Netplay isn't available here."));
 
     /// <summary>Ends netplay; the game keeps running here without saving to the game's save file.</summary>

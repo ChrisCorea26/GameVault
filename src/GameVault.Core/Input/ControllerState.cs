@@ -7,7 +7,12 @@ namespace GameVault.Core.Input;
 /// (Phase 14), and L2 and R2 for the PlayStation (Phase 15). Bits 16–31 hold the left analog stick for the Nintendo 64
 /// (Phase 16): X in bits 16–23 and Y in bits 24–31, each a signed byte (up is positive, as the N64 reports it).
 /// Bits 32–47 hold the right stick the same way, and bits 48 and 49 the stick clicks L3 and R3, for the PlayStation 2's
-/// DualShock 2 (Phase 17).
+/// DualShock 2 (Phase 17). Bits 50–56 and 57–63 hold how far L2 and R2 are pulled (0–127), from a pad's analog
+/// triggers, for the DualShock 2's pressure-sensitive buttons; 0 with the button held means all the way (a key).
+/// On the NES the same bits 50–55 carry a Disk System command for netplay instead: 1 + a side to insert it, 63 to
+/// eject the disk, for one frame (outstanding-work plan §13). Only the PlayStation 2 layout fills in pressure and only
+/// the NES reads a disk command, so the two never meet. The Atari 5200's keypad key uses bits 50–53 the same way
+/// (<c>Atari5200Keypad</c>), filled in only in the 5200's keypad mode.
 /// </summary>
 /// <remarks>
 /// Each console maps these to its own pad and reads only its bits. On the Genesis, B is the pad's A button, A is its B
@@ -65,8 +70,35 @@ public static class ControllerStick
 
     public static sbyte RightStickY(this ControllerState state) => (sbyte)((ulong)state >> 40);
 
-    /// <summary>The buttons only (every bit but the sticks').</summary>
-    public static ControllerState Buttons(this ControllerState state) => state & ~SticksMask;
+    public const int L2PressureShift = 50;
+
+    public const int R2PressureShift = 57;
+
+    /// <summary>The bits that hold the triggers' pressure.</summary>
+    public const ControllerState PressureMask = (ControllerState)(0x3FFFUL << L2PressureShift);
+
+    /// <summary>How far L2 is pulled, 0–127 (0 when it isn't analog or isn't pulled).</summary>
+    public static int L2Pressure(this ControllerState state) => (int)((ulong)state >> L2PressureShift) & 0x7F;
+
+    public static int R2Pressure(this ControllerState state) => (int)((ulong)state >> R2PressureShift) & 0x7F;
+
+    /// <summary>The same state with the triggers' pressures set (each 0–127).</summary>
+    public static ControllerState WithTriggerPressure(this ControllerState state, int l2, int r2) =>
+        (state & ~PressureMask) | (ControllerState)(((ulong)(l2 & 0x7F) << L2PressureShift) | ((ulong)(r2 & 0x7F) << R2PressureShift));
+
+    /// <summary>The buttons only (every bit but the sticks' and the triggers' pressure).</summary>
+    public static ControllerState Buttons(this ControllerState state) => state & ~SticksMask & ~PressureMask;
+
+    public const int DiskCommandShift = 50;
+
+    /// <summary>The Disk System command eject (bits 50–55, on the NES only).</summary>
+    public const int EjectDisk = 63;
+
+    /// <summary>A Disk System command: 0 for none, 1 + a side to insert it, <see cref="EjectDisk"/> to eject.</summary>
+    public static int DiskCommand(this ControllerState state) => (int)((ulong)state >> DiskCommandShift) & 0x3F;
+
+    public static ControllerState WithDiskCommand(this ControllerState state, int command) =>
+        (state & ~(ControllerState)(0x3FUL << DiskCommandShift)) | (ControllerState)((ulong)(command & 0x3F) << DiskCommandShift);
 
     /// <summary>The same buttons and right stick with the left stick at (<paramref name="x"/>, <paramref name="y"/>).</summary>
     public static ControllerState WithStick(this ControllerState state, sbyte x, sbyte y) =>

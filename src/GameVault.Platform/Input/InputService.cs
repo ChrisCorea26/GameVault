@@ -38,6 +38,30 @@ public sealed class InputService
     private readonly HashSet<(int Source, int Key)> _padHotkeys = [];
     private long _sequence;
 
+    private readonly float[] _rumble = new float[PortCount];
+
+    /// <summary>A port's rumble changed (port, 0–1). Raised on the emulator thread; the controllers pass it to the pad.</summary>
+    public event Action<int, float>? RumbleChanged;
+
+    /// <summary>The game set port <paramref name="port"/>'s motor (the N64's Rumble Pak).</summary>
+    public void SetRumble(int port, float level)
+    {
+        if (_rumble[port] != level)
+        {
+            _rumble[port] = level;
+            RumbleChanged?.Invoke(port, level);
+        }
+    }
+
+    /// <summary>Stops every motor (the game stopped).</summary>
+    public void StopRumble()
+    {
+        for (var port = 0; port < PortCount; port++)
+        {
+            SetRumble(port, 0);
+        }
+    }
+
     public InputService(KeyboardMapping keyboard)
     {
         _base = keyboard;
@@ -184,6 +208,63 @@ public sealed class InputService
         }
     }
 
+    private (double X, double Y)? _gunAim;
+    private bool _gunTrigger;
+    private bool _gunA;
+    private bool _gunB;
+    private double _mouseDx;
+    private double _mouseDy;
+    private bool _mouseLeft;
+    private bool _mouseRight;
+
+    /// <summary>
+    /// The PlayStation's GunCon, driven by the mouse over the game: the aim as fractions of the picture (null off it),
+    /// the left button as the trigger, the right button as A and the middle one as B. Set on the UI thread.
+    /// </summary>
+    public void SetGun((double X, double Y)? aim, bool trigger, bool a, bool b)
+    {
+        lock (_gate)
+        {
+            _gunAim = aim;
+            _gunTrigger = trigger;
+            _gunA = a;
+            _gunB = b;
+        }
+    }
+
+    public ((double X, double Y)? Aim, bool Trigger, bool A, bool B) SampleGun()
+    {
+        lock (_gate)
+        {
+            return (_gunAim, _gunTrigger, _gunA, _gunB);
+        }
+    }
+
+    /// <summary>The PlayStation Mouse: movement since the last frame (in mouse counts) and the two buttons. UI thread.</summary>
+    public void MoveMouse(double dx, double dy, bool left, bool right)
+    {
+        lock (_gate)
+        {
+            _mouseDx += dx;
+            _mouseDy += dy;
+            _mouseLeft = left;
+            _mouseRight = right;
+        }
+    }
+
+    /// <summary>The movement since the last sample, in whole counts (the rest carries over), and the buttons.</summary>
+    public (int Dx, int Dy, bool Left, bool Right) SampleMouse()
+    {
+        lock (_gate)
+        {
+            var dx = (int)_mouseDx;
+            var dy = (int)_mouseDy;
+            _mouseDx -= dx;
+            _mouseDy -= dy;
+            return (dx, dy, _mouseLeft, _mouseRight);
+        }
+    }
+
     /// <summary>The Zapper state for the next frame (emulation thread).</summary>
     public ((int X, int Y)? Aim, bool Trigger) SampleZapper()
     {
@@ -315,6 +396,18 @@ public sealed class InputService
     }
 
     /// <summary>True while any typing key is held (the Apple IIe reads it).</summary>
+    /// <summary>The keys held now while typing into a computer (the SC-3000 reads its whole keyboard matrix).</summary>
+    public IReadOnlyCollection<int> TypingKeysHeld
+    {
+        get
+        {
+            lock (_gate)
+            {
+                return [.. _typingHeld];
+            }
+        }
+    }
+
     public bool AnyTypingKeyHeld
     {
         get
@@ -552,6 +645,11 @@ public sealed class InputService
             _sticks.Remove(key);
         }
 
+        foreach (var key in _triggers.Keys.Where(k => k.Source == source).ToList())
+        {
+            _triggers.Remove(key);
+        }
+
         if (source == KeyboardSource)
         {
             ReleaseSourceLocked(KeyboardDpadSource);
@@ -581,6 +679,7 @@ public sealed class InputService
             _padHotkeys.Clear();
             _sticks.Clear();
             _keypadHeld.Clear();
+            _triggers.Clear();
             _zapperTrigger = false;
             _powerPad = 0;
             _paddleFire = false;
@@ -643,9 +742,10 @@ public sealed class InputService
                 }
             }
 
-            if (Layout is PadLayout.Nintendo64 or PadLayout.PlayStation2)
+            if (Layout is PadLayout.Nintendo64 or PadLayout.PlayStation or PadLayout.PlayStation2)
             {
-                return WithSticks(state, port);
+                state = WithSticks(state, port);
+                return Layout == PadLayout.PlayStation2 ? WithPressure(state, port) : state;
             }
 
             if (KeypadMode)
@@ -667,6 +767,42 @@ public sealed class InputService
 
             return state;
         }
+    }
+
+    // ---------------------------------------------------------------- analog triggers (PlayStation 2 pressure)
+
+    private readonly Dictionary<(int Source, int Port), (int L2, int R2)> _triggers = [];
+
+    /// <summary>A pad's analog triggers, each 0–32767, for the DualShock 2's L2 and R2 pressure.</summary>
+    public void SetTriggers(int source, int port, short l2, short r2)
+    {
+        lock (_gate)
+        {
+            if (l2 <= 0 && r2 <= 0)
+            {
+                _triggers.Remove((source, port));
+            }
+            else
+            {
+                _triggers[(source, port)] = (Math.Max((int)l2, 0) >> 8, Math.Max((int)r2, 0) >> 8);
+            }
+        }
+    }
+
+    /// <summary>The furthest-pulled pad trigger of each side, as pressure. Called with the lock held.</summary>
+    private ControllerState WithPressure(ControllerState state, int port)
+    {
+        int l2 = 0, r2 = 0;
+        foreach (var ((_, p), (l, r)) in _triggers)
+        {
+            if (p == port)
+            {
+                l2 = Math.Max(l2, l);
+                r2 = Math.Max(r2, r);
+            }
+        }
+
+        return state.WithTriggerPressure(l2, r2);
     }
 
     // ---------------------------------------------------------------- analog sticks (N64, Phase 16; PlayStation 2, Phase 17)
@@ -726,12 +862,13 @@ public sealed class InputService
 
     /// <summary>
     /// The sticks for a port: the keyboard's arrows push the left stick all the way (their direction bits leave the
-    /// D-pad), and on the PS2 the right-stick keys push the right one; the strongest pad stick wins over them. Called
+    /// D-pad), and on the PlayStation and PS2 the right-stick keys push the right one; the strongest pad stick wins over them. Called
     /// with the lock held.
     /// </summary>
     private ControllerState WithSticks(ControllerState state, int port)
     {
-        var range = Layout == PadLayout.PlayStation2 ? DualShockStickRange : StickRange;
+        var dualShock = Layout is PadLayout.PlayStation or PadLayout.PlayStation2;
+        var range = dualShock ? DualShockStickRange : StickRange;
         ControllerState leftKeys = ControllerState.None, rightKeys = ControllerState.None;
         foreach (var ((source, p, bit), _) in _holdCount)
         {
@@ -760,7 +897,7 @@ public sealed class InputService
 
         var (lx, ly) = Strongest(leftKeys, port, right: false, range);
         state = state.WithStick(lx, ly);
-        if (Layout == PadLayout.PlayStation2)
+        if (dualShock)
         {
             var (rx, ry) = Strongest(rightKeys, port, right: true, range);
             state = state.WithRightStick(rx, ry);

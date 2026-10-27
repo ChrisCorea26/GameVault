@@ -187,6 +187,11 @@
             ItemsSource="{x:Bind ViewModel.InputOptions}"
             SelectedIndex="{x:Bind ViewModel.InputIndex, Mode=TwoWay}"
             Visibility="{x:Bind ViewModel.IsNes, Mode=OneWay}" />
+        <ComboBox
+            Header="Port 1"
+            ItemsSource="{x:Bind ViewModel.PlayStationInputOptions}"
+            SelectedIndex="{x:Bind ViewModel.PlayStationInputIndex, Mode=TwoWay}"
+            Visibility="{x:Bind ViewModel.IsPlayStation, Mode=OneWay}" />
         <ComboBox Header="Reduce input lag" ItemsSource="{x:Bind ViewModel.AutoOnOffOptions}" SelectedIndex="{x:Bind ViewModel.RunAheadIndex, Mode=TwoWay}" />
         <ComboBox
             Header="Reduce flicker (more sprites per line)"

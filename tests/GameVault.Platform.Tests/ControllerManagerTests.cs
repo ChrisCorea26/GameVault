@@ -83,6 +83,25 @@ public class ControllerManagerTests
     }
 
     [Fact]
+    public void PlayStation_2_games_get_how_far_each_trigger_is_pulled()
+    {
+        _manager.OnConnected(Pad(1));
+        _manager.GameHasFocus = true;
+        _input.Layout = PadLayout.PlayStation2;
+
+        _manager.OnAxis(1, PadAxis.TriggerLeft, 20000);
+        _manager.OnAxis(1, PadAxis.TriggerRight, 32767);
+
+        var state = _input.Sample(0);
+        state.L2Pressure().Should().Be(20000 >> 8);
+        state.R2Pressure().Should().Be(127);
+        (state & ControllerState.L2).Should().Be(ControllerState.L2);
+
+        _manager.OnAxis(1, PadAxis.TriggerLeft, 0);
+        _input.Sample(0).L2Pressure().Should().Be(0);
+    }
+
+    [Fact]
     public void PlayStation_2_games_get_both_sticks_and_the_stick_clicks_as_l3_and_r3()
     {
         _manager.OnConnected(Pad(1));
@@ -109,12 +128,30 @@ public class ControllerManagerTests
         _input.Sample(0).RightStickY().Should().Be(0);
         (_input.Sample(0) & ControllerState.R3).Should().Be(ControllerState.None);
 
-        // Other systems never see the stick clicks or the right stick.
-        _input.Layout = PadLayout.PlayStation;
+        // Systems without sticks never see the right stick.
+        _input.Layout = PadLayout.Snes;
         _manager.OnAxis(1, PadAxis.LeftX, 0);
         _manager.OnAxis(1, PadAxis.RightY, short.MinValue);
         _input.Sample(0).Should().Be(ControllerState.B | ControllerState.L3 | ControllerState.L2,
-            "L3 stays held in the state until released, but PlayStation games read only their 16 bits");
+            "L3 stays held in the state until released, but the SNES reads only its 16 bits");
+    }
+
+    [Fact]
+    public void PlayStation_games_get_the_dualshock_s_sticks_and_the_stick_doesn_t_press_the_dpad()
+    {
+        _manager.OnConnected(Pad(1));
+        _manager.GameHasFocus = true;
+        _input.Layout = PadLayout.PlayStation;
+
+        _manager.OnAxis(1, PadAxis.LeftX, short.MaxValue);
+        _manager.OnAxis(1, PadAxis.RightX, short.MinValue);
+        _manager.OnButton(1, PadButton.LeftStick, true);
+
+        var state = _input.Sample(0);
+        state.StickX().Should().Be(InputService.DualShockStickRange);
+        state.RightStickX().Should().Be((sbyte)-InputService.DualShockStickRange);
+        (state & ControllerState.Right).Should().Be(ControllerState.None, "the DualShock makes the stick the D-pad itself while it's digital");
+        (state & ControllerState.L3).Should().Be(ControllerState.L3);
     }
 
     [Fact]
@@ -298,11 +335,28 @@ public class ControllerManagerTests
         restarted.TwoPlayerKeyboard.Should().BeTrue();
     }
 
+    [Fact]
+    public void A_game_s_rumble_reaches_the_pad_playing_on_that_port()
+    {
+        _manager.OnConnected(Pad(1));
+        _manager.OnConnected(Pad(2));
+
+        _input.SetRumble(1, 1f);
+        _input.SetRumble(1, 1f); // unchanged: not sent again
+        _input.StopRumble();
+
+        _backend.Rumble.Should().Equal((2, 1f), (2, 0f));
+    }
+
     private sealed class FakeBackend : IControllerBackend
     {
         public IControllerEvents? Events { get; private set; }
 
+        public List<(int Id, float Level)> Rumble { get; } = [];
+
         public void Start(IControllerEvents events) => Events = events;
+
+        public void SetRumble(int instanceId, float level) => Rumble.Add((instanceId, level));
 
         public void Dispose()
         {

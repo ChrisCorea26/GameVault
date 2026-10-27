@@ -138,6 +138,44 @@ public class ExpansionAudioTests
         audio.Output.Should().BeApproximately(0f, 0.001f, "the note has released");
     }
 
+    /// <summary>
+    /// A fingerprint of the VRC7's exact output and save state over a scripted tune (every instrument, the custom one,
+    /// key off, sustain), so sharing its FM engine with the Master System's YM2413 can't change a sample.
+    /// </summary>
+    [Fact]
+    public void Vrc7_output_is_unchanged_sample_for_sample()
+    {
+        var audio = new Vrc7Audio();
+        for (var r = 0; r < 8; r++)
+        {
+            Fm(audio, r, (byte)(0x21 + r * 0x13)); // a custom instrument
+        }
+
+        var hash = new System.IO.Hashing.XxHash64();
+        for (var step = 0; step < 48; step++)
+        {
+            var channel = step % 6;
+            Fm(audio, 0x30 + channel, (byte)(((step % 16) << 4) | (step % 5)));
+            Fm(audio, 0x10 + channel, (byte)(100 + step * 7));
+            Fm(audio, 0x20 + channel, (byte)((step % 3 == 0 ? 0 : 0x10) | (step % 4 == 0 ? 0x20 : 0) | ((step % 7) << 1) | (step & 1)));
+            for (var i = 0; i < 36 * 600; i++)
+            {
+                audio.Clock();
+                if (i % 36 == 0)
+                {
+                    hash.Append(BitConverter.GetBytes(audio.Output));
+                }
+            }
+        }
+
+        var writer = new GameVault.Core.State.StateWriter();
+        audio.Save(writer);
+        hash.Append(writer.ToArray());
+        hash.GetCurrentHashAsUInt64().Should().Be(ExpectedVrc7Fingerprint);
+    }
+
+    private const ulong ExpectedVrc7Fingerprint = 6702541757129912218;
+
     [Fact]
     public void Vrc7_is_wired_through_the_mapper_registers()
     {
