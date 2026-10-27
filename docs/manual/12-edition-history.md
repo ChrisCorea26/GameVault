@@ -10,3 +10,4 @@
 | 6 | October 2026 | Sound is in stereo on the Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2, and **Settings → Audio → Mono** plays both channels on both speakers. |
 | 7 | October 2026 | Super Nintendo games with a Super FX chip (Star Fox, Yoshi's Island) play, and games with a DSP chip (Super Mario Kart, Pilotwings) play with your own chip ROM in **Settings → Super Nintendo → Enhancement chip ROMs**. |
 | 8 | October 2026 | Genesis / Mega Drive: games that save to a serial EEPROM (Sega's own, such as *Wonder Boy in Monster World*) save as `.sav`, and the double-resolution interlaced mode (*Sonic 2*'s two-player game) shows all 448 lines. |
+| 9 | October 2026 | Japanese Master System games play their FM music (the FM Sound Unit), and SC-3000 programs (`.sc`) take typing from your keyboard. |

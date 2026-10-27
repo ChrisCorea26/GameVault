@@ -1076,7 +1076,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         LoadControllerPak(console);
         LoadPs2MemoryCard(console);
         SetUpDiscs(data, system);
-        _input.TypingMode = console is AppleConsole;
+        _input.TypingMode = console is AppleConsole or SegaConsole { HasKeyboard: true };
         if (console is AppleConsole && appleRoms?.DiskBoot is null)
         {
             // Without the Disk II controller's ROM the Apple starts with no disk drive, so the disk can't boot (GV-010).
@@ -1534,6 +1534,10 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             if (console is AppleConsole apple)
             {
                 Type(apple);
+            }
+            else if (console is SegaConsole { HasKeyboard: true } sc3000)
+            {
+                sc3000.SetKeyboardRows(Sc3000Keyboard.Matrix(_input.TypingKeysHeld));
             }
 
             if (console is NesConsole { InputSetup: InputSetup.Zapper } nes)
