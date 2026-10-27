@@ -710,6 +710,7 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
     private void OnTrigger(int instanceId, ControllerState button, short value)
     {
         bool changed, down;
+        bool uiPressed = false;
         int? port;
         lock (_gate)
         {
@@ -718,11 +719,30 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
                 return;
             }
 
+            // Outside the game the triggers scroll the page, with the same thresholds as L2/R2 below.
+            var left = button == ControllerState.L2;
+            var uiHeld = left ? pad.UiTriggerLeft : pad.UiTriggerRight;
+            var uiDown = AppActive && !GameHasFocus && !CaptureMode && (uiHeld ? value > 8000 : value > 16000);
+            uiPressed = uiDown && !uiHeld;
+            if (left)
+            {
+                pad.UiTriggerLeft = uiDown;
+            }
+            else
+            {
+                pad.UiTriggerRight = uiDown;
+            }
+
             var held = (pad.Triggers & button) != 0;
             down = _input.Layout is PadLayout.PlayStation or PadLayout.Nintendo64 or PadLayout.PlayStation2 && AppActive && (held ? value > 8000 : value > 16000);
             changed = held != down;
             pad.Triggers = down ? pad.Triggers | button : pad.Triggers & ~button;
             port = _model.Policy.PortOf(instanceId);
+        }
+
+        if (uiPressed)
+        {
+            StartRepeat(instanceId, button == ControllerState.L2 ? NavigationAction.PageUp : NavigationAction.PageDown);
         }
 
         if (changed && port is { } p)
@@ -748,12 +768,16 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
             PadButton.DPadRight => NavigationAction.Right,
             PadButton.South => NavigationAction.Activate,
             PadButton.East => NavigationAction.Back,
+            PadButton.LeftShoulder => NavigationAction.PreviousPage,
+            PadButton.RightShoulder => NavigationAction.NextPage,
+            PadButton.North => NavigationAction.ContextMenu,
+            PadButton.Start => NavigationAction.Menu,
             _ => null,
         };
 
         if (action is { } a)
         {
-            if (a is NavigationAction.Up or NavigationAction.Down or NavigationAction.Left or NavigationAction.Right)
+            if (IsRepeating(a))
             {
                 StartRepeat(instanceId, a);
             }
@@ -779,6 +803,11 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
         Raise(() => Navigate?.Invoke(this, action));
     }
 
+    /// <summary>Directions and the triggers' page scrolling repeat while held; the other actions fire once.</summary>
+    private static bool IsRepeating(NavigationAction action) =>
+        action is NavigationAction.Up or NavigationAction.Down or NavigationAction.Left or NavigationAction.Right
+            or NavigationAction.PageUp or NavigationAction.PageDown;
+
     private static NavigationAction? DirectionToNavigation(ControllerState directions) =>
         (directions & ControllerState.Up) != 0 ? NavigationAction.Up
         : (directions & ControllerState.Down) != 0 ? NavigationAction.Down
@@ -789,7 +818,8 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
     private static bool IsNavigationHeld(PadState pad) =>
         pad.Buttons[(int)PadButton.DPadUp] || pad.Buttons[(int)PadButton.DPadDown]
         || pad.Buttons[(int)PadButton.DPadLeft] || pad.Buttons[(int)PadButton.DPadRight]
-        || pad.StickDirections != ControllerState.None;
+        || pad.StickDirections != ControllerState.None
+        || pad.UiTriggerLeft || pad.UiTriggerRight;
 
     private void ReleaseAllPads()
     {
@@ -849,6 +879,11 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
 
         /// <summary>The triggers held as L2 and R2.</summary>
         public ControllerState Triggers { get; set; }
+
+        /// <summary>The triggers held past the menus' threshold, which scroll a page (input.md §7.1).</summary>
+        public bool UiTriggerLeft { get; set; }
+
+        public bool UiTriggerRight { get; set; }
 
         public bool SuppressUntilRelease { get; set; }
 
