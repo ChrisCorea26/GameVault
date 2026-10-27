@@ -88,6 +88,23 @@ public sealed class PlayStation2PlatformTests : IDisposable
     }
 
     [Fact]
+    public void Slot_2_has_one_card_shared_by_every_game()
+    {
+        var store = new Ps2MemoryCardStore(new AppPaths(_root));
+        store.TryLoadShared().Should().BeNull();
+
+        var card = new byte[Ps2MemoryCardStore.Size];
+        card[5] = 0x42;
+        store.SaveShared(card);
+
+        Path.GetFileName(store.SharedPath).Should().Be("Memory card (slot 2).ps2");
+        store.TryLoadShared().Should().Equal(card);
+        store.TryLoad(0x1234).Should().BeNull("a game's own card is separate");
+        File.WriteAllBytes(store.SharedPath, new byte[10]);
+        FluentActions.Invoking(store.TryLoadShared).Should().Throw<InvalidDataException>();
+    }
+
+    [Fact]
     public async Task The_bios_from_settings_must_be_4_mb()
     {
         var none = await PlayStation2Setup.LoadAsync(new AppSettings { PlayStation2FastBoot = true });

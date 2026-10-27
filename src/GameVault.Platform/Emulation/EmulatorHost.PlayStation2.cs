@@ -17,6 +17,10 @@ public sealed partial class EmulatorHost
     private Ps2MemoryCard? _ps2Card;
     private byte[] _ps2CardSaved = [];
 
+    // Slot 2: one card shared by every game.
+    private Ps2MemoryCard? _ps2Card2;
+    private byte[] _ps2Card2Saved = [];
+
     /// <summary>The player's PS2 BIOS and fast-boot setting, read when a PS2 game is opened. Null without settings.</summary>
     private async Task<PlayStation2Setup?> LoadPlayStation2SetupAsync(CancellationToken cancellationToken) =>
         _settings is null
@@ -46,6 +50,25 @@ public sealed partial class EmulatorHost
         {
             RaiseNotice("GameVault couldn't read this game's memory card, so the game starts with an empty one. " + ex.Message);
         }
+
+        if (ps2.MemoryCard2 is not { } card2)
+        {
+            return;
+        }
+
+        try
+        {
+            if (_ps2Cards.TryLoadShared() is { } shared)
+            {
+                shared.CopyTo(card2.Data, 0);
+                card2.Dirty = false;
+            }
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException or InvalidDataException)
+        {
+            ps2.MemoryCard2 = null; // leave the file alone: slot 2 stays empty this time
+            RaiseNotice("GameVault couldn't read the memory card in slot 2, so slot 2 is empty for now. " + ex.Message);
+        }
     }
 
     /// <summary>The memory card to watch for changes, once the game is running. Emulation thread.</summary>
@@ -53,6 +76,8 @@ public sealed partial class EmulatorHost
     {
         _ps2Card = (console as Ps2Console)?.MemoryCard;
         _ps2CardSaved = _ps2Card?.Data.ToArray() ?? [];
+        _ps2Card2 = (console as Ps2Console)?.MemoryCard2;
+        _ps2Card2Saved = _ps2Card2?.Data.ToArray() ?? [];
     }
 
     /// <summary>
@@ -61,6 +86,7 @@ public sealed partial class EmulatorHost
     /// </summary>
     private void FlushPs2MemoryCard(bool background)
     {
+        FlushPs2SharedCard(background);
         if (_ps2Card is not { } card || _ps2Cards is not { } store || _console is null
             || (!card.Dirty && card.Data.AsSpan().SequenceEqual(_ps2CardSaved)))
         {
@@ -88,6 +114,41 @@ public sealed partial class EmulatorHost
         if (background)
         {
             _ = Task.Run(Write); // keep disk writes off the frame loop
+        }
+        else
+        {
+            Write();
+        }
+    }
+
+    /// <summary>Saves slot 2's shared card when the game wrote to it. Emulation thread.</summary>
+    private void FlushPs2SharedCard(bool background)
+    {
+        if (_ps2Card2 is not { } card || _ps2Cards is not { } store
+            || (!card.Dirty && card.Data.AsSpan().SequenceEqual(_ps2Card2Saved)))
+        {
+            return;
+        }
+
+        card.Dirty = false;
+        var data = card.Data.ToArray();
+        _ps2Card2Saved = data;
+
+        void Write()
+        {
+            try
+            {
+                store.SaveShared(data);
+            }
+            catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+            {
+                RaiseNotice("GameVault couldn't save the memory card in slot 2. " + ex.Message);
+            }
+        }
+
+        if (background)
+        {
+            _ = Task.Run(Write);
         }
         else
         {

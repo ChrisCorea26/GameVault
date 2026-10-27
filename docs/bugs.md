@@ -291,4 +291,5 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 | ~~Apple II monochrome, user character ROM, mid-frame mode changes~~ Done (outstanding-work §9) | `docs/plans/phase-12.md` |
 | RetroAchievements approval for hardcore unlocks; real-game and real-cartridge checks | Owner tasks in README and phase plans |
 | PlayStation 2 GPU renderer (GS); N64 GPU renderer | `docs/plans/phase-17-performance.md`, `docs/plans/outstanding-work.md` §14 |
+| PlayStation 2 multitap and DualShock 2 vibration (slot 2, pressure and mipmapping are done) | `docs/plans/outstanding-work.md` §12 |
 | GameCube / Wii, Atari 2600 / 5200 | SPEC §7.11, phases 18–19 |

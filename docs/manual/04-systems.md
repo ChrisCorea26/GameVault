@@ -367,7 +367,7 @@ video filters.
 |---|---|
 | **Files** | `.iso` (DVD or CD images); `.chd` (version 5, CD or DVD); `.cue` with its `.bin` tracks (CD games); `.elf` (homebrew programs) |
 | **You supply** | **A PlayStation 2 BIOS**, 4 MB, dumped from your own console (for example SCPH-39001), for discs. Homebrew `.elf` programs run without one. |
-| **Saves** | One 8 MB memory card per game in slot 1, as `.ps2` |
+| **Saves** | One 8 MB memory card per game in slot 1, as `.ps2`, and one card in slot 2 shared by every game |
 
 **Setup:**
 
@@ -401,11 +401,13 @@ from where they are; they're never copied or loaded into memory whole.
 | Left stick | Arrow keys (full push) | Left stick | Left stick |
 | Right stick | <kbd>I</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> (full push) | Right stick | Right stick |
 
-The pressure-sensitive buttons report full presses. While a PlayStation 2 game runs the left shoulder button is L1,
+The pressure-sensitive buttons report full presses, except L2 and R2 on a controller with analog triggers: they
+report how far you pull them. While a PlayStation 2 game runs the left shoulder button is L1,
 so use <kbd>Backspace</kbd> to rewind.
 
 **Memory cards:** each game gets its own 8 MB card in slot 1, created already formatted and saved with your other game
-saves. Slot 2 is empty.
+saves. Slot 2 holds one more card, the same for every game (`Memory card (slot 2).ps2` in the saves folder), so a
+sequel can find a save that the earlier game wrote there.
 
 **Rewind, run-ahead and netplay:** a PlayStation 2 is much larger than the other consoles, so:
 
@@ -419,8 +421,8 @@ helps. Lighter games can reach full speed on a fast PC, but many games still run
 lean on the PS2's vector units. Enhanced graphics and more speed-ups are planned.
 
 **Not supported yet:** changing discs in multi-disc games (an `.m3u` starts its first disc), vibration, the multitap,
-PlayStation games on the PlayStation 2, USB devices, the network adapter and hard drive, GameShark codes, memory card
-slot 2, and enhanced (upscaled) graphics.
+PlayStation games on the PlayStation 2, USB devices, the network adapter and hard drive, GameShark codes, and enhanced
+(upscaled) graphics.
 
 **Messages:**
 

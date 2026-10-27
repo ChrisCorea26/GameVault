@@ -62,8 +62,11 @@ public sealed class Ps2Sio2 : IStateful
     /// <summary>Whether a pad is plugged into each port.</summary>
     public bool[] PadConnected { get; } = [true, true];
 
-    /// <summary>The memory card in slot 1; slot 2 never has one.</summary>
+    /// <summary>The memory card in slot 1.</summary>
     public Ps2MemoryCard? MemoryCard { get; set; }
+
+    /// <summary>The memory card in slot 2, or null for an empty slot (outstanding-work plan §12).</summary>
+    public Ps2MemoryCard? MemoryCard2 { get; set; }
 
     /// <summary>Raised when a transfer completes (IOP IRQ 17).</summary>
     public Action? Interrupt { get; set; }
@@ -87,6 +90,7 @@ public sealed class Ps2Sio2 : IStateful
         }
 
         MemoryCard?.Reset();
+        MemoryCard2?.Reset();
     }
 
     /// <summary>Clears the command queue and the in FIFO (writing SEND3's first entry does this).</summary>
@@ -254,7 +258,7 @@ public sealed class Ps2Sio2 : IStateful
             case 0x01:
                 RunPad(bytes);
                 break;
-            case 0x81 when _port == 0 && MemoryCard is { } card:
+            case 0x81 when (_port == 0 ? MemoryCard : MemoryCard2) is { } card:
                 _recv1 = RecvConnected;
                 card.Exchange(bytes[1..], _out);
                 break;
@@ -303,7 +307,7 @@ public sealed class Ps2Sio2 : IStateful
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 1);
+        writer.BeginChunk(Tag, 2);
         foreach (var v in _send3)
         {
             writer.WriteUInt32(v);
@@ -348,12 +352,15 @@ public sealed class Ps2Sio2 : IStateful
         writer.WriteBool(PadConnected[1]);
         writer.WriteBool(MemoryCard is not null);
         MemoryCard?.SaveState(writer);
+        writer.WriteBool(MemoryCard2 is not null);
+        MemoryCard2?.SaveState(writer);
         writer.EndChunk();
     }
 
     public void LoadState(StateReader reader)
     {
-        if (reader.BeginChunk(Tag) != 1)
+        var version = reader.BeginChunk(Tag);
+        if (version is not (1 or 2))
         {
             throw new StateFormatException("Unsupported SIO2 state version.");
         }
@@ -408,6 +415,13 @@ public sealed class Ps2Sio2 : IStateful
             // The card's contents travel with the state, so saves rewind with everything else.
             MemoryCard ??= new Ps2MemoryCard();
             MemoryCard.LoadState(reader);
+        }
+
+        // Version 1 (before slot 2) leaves slot 2's card as it is.
+        if (version >= 2 && reader.ReadBool())
+        {
+            MemoryCard2 ??= new Ps2MemoryCard();
+            MemoryCard2.LoadState(reader);
         }
 
         reader.EndChunk();

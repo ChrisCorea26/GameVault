@@ -369,9 +369,9 @@ public sealed partial class Ps2Gs
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         private uint Expand24(uint c) => Ps2Gs.Expand24(c, in _s);
 
-        private uint FetchTexel(int u, int v)
+        private uint FetchTexel(int u, int v, int level)
         {
-            var raw = ReadPixel(_memory, _s.Tpsm, _s.Tbp, _s.Tbw, u, v);
+            var raw = ReadPixel(_memory, _s.Tpsm, _s.MipTbp[level], _s.MipTbw[level], u, v);
             return _s.Tpsm switch
             {
                 PsmCt32 or PsmZ32 => raw,
@@ -390,26 +390,47 @@ public sealed partial class Ps2Gs
             _ => (t & min) | max,
         };
 
-        /// <summary>A texel at 1/16-texel coordinates, nearest or bilinear (the four texels around the sample point).</summary>
-        private uint SampleTexture(int u16, int v16, bool linear)
+        /// <summary>
+        /// A texel at level 0's 1/16-texel coordinates from mipmap <paramref name="level"/> (half the size for each
+        /// level, and the region clamp with it), nearest or bilinear (the four texels around the sample point).
+        /// </summary>
+        private uint SampleTexture(int u16, int v16, bool linear, int level = 0)
         {
+            var w = Math.Max(_s.TexW >> level, 1);
+            var h = Math.Max(_s.TexH >> level, 1);
+            var minu = _s.Minu >> level;
+            var maxu = _s.Maxu >> level;
+            var minv = _s.Minv >> level;
+            var maxv = _s.Maxv >> level;
+            if (_s.Wms == 3)
+            {
+                (minu, maxu) = (_s.Minu, _s.Maxu); // REGION_REPEAT's masks aren't positions
+            }
+
+            if (_s.Wmt == 3)
+            {
+                (minv, maxv) = (_s.Minv, _s.Maxv);
+            }
+
+            u16 >>= level;
+            v16 >>= level;
             if (!linear)
             {
-                return FetchTexel(Wrap(u16 >> 4, _s.Wms, _s.TexW, _s.Minu, _s.Maxu), Wrap(v16 >> 4, _s.Wmt, _s.TexH, _s.Minv, _s.Maxv));
+                return FetchTexel(Wrap(u16 >> 4, _s.Wms, w, minu, maxu), Wrap(v16 >> 4, _s.Wmt, h, minv, maxv), level);
             }
 
             u16 -= 8;
             v16 -= 8;
             var fu = u16 & 15;
             var fv = v16 & 15;
-            var u0 = Wrap(u16 >> 4, _s.Wms, _s.TexW, _s.Minu, _s.Maxu);
-            var u1 = Wrap((u16 >> 4) + 1, _s.Wms, _s.TexW, _s.Minu, _s.Maxu);
-            var v0 = Wrap(v16 >> 4, _s.Wmt, _s.TexH, _s.Minv, _s.Maxv);
-            var v1 = Wrap((v16 >> 4) + 1, _s.Wmt, _s.TexH, _s.Minv, _s.Maxv);
-            var c00 = FetchTexel(u0, v0);
-            var c10 = FetchTexel(u1, v0);
-            var c01 = FetchTexel(u0, v1);
-            var c11 = FetchTexel(u1, v1);
+            var u0 = Wrap(u16 >> 4, _s.Wms, w, minu, maxu);
+            var u1 = Wrap((u16 >> 4) + 1, _s.Wms, w, minu, maxu);
+            var v0 = Wrap(v16 >> 4, _s.Wmt, h, minv, maxv);
+            var v1 = Wrap((v16 >> 4) + 1, _s.Wmt, h, minv, maxv);
+            var c00 = FetchTexel(u0, v0, level);
+            var c10 = FetchTexel(u1, v0, level);
+            var c01 = FetchTexel(u0, v1, level);
+            var c11 = FetchTexel(u1, v1, level);
             uint result = 0;
             for (var shift = 0; shift < 32; shift += 8)
             {
@@ -459,19 +480,42 @@ public sealed partial class Ps2Gs
                     v16 = ToTexCoord(attr.T * scale * _s.TexH);
                 }
 
-                bool linear;
-                if (_s.MagLinear == _s.MinLinear)
+                uint tex;
+                if (_s.MagLinear == _s.MinLinear && _s.MipMode == 0)
                 {
-                    linear = _s.MagLinear;
+                    tex = SampleTexture(u16, v16, _s.MagLinear);
                 }
                 else
                 {
-                    // LOD = K when LCM is set, otherwise (log2(1/|Q|) << L) + K; above 0 minifies (level 0 only).
+                    // LOD = K when LCM is set, otherwise (log2(1/|Q|) << L) + K; above 0 minifies, and with MXL picks
+                    // the mipmap levels (ps2tek: "GS Textures").
                     var lod = _s.Lcm ? _s.LodK : (Math.Log2(1 / Math.Abs(q)) * (1 << _s.LodL)) + _s.LodK;
-                    linear = lod > 0 ? _s.MinLinear : _s.MagLinear;
+                    if (lod <= 0 || _s.MipMode == 0)
+                    {
+                        tex = SampleTexture(u16, v16, lod > 0 ? _s.MinLinear : _s.MagLinear);
+                    }
+                    else if (_s.MipMode == 1)
+                    {
+                        tex = SampleTexture(u16, v16, _s.MinLinear, Math.Min((int)(lod + 0.5), _s.Mxl));
+                    }
+                    else
+                    {
+                        // Between two levels: a blend of both by LOD's fraction.
+                        var level = Math.Min((int)lod, _s.Mxl);
+                        var next = Math.Min(level + 1, _s.Mxl);
+                        var t = level == next ? 0 : (int)((lod - (int)lod) * 16);
+                        var c0 = SampleTexture(u16, v16, _s.MinLinear, level);
+                        var c1 = t == 0 ? c0 : SampleTexture(u16, v16, _s.MinLinear, next);
+                        tex = 0;
+                        for (var shift = 0; shift < 32; shift += 8)
+                        {
+                            var x0 = (int)((c0 >> shift) & 0xFF);
+                            var x1 = (int)((c1 >> shift) & 0xFF);
+                            tex |= (uint)(((x0 * (16 - t)) + (x1 * t)) >> 4) << shift;
+                        }
+                    }
                 }
 
-                var tex = SampleTexture(u16, v16, linear);
                 var tr = (int)(tex & 0xFF);
                 var tg = (int)((tex >> 8) & 0xFF);
                 var tb = (int)((tex >> 16) & 0xFF);
