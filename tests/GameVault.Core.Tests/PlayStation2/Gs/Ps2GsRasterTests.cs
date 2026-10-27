@@ -593,6 +593,53 @@ public sealed class Ps2GsRasterTests
         Red(f.Pixel(0, 0)).Should().Be(0xF0, "nearest takes texel 1");
     }
 
+    /// <summary>TEX1 with LCM (the LOD is K alone), MXL, MMIN, MTBA and K in sixteenths.</summary>
+    private static ulong MipTex1(int mxl, int mmin, int k16, bool mtba = false) =>
+        1UL | ((ulong)mxl << 2) | ((ulong)mmin << 6) | (mtba ? 1UL << 9 : 0) | ((ulong)(k16 & 0xFFF) << 32);
+
+    /// <summary>An 8×8 texture whose levels 0, 1 and 2 are solid red $10, $20 and $30.</summary>
+    private static GsFixture WithMipmaps(bool packed)
+    {
+        var f = new GsFixture();
+        var level1 = packed ? GsFixture.TexBlock + 1 : GsFixture.TexBlock + 8;
+        var level2 = packed ? GsFixture.TexBlock + 1 : GsFixture.TexBlock + 16; // MTBA: 4×4×32 bits is under a block
+        f.Upload(GsFixture.TexBlock, 1, Ps2Gs.PsmCt32, 0, 0, 8, 8, Enumerable.Repeat(Rgba(0x10, 0, 0), 64).ToList());
+        f.Upload(level1, 1, Ps2Gs.PsmCt32, 0, 0, 4, 4, Enumerable.Repeat(Rgba(0x20, 0, 0), 16).ToList());
+        if (!packed)
+        {
+            f.Upload(level2, 1, Ps2Gs.PsmCt32, 0, 0, 2, 2, Enumerable.Repeat(Rgba(0x30, 0, 0), 4).ToList());
+        }
+
+        f.W(Ps2Gs.RegTex0_1, GsRegs.Tex0(GsFixture.TexBlock, 1, Ps2Gs.PsmCt32, 3, 3, tfx: 1));
+        f.W(Ps2Gs.RegMipTbp1_1, (ulong)level1 | (1UL << 14) | ((ulong)level2 << 20) | (1UL << 34));
+        return f;
+    }
+
+    [Theory]
+    [InlineData(2, 0, 0x10)]  // NEAREST_MIPMAP_NEAREST at LOD 0: magnified, level 0
+    [InlineData(2, 16, 0x20)] // LOD 1: level 1
+    [InlineData(2, 40, 0x30)] // LOD 2.5: rounds to level 2
+    [InlineData(2, 99, 0x30)] // past MXL: the last level
+    [InlineData(3, 24, 0x28)] // NEAREST_MIPMAP_LINEAR at LOD 1.5: halfway between levels 1 and 2
+    [InlineData(1, 24, 0x10)] // plain LINEAR: no mipmaps
+    public void Mipmaps_follow_the_lod(int mmin, int k16, int expectedRed)
+    {
+        var f = WithMipmaps(packed: false);
+        f.W(Ps2Gs.RegTex1_1, MipTex1(mxl: 2, mmin, k16));
+        TexturedSprite(f, 0, 0, 4, 4, 0, 0, 8 * 16, 8 * 16);
+        Red(f.Pixel(1, 1)).Should().Be(expectedRed);
+    }
+
+    [Fact]
+    public void Mtba_packs_the_levels_after_level_0()
+    {
+        var f = WithMipmaps(packed: true);
+        f.W(Ps2Gs.RegMipTbp1_1, 0); // ignored: MTBA works the addresses out
+        f.W(Ps2Gs.RegTex1_1, MipTex1(mxl: 1, mmin: 2, k16: 16, mtba: true));
+        TexturedSprite(f, 0, 0, 4, 4, 0, 0, 8 * 16, 8 * 16);
+        Red(f.Pixel(1, 1)).Should().Be(0x20);
+    }
+
     [Fact]
     public void Texa_expands_16_and_24_bit_textures()
     {
