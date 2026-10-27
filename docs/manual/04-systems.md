@@ -274,8 +274,9 @@ save, its save type is probably missing from the database.
 | Start | <kbd>Enter</kbd> | Start |
 | D-pad | <kbd>T</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> | D-pad |
 
-**Performance:** the N64's graphics are drawn in software. 2D games and lighter 3D scenes run at full speed on a
-modern CPU; heavy 3D scenes may run slower until a GPU renderer is added.
+**Performance:** the N64's graphics are drawn in software, on several processor cores at once, so a CPU with more
+cores helps. 2D games and most 3D scenes run at full speed on a modern CPU; the heaviest 3D scenes may still slow
+down on a CPU with few cores.
 
 **Not supported yet:** Rumble Pak, Transfer Pak, mouse, voice recognition unit, 64DD, GameShark codes, and the N64's
 video filters.
@@ -335,8 +336,10 @@ saves. Slot 2 is empty.
 - **Reduce input lag** (run-ahead) is always off for PlayStation 2 games.
 - **Netplay** isn't available for PlayStation 2 games.
 
-**Performance:** the PlayStation 2 is emulated in software, and games run well below full speed on today's PCs.
-Faster emulation and enhanced graphics are planned.
+**Performance:** the PlayStation 2 is emulated in software. GameVault translates the main processor's code into
+your PC's own as it runs, and draws the graphics on several processor cores at once, so a CPU with more cores
+helps. Lighter games can reach full speed on a fast PC, but many games still run below it, especially 3D games that
+lean on the PS2's vector units. Enhanced graphics and more speed-ups are planned.
 
 **Not supported yet:** changing discs in multi-disc games (an `.m3u` starts its first disc), vibration, the multitap,
 PlayStation games on the PlayStation 2, USB devices, the network adapter and hard drive, GameShark codes, memory card

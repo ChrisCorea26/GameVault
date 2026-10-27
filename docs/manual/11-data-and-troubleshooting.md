@@ -61,7 +61,7 @@ The RetroAchievements sign-in is tied to your Windows account, so sign in again 
 | An N64 game doesn't keep its save | Its save type may be missing from GameVault's database. |
 | A PlayStation game won't start with fast boot | Turn off **Skip the startup screens**. |
 | A PlayStation 2 game won't start with fast boot | Turn off **Settings → PlayStation 2 → Skip the startup screens**. |
-| A PlayStation 2 game runs slowly | Expected for now: the PlayStation 2 is emulated in software and runs below full speed. |
+| A PlayStation 2 game runs slowly | Many games still run below full speed (see [PlayStation 2](#sony-playstation-2), *Performance*). If you built GameVault yourself, use a Release build (see [Installing GameVault](#installing-gamevault)). Close other heavy programs. |
 | A PlayStation 2 game isn't in the library | Discs are recognised by their SYSTEM.CNF file; check the image isn't damaged. A `.bin` must come with its `.cue`. |
 | Settings are greyed out | The family profile is locked. A parent can unlock it with the PIN. |
 | GameVault crashed | Details are in `%LOCALAPPDATA%\GameVault\logs\crash.log`. Include that file when you report the problem. |

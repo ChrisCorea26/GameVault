@@ -17,7 +17,7 @@ content is missing. **Low** = wrong text or a small inconsistency.
 | [GV-006](#gv-006) | Medium | Passwords | No password definitions ship | Open |
 | [GV-007](#gv-007) | Medium | Game data | No game profiles or memory maps ship | Open |
 | [GV-008](#gv-008) | Medium | Library | No bundled homebrew | Open |
-| [GV-009](#gv-009) | Medium | Settings | BIOS, ROM and dumper paths have no file picker | Open |
+| [GV-009](#gv-009) | Medium | Settings | BIOS, ROM and dumper paths have no file picker | Fixed |
 | [GV-010](#gv-010) | Medium | Apple II | No message when the Disk II boot ROM is missing | Open |
 | [GV-011](#gv-011) | Medium | Library | Only the title of an unknown game can be edited | Open |
 | [GV-012](#gv-012) | Medium | Saves | Battery saves can't be kept next to the ROM | Open |
@@ -123,13 +123,16 @@ content is missing. **Low** = wrong text or a small inconsistency.
 
 ### GV-009
 
-**BIOS, ROM and dumper paths have no file picker** · Medium · Settings
+**BIOS, ROM and dumper paths have no file picker** · Medium · Settings · **Fixed**
 
 - **Expected:** SPEC §9.1: "Use `System.IO` and Win32 file pickers initialized with the window handle." SPEC §9.3:
   "Every page must be fully usable with a controller alone."
 - **Actual:** Settings → Disk System, Apple II (two ROMs), PlayStation and Cartridge dumper are plain text boxes ("Paste
   where the file is", `SettingsPage.xaml:506-612`). Players must find and paste a full path, which isn't possible with
   a controller alone.
+- **Fixed:** every path box in Settings has a **Browse…** button (a Windows App SDK file picker). The Disk System,
+  PlayStation and PlayStation 2 BIOS boxes have **Choose BIOS file…**, which checks the file and copies it into
+  `%LOCALAPPDATA%\GameVault\bios\<system>\` (commit `fd8d7e5`).
 
 ### GV-010
 
@@ -254,4 +257,5 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 | N64 GPU renderer and recompiler, Rumble Pak, Transfer Pak, 64DD, GameShark | README status, `docs/plans/phase-16.md` |
 | Apple II monochrome, user character ROM, mid-frame mode changes | `docs/plans/phase-12.md` |
 | RetroAchievements approval for hardcore unlocks; real-game and real-cartridge checks | Owner tasks in README and phase plans |
-| PlayStation 2, GameCube / Wii, Atari 2600 / 5200 | SPEC §7.11, phases 17–19 |
+| PlayStation 2 GPU renderer (GS) and VU recompilers; N64 GPU renderer | `docs/plans/phase-17-performance.md` |
+| GameCube / Wii, Atari 2600 / 5200 | SPEC §7.11, phases 18–19 |
