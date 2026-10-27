@@ -99,6 +99,25 @@ public sealed class Sio2Tests
         Recv1.Should().Be(0x1D100u);
     }
 
+    [Fact]
+    public void A_card_in_slot_2_answers_on_port_2_with_its_own_contents()
+    {
+        Iop.MemoryCard = Ps2MemoryCard.CreateFormatted();
+        Iop.MemoryCard2 = Ps2MemoryCard.CreateFormatted();
+        Iop.MemoryCard2.Data[0x200] = 0x5A;
+
+        Transfer(1, 0x81, 0x11, 0x00, 0x00).Should().Equal(0x00, 0x00, 0x2B, 0x55);
+        Recv1.Should().Be(0x1100u);
+        Iop.MemoryCard.Data[0x200].Should().NotBe(0x5A, "each slot has its own card");
+
+        var writer = new GameVault.Core.State.StateWriter();
+        Iop.SaveState(writer);
+        var other = new IopHarness();
+        other.Iop.MemoryCard = Ps2MemoryCard.CreateFormatted();
+        other.Iop.LoadState(new GameVault.Core.State.StateReader(writer.ToArray()));
+        other.Iop.MemoryCard2!.Data[0x200].Should().Be(0x5A, "slot 2's card rides in the save state");
+    }
+
     /// <summary>Starts SIO2's DMA channels 11 and 12 for one command of <paramref name="command"/>'s bytes (padded to words).</summary>
     private byte[] TransferByDma(params byte[] command)
     {
