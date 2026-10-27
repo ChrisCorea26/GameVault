@@ -403,6 +403,8 @@ public sealed partial class SettingsViewModel(
 
     [RelayCommand]
     private void SaveSegaCdBiosPath() => SaveIfLoaded();
+
+    [RelayCommand]
     private void SaveNetplayRelayServer() => SaveIfLoaded();
 
     [RelayCommand]
