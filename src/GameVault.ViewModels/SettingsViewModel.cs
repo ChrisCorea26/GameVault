@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using GameVault.Library.Bios;
 using GameVault.ViewModels.Services;
 
 namespace GameVault.ViewModels;
@@ -10,7 +11,9 @@ public sealed partial class SettingsViewModel(
     InputSettingsViewModel input,
     LibrarySettingsViewModel library,
     FamilyViewModel? family = null,
-    RetroAchievementsSettingsViewModel? retroAchievements = null)
+    RetroAchievementsSettingsViewModel? retroAchievements = null,
+    IFilePathPicker? pathPicker = null,
+    BiosImporter? biosImporter = null)
     : ObservableObject
 {
     /// <summary>Settings → Family: profiles, daily limits and the parent PIN (SPEC §7.9).</summary>
@@ -37,6 +40,13 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial string FdsBiosPath { get; set; } = string.Empty;
 
+    /// <summary>Why the Disk System BIOS file the player chose wasn't used (wrong size, missing); empty otherwise.</summary>
+    [ObservableProperty]
+    public partial string FdsBiosProblem { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool HasFdsBiosProblem { get; set; }
+
     /// <summary>The player's own Apple II ROM (SPEC §7.11). Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string AppleIIRomPath { get; set; } = string.Empty;
@@ -48,6 +58,13 @@ public sealed partial class SettingsViewModel(
     /// <summary>The player's own PlayStation BIOS (SPEC §7.11). Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string PlayStationBiosPath { get; set; } = string.Empty;
+
+    /// <summary>Why the PlayStation BIOS file the player chose wasn't used (wrong size, missing); empty otherwise.</summary>
+    [ObservableProperty]
+    public partial string PlayStationBiosProblem { get; set; } = string.Empty;
+
+    [ObservableProperty]
+    public partial bool HasPlayStationBiosProblem { get; set; }
 
     /// <summary>Skip the PlayStation BIOS's intro.</summary>
     [ObservableProperty]
@@ -196,13 +213,145 @@ public sealed partial class SettingsViewModel(
     private void SaveDumperPath() => SaveIfLoaded();
 
     [RelayCommand]
-    private void SaveFdsBiosPath() => SaveIfLoaded();
+    private void SaveFdsBiosPath()
+    {
+        ShowFdsBiosProblem(string.Empty);
+        SaveIfLoaded();
+    }
 
     [RelayCommand]
     private void SaveAppleRomPaths() => SaveIfLoaded();
 
     [RelayCommand]
-    private void SavePlayStationBiosPath() => SaveIfLoaded();
+    private void SavePlayStationBiosPath()
+    {
+        ShowPlayStationBiosProblem(string.Empty);
+        SaveIfLoaded();
+    }
+
+    /// <summary>Settings → Dumper "Browse…": picks inlretro.exe.</summary>
+    [RelayCommand]
+    private async Task BrowseDumperPathAsync()
+    {
+        if (await PickAsync(new FilePathRequest([".exe"])) is { } path)
+        {
+            DumperPath = path;
+            await SaveNowAsync();
+        }
+    }
+
+    /// <summary>Settings → Apple II "Browse…" for the system ROM.</summary>
+    [RelayCommand]
+    private async Task BrowseAppleIIRomPathAsync()
+    {
+        if (await PickAsync(FilePathRequest.AnyFile()) is { } path)
+        {
+            AppleIIRomPath = path;
+            await SaveNowAsync();
+        }
+    }
+
+    /// <summary>Settings → Apple II "Browse…" for the Disk II boot ROM.</summary>
+    [RelayCommand]
+    private async Task BrowseAppleIIDiskRomPathAsync()
+    {
+        if (await PickAsync(FilePathRequest.AnyFile()) is { } path)
+        {
+            AppleIIDiskRomPath = path;
+            await SaveNowAsync();
+        }
+    }
+
+    /// <summary>
+    /// Settings → Disk System "Choose BIOS file…": checks the file (8 KB), copies it to GameVault's bios\fds folder
+    /// and uses the copy.
+    /// </summary>
+    [RelayCommand]
+    private async Task ChooseFdsBiosFileAsync()
+    {
+        if (await ImportBiosAsync(BiosKind.FamicomDiskSystem) is not { } import)
+        {
+            return;
+        }
+
+        if (import.Succeeded)
+        {
+            FdsBiosPath = import.Path!;
+            await SaveNowAsync();
+        }
+
+        ShowFdsBiosProblem(import.Succeeded ? string.Empty : import.Message);
+    }
+
+    /// <summary>Settings → PlayStation "Choose BIOS file…": checks the file (512 KB), copies it to bios\ps1 and uses the copy.</summary>
+    [RelayCommand]
+    private async Task ChoosePlayStationBiosFileAsync()
+    {
+        if (await ImportBiosAsync(BiosKind.PlayStation) is not { } import)
+        {
+            return;
+        }
+
+        if (import.Succeeded)
+        {
+            PlayStationBiosPath = import.Path!;
+            await SaveNowAsync();
+        }
+
+        ShowPlayStationBiosProblem(import.Succeeded ? string.Empty : import.Message);
+    }
+
+    /// <summary>
+    /// Settings → PlayStation 2 "Choose BIOS file…": checks the file (a 4 MB PlayStation 2 BIOS), copies it to
+    /// bios\ps2 and uses the copy. A file that isn't a BIOS isn't copied; the warning says why.
+    /// </summary>
+    [RelayCommand]
+    private async Task ChoosePlayStation2BiosFileAsync()
+    {
+        if (await ImportBiosAsync(BiosKind.PlayStation2) is not { } import)
+        {
+            return;
+        }
+
+        if (import.Succeeded)
+        {
+            PlayStation2BiosPath = import.Path!;
+            await SaveNowAsync();
+            await CheckPlayStation2BiosAsync();
+        }
+        else
+        {
+            PlayStation2BiosStatus = string.Empty;
+            PlayStation2BiosProblem = import.Message;
+            HasPlayStation2BiosProblem = true;
+        }
+    }
+
+    private Task<string?> PickAsync(FilePathRequest request) =>
+        pathPicker is null ? Task.FromResult<string?>(null) : pathPicker.PickFileAsync(request);
+
+    /// <summary>Asks for a BIOS file and imports it. Null when the player cancels (or there's no picker).</summary>
+    private async Task<BiosImport?> ImportBiosAsync(BiosKind kind)
+    {
+        if (biosImporter is null || await PickAsync(FilePathRequest.AnyFile("Use this BIOS")) is not { } source)
+        {
+            return null;
+        }
+
+        return await Task.Run(() => biosImporter.Import(kind, source));
+    }
+
+    private void ShowFdsBiosProblem(string message)
+    {
+        FdsBiosProblem = message;
+        HasFdsBiosProblem = message.Length > 0;
+    }
+
+    private void ShowPlayStationBiosProblem(string message)
+    {
+        PlayStationBiosProblem = message;
+        HasPlayStationBiosProblem = message.Length > 0;
+    }
 
     partial void OnPlayStationFastBootChanged(bool value) => SaveIfLoaded();
 
@@ -235,6 +384,8 @@ public sealed partial class SettingsViewModel(
             SaveIfLoaded();
         }
     }
+
+    private Task SaveNowAsync() => _isLoaded ? SaveAsync() : Task.CompletedTask;
 
     private void SaveIfLoaded()
     {

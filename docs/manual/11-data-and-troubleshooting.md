@@ -3,8 +3,8 @@
 ## Where GameVault keeps things
 
 Everything GameVault creates is in `%LOCALAPPDATA%\GameVault\` (usually
-`C:\Users\<you>\AppData\Local\GameVault\`). Your ROM folders are only ever read, never written to, and your BIOS
-files are read from where you put them.
+`C:\Users\<you>\AppData\Local\GameVault\`). Your ROM folders are only ever read, never written to. BIOS files you
+add with **Choose BIOS file…** are copied into `bios\`; a BIOS path you paste is read from where the file is.
 
 | Path | Contents |
 |---|---|
@@ -19,6 +19,7 @@ files are read from where you put them.
 | `retroachievements.json` | Encrypted RetroAchievements sign-in |
 | `profiles.json` | Family profiles and the parent PIN (hashed) |
 | `Profiles\<id>\` | The same files for each extra family profile |
+| `bios\fds\`, `bios\ps1\`, `bios\ps2\` | Copies of the BIOS files you chose with **Choose BIOS file…** (shared by all family profiles) |
 | `logs\crash.log` | Details of any crash |
 
 Cover pictures stay where you chose them; only their location is stored, so don't move or delete them.

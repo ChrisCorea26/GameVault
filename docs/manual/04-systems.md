@@ -8,9 +8,16 @@ where saves go, and what isn't supported yet.
 - GameVault detects the system from the file, so you never pick it yourself.
 - Cartridge games can be inside a `.zip` that holds exactly one game. Files larger than 64 MB are ignored.
   PlayStation discs can't be zipped.
-- BIOS and ROM settings are plain text boxes: paste the full path to the file (for example, in File Explorer
-  <kbd>Shift</kbd>+right-click the file and choose **Copy as path**). GameVault reads the file from there each time;
-  it never copies it or looks anywhere else. Files are checked by size only.
+- **BIOS files** (Disk System, PlayStation, PlayStation 2): select **Choose BIOS file…** next to the box and pick
+  the file. GameVault checks it's the right size and copies it into `%LOCALAPPDATA%\GameVault\bios\` (`fds\`,
+  `ps1\` or `ps2\`), keeping its name, and uses the copy, so you can move or delete the original afterwards.
+  Choosing a file with the same name again replaces the copy. A file that isn't the right size isn't copied; a
+  warning under the box says why.
+- **Other files** (the Apple II ROMs): select **Browse…** next to the box and pick the file. GameVault reads it from
+  where it is each time.
+- You can still type or paste a full path into any of these boxes instead (for example, in File Explorer
+  <kbd>Shift</kbd>+right-click the file and choose **Copy as path**). A pasted path is used where it is, not copied.
+  Files are checked by size only.
 - Battery saves, memory cards and disk writes go to `%LOCALAPPDATA%\GameVault\Saves\`. They're matched to the game
   by its contents, so renaming or moving a game file keeps its saves.
 - Save states, rewind, practice, challenges and netplay work on every system unless noted.
@@ -48,7 +55,8 @@ wrong extension.
 **Setup:**
 
 1. Put `disksys.rom` anywhere on your PC, for example `C:\NES\disksys.rom`.
-2. Open **Settings → Disk System** and paste the path into the box.
+2. Open **Settings → Disk System**, select **Choose BIOS file…** and pick `disksys.rom`. GameVault copies it to
+   `%LOCALAPPDATA%\GameVault\bios\fds\`. (Or paste the file's path into the box.)
 3. Open an `.fds` game.
 
 **Changing disk sides:** when the game asks you to turn the disk over, press <kbd>F4</kbd> for the next side, or pick
@@ -60,7 +68,7 @@ one from the disk drop-down in the Player (*No disk*, *Disk 1, side A*, *Disk 1,
 
 | Message | What to do |
 |---|---|
-| *To play it, choose your own Disk System BIOS (disksys.rom) in Settings → Disk System.* | No BIOS is set. Follow the setup above. |
+| *To play it, go to Settings → Disk System and select Choose BIOS file… to add the Disk System BIOS (disksys.rom) from your own console.* | No BIOS is set. Follow the setup above. |
 | *GameVault couldn't open your Disk System BIOS.* | The file moved or was renamed. Check the path. |
 | *The Disk System BIOS (disksys.rom) must be exactly 8 KB.* | The file isn't the BIOS, or the dump is bad. |
 
@@ -89,7 +97,8 @@ games, and choosing PAL timing (games run at NTSC speed).
 **Setup:**
 
 1. Put both ROM files anywhere, for example `C:\Apple\apple2e-enhanced.rom` and `C:\Apple\disk2.rom`.
-2. Open **Settings → Apple II** and paste the paths into **System ROM** and **Disk II boot ROM**.
+2. Open **Settings → Apple II** and select **Browse…** next to **System ROM** and next to **Disk II boot ROM** to
+   pick each file (or paste the paths into the boxes).
 3. Open a disk image.
 
 **Which Apple runs:** a 16 KB ROM runs an enhanced Apple IIe (65C02 processor); a 12 KB ROM runs an Apple II+.
@@ -184,7 +193,8 @@ effects that change the picture partway along a line.
 **Setup:**
 
 1. Put the BIOS file anywhere, for example `C:\PlayStation\scph1001.bin`.
-2. Open **Settings → PlayStation** and paste the path into the box.
+2. Open **Settings → PlayStation**, select **Choose BIOS file…** and pick the BIOS. GameVault checks it's 512 KB and
+   copies it to `%LOCALAPPDATA%\GameVault\bios\ps1\`. (Or paste the file's path into the box.)
 3. Optionally turn on **Skip the startup screens** to start games straight away. A few games need the intro to
    start correctly; turn it off if one doesn't.
 4. Open the game's `.cue`, `.chd` or `.m3u` file.
@@ -281,8 +291,11 @@ video filters.
 **Setup:**
 
 1. Put the BIOS file anywhere, for example `C:\PlayStation 2\scph39001.bin`.
-2. Open **Settings → PlayStation 2** and paste the path into the box. GameVault checks the file and shows its version,
-   for example *PlayStation 2 BIOS version 1.60, Europe, 2002-02-07.*
+2. Open **Settings → PlayStation 2**, select **Choose BIOS file…** and pick the BIOS. GameVault checks it's a 4 MB
+   PlayStation 2 BIOS, copies it to `%LOCALAPPDATA%\GameVault\bios\ps2\` and shows its version, for example
+   *PlayStation 2 BIOS version 1.60, Europe, 2002-02-07.* If the file isn't a PlayStation 2 BIOS, it isn't copied and
+   a warning says why (for example *This file isn't a PlayStation 2 BIOS: a BIOS is 4 MB.*). You can also paste the
+   file's path into the box; GameVault then uses it where it is.
 3. Optionally turn on **Skip the startup screens** to start discs straight away instead of showing the console's
    startup screens and browser. A few games need them; turn it off if one doesn't start.
 4. Open the game's `.iso`, `.chd` or `.cue` file, or an `.elf` program.
@@ -333,7 +346,7 @@ slot 2, and enhanced (upscaled) graphics.
 
 | Message | What to do |
 |---|---|
-| *This is a PlayStation 2 disc. To play it, choose your own PlayStation 2 BIOS in Settings → PlayStation 2. GameVault doesn't include it.* | Follow the setup above. |
+| *This is a PlayStation 2 disc. To play it, go to Settings → PlayStation 2 and select Choose BIOS file… to add the BIOS from your own console. GameVault doesn't include it.* | Follow the setup above. |
 | *The PlayStation 2 BIOS chosen in Settings → PlayStation 2 isn't a 4 MB BIOS file. Choose the BIOS dumped from your own console.* | Wrong file or bad dump. |
 | *GameVault couldn't open your PlayStation 2 BIOS. Check the file chosen in Settings → PlayStation 2.* | The file was moved, deleted or is locked. |
 | *That file isn't a PlayStation 2 program (ELF) or disc, or it's damaged.* | Check the file; re-dump the disc if needed. |

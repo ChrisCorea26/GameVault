@@ -63,8 +63,8 @@ Properties. Higher settings need a faster PC.
 
 ## Cartridge dumper
 
-The path to `inlretro.exe`, the INL Retro-Prog command-line tool, for example `C:\INL-retro\inlretro.exe`. Takes
-effect the next time GameVault starts. See [Cartridge dumper](#cartridge-dumper-inl-retro-prog).
+The path to `inlretro.exe`, the INL Retro-Prog command-line tool, for example `C:\INL-retro\inlretro.exe`.
+**Browse…** picks it. Takes effect the next time GameVault starts. See [Cartridge dumper](#cartridge-dumper-inl-retro-prog).
 
 ## Codes
 
@@ -73,7 +73,8 @@ file. See [Code collections](#code-collections).
 
 ## Disk System
 
-The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`.
+The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`. **Choose BIOS file…** checks the
+file is 8 KB and copies it to `%LOCALAPPDATA%\GameVault\bios\fds\`; a warning says why if it isn't the BIOS.
 
 ## Apple II
 
@@ -82,18 +83,20 @@ The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`.
 | **System ROM** | `C:\Apple\apple2e-enhanced.rom` |
 | **Disk II boot ROM** | `C:\Apple\disk2.rom` |
 
+**Browse…** next to each box picks the file.
+
 ## PlayStation
 
 | Setting | Values | Default |
 |---|---|---|
-| **BIOS** | Path, for example `C:\PlayStation\scph1001.bin` | Empty |
+| **BIOS** | Path, for example `C:\PlayStation\scph1001.bin`. **Choose BIOS file…** checks the file is 512 KB and copies it to `%LOCALAPPDATA%\GameVault\bios\ps1\`. | Empty |
 | **Skip the startup screens** | On / Off | Off |
 
 ## PlayStation 2
 
 | Setting | Values | Default |
 |---|---|---|
-| **BIOS** | Path, for example `C:\PlayStation 2\scph39001.bin`. GameVault checks it's a 4 MB BIOS and shows its version. | Empty |
+| **BIOS** | Path, for example `C:\PlayStation 2\scph39001.bin`. **Choose BIOS file…** checks the file is a 4 MB PlayStation 2 BIOS and copies it to `%LOCALAPPDATA%\GameVault\bios\ps2\`; a file that isn't is not copied, and a warning says why. GameVault shows the BIOS's version. | Empty |
 | **Skip the startup screens** | On / Off | Off |
 
 ## Nintendo 64
@@ -114,4 +117,7 @@ The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`.
 BIOS and ROM paths, the dumper path, controller settings, PlayStation and Nintendo 64 options, family profiles or
 RetroAchievements.
 
-All path boxes save when you leave the box. Quotes around a pasted path are removed for you.
+Every box that takes a file has a button next to it: **Choose BIOS file…** for BIOS files (the file is checked and
+copied into `%LOCALAPPDATA%\GameVault\bios\`, and the box then shows the copy) and **Browse…** for other files (the
+box shows the file where it is). You can also type or paste a path; the box saves when you leave it. Quotes around a
+pasted path are removed for you.

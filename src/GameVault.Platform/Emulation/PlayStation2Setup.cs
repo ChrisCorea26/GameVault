@@ -11,7 +11,7 @@ public sealed record PlayStation2Setup(byte[]? Bios, bool FastBoot = false)
 {
     /// <summary>The message for a disc opened without a BIOS.</summary>
     public const string NeedsBiosMessage =
-        "This is a PlayStation 2 disc. To play it, choose your own PlayStation 2 BIOS in Settings → PlayStation 2. GameVault doesn't include it.";
+        "This is a PlayStation 2 disc. To play it, go to Settings → PlayStation 2 and select Choose BIOS file… to add the BIOS from your own console. GameVault doesn't include it.";
 
     /// <summary>Reads the BIOS chosen in <paramref name="settings"/> and checks its size (4 MB).</summary>
     /// <exception cref="GameLoadException">The file can't be read, or isn't a 4 MB BIOS.</exception>

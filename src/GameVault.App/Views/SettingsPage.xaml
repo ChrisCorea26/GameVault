@@ -509,13 +509,25 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="Optional. To dump your own cartridges with an INL Retro-Prog, paste where its program (inlretro.exe) is. Takes effect the next time GameVault starts."
+              Text="Optional. To dump your own cartridges with an INL Retro-Prog, choose its program (inlretro.exe) with Browse…, or paste where it is. Takes effect the next time GameVault starts."
               TextWrapping="Wrap" />
-          <TextBox
-              AutomationProperties.Name="INL Retro-Prog program"
-              LostFocus="DumperPath_LostFocus"
-              PlaceholderText="C:\INL-retro\inlretro.exe"
-              Text="{x:Bind ViewModel.DumperPath, Mode=TwoWay}" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="INL Retro-Prog program"
+                LostFocus="DumperPath_LostFocus"
+                PlaceholderText="C:\INL-retro\inlretro.exe"
+                Text="{x:Bind ViewModel.DumperPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                AutomationProperties.Name="Browse for the INL Retro-Prog program"
+                Command="{x:Bind ViewModel.BrowseDumperPathCommand}"
+                Content="Browse…" />
+          </Grid>
         </StackPanel>
       </Border>
 
@@ -557,13 +569,30 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="Famicom Disk System games (.fds) need the Disk System BIOS (disksys.rom, 8 KB) from your own console. GameVault doesn't include it. Paste where the file is."
+              Text="Famicom Disk System games (.fds) need the Disk System BIOS (disksys.rom, 8 KB) from your own console. GameVault doesn't include it. Select Choose BIOS file… and GameVault copies it into its own folder, or paste where the file is."
               TextWrapping="Wrap" />
-          <TextBox
-              AutomationProperties.Name="Disk System BIOS file"
-              LostFocus="FdsBiosPath_LostFocus"
-              PlaceholderText="C:\NES\disksys.rom"
-              Text="{x:Bind ViewModel.FdsBiosPath, Mode=TwoWay}" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="Disk System BIOS file"
+                LostFocus="FdsBiosPath_LostFocus"
+                PlaceholderText="C:\NES\disksys.rom"
+                Text="{x:Bind ViewModel.FdsBiosPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                AutomationProperties.Name="Choose the Disk System BIOS file"
+                Command="{x:Bind ViewModel.ChooseFdsBiosFileCommand}"
+                Content="Choose BIOS file…" />
+          </Grid>
+          <InfoBar
+              IsClosable="False"
+              IsOpen="{x:Bind ViewModel.HasFdsBiosProblem, Mode=OneWay}"
+              Message="{x:Bind ViewModel.FdsBiosProblem, Mode=OneWay}"
+              Severity="Warning" />
         </StackPanel>
       </Border>
 
@@ -574,20 +603,44 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="Apple II disks (.dsk, .do, .po, .nib, .woz) need the ROMs from your own Apple: the system ROM (12 KB for a II or II+, 16 KB for a IIe) and the Disk II controller's 256-byte boot ROM. GameVault doesn't include them. Paste where the files are."
+              Text="Apple II disks (.dsk, .do, .po, .nib, .woz) need the ROMs from your own Apple: the system ROM (12 KB for a II or II+, 16 KB for a IIe) and the Disk II controller's 256-byte boot ROM. GameVault doesn't include them. Choose each file with Browse…, or paste where it is."
               TextWrapping="Wrap" />
-          <TextBox
-              AutomationProperties.Name="Apple II system ROM file"
-              Header="System ROM"
-              LostFocus="AppleRoms_LostFocus"
-              PlaceholderText="C:\Apple\apple2e-enhanced.rom"
-              Text="{x:Bind ViewModel.AppleIIRomPath, Mode=TwoWay}" />
-          <TextBox
-              AutomationProperties.Name="Disk II boot ROM file"
-              Header="Disk II boot ROM"
-              LostFocus="AppleRoms_LostFocus"
-              PlaceholderText="C:\Apple\disk2.rom"
-              Text="{x:Bind ViewModel.AppleIIDiskRomPath, Mode=TwoWay}" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="Apple II system ROM file"
+                Header="System ROM"
+                LostFocus="AppleRoms_LostFocus"
+                PlaceholderText="C:\Apple\apple2e-enhanced.rom"
+                Text="{x:Bind ViewModel.AppleIIRomPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                AutomationProperties.Name="Browse for the Apple II system ROM file"
+                Command="{x:Bind ViewModel.BrowseAppleIIRomPathCommand}"
+                Content="Browse…" />
+          </Grid>
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="Disk II boot ROM file"
+                Header="Disk II boot ROM"
+                LostFocus="AppleRoms_LostFocus"
+                PlaceholderText="C:\Apple\disk2.rom"
+                Text="{x:Bind ViewModel.AppleIIDiskRomPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                AutomationProperties.Name="Browse for the Disk II boot ROM file"
+                Command="{x:Bind ViewModel.BrowseAppleIIDiskRomPathCommand}"
+                Content="Browse…" />
+          </Grid>
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
@@ -603,13 +656,30 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="PlayStation discs (.cue with its .bin files, .chd, .iso, or an .m3u list of discs) need the BIOS from your own console (512 KB, such as SCPH-1001). GameVault doesn't include it. Paste where the file is."
+              Text="PlayStation discs (.cue with its .bin files, .chd, .iso, or an .m3u list of discs) need the BIOS from your own console (512 KB, such as SCPH-1001). GameVault doesn't include it. Select Choose BIOS file… and GameVault copies it into its own folder, or paste where the file is."
               TextWrapping="Wrap" />
-          <TextBox
-              AutomationProperties.Name="PlayStation BIOS file"
-              LostFocus="PlayStationBiosPath_LostFocus"
-              PlaceholderText="C:\PlayStation\scph1001.bin"
-              Text="{x:Bind ViewModel.PlayStationBiosPath, Mode=TwoWay}" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="PlayStation BIOS file"
+                LostFocus="PlayStationBiosPath_LostFocus"
+                PlaceholderText="C:\PlayStation\scph1001.bin"
+                Text="{x:Bind ViewModel.PlayStationBiosPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                AutomationProperties.Name="Choose the PlayStation BIOS file"
+                Command="{x:Bind ViewModel.ChoosePlayStationBiosFileCommand}"
+                Content="Choose BIOS file…" />
+          </Grid>
+          <InfoBar
+              IsClosable="False"
+              IsOpen="{x:Bind ViewModel.HasPlayStationBiosProblem, Mode=OneWay}"
+              Message="{x:Bind ViewModel.PlayStationBiosProblem, Mode=OneWay}"
+              Severity="Warning" />
           <Grid ColumnSpacing="16">
             <Grid.ColumnDefinitions>
               <ColumnDefinition Width="*" />
@@ -679,13 +749,25 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="PlayStation 2 discs (.iso, .chd, or .cue with its .bin files) need the BIOS from your own console (4 MB, such as SCPH-39001). GameVault doesn't include it. Homebrew .elf programs run without it. Paste where the file is."
+              Text="PlayStation 2 discs (.iso, .chd, or .cue with its .bin files) need the BIOS from your own console (4 MB, such as SCPH-39001). GameVault doesn't include it. Homebrew .elf programs run without it. Select Choose BIOS file… and GameVault checks it and copies it into its own folder, or paste where the file is."
               TextWrapping="Wrap" />
-          <TextBox
-              AutomationProperties.Name="PlayStation 2 BIOS file"
-              LostFocus="PlayStation2BiosPath_LostFocus"
-              PlaceholderText="C:\PlayStation 2\scph39001.bin"
-              Text="{x:Bind ViewModel.PlayStation2BiosPath, Mode=TwoWay}" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="PlayStation 2 BIOS file"
+                LostFocus="PlayStation2BiosPath_LostFocus"
+                PlaceholderText="C:\PlayStation 2\scph39001.bin"
+                Text="{x:Bind ViewModel.PlayStation2BiosPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Bottom"
+                AutomationProperties.Name="Choose the PlayStation 2 BIOS file"
+                Command="{x:Bind ViewModel.ChoosePlayStation2BiosFileCommand}"
+                Content="Choose BIOS file…" />
+          </Grid>
           <InfoBar
               IsClosable="False"
               IsOpen="{x:Bind ViewModel.HasPlayStation2BiosProblem, Mode=OneWay}"

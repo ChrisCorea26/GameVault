@@ -131,8 +131,8 @@ internal static class ConsoleFactory
                 if (fdsBios is null)
                 {
                     throw new GameLoadException(
-                        "This is a Famicom Disk System game. To play it, choose your own Disk System BIOS " +
-                        "(disksys.rom) in Settings → Disk System. GameVault doesn't include it.");
+                        "This is a Famicom Disk System game. To play it, go to Settings → Disk System and select " +
+                        "Choose BIOS file… to add the Disk System BIOS (disksys.rom) from your own console. GameVault doesn't include it.");
                 }
 
                 return NesConsole.FromFds(data, fdsBios);
