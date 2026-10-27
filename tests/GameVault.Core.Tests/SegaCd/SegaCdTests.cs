@@ -571,4 +571,102 @@ public sealed class SegaCdTests
         unit.MainReadGate(0x20).Should().Be(count);
         unit.Drive.Position.Should().Be(position);
     }
+
+    // ---- Mode 1: a cartridge that uses the CD ----
+
+    /// <summary>A Genesis booting a cartridge (<paramref name="main"/> at $200), with the Sega CD in mode 1.</summary>
+    private static GenesisConsole Mode1Console(ushort[] main, ushort[]? sub = null, Action<byte[]>? rom = null)
+    {
+        var cartridge = new byte[0x20000];
+        Long(cartridge, 0, 0xFFFFFE00);
+        Long(cartridge, 4, 0x200);
+        "SEGA GENESIS    "u8.CopyTo(cartridge.AsSpan(0x100));
+        Put(cartridge, 0x200, main);
+        rom?.Invoke(cartridge);
+
+        var bios = Bios(Loop);
+        "SEGA"u8.CopyTo(bios.AsSpan(0x100));
+        var unit = new SegaCdUnit(bios, Disc(), GenesisConsole.NtscMasterClock) { Mode1 = true };
+        var console = new GenesisConsole(new GenesisCartridge(cartridge), GenesisRegion.Americas, segaCd: unit);
+        console.Power();
+        Long(unit.PrgRam, 0, 0x0007FF00);
+        Long(unit.PrgRam, 4, 0x1000);
+        Put(unit.PrgRam, 0x1000, sub ?? Loop);
+        return console;
+    }
+
+    [Fact]
+    public void In_mode_1_the_cartridge_boots_and_the_unit_answers_at_400000()
+    {
+        // The cartridge copies the BIOS's "SEGA" into RAM, writes PRG-RAM through $420000 and starts the sub CPU.
+        var main = Words(
+            MoveBMem(0x400100, 0xFFFF00),
+            MoveBMem(0x400103, 0xFFFF01),
+            MoveB(0x77, 0x420010),
+            MoveB(0x33, 0xA12010),
+            MoveB(0x01, 0xA12001),
+            Loop);
+        var sub = Words(MoveBMem(0xFF8010, 0xFF8020), Loop);
+        var console = Mode1Console(main, sub);
+        var unit = console.SegaCd!;
+
+        console.RunFrame();
+
+        console.System.Should().Be(GameVault.Core.Systems.GameSystem.Genesis, "a mode 1 game is a cartridge");
+        console.WorkRam[0xFF00].Should().Be((byte)'S', "the BIOS reads at $400000");
+        console.WorkRam[0xFF01].Should().Be((byte)'A');
+        unit.PrgRam[0x10].Should().Be(0x77, "PRG-RAM's bank is at $420000");
+        unit.SubRunning.Should().BeTrue();
+        unit.MainReadGate(0x20).Should().Be(0x33, "the sub CPU read the main CPU's command word");
+        console.ReadByte(0x000100).Should().Be((byte)'S', "the cartridge stays at $000000");
+        console.ReadByte(0x000101).Should().Be((byte)'E');
+        console.RomHash.Should().NotBe(unit.DiscHash, "the game is the cartridge");
+    }
+
+    [Fact]
+    public void In_mode_1_word_ram_is_at_600000()
+    {
+        var console = Mode1Console(Words(MoveB(0x5C, 0x600002), MoveBMem(0x600002, 0xFFFF00), Loop));
+
+        console.RunFrame();
+
+        console.SegaCd!.WordRam[2].Should().Be(0x5C);
+        console.WorkRam[0xFF00].Should().Be(0x5C);
+    }
+
+    [Fact]
+    public void In_mode_1_the_cartridges_own_save_wins_over_backup_ram()
+    {
+        var plain = Mode1Console(Loop);
+        plain.Battery.Should().BeSameAs(plain.SegaCd, "a cartridge without a save uses backup RAM");
+
+        var saving = Mode1Console(Loop, rom: rom =>
+        {
+            "RA"u8.CopyTo(rom.AsSpan(0x1B0));
+            rom[0x1B2] = 0xF8;
+            rom[0x1B3] = 0x20;
+            Long(rom, 0x1B4, 0x200001); // byte-wide SRAM on the odd bytes of $200001–$203FFF
+            Long(rom, 0x1B8, 0x203FFF);
+        });
+        saving.Battery.Should().BeSameAs(saving.Cartridge);
+    }
+
+    [Fact]
+    public void A_mode_1_save_state_round_trips_the_cartridge_and_the_unit()
+    {
+        var sub = Words(AddqB(0xFF8020), [0x60F8]);
+        var console = Mode1Console(Words(MoveB(0x01, 0xA12001), AddqB(0xFFFF10), [0x60F8]), sub);
+        console.RunFrame();
+
+        var state = console.SaveSnapshot();
+        console.RunFrame();
+        var count = console.SegaCd!.MainReadGate(0x20);
+        var ram = console.WorkRam[0xFF10];
+
+        console.LoadSnapshot(state);
+        console.RunFrame();
+
+        console.SegaCd.MainReadGate(0x20).Should().Be(count);
+        console.WorkRam[0xFF10].Should().Be(ram);
+    }
 }

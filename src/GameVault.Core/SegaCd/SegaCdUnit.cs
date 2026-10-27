@@ -10,8 +10,8 @@ namespace GameVault.Core.SegaCd;
 /// The Sega CD (Mega-CD), as the Genesis sees it plugged in underneath (sega-cd-32x.md, milestone 1): the sub CPU
 /// and its memory, the gate array that joins the two CPUs, the drive (<see cref="SegaCdDrive"/>), the CDC
 /// (<see cref="Lc8951"/>), the PCM chip (<see cref="Rf5c164"/>) and the graphics ASIC (<see cref="SegaCdGraphics"/>).
-/// <see cref="Genesis.GenesisConsole"/> routes the main CPU's $000000–$3FFFFF and $A12000–$A1202F here and runs the
-/// unit in step with its master clock.
+/// <see cref="Genesis.GenesisConsole"/> routes the main CPU's $000000–$3FFFFF (or $400000–$7FFFFF in
+/// <see cref="Mode1"/>) and $A12000–$A1202F here and runs the unit in step with its master clock.
 /// </summary>
 /// <remarks>
 /// The sub CPU runs at 12.5 MHz. Word RAM is held in its 2M layout; in 1M mode bank 0 is its even words and bank 1
@@ -115,6 +115,13 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
     }
 
     public M68000Cpu Cpu { get; }
+
+    /// <summary>
+    /// Mode 1: a cartridge is in the slot and the Genesis boots it, with this unit moved up to $400000–$7FFFFF (the
+    /// BIOS at $400000, PRG-RAM's bank at $420000, Word RAM at $600000). The gate array stays at $A12000. Mode 2 (no
+    /// cartridge) boots the BIOS at $000000.
+    /// </summary>
+    public bool Mode1 { get; init; }
 
     public SegaCdDrive Drive { get; }
 

@@ -31,7 +31,8 @@ internal static class ConsoleFactory
         SnesSetup? snes = null,
         byte[]? atari5200Bios = null,
         byte[]? segaCdBios = null,
-        GameVault.Core.Sega32X.Sega32XBios? sega32XBios = null)
+        GameVault.Core.Sega32X.Sega32XBios? sega32XBios = null,
+        string? segaCdMode1Disc = null)
     {
         if (system == GameSystem.SegaCd)
         {
@@ -140,7 +141,13 @@ internal static class ConsoleFactory
                     "europe" or "pal" => GenesisRegion.Europe,
                     _ => (GenesisRegion?)null,
                 };
-                return new GenesisConsole(new GenesisCartridge(data), region, sixButton: profile.Pad != "3");
+                var cartridge = new GenesisCartridge(data);
+                if (segaCdMode1Disc is not null && segaCdBios is not null)
+                {
+                    return CreateMode1(cartridge, region, profile, segaCdBios, segaCdMode1Disc);
+                }
+
+                return new GenesisConsole(cartridge, region, sixButton: profile.Pad != "3");
             }
             catch (RomFormatException ex)
             {
@@ -319,6 +326,35 @@ internal static class ConsoleFactory
             var masterClock = region == GenesisRegion.Europe ? GenesisConsole.PalMasterClock : GenesisConsole.NtscMasterClock;
             var unit = new GameVault.Core.SegaCd.SegaCdUnit(bios, disc, masterClock);
             return new GenesisConsole(new GenesisCartridge(new byte[0x200]), region, sixButton: profile.Pad != "3", segaCd: unit);
+        }
+        catch (RomFormatException ex)
+        {
+            (disc as IDisposable)?.Dispose();
+            throw new GameLoadException(ex.Message, ex);
+        }
+    }
+
+    /// <summary>
+    /// A Genesis cartridge with the Sega CD in mode 1 (genesis-gaps.md §3): the cartridge boots, and the disc beside it
+    /// (an MSU-MD game's CD audio, say) is in the drive.
+    /// </summary>
+    private static GenesisConsole CreateMode1(GenesisCartridge cartridge, GenesisRegion? region, GameProfile profile, byte[] bios, string discPath)
+    {
+        GameVault.Core.PlayStation.ICdImage disc;
+        try
+        {
+            disc = DiscImages.Open(discPath);
+        }
+        catch (Exception ex) when (ex is InvalidDataException or IOException or UnauthorizedAccessException)
+        {
+            throw new GameLoadException($"GameVault couldn't open the disc beside this cartridge ({Path.GetFileName(discPath)}): " + ex.Message, ex);
+        }
+
+        var pal = (region ?? cartridge.Region) == GenesisRegion.Europe;
+        try
+        {
+            var unit = new GameVault.Core.SegaCd.SegaCdUnit(bios, disc, pal ? GenesisConsole.PalMasterClock : GenesisConsole.NtscMasterClock) { Mode1 = true };
+            return new GenesisConsole(cartridge, region, sixButton: profile.Pad != "3", segaCd: unit);
         }
         catch (RomFormatException ex)
         {
