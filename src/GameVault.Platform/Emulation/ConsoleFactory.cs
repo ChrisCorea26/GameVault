@@ -45,6 +45,19 @@ internal static class ConsoleFactory
             return CreateNintendo64(data, profile, n64 ?? new N64Setup());
         }
 
+        if (system == GameSystem.Atari2600)
+        {
+            try
+            {
+                // The profile's model can name the bank-switching scheme ("F8SC", "E0", …) when detection guesses wrong.
+                return new GameVault.Core.Atari.Atari2600Console(new GameVault.Core.Atari.Atari2600Cartridge(data, profile.Model));
+            }
+            catch (RomFormatException ex)
+            {
+                throw new GameLoadException(ex.Message, ex);
+            }
+        }
+
         if (system == GameSystem.AppleII)
         {
             if (appleRoms is null)
