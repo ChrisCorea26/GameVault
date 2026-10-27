@@ -85,6 +85,7 @@ public sealed class RemapTests
         var devices = new SampleInputDevicesService();
         var store = new InMemorySettingsStore();
         var vm = new InputSettingsViewModel(devices, store);
+        vm.Attach(); // as the page does on Loaded
         var keyboard = vm.Ports[0].Sources.Single(s => s.IsKeyboard);
 
         keyboard.RemapCommand.Execute(null);
@@ -119,6 +120,7 @@ public sealed class RemapTests
     {
         var devices = new SampleInputDevicesService();
         var vm = new InputSettingsViewModel(devices, new InMemorySettingsStore());
+        vm.Attach(); // as the page does on Loaded
         vm.SetGame("sha1:bb", "Coral Coast", GameVault.Core.Systems.GameSystem.MasterSystem);
         var pad = vm.Ports[0].Sources.Single(s => !s.IsKeyboard);
 
@@ -145,6 +147,7 @@ public sealed class RemapTests
         var devices = new SampleInputDevicesService();
         devices.SetPlayerCount(4); // a Four Score game
         var vm = new InputSettingsViewModel(devices, new InMemorySettingsStore());
+        vm.Attach(); // as the page does on Loaded
 
         vm.Ports.Should().HaveCount(4);
         vm.Ports[0].SwapChoices.Select(c => c.Label).Should().Equal("Swap with Player 2", "Swap with Player 3", "Swap with Player 4");

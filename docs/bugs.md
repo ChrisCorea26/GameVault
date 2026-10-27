@@ -30,6 +30,7 @@ content is missing. **Low** = wrong text or a small inconsistency.
 | [GV-018](#gv-018) | Low | Input | Settings → Input uses NES button names for every system | Fixed (35483aa) |
 | [GV-019](#gv-019) | Low | Player | Rewind bar isn't a scrub bar and stops at 60 seconds | Fixed (12a99fa) |
 | [GV-020](#gv-020) | Low | Video | Overscan crop is only on or off | Fixed (12a99fa) |
+| [GV-021](#gv-021) | High | Input | App crashes on launching a game after visiting Settings | Fixed |
 
 ---
 
@@ -239,6 +240,23 @@ content is missing. **Low** = wrong text or a small inconsistency.
 - **Actual:** Settings → Video → **Hide screen edges** is a single on/off switch (`AppSettings.CropOverscan`); the amount
   can't be changed.
 - **Fixed** in `12a99fa`: Settings → Video → **Hide screen edges** offers the whole picture, 4, 8 (default), 12 or 16 lines (`AppSettings.OverscanCropLines`).
+
+### GV-021
+
+**App crashes on launching a game after visiting Settings** · High · Input · **Fixed**
+
+- **Expected:** Starting a game works whatever pages the player visited first.
+- **Actual:** `InputSettingsViewModel` subscribed to `IInputDevicesService.Changed` and `Notice` in its constructor and
+  never unsubscribed. It is registered `AddTransient`, and the Settings page is not cached, so every visit to Settings
+  left another live view model owned by the `ControllerManager` singleton's event. Opening a game calls
+  `PlayerViewModel.Attach` → `SetGameRunning(true)`, which raises `Changed`; each leaked view model then ran `Refresh`
+  and pushed `Clear`/`Add` into the `ObservableCollection`s still bound to the torn-down Settings
+  `ItemsRepeater`s (`SettingsPage.xaml:386,438`), and the native `NotifyCollectionChangedEventHandler` threw
+  `COMException` 0x80004005 ("Unspecified error"). This hit every system, not just the Master System — the crash
+  happens in `Attach()`, before the ROM is read — but it showed up on new systems because players open Settings to add
+  the folder holding their `.sms` files first.
+- **Fixed:** `InputSettingsViewModel` now has the `Attach`/`Detach` pair every other view model here uses, and
+  `SettingsPage` calls them on `Loaded`/`Unloaded` (commit `14499bb`).
 
 ---
 

@@ -13,6 +13,7 @@ public class InputSettingsViewModelTests
     public InputSettingsViewModelTests()
     {
         _vm = new InputSettingsViewModel(_devices, _settings);
+        _vm.Attach(); // what SettingsPage does on Loaded
     }
 
     [Fact]
@@ -76,6 +77,44 @@ public class InputSettingsViewModelTests
 
         _vm.Ports[1].Sources.Select(s => s.Name).Should().Contain("Keyboard");
         (await _settings.LoadAsync()).TwoPlayerKeyboard.Should().BeTrue();
+    }
+
+    /// <summary>
+    /// A detached view model must not touch its collections again: the Settings page is not cached, so a view model
+    /// still subscribed after the page is gone pushed collection changes into torn-down ItemsRepeaters and crashed
+    /// the app with E_FAIL on the next device change (launching a game calls SetGameRunning).
+    /// </summary>
+    [Fact]
+    public void Detach_stops_refreshing_the_cards_once_the_page_is_gone()
+    {
+        var dualSense = _devices.Unassigned[0].Id;
+        _vm.Detach();
+
+        _devices.SwapPorts(0, 1);
+        _devices.AssignToPort(dualSense, 1);
+
+        // The cards are left exactly as they were while the page is away.
+        _vm.Ports[0].Sources.Select(s => s.Name).Should().Equal("Keyboard", "Xbox Wireless Controller");
+        _vm.Ports[1].Sources.Select(s => s.Name).Should().Equal("8BitDo SN30 Pro");
+        _vm.Unassigned.Select(u => u.Name).Should().Equal("DualSense Wireless Controller");
+    }
+
+    [Fact]
+    public void Attach_is_idempotent_and_picks_up_what_changed_while_the_page_was_away()
+    {
+        _vm.Detach();
+        _devices.SwapPorts(0, 1);
+
+        _vm.Attach();
+        _vm.Attach();
+
+        _vm.Ports[0].Sources.Select(s => s.Name).Should().Equal("Keyboard", "8BitDo SN30 Pro");
+
+        var refreshes = 0;
+        _vm.Unassigned.CollectionChanged += (_, _) => refreshes++;
+        _devices.SwapPorts(0, 1);
+
+        refreshes.Should().Be(2, "one Clear and one Add per refresh: the handler is subscribed exactly once");
     }
 
     [Fact]

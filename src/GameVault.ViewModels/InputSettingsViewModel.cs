@@ -15,16 +15,49 @@ public sealed partial class InputSettingsViewModel : ObservableObject
 {
     private readonly IInputDevicesService _devices;
     private readonly ISettingsStore _settings;
+    private bool _attached;
 
     public InputSettingsViewModel(IInputDevicesService devices, ISettingsStore settings)
     {
         _devices = devices;
         _settings = settings;
         Remap = new RemapViewModel(devices, settings);
-        _devices.Changed += (_, _) => Refresh();
-        _devices.Notice += (_, notice) => LastNotice = notice;
         Refresh();
     }
+
+    /// <summary>
+    /// Starts listening for device changes (when the page loads). Nothing is subscribed before this: the device
+    /// events arrive on the UI thread, and <see cref="Refresh"/> rebuilds <see cref="Ports"/> and
+    /// <see cref="Unassigned"/>, so a view model left subscribed after its page is gone would push collection
+    /// changes into the torn-down ItemsRepeaters and fail with E_FAIL (SPEC §9.1, GV-021).
+    /// </summary>
+    public void Attach()
+    {
+        if (!_attached)
+        {
+            _devices.Changed += OnDevicesChanged;
+            _devices.Notice += OnNotice;
+            Remap.Attach();
+            _attached = true;
+            Refresh(); // devices may have come and gone while the page was away
+        }
+    }
+
+    /// <summary>Stops listening for device changes (when the page is left).</summary>
+    public void Detach()
+    {
+        if (_attached)
+        {
+            _devices.Changed -= OnDevicesChanged;
+            _devices.Notice -= OnNotice;
+            Remap.Detach();
+            _attached = false;
+        }
+    }
+
+    private void OnDevicesChanged(object? sender, EventArgs e) => Refresh();
+
+    private void OnNotice(object? sender, string notice) => LastNotice = notice;
 
     public ObservableCollection<InputPortViewModel> Ports { get; } = [];
 
@@ -227,7 +260,28 @@ public sealed partial class RemapViewModel : ObservableObject
     {
         _devices = devices;
         _settings = settings;
-        _devices.InputCaptured += OnCaptured;
+    }
+
+    private bool _attached;
+
+    /// <summary>Listens for captured pad buttons while the page is up (see <see cref="InputSettingsViewModel.Attach"/>).</summary>
+    internal void Attach()
+    {
+        if (!_attached)
+        {
+            _devices.InputCaptured += OnCaptured;
+            _attached = true;
+        }
+    }
+
+    internal void Detach()
+    {
+        if (_attached)
+        {
+            CancelListening();
+            _devices.InputCaptured -= OnCaptured;
+            _attached = false;
+        }
     }
 
     public IReadOnlyList<string> SystemOptions { get; } = InputActions.Systems.Select(InputActions.SystemName).ToList();

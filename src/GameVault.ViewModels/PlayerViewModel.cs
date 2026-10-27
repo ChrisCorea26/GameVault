@@ -653,6 +653,7 @@ public sealed partial class PlayerViewModel(
             devices.Changed += OnDevicesChanged;
             devices.Notice += OnNotice;
             challenges.PropertyChanged += OnChallengesChanged;
+            Controllers.Attach();
             devices.SetGameRunning(true);
             _attached = true;
         }
@@ -679,6 +680,7 @@ public sealed partial class PlayerViewModel(
             devices.Changed -= OnDevicesChanged;
             devices.Notice -= OnNotice;
             challenges.PropertyChanged -= OnChallengesChanged;
+            Controllers.Detach();
             devices.SetGameRunning(false);
             devices.SetPlayerCount(2);
             devices.GameKey = null;
