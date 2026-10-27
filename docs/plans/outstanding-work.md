@@ -216,6 +216,14 @@ As SPEC §7.11 and §12. Its own `docs/plans/phase-18.md` first.
 ## 19. Phase 19: Atari 2600 / 5200
 As SPEC §7.11 and §12. Its own `docs/plans/phase-19.md` first.
 
+**As built (2600).** `docs/plans/phase-19.md` milestone 1: `Atari2600Console` (the NMOS `Cpu6502` on a 13-bit bus,
+WSYNC holding it), `Tia` (drawn one colour clock at a time from the registers then; playfield, players, missiles,
+ball, HMOVE, collisions, VSYNC framing with the picture's top where VBLANK ends, Ron Fries' sound counters), `Riot`,
+and `Atari2600Cartridge` (2K/4K, F8/F6/F4 with SuperChip detection, E0, FE, 3F, FA; the profile's model can name
+one). `.a26` files, the library's system filter, No-Intro DATs, RetroAchievements console 25, the sample library.
+Tests: `Atari2600Tests`, `Atari2600CartridgeTests`, `Atari2600HostTests`. The 5200 is milestone 2.
+
+
 ## Not in this plan (needs the owner)
 - Real-game and real-cartridge checks in every phase's owner checklist.
 - RetroAchievements' approval for hardcore unlocks, and signing in with the owner's account.
