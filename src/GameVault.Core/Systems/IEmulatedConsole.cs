@@ -18,6 +18,7 @@ public enum GameSystem
     Nintendo64,
     PlayStation2,
     Atari2600,
+    Atari5200,
 }
 
 /// <summary>
