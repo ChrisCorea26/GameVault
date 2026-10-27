@@ -93,8 +93,23 @@ buttons by their Sega names.
 **Region:** games run at NTSC speed (60 Hz). For a European game, set **Game Details → Properties → Region** to
 *PAL (50 Hz)*.
 
-**Not supported yet:** the SC-3000 keyboard (so BASIC cartridges can't be used) and FM sound for Japanese Master
-System games.
+**FM sound:** Japanese Master System games play with the console's built-in FM Sound Unit, so their FM music plays.
+GameVault knows a game is Japanese from its header, or when **Game Details → Properties → Region** is *Japan*.
+
+**SC-3000 keyboard:** `.sc` files run as an SC-3000, the SG-1000 with a keyboard, so BASIC and other keyboard
+cartridges work. While one runs, the PC keyboard types into it, key for key where the SC-3000 has the same key:
+
+| SC-3000 | PC |
+|---|---|
+| Letters, digits, `,` `.` `/` `;` `-` Space, Return, the arrows | The same keys |
+| `:` | <kbd>'</kbd> |
+| `@`, `[`, `]` | <kbd>[</kbd>, <kbd>]</kbd>, <kbd>\</kbd> |
+| `^`, `¥` | <kbd>=</kbd>, <kbd>End</kbd> |
+| Ins/Del, Home/Clr | <kbd>Backspace</kbd> or <kbd>Delete</kbd>, <kbd>Home</kbd> |
+| Shift, Ctrl, Graph | <kbd>Shift</kbd>, <kbd>Ctrl</kbd>, <kbd>Alt</kbd> |
+| Eng Dier's, Func, π | <kbd>F2</kbd>, <kbd>F3</kbd>, <kbd>F4</kbd> |
+
+Shift+Backspace rewinds, as on the Apple II. To use an SG-1000 game's file as an SC-3000 one, rename it to `.sc`.
 
 ## Apple II, II+ and IIe
 

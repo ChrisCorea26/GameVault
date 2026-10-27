@@ -156,6 +156,10 @@ from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Pla
 - YM2413 (OPLL) for Japanese Master System games, with its built-in instrument patches computed from the published
   register values; the FM unit's detection port.
 - The SC-3000 keyboard matrix on the PPI, mapped to the PC keyboard (like the Apple II), so BASIC cartridges run.
+- **As built:** the VRC7's FM engine became `Opll`, shared by both (the VRC7's output is pinned sample for sample by
+  a fingerprint test); the YM2413 adds three channels, the rhythm sounds and the YM2413's instruments (emu2413's
+  table, MIT). The unit is there for Japanese cartridges (header region 3, or a Japan profile). `.sc` files get the
+  keyboard.
 
 ## 9. Apple II: monochrome, character ROM, mid-frame changes
 - Settings → Apple II → "Monochrome" (green, amber or white).

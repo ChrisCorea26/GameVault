@@ -150,8 +150,8 @@ zexdoc and zexall run in their own CI job ("Z80 exerciser", Release build). Loca
 | SN76489 PSG (Sega noise variant) | ✅ Unit tests |
 | Sega mapper (with cartridge RAM, saved like a battery save), Codemasters (detected from the ROM), Korean, plain ≤48 KB | ✅ Unit tests (Sega, detection) |
 | SG-1000 8 KB RAM-expansion boards | Supported by the cartridge; not yet selected by a game database |
-| YM2413 FM sound (Japanese SMS) | Not yet |
-| SC-3000 keyboard | Not yet |
+| YM2413 FM sound (Japanese SMS): nine channels, rhythm mode, the $F0–$F2 ports and detection | 🟡 Unit tests (detection, a note's pitch, the bass drum, save states); a behavioral FM model shared with the VRC7, not checked against hardware recordings |
+| SC-3000 keyboard (8255 PPI matrix) | ✅ Unit tests (a key's row and bit, row 7 as the joypads); the PC key layout follows SMS Power!'s matrix |
 | PAL timing | Supported (313 lines), chosen by the game database's `region` |
 
 Real-game results need the owner's cartridges or ROMs (see `docs/plans/phase-11.md`, owner checklist).

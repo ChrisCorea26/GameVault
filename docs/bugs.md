@@ -287,7 +287,6 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 | Internet netplay (relay/STUN); the first release is LAN only | SPEC §7.7, `docs/plans/phase-7.md` |
 | Netplay for Famicom Disk System games | `EmulatorHost.cs:382` |
 | SNES enhancement chips (DSP, Super FX, SA-1, …) | README status, `docs/plans/phase-14.md` |
-| SC-3000 keyboard, Japanese SMS FM sound (YM2413) | `docs/plans/phase-11.md` |
 | Genesis stereo, interlace mode 2, Master System mode, EEPROM saves, Sega CD, 32X | `docs/plans/phase-13.md` |
 | PlayStation DualShock analog and vibration, multitap, light guns, GameShark, memory card manager, GPU renderer | `docs/plans/phase-15.md` |
 | N64 GPU renderer and recompiler, Rumble Pak, Transfer Pak, 64DD, GameShark | README status, `docs/plans/phase-16.md` |

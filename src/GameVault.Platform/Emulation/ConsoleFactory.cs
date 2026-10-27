@@ -116,7 +116,12 @@ internal static class ConsoleFactory
         {
             try
             {
-                return SegaConsole.FromBytes(system, data, pal: string.Equals(profile.Region, "pal", StringComparison.OrdinalIgnoreCase));
+                // The FM Sound Unit comes with Japanese Master System games: by the game database's region, else the header.
+                var japan = string.Equals(profile.Region, "japan", StringComparison.OrdinalIgnoreCase) ? true : (bool?)null;
+                // An .sc file (or a profile saying so) is an SC-3000 program: the SG-1000 with its keyboard.
+                var keyboard = string.Equals(extension, ".sc", StringComparison.OrdinalIgnoreCase)
+                               || string.Equals(profile.Model, "sc-3000", StringComparison.OrdinalIgnoreCase);
+                return SegaConsole.FromBytes(system, data, pal: string.Equals(profile.Region, "pal", StringComparison.OrdinalIgnoreCase), fmUnit: japan, keyboard: keyboard);
             }
             catch (RomFormatException ex)
             {
