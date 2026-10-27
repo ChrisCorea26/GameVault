@@ -74,6 +74,12 @@ public sealed record AppSettings
     public string FdsBiosPath { get; init; } = string.Empty;
 
     /// <summary>
+    /// Full path of the player's own Atari 5200 BIOS (5200.rom, 2 KB), or empty. GameVault never ships, downloads or
+    /// links to it (SPEC §4.5).
+    /// </summary>
+    public string Atari5200BiosPath { get; init; } = string.Empty;
+
+    /// <summary>
     /// The player's own Apple II system ROM (12 KB for the II/II+, 16 KB for the IIe), or empty. GameVault never ships,
     /// downloads or links to it (SPEC §7.11).
     /// </summary>
@@ -98,10 +104,22 @@ public sealed record AppSettings
     public bool PlayStationFastBoot { get; init; }
 
     /// <summary>
+    /// PlayStation controllers start in analog mode, as if the DualShock's Analog button were pressed: for games that
+    /// use the sticks but don't switch the mode themselves. Off by default, since digital-only games want digital pads.
+    /// </summary>
+    public bool PlayStationAnalog { get; init; }
+
+    /// <summary>
     /// Give N64 games the Expansion Pak's extra 4 MB (8 MB in all). On by default, as most homebrew and many games
     /// use it; a few older games expect 4 MB.
     /// </summary>
     public bool N64ExpansionPak { get; init; } = true;
+
+    /// <summary>
+    /// A netplay relay server ("host:port") for hosting over the internet when the two players' routers can't reach
+    /// each other directly (outstanding-work plan §13), or empty to connect directly. Players run their own relay.
+    /// </summary>
+    public string NetplayRelayServer { get; init; } = string.Empty;
 
     /// <summary>
     /// A Rumble Pak in every N64 controller instead of the Controller Pak in the first, so games can shake the player's

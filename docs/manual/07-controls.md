@@ -23,8 +23,9 @@ keyboard layout.
 | X, Y, Z (Genesis) | <kbd>Q</kbd>, <kbd>W</kbd>, <kbd>E</kbd> |
 | L, R (SNES; PlayStation and PlayStation 2 L1, R1; N64 L, R) | <kbd>1</kbd>, <kbd>2</kbd> |
 | L2, R2 (PlayStation and PlayStation 2); Z (N64) | <kbd>3</kbd>, <kbd>4</kbd> |
-| L3, R3 (PlayStation 2) | <kbd>5</kbd>, <kbd>6</kbd> |
-| Right stick (PlayStation 2; N64 C buttons) | <kbd>I</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> |
+| L3, R3 (PlayStation and PlayStation 2) | <kbd>5</kbd>, <kbd>6</kbd> |
+| Right stick (PlayStation and PlayStation 2; N64 C buttons) | <kbd>I</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> |
+| D-pad (PlayStation, PlayStation 2 and N64, where the arrows are the left stick) | <kbd>T</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> |
 
 Each system's own layout is described in [Supported systems](#supported-systems).
 

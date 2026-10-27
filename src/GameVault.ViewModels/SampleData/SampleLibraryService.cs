@@ -61,6 +61,10 @@ public sealed class SampleLibraryService : ILibraryService
             Ownership.Cartridge | Ownership.DigitalDump, PlayStatus.Unplayed, system: GameSystem.Nintendo64),
         Game(22, "Skyline Courier", GameRegion.NorthAmerica, "Polyline Works", 2003, "Action",
             Ownership.Box | Ownership.Manual | Ownership.DigitalDump, PlayStatus.Playing, hours: 6.5, lastPlayedDaysAgo: 2, system: GameSystem.PlayStation2),
+        Game(23, "Laser Orchard", GameRegion.NorthAmerica, "Bitwave", 1982, "Shooter",
+            Ownership.Cartridge | Ownership.DigitalDump, PlayStatus.Beaten, hours: 1.5, lastPlayedDaysAgo: 40, system: GameSystem.Atari2600),
+        Game(24, "Comet Cascade", GameRegion.NorthAmerica, "Bitwave", 1983, "Shooter",
+            Ownership.Cartridge | Ownership.Box, PlayStatus.Playing, hours: 3.0, lastPlayedDaysAgo: 5, system: GameSystem.Atari5200),
         Game(27, "Orbit Gardener", GameRegion.NorthAmerica, "Polyline Works", 2004, "Puzzle",
             Ownership.DigitalDump, PlayStatus.Unplayed, system: GameSystem.GameCube),
     ];
@@ -222,6 +226,8 @@ public sealed class SampleLibraryService : ILibraryService
                     GameSystem.PlayStation => $@"C:\Games\PlayStation\{title}.cue",
                     GameSystem.Nintendo64 => $@"C:\Games\Nintendo 64\{title}.z64",
                     GameSystem.PlayStation2 => $@"C:\Games\PlayStation 2\{title}.iso",
+                    GameSystem.Atari2600 => $@"C:\Games\Atari 2600\{title}.a26",
+                    GameSystem.Atari5200 => $@"C:\Games\Atari 5200\{title}.a52",
                     GameSystem.GameCube => $@"C:\Games\GameCube\{title}.dol",
                     _ => $@"C:\Games\NES\{title}.nes",
                 }

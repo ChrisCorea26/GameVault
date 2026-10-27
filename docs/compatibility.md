@@ -208,7 +208,11 @@ Real games are the owner's to try; see `docs/plans/phase-13.md`.
 | Interlace, mid-line register changes, exact PPU timing | Not yet |
 | Super FX (GSU-1/GSU-2): instructions, pipeline delay slot, cache, ROM buffer, PLOT/RPIX, bus ownership, IRQ | 🟡 Unit tests on hand-assembled GSU programs and a whole console starting the GSU; no freely redistributable Super FX test ROM to check against; real games are the owner's |
 | DSP-1/2/3/4 (µPD7725, with the player's own program ROM): OP/RT/JP/LD, multiplier, DR/SR handshake | 🟡 Unit tests on hand-assembled µPD7725 programs and a whole console talking to one; real games with the player's DSP dump are the owner's |
-| SA-1, Cx4, S-DD1, SPC7110, OBC1, ST01x, S-RTC | Not yet: such games get a message naming the chip |
+| SA-1: second 65C816, I-RAM, BW-RAM and its bitmap view, Super MMC, arithmetic, variable-length reads, timer, DMA, character conversion 1 and 2 | 🟡 Unit tests, and a whole console with both CPUs talking; no freely redistributable SA-1 test ROM; real games are the owner's |
+| S-DD1: memory controller and the decompressor on the DMA | 🟡 Unit tests for the mapping, the DMA hookup and save states; the decoder follows Andreas Naive's description but hasn't been checked against real compressed data |
+| OBC1 | ✅ Unit test of its sprite table |
+| ST010/ST011 (µPD96050, with the player's own program ROM): two program halves, shared data RAM (the ST010's save) | 🟡 Unit tests on hand-assembled programs; real games are the owner's |
+| Cx4, SPC7110, ST018, S-RTC | Not yet: such games get a message naming the chip |
 
 Real games are the owner's to try; see `docs/plans/phase-14.md`.
 
@@ -231,7 +235,9 @@ Real games are the owner's to try; see `docs/plans/phase-14.md`.
 | Disc images: .cue/.bin, .chd (cdzl, cdlz, cdfl), .m3u | ✅ Unit tests; CHD verified against chdman's output |
 | Fast boot and PS-EXE loading | ✅ Unit tests with a stand-in BIOS |
 | Whole machine: PeterLemon's `printgpu` demo through the frame loop | ✅ Golden image |
-| DualShock, multitap, mouse, light guns; GameShark codes | Not yet |
+| DualShock: digital, analog and config modes, the motors (passed to the player's pad); 24-bit display at full depth | ✅ Unit tests |
+| GunCon and mouse (port 1, from Game Details) | ✅ Unit tests; aiming against real games is the owner's to check |
+| Multitap, Justifier; GameShark codes | Not yet |
 
 Real discs need the owner's BIOS (Settings → PlayStation); real games are the owner's to try. See
 `docs/plans/phase-15.md`.
@@ -278,9 +284,38 @@ Real cartridges are the owner's to try; see `docs/plans/phase-16.md`.
 | GS drawing: GameVault's homebrew (`tests/Ps2Homebrew`: PATH3 primitives, textures with CLUTs, blending and Z, a VU1 microprogram over PATH1 with PATH2) | ✅ Golden images and pixel probes; `mmi-fpu-check` 16/16 |
 | IOP, SIF, CDVD, SIO2 (DualShock 2, 8 MB memory card), SPU2, IPU | ✅ Unit tests; the EE and IOP running a stand-in BIOS together (SIF handshake and DMA both ways, CDVD reads, a GS frame) |
 | Booting the player's BIOS, ELF and disc fast boot | 🟡 Checked with a stand-in BIOS; real BIOSes and discs are the owner's to try |
-| Mipmapping, GS anti-aliasing, the IPU's command timing, PS1 mode, multitap | Not yet |
+| GS mipmapping: TEX1's LOD, MIPTBP1/2 and MTBA, nearest and blended levels | ✅ Unit tests |
+| Memory card slot 2 (one shared card); L2/R2 pressure from analog triggers | ✅ Unit tests |
+| GS anti-aliasing, the IPU's command timing, PS1 mode, multitap | Not yet |
 
 Real BIOSes and discs are the owner's to try; see `docs/plans/phase-17.md`.
+
+## Atari 2600 (Phase 19)
+
+| Part | State |
+|---|---|
+| 6507: GameVault's NMOS 6502 (Dormann's functional test, as for the Apple II) on a 13-bit bus | ✅ |
+| TIA: playfield (repeat, reflect, score, priority), players (copies, sizes, reflection, delay), missiles, ball, RESPx positions, HMOVE and its black bar, collisions, mid-line register changes, VSYNC/VBLANK framing, fire buttons | ✅ Unit tests on hand-written programs |
+| TIA sound (Ron Fries' counters) | 🟡 A pure tone plays at its divider's pitch; the noise modes aren't checked against hardware recordings |
+| RIOT: RAM, joysticks, console switches, timer | ✅ Unit tests |
+| Bank switching: 2K/4K, F8/F6/F4 (and SuperChip), E0, FE, 3F, FA | ✅ Unit tests and a save/load round trip each |
+| Paddles, keypads, DPC, E7, Supercharger, PAL/SECAM palettes, the TIA's HMOVE quirks beyond the black bar | Not yet |
+
+No freely redistributable 2600 test ROM is used yet; real games are the owner's to try (`docs/plans/phase-19.md`).
+
+## Atari 5200 (Phase 19)
+
+| Part | State |
+|---|---|
+| 6502C: GameVault's NMOS 6502, halted for ANTIC's DMA and WSYNC | ✅ Unit tests (cycles a frame with and without DMA) |
+| ANTIC: display lists (blank, JMP, JVB, LMS), modes 2–F, character sets and CHACTL, narrow/normal/wide playfields, HSCROL and VSCROL, player/missile DMA, DLI and VBI NMIs, VCOUNT, WSYNC | ✅ Unit tests on hand-written programs; VSCROL by the hardware's rule but untested |
+| GTIA: players and missiles (sizes, VDELAY, fifth player), PRIOR's priority logic, collisions, hi-res colours, GTIA modes 9–11, triggers | ✅ Unit tests; mid-line colour changes land at the colour clock the CPU reaches |
+| POKEY: four channels, polys, 16-bit pairs, high-pass filters, timers and their IRQs, pots, keypad scan, RANDOM | 🟡 Timers and pure tones checked; the noise modes aren't checked against hardware recordings |
+| Keypad codes | 🟡 From published notes, not a real console |
+| 40K boards, trak-ball, PAL 5200s | Not yet |
+
+No freely redistributable 5200 test ROM is used yet; the BIOS and real games are the owner's to try
+(`docs/plans/phase-19.md`).
 
 ## GameCube (Phase 18, milestone 1)
 

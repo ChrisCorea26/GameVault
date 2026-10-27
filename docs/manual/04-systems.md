@@ -68,7 +68,8 @@ wrong extension.
 **Changing disk sides:** when the game asks you to turn the disk over, press <kbd>F4</kbd> for the next side, or pick
 one from the disk drop-down in the Player (*No disk*, *Disk 1, side A*, *Disk 1, side B*, …).
 
-**Not supported yet:** netplay with Disk System games.
+**Netplay:** Disk System games play over netplay when both players have the same BIOS; disk changes happen on both
+PCs at once.
 
 **Messages:**
 
@@ -226,13 +227,18 @@ There's no turbo on the SNES. Use <kbd>Backspace</kbd> and <kbd>Tab</kbd> to rew
   `dsp2.rom`, `dsp3.rom` or `dsp4.rom`. Put it in a folder, then choose that folder in **Settings → Super
   Nintendo → Enhancement chip ROMs**. Either byte order works. DSP-2, DSP-3 and DSP-4 haven't been tried with real
   games yet.
+- **SA-1** (*Super Mario RPG*, *Kirby Super Star*, *Kirby's Dream Land 3*, …), **S-DD1** (*Star Ocean*, *Street
+  Fighter Alpha 2*) and **OBC1** (*Metal Combat*): work with nothing extra. SA-1 games save in the cartridge's
+  BW-RAM as `.sav`.
+- **ST010** (*F1 ROC II*, *Exhaust Heat II*) and **ST011** (*Hayazashi Nidan Morita Shogi*): like the DSP chips, they
+  need the chip's program from your own cartridge, named `st010.rom` or `st011.rom` (52 KB), in the same folder.
 
 | Message | What to do |
 |---|---|
 | *This game needs the DSP-1 chip's program ROM. Put your own dump (dsp1b.rom or dsp1.rom) in the folder chosen in Settings → Super Nintendo → Enhancement chip ROMs. GameVault doesn't include it.* | Add the file and choose its folder, then open the game again. |
 | *This game needs the … chip, which GameVault doesn't support yet.* | The chip isn't emulated yet. |
 
-**Not supported yet:** the SA-1, S-DD1, S-RTC, OBC1, Cx4, SPC7110 and ST01x chips, the Super Game Boy and the
+**Not supported yet:** the Cx4 (*Mega Man X2*, *X3*), SPC7110, ST018 and S-RTC chips, the Super Game Boy and the
 Satellaview; interlaced modes; effects that change the picture partway along a line.
 
 ## Sony PlayStation
@@ -274,7 +280,7 @@ Satellaview; interlaced modes; effects that change the picture partway along a l
 
 Discs are read from where they are; they're never copied or loaded into memory whole.
 
-**Controls** (digital pad):
+**Controls** (DualShock):
 
 | PlayStation | Keyboard | Controller (position) | Xbox label |
 |---|---|---|---|
@@ -282,12 +288,28 @@ Discs are read from where they are; they're never copied or loaded into memory w
 | Square, Triangle | <kbd>A</kbd>, <kbd>S</kbd> | Left, top | X, Y |
 | L1, R1 | <kbd>1</kbd>, <kbd>2</kbd> | Left shoulder, right shoulder | LB, RB |
 | L2, R2 | <kbd>3</kbd>, <kbd>4</kbd> | Left trigger, right trigger | LT, RT |
+| L3, R3 (analog mode) | <kbd>5</kbd>, <kbd>6</kbd> | Click the left stick, click the right stick | LS, RS |
 | Select, Start | <kbd>Right Shift</kbd>, <kbd>Enter</kbd> | Back, Start | View, Menu |
+| D-pad | <kbd>T</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> | D-pad | D-pad |
+| Left stick | Arrow keys (full push) | Left stick | Left stick |
+| Right stick | <kbd>I</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> (full push) | Right stick | Right stick |
+
+**Analog mode:** the controllers are DualShocks. They start digital, and the left stick (and the arrow keys) work the
+D-pad. Games that use the sticks switch them to analog themselves. For a game that supports the sticks but waits for
+you to press the DualShock's Analog button, turn on **Settings → PlayStation → Analog mode**. Games that rumble shake
+your controller, if it has motors.
+
+**Light gun and mouse:** for a GunCon game (*Time Crisis*, *Point Blank*), set **Game Details → Properties → Port
+1** to **GunCon (the mouse aims)**: point with the mouse, the left button is the trigger, the right button A and the
+middle button B. Most GunCon games start with a calibration screen; shoot its centre. For a mouse game (*Lemmings*,
+*Discworld*), choose **Mouse**: moving the mouse over the picture moves it, with its left and right buttons.
 
 **Memory cards:** each game gets its own card in slot 1, so you never run out of space. Slot 2 is empty.
 
-**Not supported yet:** DualShock analog sticks and vibration, multitap, mouse, light guns, link cable, GameShark
-codes, a memory card manager, and enhanced (upscaled) graphics.
+Videos and other pictures in 24-bit colour are shown with all their colours.
+
+**Not supported yet:** multitap, the Justifier light gun, link cable, GameShark codes, a memory card manager, and enhanced
+(upscaled) graphics.
 
 **Messages:**
 
@@ -345,7 +367,7 @@ video filters.
 |---|---|
 | **Files** | `.iso` (DVD or CD images); `.chd` (version 5, CD or DVD); `.cue` with its `.bin` tracks (CD games); `.elf` (homebrew programs) |
 | **You supply** | **A PlayStation 2 BIOS**, 4 MB, dumped from your own console (for example SCPH-39001), for discs. Homebrew `.elf` programs run without one. |
-| **Saves** | One 8 MB memory card per game in slot 1, as `.ps2` |
+| **Saves** | One 8 MB memory card per game in slot 1, as `.ps2`, and one card in slot 2 shared by every game |
 
 **Setup:**
 
@@ -379,11 +401,13 @@ from where they are; they're never copied or loaded into memory whole.
 | Left stick | Arrow keys (full push) | Left stick | Left stick |
 | Right stick | <kbd>I</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> (full push) | Right stick | Right stick |
 
-The pressure-sensitive buttons report full presses. While a PlayStation 2 game runs the left shoulder button is L1,
+The pressure-sensitive buttons report full presses, except L2 and R2 on a controller with analog triggers: they
+report how far you pull them. While a PlayStation 2 game runs the left shoulder button is L1,
 so use <kbd>Backspace</kbd> to rewind.
 
 **Memory cards:** each game gets its own 8 MB card in slot 1, created already formatted and saved with your other game
-saves. Slot 2 is empty.
+saves. Slot 2 holds one more card, the same for every game (`Memory card (slot 2).ps2` in the saves folder), so a
+sequel can find a save that the earlier game wrote there.
 
 **Rewind, run-ahead and netplay:** a PlayStation 2 is much larger than the other consoles, so:
 
@@ -397,8 +421,8 @@ helps. Lighter games can reach full speed on a fast PC, but many games still run
 lean on the PS2's vector units. Enhanced graphics and more speed-ups are planned.
 
 **Not supported yet:** changing discs in multi-disc games (an `.m3u` starts its first disc), vibration, the multitap,
-PlayStation games on the PlayStation 2, USB devices, the network adapter and hard drive, GameShark codes, memory card
-slot 2, and enhanced (upscaled) graphics.
+PlayStation games on the PlayStation 2, USB devices, the network adapter and hard drive, GameShark codes, and enhanced
+(upscaled) graphics.
 
 **Messages:**
 
@@ -409,6 +433,79 @@ slot 2, and enhanced (upscaled) graphics.
 | *GameVault couldn't open your PlayStation 2 BIOS. Check the file chosen in Settings → PlayStation 2.* | The file was moved, deleted or is locked. |
 | *That file isn't a PlayStation 2 program (ELF) or disc, or it's damaged.* | Check the file; re-dump the disc if needed. |
 | *Netplay isn't available for PlayStation 2 games: its rollback saves and loads the whole console every frame, and a PlayStation 2 is too large for that.* | Play it locally. |
+
+## Atari 2600
+
+| | |
+|---|---|
+| **Files** | `.a26` (or a `.zip` with one inside) |
+| **You supply** | Nothing: the 2600 has no BIOS |
+| **Saves** | None: 2600 games don't save. Use save states. |
+
+**Controls** (the joystick):
+
+| Atari 2600 | Keyboard | Controller |
+|---|---|---|
+| Joystick | Arrow keys | D-pad or left stick |
+| Fire | <kbd>Z</kbd> or <kbd>X</kbd> | Bottom or right button |
+| Console **Reset** switch | <kbd>Enter</kbd> | Start |
+| Console **Select** switch | <kbd>Right Shift</kbd> | Back |
+
+The second player's joystick is the second controller (or the second keyboard player). The difficulty switches stay
+on **B** (the easier setting) and the TV switch on colour.
+
+**Cartridges:** 2K and 4K games, and the bank-switching boards most games use: Atari's 8K, 16K and 32K (with or
+without the SuperChip's extra RAM), Parker Brothers (E0), Activision (FE), Tigervision (3F) and CBS RAM Plus (FA).
+GameVault tells them apart by the file's size and code. If a game shows garbage, set **Game Details → Properties**'
+model to the board's name (`F8`, `F8SC`, `F6`, `F6SC`, `F4`, `F4SC`, `E0`, `FE`, `3F` or `FA`).
+
+**Not supported yet:** paddles, keypads and the driving controller; the rarer boards (Pitfall II's DPC, M-Network
+E7, the Supercharger); PAL games' own colours (they show NTSC colours).
+
+**Messages:**
+
+| Message | What to do |
+|---|---|
+| *GameVault doesn't know how a … KB Atari 2600 cartridge switches its banks.* | The file isn't a 2600 image GameVault knows, or it's a rarer board. |
+| *That isn't an Atari 2600 cartridge image.* | Wrong file. |
+
+## Atari 5200
+
+| | |
+|---|---|
+| **Files** | `.a52` (or a `.zip` with one inside) |
+| **You supply** | The 5200's BIOS, `5200.rom` (2 KB), from your own console: **Settings → Atari 5200** |
+| **Saves** | None: 5200 games don't save. Use save states. |
+
+**Controls** (the 5200 controller: an analog stick, two fire buttons and a keypad):
+
+| Atari 5200 | Keyboard | Controller |
+|---|---|---|
+| Stick | Arrow keys (pushed fully) | Left stick (analog), or the D-pad |
+| Bottom fire button | <kbd>Z</kbd> | Bottom button |
+| Top fire button | <kbd>X</kbd> | Right button |
+| **Start** | <kbd>Enter</kbd> | Start |
+| **Pause** | <kbd>Right Shift</kbd> | Back |
+| Keypad **0**–**9** | <kbd>0</kbd>–<kbd>9</kbd> on the number row | — |
+| Keypad **\*** and **#** | <kbd>-</kbd> and <kbd>=</kbd> | — |
+| Keypad **Reset** | <kbd>R</kbd> | — |
+
+While a 5200 game runs, the number row is controller 1's keypad, so <kbd>1</kbd>–<kbd>4</kbd> don't do what they do
+for other systems. Controllers 2–4 are the second to fourth controllers; their keypads aren't on the keyboard.
+
+**Cartridges:** 4K to 32K games. A few 16K games are built from two 8K chips; if one of them shows garbage, set
+**Game Details → Properties**' model to `two-chip`.
+
+**Not supported yet:** *Bounty Bob Strikes Back!* (its 40K board), the trak-ball, PAL 5200s, and light pens. The
+keypad's codes follow published hardware notes and haven't been checked against a real console.
+
+**Messages:**
+
+| Message | What to do |
+|---|---|
+| *This is an Atari 5200 game. To play it, choose your own Atari 5200 BIOS…* | Choose `5200.rom` in **Settings → Atari 5200**. |
+| *The Atari 5200 BIOS file should be 2 KB.* | The file chosen isn't the 5200 BIOS. |
+| *That isn't an Atari 5200 cartridge image.* | Wrong file, or one of a size the 5200 doesn't use. |
 
 ## Nintendo GameCube
 

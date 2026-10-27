@@ -70,6 +70,12 @@ Properties. Higher settings need a faster PC.
 | **Two players, one keyboard** | On / Off | Off |
 | **Turbo speed** | 30, 20, 15, 12, 10 or 7.5 presses per second | 15 |
 
+## Netplay
+
+| Setting | Values | Default |
+|---|---|---|
+| **Relay server (optional)** | `server:port` of a GameVault relay, for hosting over the internet when the two PCs can't reach each other directly. See [Netplay](#netplay). | Empty |
+
 ## Cartridge dumper
 
 The path to `inlretro.exe`, the INL Retro-Prog command-line tool, for example `C:\INL-retro\inlretro.exe`. Type or
@@ -83,6 +89,11 @@ file. See [Code collections](#code-collections).
 ## Disk System
 
 The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`, or **Choose…** to pick it.
+
+## Atari 5200
+
+The path to your Atari 5200 BIOS, for example `C:\Atari\5200.rom`, or **Choose…** to pick it. A chosen file is
+checked (it must be 2 KB) and copied into GameVault's own folder.
 
 ## Apple II
 
@@ -101,7 +112,7 @@ game started.
 
 | Setting | Values | Default |
 |---|---|---|
-| **Enhancement chip ROMs** | A folder holding your own `dsp1b.rom` (or `dsp1.rom`), `dsp2.rom`, `dsp3.rom` or `dsp4.rom`, or **Choose…** | Empty |
+| **Enhancement chip ROMs** | A folder holding your own `dsp1b.rom` (or `dsp1.rom`), `dsp2.rom`, `dsp3.rom`, `dsp4.rom`, `st010.rom` or `st011.rom`, or **Choose…** | Empty |
 
 ## PlayStation
 
@@ -109,6 +120,7 @@ game started.
 |---|---|---|
 | **BIOS** | Path, for example `C:\PlayStation\scph1001.bin`, or **Choose…** | Empty |
 | **Skip the startup screens** | On / Off | Off |
+| **Analog mode** | On starts the controllers in analog mode, as if you'd pressed the DualShock's Analog button. Takes effect the next time a game starts. | Off |
 
 ## PlayStation 2
 

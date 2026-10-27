@@ -40,6 +40,16 @@ public sealed partial class SettingsViewModel(
     }
 
     [RelayCommand]
+    private async Task ChooseAtari5200BiosAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            Atari5200BiosPath = await ImportAsync(BiosKind.Atari5200, path);
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
     private async Task ChooseAppleRomAsync()
     {
         if (await PickAsync(".rom", ".bin") is { } path)
@@ -142,6 +152,13 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial string FdsBiosPath { get; set; } = string.Empty;
 
+    /// <summary>The player's own Atari 5200 BIOS (5200.rom). GameVault never includes it. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string Atari5200BiosPath { get; set; } = string.Empty;
+    /// <summary>The netplay relay server ("host:port"), or empty to connect directly. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string NetplayRelayServer { get; set; } = string.Empty;
+
     /// <summary>The player's own Apple II ROM (SPEC §7.11). Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string AppleIIRomPath { get; set; } = string.Empty;
@@ -172,6 +189,10 @@ public sealed partial class SettingsViewModel(
     /// <summary>Skip the PlayStation BIOS's intro.</summary>
     [ObservableProperty]
     public partial bool PlayStationFastBoot { get; set; }
+
+    /// <summary>PlayStation controllers start in analog mode (takes effect the next time a game starts).</summary>
+    [ObservableProperty]
+    public partial bool PlayStationAnalog { get; set; }
 
     /// <summary>N64 games get the Expansion Pak (takes effect the next time a game starts).</summary>
     [ObservableProperty]
@@ -303,6 +324,8 @@ public sealed partial class SettingsViewModel(
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
         DumperPath = settings.DumperPath;
         FdsBiosPath = settings.FdsBiosPath;
+        Atari5200BiosPath = settings.Atari5200BiosPath;
+        NetplayRelayServer = settings.NetplayRelayServer;
         AppleIIRomPath = settings.AppleIIRomPath;
         AppleIIDiskRomPath = settings.AppleIIDiskRomPath;
         AppleIICharacterRomPath = settings.AppleIICharacterRomPath;
@@ -310,6 +333,7 @@ public sealed partial class SettingsViewModel(
         PlayStationBiosPath = settings.PlayStationBiosPath;
         SnesChipRomFolder = settings.SnesChipRomFolder;
         PlayStationFastBoot = settings.PlayStationFastBoot;
+        PlayStationAnalog = settings.PlayStationAnalog;
         N64ExpansionPak = settings.N64ExpansionPak;
         N64RumblePak = settings.N64RumblePak;
         PlayStation2BiosPath = settings.PlayStation2BiosPath;
@@ -378,6 +402,12 @@ public sealed partial class SettingsViewModel(
     private void SaveFdsBiosPath() => SaveIfLoaded();
 
     [RelayCommand]
+    private void SaveAtari5200BiosPath() => SaveIfLoaded();
+
+    [RelayCommand]
+    private void SaveNetplayRelayServer() => SaveIfLoaded();
+
+    [RelayCommand]
     private void SaveAppleRomPaths() => SaveIfLoaded();
 
     partial void OnAppleIIMonitorIndexChanged(int value) => SaveIfLoaded();
@@ -389,6 +419,8 @@ public sealed partial class SettingsViewModel(
     private void SaveSnesChipRomFolder() => SaveIfLoaded();
 
     partial void OnPlayStationFastBootChanged(bool value) => SaveIfLoaded();
+
+    partial void OnPlayStationAnalogChanged(bool value) => SaveIfLoaded();
 
     partial void OnN64ExpansionPakChanged(bool value) => SaveIfLoaded();
 
@@ -449,6 +481,8 @@ public sealed partial class SettingsViewModel(
             MonoAudio = MonoAudio,
             DumperPath = DumperPath.Trim().Trim('"'),
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),
+            Atari5200BiosPath = Atari5200BiosPath.Trim().Trim('"'),
+            NetplayRelayServer = NetplayRelayServer.Trim(),
             AppleIIRomPath = AppleIIRomPath.Trim().Trim('"'),
             AppleIIDiskRomPath = AppleIIDiskRomPath.Trim().Trim('"'),
             AppleIICharacterRomPath = AppleIICharacterRomPath.Trim().Trim('"'),
@@ -456,6 +490,7 @@ public sealed partial class SettingsViewModel(
             PlayStationBiosPath = PlayStationBiosPath.Trim().Trim('"'),
             SnesChipRomFolder = SnesChipRomFolder.Trim().Trim('"'),
             PlayStationFastBoot = PlayStationFastBoot,
+            PlayStationAnalog = PlayStationAnalog,
             N64ExpansionPak = N64ExpansionPak,
             N64RumblePak = N64RumblePak,
             PlayStation2BiosPath = PlayStation2BiosPath.Trim().Trim('"'),

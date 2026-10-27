@@ -28,7 +28,8 @@ internal static class ConsoleFactory
         PlayStationSetup? playStation = null,
         N64Setup? n64 = null,
         PlayStation2Setup? playStation2 = null,
-        SnesSetup? snes = null)
+        SnesSetup? snes = null,
+        byte[]? atari5200Bios = null)
     {
         if (system == GameSystem.PlayStation)
         {
@@ -55,6 +56,38 @@ internal static class ConsoleFactory
         if (system == GameSystem.Nintendo64)
         {
             return CreateNintendo64(data, profile, n64 ?? new N64Setup());
+        }
+
+        if (system == GameSystem.Atari2600)
+        {
+            try
+            {
+                // The profile's model can name the bank-switching scheme ("F8SC", "E0", …) when detection guesses wrong.
+                return new GameVault.Core.Atari.Atari2600Console(new GameVault.Core.Atari.Atari2600Cartridge(data, profile.Model));
+            }
+            catch (RomFormatException ex)
+            {
+                throw new GameLoadException(ex.Message, ex);
+            }
+        }
+
+        if (system == GameSystem.Atari5200)
+        {
+            if (atari5200Bios is null)
+            {
+                throw new GameLoadException(
+                    "This is an Atari 5200 game. To play it, choose your own Atari 5200 BIOS (5200.rom, 2 KB) in Settings → Atari 5200. GameVault doesn't include it.");
+            }
+
+            try
+            {
+                // The profile's model can say a 16 KB game is built from two 8 KB chips ("two-chip").
+                return new GameVault.Core.Atari.Atari5200Console(new GameVault.Core.Atari.Atari5200Cartridge(data, profile.Model), atari5200Bios);
+            }
+            catch (RomFormatException ex)
+            {
+                throw new GameLoadException(ex.Message, ex);
+            }
         }
 
         if (system == GameSystem.AppleII)
@@ -222,7 +255,7 @@ internal static class ConsoleFactory
         {
             try
             {
-                return new PlayStationConsole(bios, exe: PsExe.Parse(data));
+                return new PlayStationConsole(bios, exe: PsExe.Parse(data)) { AnalogPads = setup?.AnalogPads ?? false };
             }
             catch (InvalidDataException ex)
             {
@@ -246,7 +279,7 @@ internal static class ConsoleFactory
             throw new GameLoadException("GameVault couldn't open that disc: " + ex.Message, ex);
         }
 
-        return new PlayStationConsole(bios, disc, fastBoot: setup!.FastBoot);
+        return new PlayStationConsole(bios, disc, fastBoot: setup!.FastBoot) { AnalogPads = setup.AnalogPads };
     }
 
     /// <summary>
@@ -272,7 +305,7 @@ internal static class ConsoleFactory
 
             try
             {
-                return WithRenderThreads(new Ps2Console(Ps2Boot.FromElf(data), bios, Ps2MemoryCard.CreateFormatted()));
+                return WithRenderThreads(new Ps2Console(Ps2Boot.FromElf(data), bios, Ps2MemoryCard.CreateFormatted()) { MemoryCard2 = Ps2MemoryCard.CreateFormatted() });
             }
             catch (InvalidDataException ex)
             {
@@ -297,7 +330,10 @@ internal static class ConsoleFactory
 
         try
         {
-            return WithRenderThreads(new Ps2Console(Ps2Boot.FromDisc(disc), bios, Ps2MemoryCard.CreateFormatted(), new Ps2ConsoleOptions { FastBoot = setup!.FastBoot }));
+            return WithRenderThreads(new Ps2Console(Ps2Boot.FromDisc(disc), bios, Ps2MemoryCard.CreateFormatted(), new Ps2ConsoleOptions { FastBoot = setup!.FastBoot })
+            {
+                MemoryCard2 = Ps2MemoryCard.CreateFormatted(),
+            });
         }
         catch
         {

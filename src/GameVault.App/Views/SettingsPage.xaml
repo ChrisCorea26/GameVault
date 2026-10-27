@@ -164,7 +164,7 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="GameVault looks in these folders for games for every system it plays (NES and Disk System, SG-1000, Master System, Apple II, Genesis, Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2), including games inside .zip files, and notices when you add or remove them."
+              Text="GameVault looks in these folders for games for every system it plays (NES and Disk System, SG-1000, Master System, Apple II, Genesis, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, Atari 2600 and Atari 5200), including games inside .zip files, and notices when you add or remove them."
               TextWrapping="Wrap" />
           <ItemsRepeater ItemsSource="{x:Bind ViewModel.Library.Folders}">
             <ItemsRepeater.ItemTemplate>
@@ -485,6 +485,24 @@
       </Border>
 
       <!-- Cartridge dumper (SPEC §8) -->
+      <!-- Netplay over the internet (outstanding-work plan §13): an optional relay server -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Netplay" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBox
+              AutomationProperties.Name="Netplay relay server"
+              Header="Relay server (optional)"
+              LostFocus="NetplayRelay_LostFocus"
+              PlaceholderText="relay.example.com:47801"
+              Text="{x:Bind ViewModel.NetplayRelayServer, Mode=TwoWay}" />
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Hosting over the internet connects the two PCs directly, with a reply code from the other player. If your routers can't reach each other, one of you can run GameVault's relay (GameVault.Relay) on a server and enter its address here; the other player then just needs your code."
+              TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Cartridge dumper" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
         <StackPanel Spacing="8">
@@ -573,6 +591,40 @@
         </StackPanel>
       </Border>
 
+      <!-- Atari 5200 (phase 19): the player's own BIOS; GameVault never ships it -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Atari 5200" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Atari 5200 games (.a52) need the 5200's BIOS (5200.rom, 2 KB) from your own console. GameVault doesn't include it. Choose the file, or paste where it is."
+              TextWrapping="Wrap" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="Atari 5200 BIOS file"
+                LostFocus="Atari5200BiosPath_LostFocus"
+                PlaceholderText="C:\Atari\5200.rom"
+                Text="{x:Bind ViewModel.Atari5200BiosPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Choose the Atari 5200 BIOS file"
+                Command="{x:Bind ViewModel.ChooseAtari5200BiosCommand}"
+                Content="Choose…" />
+          </Grid>
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="While a 5200 game runs, the number row is controller 1's keypad: 0–9, minus for *, equals for # and R for Reset. Enter is Start and Right Shift is Pause."
+              TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
       <!-- Apple II (SPEC §7.11): the player's own ROMs; GameVault never ships them -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Apple II" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
@@ -657,7 +709,7 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="Games with a DSP chip (such as Pilotwings and Super Mario Kart) need that chip's program, dumped from your own cartridge: dsp1b.rom (or dsp1.rom), dsp2.rom, dsp3.rom or dsp4.rom. Put the files in a folder and choose it here. GameVault doesn't include them. Super FX games, such as Star Fox, need nothing extra."
+              Text="Games with a DSP chip (such as Pilotwings and Super Mario Kart) need that chip's program, dumped from your own cartridge: dsp1b.rom (or dsp1.rom), dsp2.rom, dsp3.rom or dsp4.rom; Seta's F1 ROC II and Morita Shogi need st010.rom or st011.rom. Put the files in a folder and choose it here. GameVault doesn't include them. Super FX, SA-1, S-DD1 and OBC1 games, such as Star Fox and Super Mario RPG, need nothing extra."
               TextWrapping="Wrap" />
           <Grid ColumnSpacing="8">
             <Grid.ColumnDefinitions>
@@ -723,6 +775,27 @@
                 MinWidth="0"
                 AutomationProperties.Name="Skip the PlayStation startup screens"
                 IsOn="{x:Bind ViewModel.PlayStationFastBoot, Mode=TwoWay}"
+                OffContent=""
+                OnContent="" />
+          </Grid>
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Analog mode" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Starts the controllers in analog mode, as if you'd pressed the DualShock's Analog button, for games that use the sticks but don't turn them on themselves. Leave it off for older games that only know the digital controller. Takes effect the next time a game starts."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch
+                Grid.Column="1"
+                MinWidth="0"
+                AutomationProperties.Name="PlayStation controllers in analog mode"
+                IsOn="{x:Bind ViewModel.PlayStationAnalog, Mode=TwoWay}"
                 OffContent=""
                 OnContent="" />
           </Grid>
