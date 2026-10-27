@@ -485,6 +485,24 @@
       </Border>
 
       <!-- Cartridge dumper (SPEC §8) -->
+      <!-- Netplay over the internet (outstanding-work plan §13): an optional relay server -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Netplay" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBox
+              AutomationProperties.Name="Netplay relay server"
+              Header="Relay server (optional)"
+              LostFocus="NetplayRelay_LostFocus"
+              PlaceholderText="relay.example.com:47801"
+              Text="{x:Bind ViewModel.NetplayRelayServer, Mode=TwoWay}" />
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Hosting over the internet connects the two PCs directly, with a reply code from the other player. If your routers can't reach each other, one of you can run GameVault's relay (GameVault.Relay) on a server and enter its address here; the other player then just needs your code."
+              TextWrapping="Wrap" />
+        </StackPanel>
+      </Border>
+
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Cartridge dumper" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
         <StackPanel Spacing="8">

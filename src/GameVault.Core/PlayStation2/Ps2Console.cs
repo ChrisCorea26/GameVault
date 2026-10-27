@@ -245,6 +245,16 @@ public sealed partial class Ps2Console : IEmulatedConsole, IStateful
     public Ps2MemoryCard MemoryCard => Iop.MemoryCard!;
 
     /// <summary>
+    /// The memory card in slot 2, or null for an empty slot. GameVault's app puts one shared card there, the same for
+    /// every game; set it before <see cref="Power"/>.
+    /// </summary>
+    public Ps2MemoryCard? MemoryCard2
+    {
+        get => Iop.MemoryCard2;
+        set => Iop.MemoryCard2 = value;
+    }
+
+    /// <summary>
     /// Text the program prints: the EE's debug UART (KPUTCHAR at $1000F180), the IOP's console output, and — on
     /// GameVault's kernel — the <c>fileio</c> server's writes to stdout and Deci2Call's TTY. Null while unused.
     /// </summary>

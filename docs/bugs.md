@@ -284,8 +284,6 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 
 | Item | Source |
 |---|---|
-| Internet netplay (relay/STUN); the first release is LAN only | SPEC §7.7, `docs/plans/phase-7.md` |
-| Netplay for Famicom Disk System games | `EmulatorHost.cs:382` |
 | SNES enhancement chips still missing: Cx4, SPC7110, ST018, S-RTC (the SA-1, S-DD1, OBC1, ST010 and ST011 are done) | `docs/plans/outstanding-work.md` §5 |
 | Genesis stereo, EEPROM saves on EA/Acclaim/Codemasters boards, Sega CD, 32X | `docs/plans/phase-13.md`, `docs/plans/outstanding-work.md` §7, §17 |
 | PlayStation multitap, Justifier, GameShark, memory card manager, GPU renderer (the DualShock, GunCon and mouse are done) | `docs/plans/phase-15.md` |
@@ -293,4 +291,5 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 | ~~Apple II monochrome, user character ROM, mid-frame mode changes~~ Done (outstanding-work §9) | `docs/plans/phase-12.md` |
 | RetroAchievements approval for hardcore unlocks; real-game and real-cartridge checks | Owner tasks in README and phase plans |
 | PlayStation 2 GPU renderer (GS); N64 GPU renderer | `docs/plans/phase-17-performance.md`, `docs/plans/outstanding-work.md` §14 |
+| PlayStation 2 multitap and DualShock 2 vibration (slot 2, pressure and mipmapping are done) | `docs/plans/outstanding-work.md` §12 |
 | GameCube / Wii, Atari 5200; the 2600's paddles, rarer boards and PAL colours | SPEC §7.11, phases 18–19, `docs/plans/phase-19.md` |

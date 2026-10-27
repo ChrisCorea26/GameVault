@@ -70,6 +70,12 @@ Properties. Higher settings need a faster PC.
 | **Two players, one keyboard** | On / Off | Off |
 | **Turbo speed** | 30, 20, 15, 12, 10 or 7.5 presses per second | 15 |
 
+## Netplay
+
+| Setting | Values | Default |
+|---|---|---|
+| **Relay server (optional)** | `server:port` of a GameVault relay, for hosting over the internet when the two PCs can't reach each other directly. See [Netplay](#netplay). | Empty |
+
 ## Cartridge dumper
 
 The path to `inlretro.exe`, the INL Retro-Prog command-line tool, for example `C:\INL-retro\inlretro.exe`. Type or
