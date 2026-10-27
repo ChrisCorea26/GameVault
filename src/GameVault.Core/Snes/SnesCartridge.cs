@@ -61,14 +61,16 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
             {
                 0x0 => CreateDsp(chipRoms),
                 0x1 => CreateSuperFx(chip),
+                0x2 => new Obc1(),
                 0x3 => new Sa1(_rom, ramSize is > 0 and <= 8 ? 1024 << ramSize : 0, Pal),
+                0x4 => new Sdd1(_rom),
                 _ => throw new UnsupportedChipException(ChipName(chip)),
             };
         }
 
-        _sram = Coprocessor is SuperFx or Sa1 || ramSize is 0 or > 7 ? [] : new byte[1024 << ramSize];
+        _sram = Coprocessor is SuperFx or Sa1 or Obc1 || ramSize is 0 or > 7 ? [] : new byte[1024 << ramSize];
         Array.Fill(_sram, (byte)0xFF);
-        HasBattery = battery && (_sram.Length > 0 || Coprocessor is SuperFx or Sa1);
+        HasBattery = battery && (_sram.Length > 0 || Coprocessor is SuperFx or Sa1 or Obc1);
     }
 
     public ReadOnlySpan<byte> Rom => _rom;
@@ -93,6 +95,7 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
     {
         SuperFx gsu => gsu.Ram,
         Sa1 sa1 => sa1.BwRam,
+        Obc1 obc1 => obc1.Ram,
         _ => _sram,
     };
 
