@@ -93,6 +93,12 @@ The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`, or 
 
 Each box has **Choose…** to pick the file.
 
+## Super Nintendo
+
+| Setting | Values | Default |
+|---|---|---|
+| **Enhancement chip ROMs** | A folder holding your own `dsp1b.rom` (or `dsp1.rom`), `dsp2.rom`, `dsp3.rom` or `dsp4.rom`, or **Choose…** | Empty |
+
 ## PlayStation
 
 | Setting | Values | Default |

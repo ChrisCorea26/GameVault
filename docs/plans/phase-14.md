@@ -195,4 +195,6 @@ Controllers are positional, as on the real pad:
 ## Owner checklist
 - Try a few of your own cartridge dumps (LoROM and HiROM games, a game with battery saves, a mode 7 game),
   and list anything that misbehaves.
-- Games with enhancement chips won't run yet.
+- Super FX games (Star Fox, Yoshi's Island, Stunt Race FX) and DSP-1 games with your own `dsp1b.rom` (Pilotwings,
+  Super Mario Kart) run since `outstanding-work.md` §4; list what misbehaves. Other chips (SA-1, Cx4, …) won't run
+  yet.
