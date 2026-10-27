@@ -16,6 +16,15 @@ public enum BiosKind
     Atari5200,
     /// <summary>The Sega CD BIOS (128 KB, such as the Model 1 or 2 US BIOS).</summary>
     SegaCd,
+
+    /// <summary>The 32X's 68000 BIOS (256 bytes).</summary>
+    Sega32XGenesis,
+
+    /// <summary>The 32X's master SH-2 BIOS (2 KB).</summary>
+    Sega32XMaster,
+
+    /// <summary>The 32X's slave SH-2 BIOS (1 KB).</summary>
+    Sega32XSlave,
 }
 
 /// <summary>What happened when the player chose a BIOS file.</summary>
@@ -48,6 +57,7 @@ public sealed class BiosImporter(string biosDirectory)
         BiosKind.PlayStation2 => "ps2",
         BiosKind.Atari5200 => "a5200",
         BiosKind.SegaCd => "segacd",
+        BiosKind.Sega32XGenesis or BiosKind.Sega32XMaster or BiosKind.Sega32XSlave => "32x",
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     });
 
@@ -125,6 +135,15 @@ public sealed class BiosImporter(string biosDirectory)
             BiosKind.SegaCd => length == SegaCdBiosSize
                 ? new BiosImport(true, "Sega CD BIOS (128 KB).")
                 : new BiosImport(false, "This file isn't a Sega CD BIOS: a BIOS is 128 KB."),
+            BiosKind.Sega32XGenesis => length == 256
+                ? new BiosImport(true, "32X 68000 BIOS (256 bytes).")
+                : new BiosImport(false, "This file isn't the 32X's 68000 BIOS: it is 256 bytes."),
+            BiosKind.Sega32XMaster => length == 2048
+                ? new BiosImport(true, "32X master SH-2 BIOS (2 KB).")
+                : new BiosImport(false, "This file isn't the 32X's master SH-2 BIOS: it is 2 KB."),
+            BiosKind.Sega32XSlave => length == 1024
+                ? new BiosImport(true, "32X slave SH-2 BIOS (1 KB).")
+                : new BiosImport(false, "This file isn't the 32X's slave SH-2 BIOS: it is 1 KB."),
             _ => throw new ArgumentOutOfRangeException(nameof(kind)),
         };
     }
