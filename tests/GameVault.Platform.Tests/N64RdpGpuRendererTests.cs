@@ -13,6 +13,7 @@ namespace GameVault.Platform.Tests;
 /// Direct3D 11's WARP on Windows and on a Vulkan software device (SwiftShader or lavapipe) elsewhere; without either
 /// the tests return early.
 /// </summary>
+[Collection(GpuKernelCollection.Name)]
 public sealed class N64RdpGpuRendererTests(ITestOutputHelper output)
 {
     private const uint Frame = 0x100000;
@@ -582,4 +583,14 @@ public sealed class N64RdpGpuRendererTests(ITestOutputHelper output)
         {
         }
     }
+}
+
+/// <summary>
+/// Runs the GPU kernel tests alone, after the tests that run in parallel: on a software device (WARP, lavapipe) they
+/// keep every core busy, which starved the host tests that wait on the real-time frame loop.
+/// </summary>
+[CollectionDefinition(Name, DisableParallelization = true)]
+public sealed class GpuKernelCollection
+{
+    public const string Name = "GPU kernels";
 }

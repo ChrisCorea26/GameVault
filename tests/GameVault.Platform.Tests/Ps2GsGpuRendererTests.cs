@@ -13,6 +13,7 @@ namespace GameVault.Platform.Tests;
 /// The software GS interpolates in doubles and the kernel in floats, so a few words may differ by a step. Runs on
 /// WARP on Windows and on a Vulkan software device elsewhere; without either the tests return early.
 /// </summary>
+[Collection(GpuKernelCollection.Name)]
 public sealed class Ps2GsGpuRendererTests(ITestOutputHelper output)
 {
     private sealed class Rig : IDisposable
