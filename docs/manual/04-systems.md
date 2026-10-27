@@ -268,11 +268,16 @@ D-pad. Games that use the sticks switch them to analog themselves. For a game th
 you to press the DualShock's Analog button, turn on **Settings → PlayStation → Analog mode**. Games that rumble shake
 your controller, if it has motors.
 
+**Light gun and mouse:** for a GunCon game (*Time Crisis*, *Point Blank*), set **Game Details → Properties → Port
+1** to **GunCon (the mouse aims)**: point with the mouse, the left button is the trigger, the right button A and the
+middle button B. Most GunCon games start with a calibration screen; shoot its centre. For a mouse game (*Lemmings*,
+*Discworld*), choose **Mouse**: moving the mouse over the picture moves it, with its left and right buttons.
+
 **Memory cards:** each game gets its own card in slot 1, so you never run out of space. Slot 2 is empty.
 
 Videos and other pictures in 24-bit colour are shown with all their colours.
 
-**Not supported yet:** multitap, mouse, light guns, link cable, GameShark codes, a memory card manager, and enhanced
+**Not supported yet:** multitap, the Justifier light gun, link cable, GameShark codes, a memory card manager, and enhanced
 (upscaled) graphics.
 
 **Messages:**

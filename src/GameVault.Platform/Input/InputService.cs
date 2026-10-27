@@ -207,6 +207,63 @@ public sealed class InputService
         }
     }
 
+    private (double X, double Y)? _gunAim;
+    private bool _gunTrigger;
+    private bool _gunA;
+    private bool _gunB;
+    private double _mouseDx;
+    private double _mouseDy;
+    private bool _mouseLeft;
+    private bool _mouseRight;
+
+    /// <summary>
+    /// The PlayStation's GunCon, driven by the mouse over the game: the aim as fractions of the picture (null off it),
+    /// the left button as the trigger, the right button as A and the middle one as B. Set on the UI thread.
+    /// </summary>
+    public void SetGun((double X, double Y)? aim, bool trigger, bool a, bool b)
+    {
+        lock (_gate)
+        {
+            _gunAim = aim;
+            _gunTrigger = trigger;
+            _gunA = a;
+            _gunB = b;
+        }
+    }
+
+    public ((double X, double Y)? Aim, bool Trigger, bool A, bool B) SampleGun()
+    {
+        lock (_gate)
+        {
+            return (_gunAim, _gunTrigger, _gunA, _gunB);
+        }
+    }
+
+    /// <summary>The PlayStation Mouse: movement since the last frame (in mouse counts) and the two buttons. UI thread.</summary>
+    public void MoveMouse(double dx, double dy, bool left, bool right)
+    {
+        lock (_gate)
+        {
+            _mouseDx += dx;
+            _mouseDy += dy;
+            _mouseLeft = left;
+            _mouseRight = right;
+        }
+    }
+
+    /// <summary>The movement since the last sample, in whole counts (the rest carries over), and the buttons.</summary>
+    public (int Dx, int Dy, bool Left, bool Right) SampleMouse()
+    {
+        lock (_gate)
+        {
+            var dx = (int)_mouseDx;
+            var dy = (int)_mouseDy;
+            _mouseDx -= dx;
+            _mouseDy -= dy;
+            return (dx, dy, _mouseLeft, _mouseRight);
+        }
+    }
+
     /// <summary>The Zapper state for the next frame (emulation thread).</summary>
     public ((int X, int Y)? Aim, bool Trigger) SampleZapper()
     {

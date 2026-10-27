@@ -126,3 +126,74 @@ public sealed class PsGpuTrueColorTests
         gpu.CopyDisplay(frame, argb).Should().BeFalse();
     }
 }
+
+/// <summary>The GunCon and the mouse (outstanding-work plan §11).</summary>
+public sealed class PsPointerDeviceTests
+{
+    private static byte[] Packet(Func<int, (byte Reply, bool Ack)> exchange, int length)
+    {
+        var reply = new byte[length];
+        for (var i = 0; i < length; i++)
+        {
+            var (value, ack) = exchange(i);
+            reply[i] = value;
+            ack.Should().Be(i < length - 1);
+        }
+
+        return reply;
+    }
+
+    [Fact]
+    public void The_guncon_reports_its_buttons_and_where_it_points()
+    {
+        var gun = new PsGunCon();
+        gun.Set((0.5, 0.25), trigger: true, a: false, b: true);
+
+        var reply = Packet(i => (gun.Exchange(i, out var ack), ack), 8);
+
+        reply[0].Should().Be(0x63);
+        var buttons = ~(reply[2] | reply[3] << 8) & 0xFFFF;
+        buttons.Should().Be((1 << 13) | (1 << 14), "the trigger and B");
+        (reply[4] | reply[5] << 8).Should().Be(77 + 192);
+        (reply[6] | reply[7] << 8).Should().Be(25 + 56);
+
+        gun.Set(null, false, false, false);
+        var off = Packet(i => (gun.Exchange(i, out var ack), ack), 8);
+        (off[4] | off[5] << 8).Should().Be(1, "off the screen");
+        (off[6] | off[7] << 8).Should().Be(10);
+    }
+
+    [Fact]
+    public void The_mouse_reports_its_movement_once_and_carries_the_rest()
+    {
+        var mouse = new PsMouse();
+        mouse.Move(200, -3, left: true, right: false);
+
+        var first = Packet(i => (mouse.Exchange(i, out var ack), ack), 6);
+        first[0].Should().Be(0x12);
+        first[3].Should().Be(0xF4, "left pressed (bit 3 low)");
+        ((sbyte)first[4]).Should().Be(127);
+        ((sbyte)first[5]).Should().Be(-3);
+
+        var second = Packet(i => (mouse.Exchange(i, out var ack), ack), 6);
+        ((sbyte)second[4]).Should().Be(73, "what didn't fit in the first report");
+        ((sbyte)second[5]).Should().Be(0);
+    }
+
+    [Fact]
+    public void A_port_set_to_the_mouse_answers_as_the_mouse_and_its_state_round_trips()
+    {
+        var sio = new PsSio();
+        sio.SetDevice(0, PsPortDevice.Mouse);
+        sio.Mouse(0).Move(5, 6, false, true);
+        var writer = new StateWriter();
+        sio.SaveState(writer);
+
+        var copy = new PsSio();
+        copy.SetDevice(0, PsPortDevice.Mouse);
+        copy.LoadState(new StateReader(writer.ToArray()));
+        var reply = Packet(i => (copy.Mouse(0).Exchange(i, out var ack), ack), 6);
+        ((sbyte)reply[4]).Should().Be(5);
+        reply[3].Should().Be(0xF8, "right pressed (bit 2 low)");
+    }
+}

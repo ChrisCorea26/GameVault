@@ -229,7 +229,8 @@ Real games are the owner's to try; see `docs/plans/phase-14.md`.
 | Fast boot and PS-EXE loading | ✅ Unit tests with a stand-in BIOS |
 | Whole machine: PeterLemon's `printgpu` demo through the frame loop | ✅ Golden image |
 | DualShock: digital, analog and config modes, the motors (passed to the player's pad); 24-bit display at full depth | ✅ Unit tests |
-| Multitap, mouse, light guns; GameShark codes | Not yet |
+| GunCon and mouse (port 1, from Game Details) | ✅ Unit tests; aiming against real games is the owner's to check |
+| Multitap, Justifier; GameShark codes | Not yet |
 
 Real discs need the owner's BIOS (Settings → PlayStation); real games are the owner's to try. See
 `docs/plans/phase-15.md`.

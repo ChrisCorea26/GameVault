@@ -85,6 +85,9 @@ public sealed class PsSio : IStateful
 
     private readonly ControllerState[] _pads = new ControllerState[2];
     private readonly PsDualShock[] _dualShocks = [new PsDualShock(), new PsDualShock()];
+    private readonly PsGunCon[] _guns = [new PsGunCon(), new PsGunCon()];
+    private readonly PsMouse[] _mice = [new PsMouse(), new PsMouse()];
+    private readonly PsPortDevice[] _devices = new PsPortDevice[2];
     private readonly PsMemoryCard?[] _cards = new PsMemoryCard?[2];
     private readonly byte[] _cardFlag = [0x08, 0x08];
 
@@ -135,6 +138,16 @@ public sealed class PsSio : IStateful
 
     /// <summary>The DualShock in a port.</summary>
     public PsDualShock Pad(int port) => _dualShocks[port];
+
+    /// <summary>The GunCon and the mouse of a port, used when <see cref="SetDevice"/> plugs them in.</summary>
+    public PsGunCon Gun(int port) => _guns[port];
+
+    public PsMouse Mouse(int port) => _mice[port];
+
+    /// <summary>What answers in a port (the game's setting); a configuration choice, not part of the save state.</summary>
+    public void SetDevice(int port, PsPortDevice device) => _devices[port] = device;
+
+    public PsPortDevice DeviceIn(int port) => _devices[port];
 
     public void Reset()
     {
@@ -294,7 +307,12 @@ public sealed class PsSio : IStateful
 
     // ---- The pad ----
 
-    private byte PadExchange(int port, byte data, out bool ack) => _dualShocks[port].Exchange(_step++, data, out ack);
+    private byte PadExchange(int port, byte data, out bool ack) => _devices[port] switch
+    {
+        PsPortDevice.GunCon => _guns[port].Exchange(_step++, out ack),
+        PsPortDevice.Mouse => _mice[port].Exchange(_step++, out ack),
+        _ => _dualShocks[port].Exchange(_step++, data, out ack),
+    };
 
     // ---- Memory card ----
 
@@ -438,6 +456,12 @@ public sealed class PsSio : IStateful
             pad.SaveState(writer);
         }
 
+        for (var i = 0; i < 2; i++)
+        {
+            _guns[i].SaveState(writer);
+            _mice[i].SaveState(writer);
+        }
+
         writer.EndChunk();
     }
 
@@ -482,6 +506,15 @@ public sealed class PsSio : IStateful
             else
             {
                 pad.Reset();
+            }
+        }
+
+        if (version >= 2)
+        {
+            for (var i = 0; i < 2; i++)
+            {
+                _guns[i].LoadState(reader);
+                _mice[i].LoadState(reader);
             }
         }
 

@@ -289,7 +289,7 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 | SNES enhancement chips beyond the DSP-n and Super FX (SA-1, Cx4, S-DD1, SPC7110, …) | `docs/plans/outstanding-work.md` §5 |
 | SC-3000 keyboard, Japanese SMS FM sound (YM2413) | `docs/plans/phase-11.md` |
 | Genesis stereo, interlace mode 2, Master System mode, EEPROM saves, Sega CD, 32X | `docs/plans/phase-13.md` |
-| PlayStation multitap, mouse, light guns, GameShark, memory card manager, GPU renderer (the DualShock is done) | `docs/plans/phase-15.md` |
+| PlayStation multitap, Justifier, GameShark, memory card manager, GPU renderer (the DualShock, GunCon and mouse are done) | `docs/plans/phase-15.md` |
 | N64 GPU renderer and recompiler, Transfer Pak, 64DD, GameShark (the Rumble Pak is done) | README status, `docs/plans/phase-16.md` |
 | Apple II monochrome, user character ROM, mid-frame mode changes | `docs/plans/phase-12.md` |
 | RetroAchievements approval for hardcore unlocks; real-game and real-cartridge checks | Owner tasks in README and phase plans |

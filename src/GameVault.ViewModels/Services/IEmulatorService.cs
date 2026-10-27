@@ -28,6 +28,12 @@ public interface IEmulatorService
     /// <summary>True when the game is set up for the Arkanoid paddle, so the mouse turns it (SPEC §4.7).</summary>
     bool UsesPaddle => false;
 
+    /// <summary>True when the game is set up for the PlayStation's GunCon, so the mouse aims it.</summary>
+    bool UsesGun => false;
+
+    /// <summary>True when the game is set up for the PlayStation Mouse.</summary>
+    bool UsesMouse => false;
+
     /// <summary>True when the game is set up for the Four Score (four players).</summary>
     bool UsesFourScore { get; }
 
