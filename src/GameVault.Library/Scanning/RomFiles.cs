@@ -18,7 +18,7 @@ public static class RomFiles
     /// <summary>Every extension GameVault opens directly (besides .zip).</summary>
     public static IReadOnlyList<string> Extensions { get; } =
         [".nes", ".fds", ".sms", ".sg", ".sc", ".dsk", ".do", ".po", ".nib", ".woz", ".md", ".gen", ".smd", ".bin", ".sfc", ".smc",
-            ".cue", ".chd", ".m3u", ".exe", ".z64", ".v64", ".n64", ".iso", ".elf", ".a26"];
+            ".cue", ".chd", ".m3u", ".exe", ".z64", ".v64", ".n64", ".iso", ".elf", ".a26", ".a52"];
 
     /// <summary>
     /// The system a file is for, from its extension; null for other files (and .zip, whose content decides). Disc images
@@ -37,6 +37,7 @@ public static class RomFiles
         ".z64" or ".v64" or ".n64" => GameSystem.Nintendo64,
         ".iso" or ".elf" => GameSystem.PlayStation2, // an .elf counts only as a PS2 ELF (see Read)
         ".a26" => GameSystem.Atari2600,
+        ".a52" => GameSystem.Atari5200,
         _ => null,
     };
 

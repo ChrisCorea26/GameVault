@@ -24,6 +24,7 @@ public sealed class GameTileViewModel(GameEntry game)
         GameVault.Core.Systems.GameSystem.PlayStation2 => "PlayStation 2",
         GameVault.Core.Systems.GameSystem.SegaCd => "Sega CD",
         GameVault.Core.Systems.GameSystem.Atari2600 => "Atari 2600",
+        GameVault.Core.Systems.GameSystem.Atari5200 => "Atari 5200",
         _ => "NES",
     };
 

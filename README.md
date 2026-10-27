@@ -38,7 +38,7 @@ system, the BIOS and ROM files you must supply, controls, settings and troublesh
 | 17 | Sony PlayStation 2 | ✅ 54 of ps2autotests' 55 EE programs match the hardware's output; EE, VU0/VU1, GS (software), IOP, SPU2, IPU, DualShock 2 and 8 MB memory cards; .iso, .chd, .cue/.bin and .elf. Discs need your own BIOS (ELF homebrew runs without one); the EE and both VUs run recompiled and the software GS draws on several cores, but many games still run below full speed (a GPU renderer is next, [plan](docs/plans/phase-17-performance.md)); real-game checks are the owner's ([plan](docs/plans/phase-17.md)) |
 | — | Sega CD / Mega-CD | 🟡 Sub CPU, gate array, Word RAM, CDD, CDC, PCM and the graphics ASIC under hand-written test programs; .cue/.bin and .chd. Needs your own BIOS; booting real discs is the owner's to check ([plan](docs/plans/sega-cd-32x.md)) |
 | 18 | GameCube / Wii | Planned (SPEC §7.11) |
-| 19 | Atari 2600 (then 5200) | 🟡 2600: TIA drawn colour clock by colour clock, RIOT, sound, and the common bank-switching boards, all under hand-written test programs; real-game checks are the owner's; the 5200 is next ([plan](docs/plans/phase-19.md)) |
+| 19 | Atari 2600 and 5200 | 🟡 2600: TIA drawn colour clock by colour clock, RIOT, sound, and the common bank-switching boards. 5200: ANTIC's display lists and DMA, GTIA's players and priorities, POKEY's sound, pots and keypad, with the player's own BIOS. Both under hand-written test programs; real-game checks are the owner's ([plan](docs/plans/phase-19.md)) |
 
 Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md). Known bugs and missing features are
 tracked in [`docs/bugs.md`](docs/bugs.md).

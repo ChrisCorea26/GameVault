@@ -65,6 +65,8 @@ public sealed class SampleLibraryService : ILibraryService
             Ownership.Box | Ownership.Manual | Ownership.DigitalDump, PlayStatus.Playing, hours: 4.0, lastPlayedDaysAgo: 3, system: GameSystem.SegaCd),
         Game(23, "Laser Orchard", GameRegion.NorthAmerica, "Bitwave", 1982, "Shooter",
             Ownership.Cartridge | Ownership.DigitalDump, PlayStatus.Beaten, hours: 1.5, lastPlayedDaysAgo: 40, system: GameSystem.Atari2600),
+        Game(24, "Comet Cascade", GameRegion.NorthAmerica, "Bitwave", 1983, "Shooter",
+            Ownership.Cartridge | Ownership.Box, PlayStatus.Playing, hours: 3.0, lastPlayedDaysAgo: 5, system: GameSystem.Atari5200),
     ];
 
     private readonly List<GameEntry> _games;
@@ -226,6 +228,7 @@ public sealed class SampleLibraryService : ILibraryService
                     GameSystem.PlayStation2 => $@"C:\Games\PlayStation 2\{title}.iso",
                     GameSystem.SegaCd => $@"C:\Games\Sega CD\{title}.cue",
                     GameSystem.Atari2600 => $@"C:\Games\Atari 2600\{title}.a26",
+                    GameSystem.Atari5200 => $@"C:\Games\Atari 5200\{title}.a52",
                     _ => $@"C:\Games\NES\{title}.nes",
                 }
                 : null,

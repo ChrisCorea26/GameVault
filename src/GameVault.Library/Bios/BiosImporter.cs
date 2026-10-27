@@ -12,6 +12,8 @@ public enum BiosKind
     /// <summary>The PlayStation 2 BIOS (4 MB, such as SCPH-39001).</summary>
     PlayStation2,
 
+    /// <summary>The Atari 5200 BIOS (5200.rom, 2 KB).</summary>
+    Atari5200,
     /// <summary>The Sega CD BIOS (128 KB, such as the Model 1 or 2 US BIOS).</summary>
     SegaCd,
 }
@@ -33,6 +35,7 @@ public sealed class BiosImporter(string biosDirectory)
 
     public const int PlayStationBiosSize = 512 * 1024;
 
+    public const int Atari5200BiosSize = 2 * 1024;
     public const int SegaCdBiosSize = 128 * 1024;
 
     public string BiosDirectory { get; } = biosDirectory;
@@ -43,6 +46,7 @@ public sealed class BiosImporter(string biosDirectory)
         BiosKind.FamicomDiskSystem => "fds",
         BiosKind.PlayStation => "ps1",
         BiosKind.PlayStation2 => "ps2",
+        BiosKind.Atari5200 => "a5200",
         BiosKind.SegaCd => "segacd",
         _ => throw new ArgumentOutOfRangeException(nameof(kind)),
     });
@@ -115,6 +119,9 @@ public sealed class BiosImporter(string biosDirectory)
             BiosKind.PlayStation => length == PlayStationBiosSize
                 ? new BiosImport(true, "PlayStation BIOS (512 KB).")
                 : new BiosImport(false, "This file isn't a PlayStation BIOS: a BIOS is 512 KB."),
+            BiosKind.Atari5200 => length == Atari5200BiosSize
+                ? new BiosImport(true, "Atari 5200 BIOS (2 KB).")
+                : new BiosImport(false, "This file isn't an Atari 5200 BIOS: 5200.rom is 2 KB."),
             BiosKind.SegaCd => length == SegaCdBiosSize
                 ? new BiosImport(true, "Sega CD BIOS (128 KB).")
                 : new BiosImport(false, "This file isn't a Sega CD BIOS: a BIOS is 128 KB."),

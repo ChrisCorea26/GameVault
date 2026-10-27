@@ -1,3 +1,4 @@
+using GameVault.Core.Atari;
 using GameVault.Core.Input;
 
 namespace GameVault.Platform.Input;
@@ -305,6 +306,65 @@ public sealed class InputService
         }
     }
 
+    // ---------------------------------------------------------------- the Atari 5200's keypad (phase 19)
+
+    private readonly List<Atari5200Key> _keypadHeld = [];
+
+    /// <summary>
+    /// True while an Atari 5200 game runs: the number row is controller 1's keypad (0–9, minus for *, equals for #,
+    /// R for Reset) in place of what those keys usually do, and the controllers' left sticks are its analog stick.
+    /// </summary>
+    public bool KeypadMode
+    {
+        get;
+        set
+        {
+            lock (_gate)
+            {
+                field = value;
+                _keypadHeld.Clear();
+            }
+        }
+    }
+
+    /// <summary>The 5200 keypad key a keyboard key stands for, or None.</summary>
+    public static Atari5200Key KeypadKey(int virtualKey) => virtualKey switch
+    {
+        VirtualKeys.Digit1 => Atari5200Key.One,
+        VirtualKeys.Digit2 => Atari5200Key.Two,
+        VirtualKeys.Digit3 => Atari5200Key.Three,
+        VirtualKeys.Digit4 => Atari5200Key.Four,
+        VirtualKeys.Digit5 => Atari5200Key.Five,
+        VirtualKeys.Digit6 => Atari5200Key.Six,
+        VirtualKeys.Digit7 => Atari5200Key.Seven,
+        VirtualKeys.Digit8 => Atari5200Key.Eight,
+        VirtualKeys.Digit9 => Atari5200Key.Nine,
+        VirtualKeys.Digit0 => Atari5200Key.Zero,
+        VirtualKeys.Minus => Atari5200Key.Star,
+        VirtualKeys.EqualsKey => Atari5200Key.Hash,
+        VirtualKeys.R => Atari5200Key.Reset,
+        _ => Atari5200Key.None,
+    };
+
+    private bool KeypadKeyChanged(int virtualKey, bool down)
+    {
+        if (!KeypadMode || KeypadKey(virtualKey) is not (var key and not Atari5200Key.None))
+        {
+            return false;
+        }
+
+        lock (_gate)
+        {
+            _keypadHeld.Remove(key);
+            if (down)
+            {
+                _keypadHeld.Add(key); // the last key pressed wins while several are held
+            }
+        }
+
+        return true;
+    }
+
     /// <summary>
     /// True while a Genesis game runs (Phase 13): controllers use the 6-button layout, with the bottom row A, B, C
     /// on West, South and East and the top row X, Y, Z on the left shoulder, North and the right shoulder.
@@ -413,7 +473,7 @@ public sealed class InputService
 
     public bool KeyDown(int virtualKey)
     {
-        if (PowerPadKey(virtualKey, down: true))
+        if (PowerPadKey(virtualKey, down: true) || KeypadKeyChanged(virtualKey, down: true))
         {
             return true;
         }
@@ -455,7 +515,7 @@ public sealed class InputService
 
     public bool KeyUp(int virtualKey)
     {
-        if (PowerPadKey(virtualKey, down: false))
+        if (PowerPadKey(virtualKey, down: false) || KeypadKeyChanged(virtualKey, down: false))
         {
             return true;
         }
@@ -618,6 +678,7 @@ public sealed class InputService
             _heldHotkeys.Clear();
             _padHotkeys.Clear();
             _sticks.Clear();
+            _keypadHeld.Clear();
             _triggers.Clear();
             _zapperTrigger = false;
             _powerPad = 0;
@@ -685,6 +746,17 @@ public sealed class InputService
             {
                 state = WithSticks(state, port);
                 return Layout == PadLayout.PlayStation2 ? WithPressure(state, port) : state;
+            }
+
+            if (KeypadMode)
+            {
+                // The 5200 reads the stick when it's pushed and the D-pad otherwise.
+                var (x, y) = Strongest(ControllerState.None, port, right: false, DualShockStickRange);
+                state = state.WithStick(x, y);
+                if (port == 0 && _keypadHeld.Count > 0)
+                {
+                    state = state.WithKey(_keypadHeld[^1]);
+                }
             }
 
             if (!AllowOppositeDirections)

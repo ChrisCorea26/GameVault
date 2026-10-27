@@ -50,6 +50,16 @@ public sealed partial class SettingsViewModel(
     }
 
     [RelayCommand]
+    private async Task ChooseAtari5200BiosAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            Atari5200BiosPath = await ImportAsync(BiosKind.Atari5200, path);
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
     private async Task ChooseAppleRomAsync()
     {
         if (await PickAsync(".rom", ".bin") is { } path)
@@ -152,6 +162,9 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial string FdsBiosPath { get; set; } = string.Empty;
 
+    /// <summary>The player's own Atari 5200 BIOS (5200.rom). GameVault never includes it. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string Atari5200BiosPath { get; set; } = string.Empty;
     /// <summary>The player's own Sega CD BIOS. GameVault never includes it. Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string SegaCdBiosPath { get; set; } = string.Empty;
@@ -324,6 +337,7 @@ public sealed partial class SettingsViewModel(
         RewindMemoryIndex = Math.Max(0, Array.IndexOf(RewindMemoryValues, settings.RewindMemoryMb) is var i and >= 0 ? i : 2);
         DumperPath = settings.DumperPath;
         FdsBiosPath = settings.FdsBiosPath;
+        Atari5200BiosPath = settings.Atari5200BiosPath;
         SegaCdBiosPath = settings.SegaCdBiosPath;
         NetplayRelayServer = settings.NetplayRelayServer;
         AppleIIRomPath = settings.AppleIIRomPath;
@@ -400,6 +414,9 @@ public sealed partial class SettingsViewModel(
 
     [RelayCommand]
     private void SaveFdsBiosPath() => SaveIfLoaded();
+
+    [RelayCommand]
+    private void SaveAtari5200BiosPath() => SaveIfLoaded();
 
     [RelayCommand]
     private void SaveSegaCdBiosPath() => SaveIfLoaded();
@@ -481,6 +498,7 @@ public sealed partial class SettingsViewModel(
             MonoAudio = MonoAudio,
             DumperPath = DumperPath.Trim().Trim('"'),
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),
+            Atari5200BiosPath = Atari5200BiosPath.Trim().Trim('"'),
             SegaCdBiosPath = SegaCdBiosPath.Trim().Trim('"'),
             NetplayRelayServer = NetplayRelayServer.Trim(),
             AppleIIRomPath = AppleIIRomPath.Trim().Trim('"'),

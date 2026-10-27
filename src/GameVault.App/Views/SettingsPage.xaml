@@ -164,7 +164,7 @@
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"
-              Text="GameVault looks in these folders for games for every system it plays (NES and Disk System, SG-1000, Master System, Apple II, Genesis, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2 and Sega CD), including games inside .zip files, and notices when you add or remove them."
+              Text="GameVault looks in these folders for games for every system it plays (NES and Disk System, SG-1000, Master System, Apple II, Genesis, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, Atari 2600, Atari 5200 and Sega CD), including games inside .zip files, and notices when you add or remove them."
               TextWrapping="Wrap" />
           <ItemsRepeater ItemsSource="{x:Bind ViewModel.Library.Folders}">
             <ItemsRepeater.ItemTemplate>
@@ -617,6 +617,40 @@
                 Command="{x:Bind ViewModel.ChooseSegaCdBiosCommand}"
                 Content="Choose…" />
           </Grid>
+        </StackPanel>
+      </Border>
+
+      <!-- Atari 5200 (phase 19): the player's own BIOS; GameVault never ships it -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Atari 5200" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Atari 5200 games (.a52) need the 5200's BIOS (5200.rom, 2 KB) from your own console. GameVault doesn't include it. Choose the file, or paste where it is."
+              TextWrapping="Wrap" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="Atari 5200 BIOS file"
+                LostFocus="Atari5200BiosPath_LostFocus"
+                PlaceholderText="C:\Atari\5200.rom"
+                Text="{x:Bind ViewModel.Atari5200BiosPath, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Choose the Atari 5200 BIOS file"
+                Command="{x:Bind ViewModel.ChooseAtari5200BiosCommand}"
+                Content="Choose…" />
+          </Grid>
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="While a 5200 game runs, the number row is controller 1's keypad: 0–9, minus for *, equals for # and R for Reset. Enter is Start and Right Shift is Pause."
+              TextWrapping="Wrap" />
         </StackPanel>
       </Border>
 

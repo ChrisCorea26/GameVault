@@ -85,7 +85,9 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
                                     ? GameVault.Core.Systems.GameSystem.Nintendo64
                                     : datName.Contains("2600", StringComparison.OrdinalIgnoreCase)
                                         ? GameVault.Core.Systems.GameSystem.Atari2600
-                                        : GameVault.Core.Systems.GameSystem.Nes;
+                                        : datName.Contains("5200", StringComparison.OrdinalIgnoreCase)
+                                            ? GameVault.Core.Systems.GameSystem.Atari5200
+                                            : GameVault.Core.Systems.GameSystem.Nes;
 
     public static string KeyFor(CatalogGame game) => game.Sha1 is { } sha1 ? "sha1:" + sha1 : "crc:" + game.Crc32;
 

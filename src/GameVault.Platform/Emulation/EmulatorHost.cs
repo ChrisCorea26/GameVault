@@ -189,6 +189,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     private AppleRoms? _appleRoms;
     private SnesSetup? _snes;
 
+    /// <summary>The player's Atari 5200 BIOS for the game loaded (netplay builds its console again).</summary>
+    private byte[]? _atari5200Bios;
     /// <summary>The player's Sega CD BIOS for the disc loaded (netplay builds its console again).</summary>
     private byte[]? _segaCdBios;
 
@@ -545,7 +547,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     {
         var data = _romData!;
         var profile = Profile ?? new GameProfile { Sha1 = string.Empty };
-        var console = ConsoleFactory.Create(data, _romSystem, profile, _fdsBios, _romExtension, _appleRoms, _playStation, _n64, _playStation2, _snes, _segaCdBios);
+        var console = ConsoleFactory.Create(data, _romSystem, profile, _fdsBios, _romExtension, _appleRoms, _playStation, _n64, _playStation2, _snes, _atari5200Bios, _segaCdBios);
         if (_audioActive && _audio is not null)
         {
             console.EnableAudio(_audio.SampleRate);
@@ -1147,6 +1149,24 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         var playStation2 = rom.System == GameSystem.PlayStation2
             ? await LoadPlayStation2SetupAsync(cancellationToken).ConfigureAwait(false)
             : null;
+        byte[]? atari5200Bios = null;
+        if (rom.System == GameSystem.Atari5200 && _settings is not null)
+        {
+            var biosPath = (await _settings.LoadAsync(cancellationToken).ConfigureAwait(false)).Atari5200BiosPath;
+            if (!string.IsNullOrWhiteSpace(biosPath))
+            {
+                try
+                {
+                    atari5200Bios = await File.ReadAllBytesAsync(biosPath, cancellationToken).ConfigureAwait(false);
+                }
+                catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+                {
+                    throw new GameLoadException(
+                        "GameVault couldn't open your Atari 5200 BIOS. Check the file chosen in Settings → Atari 5200.", ex);
+                }
+            }
+        }
+
         byte[]? segaCdBios = null;
         if (rom.System == GameSystem.SegaCd && _settings is not null)
         {
@@ -1167,7 +1187,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         var snes = rom.System == GameSystem.Snes && _settings is not null
             ? await SnesSetup.LoadAsync(await _settings.LoadAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false)
             : null;
-        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation, n64, playStation2, snes, segaCdBios);
+        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation, n64, playStation2, snes, atari5200Bios, segaCdBios);
     }
 
     /// <summary>Shown when an Apple II disk starts without the Disk II boot ROM chosen in Settings.</summary>
@@ -1216,6 +1236,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         N64Setup? n64 = null,
         PlayStation2Setup? playStation2 = null,
         SnesSetup? snes = null,
+        byte[]? atari5200Bios = null,
         byte[]? segaCdBios = null)
     {
         RomHashes hashes;
@@ -1230,7 +1251,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
         var profile = ProfileResolver?.Invoke(hashes.Sha1) ?? new GameProfile { Sha1 = hashes.Sha1 };
         n64 ??= IsNintendo64(system) ? new N64Setup(SaveTypes: N64SaveTypes) : null;
-        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation, n64, playStation2, snes, segaCdBios);
+        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation, n64, playStation2, snes, atari5200Bios, segaCdBios);
         var nes = console as NesConsole;
 
         if (_audio is not null)
@@ -1275,11 +1296,13 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _n64 = n64;
         _playStation2 = playStation2;
         _snes = snes;
+        _atari5200Bios = atari5200Bios;
         _segaCdBios = segaCdBios;
         LoadControllerPak(console);
         LoadPs2MemoryCard(console);
         SetUpDiscs(data, system);
         _input.TypingMode = console is AppleConsole or SegaConsole { HasKeyboard: true };
+        _input.KeypadMode = console is GameVault.Core.Atari.Atari5200Console;
         if (console is AppleConsole && appleRoms?.DiskBoot is null)
         {
             // Without the Disk II controller's ROM the Apple starts with no disk drive, so the disk can't boot (GV-010).
@@ -1452,6 +1475,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         }
 
         _input.TypingMode = false;
+        _input.KeypadMode = false;
         _input.Layout = PadLayout.Nes;
         _input.StopRumble();
 
