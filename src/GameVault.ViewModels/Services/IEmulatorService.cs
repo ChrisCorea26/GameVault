@@ -25,6 +25,9 @@ public interface IEmulatorService
     /// <summary>True when the game is set up for the Zapper, so the mouse aims (SPEC §7.5).</summary>
     bool UsesZapper { get; }
 
+    /// <summary>True when the game is set up for the Arkanoid paddle, so the mouse turns it (SPEC §4.7).</summary>
+    bool UsesPaddle => false;
+
     /// <summary>True when the game is set up for the Four Score (four players).</summary>
     bool UsesFourScore { get; }
 

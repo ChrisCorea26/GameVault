@@ -342,6 +342,10 @@ public sealed partial class PlayerViewModel(
     [ObservableProperty]
     public partial bool UsesZapper { get; private set; }
 
+    /// <summary>The game is set up for the Arkanoid paddle, so moving the mouse turns it (SPEC §4.7).</summary>
+    [ObservableProperty]
+    public partial bool UsesPaddle { get; private set; }
+
     private bool _attached;
     private bool _pauseWhenInactive = true;
     private bool _pausedForInactive;
@@ -757,6 +761,7 @@ public sealed partial class PlayerViewModel(
         Status = emulator.Status;
         Title = emulator.GameTitle ?? "Player";
         UsesZapper = emulator.UsesZapper;
+        UsesPaddle = emulator.UsesPaddle;
         IsNesGame = emulator.System is null or GameVault.Core.Systems.GameSystem.Nes;
         if (emulator.Status == EmulatorStatus.Faulted)
         {

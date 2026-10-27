@@ -50,6 +50,88 @@ public sealed class InputService
         }
     }
 
+    // ---------------------------------------------------------------- Power Pad and Arkanoid paddle (SPEC §4.7, GV-013)
+
+    /// <summary>
+    /// The Power Pad's 12 buttons on the keyboard, in the mat's rows of four: U I O P, J K L ;, M , . / (none of them
+    /// is a controller key, so Player 1's pad still works for menus).
+    /// </summary>
+    public static IReadOnlyList<int> PowerPadKeys { get; } =
+    [
+        VirtualKeys.U, VirtualKeys.I, VirtualKeys.O, VirtualKeys.P,
+        VirtualKeys.J, VirtualKeys.K, VirtualKeys.L, VirtualKeys.Semicolon,
+        VirtualKeys.M, VirtualKeys.Comma, VirtualKeys.Period, VirtualKeys.Slash,
+    ];
+
+    private ushort _powerPad;
+    private double _paddle = 0.5;
+    private bool _paddleFire;
+
+    /// <summary>True while a Power Pad game runs: <see cref="PowerPadKeys"/> press the mat instead of anything else.</summary>
+    public bool PowerPadActive
+    {
+        get;
+        set
+        {
+            lock (_gate)
+            {
+                field = value;
+                _powerPad = 0;
+            }
+        }
+    }
+
+    /// <summary>The mat's buttons for the next frame: bit N - 1 for button N (emulation thread).</summary>
+    public ushort SamplePowerPad()
+    {
+        lock (_gate)
+        {
+            return _powerPad;
+        }
+    }
+
+    /// <summary>The Arkanoid paddle from the mouse (UI thread): the knob as a fraction of its travel, and the fire button.</summary>
+    public void SetPaddle(double fraction, bool fire)
+    {
+        lock (_gate)
+        {
+            _paddle = Math.Clamp(fraction, 0, 1);
+            _paddleFire = fire;
+        }
+    }
+
+    /// <summary>The paddle for the next frame (emulation thread).</summary>
+    public (double Fraction, bool Fire) SamplePaddle()
+    {
+        lock (_gate)
+        {
+            return (_paddle, _paddleFire);
+        }
+    }
+
+    private bool PowerPadKey(int virtualKey, bool down)
+    {
+        if (!PowerPadActive)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < PowerPadKeys.Count; i++)
+        {
+            if (PowerPadKeys[i] == virtualKey)
+            {
+                lock (_gate)
+                {
+                    _powerPad = (ushort)(down ? _powerPad | (1 << i) : _powerPad & ~(1 << i));
+                }
+
+                return true;
+            }
+        }
+
+        return false;
+    }
+
     private (int X, int Y)? _zapperAim;
     private bool _zapperTrigger;
 
@@ -189,6 +271,11 @@ public sealed class InputService
 
     public bool KeyDown(int virtualKey)
     {
+        if (PowerPadKey(virtualKey, down: true))
+        {
+            return true;
+        }
+
         var typed = TypingMode && Type(virtualKey);
         if (KeyboardMapping.Hotkeys.Contains(virtualKey))
         {
@@ -239,6 +326,11 @@ public sealed class InputService
 
     public bool KeyUp(int virtualKey)
     {
+        if (PowerPadKey(virtualKey, down: false))
+        {
+            return true;
+        }
+
         if (TypingMode)
         {
             lock (_gate)
@@ -406,6 +498,8 @@ public sealed class InputService
             _padHotkeys.Clear();
             _sticks.Clear();
             _zapperTrigger = false;
+            _powerPad = 0;
+            _paddleFire = false;
         }
     }
 

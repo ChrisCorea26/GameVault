@@ -93,4 +93,38 @@ public class ProfileApplicationTests
         (await host.InspectNesAsync(c => c.Mapper.Mirroring)).Should().Be(GameVault.Core.Cartridge.Mirroring.Vertical);
         (await host.InspectNesAsync(c => c.Ppu.RemoveSpriteLimit)).Should().BeTrue();
     }
+
+    [Fact]
+    public async Task Power_pad_and_paddle_games_get_their_devices_and_the_keyboard_or_mouse_drives_them()
+    {
+        var input = new GameVault.Platform.Input.InputService(GameVault.Platform.Input.KeyboardMapping.CreateDefault());
+        using var host = new EmulatorHost(new GameVault.Platform.Video.FrameSink(), input);
+        host.ProfileResolver = sha1 => new GameVault.Library.Profiles.GameProfile { Sha1 = sha1, Input = GameVault.Library.Profiles.InputType.PowerPad };
+
+        host.Load(BankedRom.Build(0, 4, 8), "Mat game");
+
+        (await host.InspectNesAsync(c => c.InputSetup)).Should().Be(GameVault.Core.Input.InputSetup.PowerPad);
+        input.PowerPadActive.Should().BeTrue();
+        input.KeyDown(GameVault.Platform.Input.VirtualKeys.O); // button 3
+        await WaitForAsync(async () => await host.InspectNesAsync(c => c.PowerPad.Buttons) == 1 << 2);
+
+        host.ProfileResolver = sha1 => new GameVault.Library.Profiles.GameProfile { Sha1 = sha1, Input = GameVault.Library.Profiles.InputType.ArkanoidPaddle };
+        host.Load(BankedRom.Build(0, 4, 8), "Paddle game");
+
+        host.UsesPaddle.Should().BeTrue();
+        input.PowerPadActive.Should().BeFalse();
+        input.SetPaddle(1, fire: true);
+        await WaitForAsync(async () => await host.InspectNesAsync(c => c.Paddle.Position) == GameVault.Core.Input.ArkanoidPaddle.MaxPosition);
+        (await host.InspectNesAsync(c => c.Paddle.Fire)).Should().BeTrue();
+    }
+
+    private static async Task WaitForAsync(Func<Task<bool>> condition)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(10);
+        while (!await condition())
+        {
+            DateTime.UtcNow.Should().BeBefore(deadline, "the condition should hold within 10 seconds");
+            await Task.Delay(10);
+        }
+    }
 }

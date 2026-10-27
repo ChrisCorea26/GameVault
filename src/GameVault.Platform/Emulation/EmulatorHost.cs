@@ -777,6 +777,9 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
     public bool UsesZapper { get; private set; }
 
+    /// <inheritdoc />
+    public bool UsesPaddle { get; private set; }
+
     public bool UsesFourScore { get; private set; }
 
     public bool IsRewinding { get; private set; }
@@ -1111,6 +1114,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             {
                 InputType.Zapper => InputSetup.Zapper,
                 InputType.FourScore => InputSetup.FourScore,
+                InputType.PowerPad => InputSetup.PowerPad,
+                InputType.ArkanoidPaddle => InputSetup.ArkanoidPaddle,
                 _ => InputSetup.Controllers,
             });
             nes.Ppu.RemoveSpriteLimit = profile.RemoveSpriteLimit == true || _assist.RemoveFlicker;
@@ -1170,6 +1175,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         GameKey = hashes.Key;
         Profile = profile;
         UsesZapper = nes?.InputSetup == InputSetup.Zapper;
+        UsesPaddle = nes?.InputSetup == InputSetup.ArkanoidPaddle;
+        _input.PowerPadActive = nes?.InputSetup == InputSetup.PowerPad;
         UsesFourScore = nes?.InputSetup == InputSetup.FourScore;
         DiskSideCount = nes?.Fds?.SideCount ?? DiscNames.Count;
         MemoryMap = memoryMap;
@@ -1248,6 +1255,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         AchievementsHash = null;
         GameKey = null;
         UsesZapper = false;
+        UsesPaddle = false;
+        _input.PowerPadActive = false;
         UsesFourScore = false;
         DiskSideCount = 0;
         DiscNames = [];
@@ -1524,6 +1533,18 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
                 var (aim, trigger) = _input.SampleZapper();
                 nes.Zapper.Aim = aim;
                 nes.Zapper.Trigger = trigger;
+            }
+
+            if (console is NesConsole { InputSetup: InputSetup.PowerPad } mat)
+            {
+                mat.PowerPad.Buttons = _input.SamplePowerPad();
+            }
+
+            if (console is NesConsole { InputSetup: InputSetup.ArkanoidPaddle } vaus)
+            {
+                var (fraction, fire) = _input.SamplePaddle();
+                vaus.Paddle.SetFraction(fraction);
+                vaus.Paddle.Fire = fire;
             }
 
             if (console is NesConsole withCodes && withCodes.Bus.Cheats != _seenCheats)

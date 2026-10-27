@@ -430,7 +430,11 @@
       </InfoBar>
     </StackPanel>
 
-    <controls:GameView x:Name="Game" Grid.Row="2" ZapperEnabled="{x:Bind ViewModel.UsesZapper, Mode=OneWay}" />
+    <controls:GameView
+        x:Name="Game"
+        Grid.Row="2"
+        PaddleEnabled="{x:Bind ViewModel.UsesPaddle, Mode=OneWay}"
+        ZapperEnabled="{x:Bind ViewModel.UsesZapper, Mode=OneWay}" />
 
     <!-- SPEC §7.9: "Previously on…" after a break of a day or more -->
     <Border

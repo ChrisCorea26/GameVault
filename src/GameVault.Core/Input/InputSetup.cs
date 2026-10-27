@@ -11,4 +11,10 @@ public enum InputSetup : byte
 
     /// <summary>A Four Score adapter with four controllers.</summary>
     FourScore,
+
+    /// <summary>A controller on port 1 and the Power Pad mat on port 2.</summary>
+    PowerPad,
+
+    /// <summary>A controller on port 1 and the Arkanoid paddle on port 2.</summary>
+    ArkanoidPaddle,
 }

@@ -29,6 +29,16 @@ public sealed partial class GameView : Control
     public static readonly DependencyProperty ZapperEnabledProperty = DependencyProperty.Register(
         nameof(ZapperEnabled), typeof(bool), typeof(GameView), new PropertyMetadata(false, OnZapperEnabledChanged));
 
+    /// <summary>When true moving the mouse across the picture turns the Arkanoid paddle; the left button fires (SPEC §4.7).</summary>
+    public static readonly DependencyProperty PaddleEnabledProperty = DependencyProperty.Register(
+        nameof(PaddleEnabled), typeof(bool), typeof(GameView), new PropertyMetadata(false));
+
+    public bool PaddleEnabled
+    {
+        get => (bool)GetValue(PaddleEnabledProperty);
+        set => SetValue(PaddleEnabledProperty, value);
+    }
+
     private const int FrameWidth = 256;
     private const int FrameHeight = 240;
     private const int OverscanLines = 8;
@@ -112,6 +122,12 @@ public sealed partial class GameView : Control
     /// <summary>Maps the pointer to NES pixels through the same layout the renderer uses.</summary>
     private void UpdateZapper(PointerRoutedEventArgs e)
     {
+        if (PaddleEnabled && _input is not null)
+        {
+            UpdatePaddle(e);
+            return;
+        }
+
         if (!ZapperEnabled || _input is null)
         {
             return;
@@ -131,6 +147,22 @@ public sealed partial class GameView : Control
             ? ((int)(px * FrameWidth / rect.Width), rect.SourceTop + (int)(py * rect.SourceHeight / rect.Height))
             : null;
         _input.SetZapper(aim, point.Properties.IsLeftButtonPressed);
+        e.Handled = true;
+    }
+
+    /// <summary>The paddle's knob follows the pointer across the picture's width (left edge to right edge).</summary>
+    private void UpdatePaddle(PointerRoutedEventArgs e)
+    {
+        var point = e.GetCurrentPoint(this);
+        var scale = XamlRoot?.RasterizationScale ?? 1.0;
+        var rect = DisplayLayout.Compute(
+            (int)(ActualWidth * scale),
+            (int)(ActualHeight * scale),
+            _settings.DisplayPreset,
+            CropLines,
+            _settings.TvPixelShape);
+        var fraction = (point.Position.X * scale - rect.X) / Math.Max(1, rect.Width);
+        _input!.SetPaddle(fraction, point.Properties.IsLeftButtonPressed);
         e.Handled = true;
     }
 
