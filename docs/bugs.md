@@ -31,6 +31,7 @@ content is missing. **Low** = wrong text or a small inconsistency.
 | [GV-019](#gv-019) | Low | Player | Rewind bar isn't a scrub bar and stops at 60 seconds | Fixed (12a99fa) |
 | [GV-020](#gv-020) | Low | Video | Overscan crop is only on or off | Fixed (12a99fa) |
 | [GV-021](#gv-021) | High | Input | App crashes on launching a game after visiting Settings | Fixed |
+| [GV-022](#gv-022) | High | UX | Most pages can't be used with a controller alone | Fixed (e0b0e8a) |
 
 ---
 
@@ -259,6 +260,21 @@ content is missing. **Low** = wrong text or a small inconsistency.
   the folder holding their `.sms` files first.
 - **Fixed:** `InputSettingsViewModel` now has the `Attach`/`Detach` pair every other view model here uses, and
   `SettingsPage` calls them on `Loaded`/`Unloaded` (commit `14499bb`).
+
+### GV-022
+
+**Most pages can't be used with a controller alone** · High · UX · **Fixed**
+
+- **Expected:** Every page is fully usable with a controller alone: the D-pad and stick move focus, South
+  activates, East goes back (SPEC §9.3, `docs/design/input.md` §7).
+- **Actual:** `PadNavigation` replays pad presses as the arrow keys, Enter and Esc. Arrow keys move focus between
+  controls only where `XYFocusKeyboardNavigation` is enabled, which is just the Library's two lists
+  (`LibraryPage.xaml:266,275`). On Settings, Game Details, Catalog Import, Dump Cartridge and the Player's flyouts the
+  D-pad can't leave the focused button; a text box keeps the arrows for its caret; Enter doesn't toggle a
+  ToggleSwitch or CheckBox or open an Expander; nothing scrolls a long page or opens a game tile's context menu.
+- **Fixed** in `e0b0e8a`: `PadFocusPlanner` decides each press from the focused element and `PadNavigation` carries it out
+  with XY focus and UI Automation on every page and flyout; the shoulders, triggers, North and Start were added
+  (`docs/design/input.md` §7.1, `docs/plans/outstanding-work.md` §1).
 
 ---
 

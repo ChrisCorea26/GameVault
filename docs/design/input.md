@@ -309,6 +309,25 @@ rollback (host-budgets.md §3).
 - **Background:** pad input is ignored while the window is not in the foreground
   (`SDL_HINT_JOYSTICK_ALLOW_BACKGROUND_EVENTS=0`).
 
+### 7.1 What each button does in the menus
+
+`ControllerManager` turns presses into `NavigationAction`s; `PadFocusPlanner` (Platform, unit tested) decides
+what each does from a description of the focused element, and `PadNavigation` (App) carries it out. The element is
+described by its type and UI Automation patterns, so any control works without per-page setup.
+
+| Button | Action | Effect |
+|---|---|---|
+| D-pad, left stick (repeat while held) | Up/Down/Left/Right | XY focus move (`FocusManager.TryMoveFocus`) within the open popup, else the window. Text boxes and lists hand focus on too. A horizontal slider takes left/right as its value; items of an open drop-down or menu take the arrow keys. |
+| South | Activate | Invoke, toggle, expand/collapse or select, by the element's automation pattern. List and drop-down items, and anything unrecognised, get Enter (so `ItemClick` fires). A text box shows the touch keyboard. |
+| East | Back | Esc to close an open popup; else go back a page; else Esc. |
+| North | ContextMenu | Show the focused element's `ContextFlyout`, or its list item content's (a game tile). |
+| Shoulders | PreviousPage/NextPage | Library ↔ Settings, in the navigation pane's order. Never from the Player, since leaving it ends the game. |
+| Triggers (past half way, released below a quarter; repeat while held) | PageUp/PageDown | Move focus up or down until it has travelled about 80 % of the scrolling area's height. Each move brings the control into view. |
+| Start | Menu | Focus the navigation pane's selected item (Esc if a popup is open). |
+
+If nothing has focus (or focus is outside the open popup), the first press focuses the first control of the popup
+or the page.
+
 ## 8. Hotkeys
 
 These keys never reach the game, so game bindings can't use them:

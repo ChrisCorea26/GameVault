@@ -154,6 +154,52 @@ public class ControllerManagerTests
     }
 
     [Fact]
+    public void Shoulders_north_and_start_navigate_the_ui_once_per_press()
+    {
+        _manager.OnConnected(Pad(1));
+
+        _manager.OnButton(1, PadButton.RightShoulder, true);
+        _manager.OnTick(0);
+        _manager.OnTick(600); // held: page switching doesn't repeat
+        _manager.OnButton(1, PadButton.RightShoulder, false);
+        _manager.OnButton(1, PadButton.LeftShoulder, true);
+        _manager.OnButton(1, PadButton.North, true);
+        _manager.OnButton(1, PadButton.Start, true);
+
+        _navigation.Should().Equal(
+            NavigationAction.NextPage, NavigationAction.PreviousPage, NavigationAction.ContextMenu, NavigationAction.Menu);
+    }
+
+    [Fact]
+    public void Triggers_scroll_the_ui_with_repeat_and_hysteresis()
+    {
+        _manager.OnConnected(Pad(1));
+
+        _manager.OnAxis(1, PadAxis.TriggerRight, 12000); // not far enough to count
+        _manager.OnAxis(1, PadAxis.TriggerRight, 30000);
+        _manager.OnTick(0);
+        _manager.OnAxis(1, PadAxis.TriggerRight, 12000); // easing off a little stays held
+        _manager.OnTick(450);
+        _manager.OnAxis(1, PadAxis.TriggerRight, 0);
+        _manager.OnTick(700);
+        _manager.OnAxis(1, PadAxis.TriggerLeft, 32000);
+
+        _navigation.Should().Equal(NavigationAction.PageDown, NavigationAction.PageDown, NavigationAction.PageUp);
+    }
+
+    [Fact]
+    public void Triggers_and_shoulders_go_to_the_game_while_it_has_focus()
+    {
+        _manager.OnConnected(Pad(1));
+        _manager.GameHasFocus = true;
+
+        _manager.OnAxis(1, PadAxis.TriggerRight, 30000);
+        _manager.OnButton(1, PadButton.RightShoulder, true);
+
+        _navigation.Should().BeEmpty();
+    }
+
+    [Fact]
     public void Disconnect_during_play_releases_buttons_and_reports_the_port()
     {
         ControllerDisconnectedEventArgs? disconnected = null;
