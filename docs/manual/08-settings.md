@@ -90,8 +90,12 @@ The path to your Famicom Disk System BIOS, for example `C:\NES\disksys.rom`, or 
 |---|---|
 | **System ROM** | `C:\Apple\apple2e-enhanced.rom` |
 | **Disk II boot ROM** | `C:\Apple\disk2.rom` |
+| **Character ROM** (optional) | `C:\Apple\apple2e-video.rom`: text is drawn in your own Apple's font instead of GameVault's |
+| **Monitor** | **Colour TV** (default), **Green monitor**, **Amber monitor** or **White monitor** |
 
-Each box has **Choose…** to pick the file.
+Each box has **Choose…** to pick the file. The character ROM can be the 2 KB one from a II or II+ or the 4 or 8 KB
+video ROM from a IIe; GameVault works out how it's laid out. A new monitor or character ROM applies from the next
+game started.
 
 ## Super Nintendo
 

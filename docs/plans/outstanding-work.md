@@ -175,6 +175,14 @@ from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Pla
 - The player's own character ROM (Settings), with the built-in font as today when none is chosen.
 - Draw the video per scanline from the soft switches then, so mid-frame mode changes show.
 
+**As built.** `AppleConsole.RunFrame` runs the CPU 65 cycles at a time and draws each of the 192 visible lines
+(`AppleVideo.RenderLine`) from the memory and switches when the beam finishes it. `AppleMonitor` (Color, Green,
+Amber, White) picks the palette; on a monochrome monitor hi-res, lo-res and double hi-res show their dots, with no
+artifact colour, in the phosphor's colour. `AppleCharacterRom` reads the player's 2, 4 or 8 KB character ROM and
+finds its layout (index by ASCII, low six bits or screen code; active high or low; bit order; first line) by how
+well A–Z and 0–9 match GameVault's own font, refusing files under 85 % agreement. Settings → Apple II gains
+**Character ROM** and **Monitor**. Tests: `AppleDisplayTests`. The floating bus stays open.
+
 ## 10. N64 accessories and video
 - The Rumble Pak (rumble through SDL) and the Transfer Pak (the player's own Game Boy cartridge dump and save).
 - GameShark button codes (88/89).
