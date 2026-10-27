@@ -118,6 +118,11 @@ game that needs another model (for example an unenhanced IIe), set **Game Detail
 > GameVault then shows *This disk can't start without the Disk II boot ROM. Choose your own Disk II boot ROM (256
 > bytes) in Settings → Apple II. GameVault doesn't include it.*
 
+**Display:** **Settings → Apple II → Monitor** shows the Apple on a colour TV (the default) or on a green, amber or
+white monochrome monitor, where hi-res pictures show every dot sharply instead of in colour. To see text in your own
+Apple's font, choose its character ROM under **Character ROM**. Games that change mode partway down the screen show
+as they did on the Apple.
+
 **Keyboard:** while an Apple II game runs, the whole keyboard types into the computer.
 
 | Apple key | PC key |
@@ -132,8 +137,7 @@ the same for drive 2. Use it for games on more than one disk.
 
 **Netplay:** both players need the same ROM files as well as the same disk.
 
-**Not supported yet:** loading an older save state doesn't undo later disk writes; no monochrome display option;
-your own character ROM isn't used; video mode changes in the middle of a frame aren't shown.
+**Not supported yet:** loading an older save state doesn't undo later disk writes.
 
 **Messages:**
 
@@ -142,6 +146,7 @@ your own character ROM isn't used; video mode changes in the middle of a frame a
 | *To play it, choose your own Apple II ROM files in Settings → Apple II.* | Set the System ROM path. |
 | *The Apple II ROM must be 12 KB (II/II+) or 16 KB (IIe).* | Wrong file or bad dump. |
 | *The Disk II boot ROM must be 256 bytes.* | Wrong file. |
+| *An Apple II character ROM is 2, 4 or 8 KB.* or *That file doesn't look like an Apple II character ROM.* | Wrong file for **Character ROM**, or a bad dump. Clear the box to use GameVault's own font. |
 | *This disk can't start without the Disk II boot ROM. Choose your own Disk II boot ROM (256 bytes) in Settings → Apple II. GameVault doesn't include it.* | Set the Disk II boot ROM path. |
 | *A .dsk, .do or .po disk image is 143,360 bytes.* | The image is damaged or isn't a 5.25-inch disk. |
 | *GameVault reads 5.25-inch WOZ images; this one is for 3.5-inch disks.* | 3.5-inch disks aren't supported. |

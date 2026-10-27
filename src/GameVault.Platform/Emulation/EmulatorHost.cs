@@ -989,7 +989,11 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             var disk = string.IsNullOrWhiteSpace(settings.AppleIIDiskRomPath)
                 ? null
                 : await File.ReadAllBytesAsync(settings.AppleIIDiskRomPath, cancellationToken).ConfigureAwait(false);
-            return new AppleRoms(system, disk);
+            var character = string.IsNullOrWhiteSpace(settings.AppleIICharacterRomPath)
+                ? null
+                : await File.ReadAllBytesAsync(settings.AppleIICharacterRomPath, cancellationToken).ConfigureAwait(false);
+            var monitor = Enum.IsDefined((AppleMonitor)settings.AppleIIMonitor) ? (AppleMonitor)settings.AppleIIMonitor : AppleMonitor.Color;
+            return new AppleRoms(system, disk, character) { Monitor = monitor };
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

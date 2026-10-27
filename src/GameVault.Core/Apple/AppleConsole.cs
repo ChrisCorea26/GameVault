@@ -23,8 +23,12 @@ public enum AppleModel
 /// <summary>The player's own Apple ROMs (GameVault ships none).</summary>
 /// <param name="System">12 KB ($D000–$FFFF, II/II+) or 16 KB ($C000–$FFFF, IIe).</param>
 /// <param name="DiskBoot">The Disk II controller's 256-byte boot ROM (slot 6), or null for no disk controller.</param>
-public sealed record AppleRoms(byte[] System, byte[]? DiskBoot)
+/// <param name="Character">The character ROM for text (2, 4 or 8 KB), or null for GameVault's own font.</param>
+public sealed record AppleRoms(byte[] System, byte[]? DiskBoot, byte[]? Character = null)
 {
+    /// <summary>The monitor the machine starts on (Settings → Apple II).</summary>
+    public AppleMonitor Monitor { get; init; }
+
     public AppleModel DefaultModel => System.Length == 0x4000 ? AppleModel.IIeEnhanced : AppleModel.IIPlus;
 
     public void Validate()
@@ -39,6 +43,16 @@ public sealed record AppleRoms(byte[] System, byte[]? DiskBoot)
             throw new RomFormatException("The Disk II boot ROM must be 256 bytes.");
         }
     }
+}
+
+/// <summary>The monitor the Apple is shown on (Settings → Apple II → Display).</summary>
+public enum AppleMonitor
+{
+    /// <summary>A colour TV: hi-res and lo-res in colour.</summary>
+    Color,
+    Green,
+    Amber,
+    White,
 }
 
 /// <summary>
@@ -87,6 +101,7 @@ public sealed class AppleConsole : IEmulatedConsole, ICpuBus
     private long _frameStartCycle;
     private float _lastLevel;
     private int _flashFrames;
+    private readonly AppleCharacterRom? _font;
 
     public AppleConsole(AppleRoms roms, AppleModel? model = null)
     {
@@ -99,6 +114,8 @@ public sealed class AppleConsole : IEmulatedConsole, ICpuBus
 
         _rom = roms.System;
         _diskRom = roms.DiskBoot;
+        _font = roms.Character is { } character ? new AppleCharacterRom(character) : null;
+        Monitor = roms.Monitor;
         _aux = Model == AppleModel.IIPlus ? [] : new byte[0x10000];
         _lcAux = Model == AppleModel.IIPlus ? [] : new byte[0x4000];
         Cpu = new Cpu6502(this, Model == AppleModel.IIeEnhanced ? CpuVariant.Cmos65C02 : CpuVariant.Nmos6502);
@@ -128,7 +145,33 @@ public sealed class AppleConsole : IEmulatedConsole, ICpuBus
 
     public ReadOnlySpan<ushort> FrameBuffer => _frame;
 
-    public ReadOnlySpan<uint> Palette => AppleVideo.Palette;
+    public ReadOnlySpan<uint> Palette => Monitor == AppleMonitor.Color ? AppleVideo.Palette : MonitorPalettes[(int)Monitor];
+
+    /// <summary>
+    /// The monitor (outstanding-work plan §9): colour, or a green, amber or white monochrome monitor, on which every
+    /// dot is just lit or dark. Only the picture changes; it isn't part of the save state.
+    /// </summary>
+    public AppleMonitor Monitor { get; set; }
+
+    /// <summary>True when the player's own character ROM draws the text.</summary>
+    public bool HasCharacterRom => _font is not null;
+
+    private static readonly uint[][] MonitorPalettes =
+    [
+        [],
+        Tint(0xFF33FF66), // P1 green
+        Tint(0xFFFFB000), // P3 amber
+        Tint(0xFFF0F0F0), // P4 white
+    ];
+
+    /// <summary>Black, then the phosphor's colour for every lit dot.</summary>
+    private static uint[] Tint(uint lit)
+    {
+        var palette = new uint[16];
+        Array.Fill(palette, lit);
+        palette[0] = 0xFF000000;
+        return palette;
+    }
 
     public long FrameCount { get; private set; }
 
@@ -243,6 +286,22 @@ public sealed class AppleConsole : IEmulatedConsole, ICpuBus
     {
         _audioOn = audio;
         var end = _frameStartCycle + CyclesPerFrame;
+
+        // Each of the 192 lines is drawn as the beam finishes it, from the memory and soft switches then, so mode
+        // changes partway down the screen show. The rest of the frame is the vertical blank.
+        var flashOn = (_flashFrames + 1) % 16 >= 8;
+        var monochrome = Monitor != AppleMonitor.Color;
+        for (var line = 0; line < 192; line++)
+        {
+            var lineEnd = _frameStartCycle + (line + 1) * CyclesPerLine;
+            while (Cpu.CycleCount < lineEnd)
+            {
+                Cpu.Step();
+            }
+
+            AppleVideo.RenderLine(_frame, _main, _aux, _video, flashOn, line, monochrome, _font);
+        }
+
         while (Cpu.CycleCount < end)
         {
             Cpu.Step();
@@ -261,7 +320,6 @@ public sealed class AppleConsole : IEmulatedConsole, ICpuBus
             _flashFrames = 0;
         }
 
-        AppleVideo.Render(_frame, _main, _aux, _video, _flashFrames >= 8);
         FrameCount++;
         _audioOn = true;
     }

@@ -291,7 +291,7 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 | Genesis stereo, interlace mode 2, Master System mode, EEPROM saves, Sega CD, 32X | `docs/plans/phase-13.md` |
 | PlayStation DualShock analog and vibration, multitap, light guns, GameShark, memory card manager, GPU renderer | `docs/plans/phase-15.md` |
 | N64 GPU renderer and recompiler, Rumble Pak, Transfer Pak, 64DD, GameShark | README status, `docs/plans/phase-16.md` |
-| Apple II monochrome, user character ROM, mid-frame mode changes | `docs/plans/phase-12.md` |
+| ~~Apple II monochrome, user character ROM, mid-frame mode changes~~ Done (outstanding-work §9) | `docs/plans/phase-12.md` |
 | RetroAchievements approval for hardcore unlocks; real-game and real-cartridge checks | Owner tasks in README and phase plans |
 | PlayStation 2 GPU renderer (GS) and VU recompilers; N64 GPU renderer | `docs/plans/phase-17-performance.md` |
 | GameCube / Wii, Atari 2600 / 5200 | SPEC §7.11, phases 18–19 |

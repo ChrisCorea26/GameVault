@@ -60,6 +60,16 @@ public sealed partial class SettingsViewModel(
     }
 
     [RelayCommand]
+    private async Task ChooseAppleCharacterRomAsync()
+    {
+        if (await PickAsync(".rom", ".bin") is { } path)
+        {
+            AppleIICharacterRomPath = path;
+            SaveIfLoaded();
+        }
+    }
+
+    [RelayCommand]
     private async Task ChoosePlayStationBiosAsync()
     {
         if (await PickAsync(".bin", ".rom") is { } path)
@@ -129,6 +139,17 @@ public sealed partial class SettingsViewModel(
     /// <summary>The player's own Disk II boot ROM. Saved when the text box loses focus.</summary>
     [ObservableProperty]
     public partial string AppleIIDiskRomPath { get; set; } = string.Empty;
+
+    /// <summary>The player's own Apple II character ROM, optional. Saved when the text box loses focus.</summary>
+    [ObservableProperty]
+    public partial string AppleIICharacterRomPath { get; set; } = string.Empty;
+
+    /// <summary>The Apple II monitors, in the order of <see cref="AppleIIMonitorIndex"/>.</summary>
+    public IReadOnlyList<string> AppleIIMonitors { get; } = ["Colour TV", "Green monitor", "Amber monitor", "White monitor"];
+
+    /// <summary>The Apple II's monitor; applies from the next game started.</summary>
+    [ObservableProperty]
+    public partial int AppleIIMonitorIndex { get; set; }
 
     /// <summary>The player's own PlayStation BIOS (SPEC §7.11). Saved when the text box loses focus.</summary>
     [ObservableProperty]
@@ -266,6 +287,8 @@ public sealed partial class SettingsViewModel(
         FdsBiosPath = settings.FdsBiosPath;
         AppleIIRomPath = settings.AppleIIRomPath;
         AppleIIDiskRomPath = settings.AppleIIDiskRomPath;
+        AppleIICharacterRomPath = settings.AppleIICharacterRomPath;
+        AppleIIMonitorIndex = Math.Clamp(settings.AppleIIMonitor, 0, AppleIIMonitors.Count - 1);
         PlayStationBiosPath = settings.PlayStationBiosPath;
         PlayStationFastBoot = settings.PlayStationFastBoot;
         N64ExpansionPak = settings.N64ExpansionPak;
@@ -337,6 +360,8 @@ public sealed partial class SettingsViewModel(
     [RelayCommand]
     private void SaveAppleRomPaths() => SaveIfLoaded();
 
+    partial void OnAppleIIMonitorIndexChanged(int value) => SaveIfLoaded();
+
     [RelayCommand]
     private void SavePlayStationBiosPath() => SaveIfLoaded();
 
@@ -401,6 +426,8 @@ public sealed partial class SettingsViewModel(
             FdsBiosPath = FdsBiosPath.Trim().Trim('"'),
             AppleIIRomPath = AppleIIRomPath.Trim().Trim('"'),
             AppleIIDiskRomPath = AppleIIDiskRomPath.Trim().Trim('"'),
+            AppleIICharacterRomPath = AppleIICharacterRomPath.Trim().Trim('"'),
+            AppleIIMonitor = Math.Clamp(AppleIIMonitorIndex, 0, AppleIIMonitors.Count - 1),
             PlayStationBiosPath = PlayStationBiosPath.Trim().Trim('"'),
             PlayStationFastBoot = PlayStationFastBoot,
             N64ExpansionPak = N64ExpansionPak,
