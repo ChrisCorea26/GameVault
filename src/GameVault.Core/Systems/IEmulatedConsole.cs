@@ -53,6 +53,12 @@ public interface IEmulatedConsole : IStateful
     /// <summary>ARGB colours for <see cref="FrameBuffer"/> indices (the NES uses the player's palette preset instead).</summary>
     ReadOnlySpan<uint> Palette { get; }
 
+    /// <summary>
+    /// The same frame at full colour depth as ARGB, when the system drew more colours than <see cref="FrameBuffer"/>
+    /// holds (the N64 in 32-bit mode); empty otherwise. The host shows this instead when it's there.
+    /// </summary>
+    ReadOnlySpan<uint> TrueColorFrame => default;
+
     /// <summary>Frames completed since power-on.</summary>
     long FrameCount { get; }
 

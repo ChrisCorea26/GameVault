@@ -18,6 +18,12 @@ public sealed unsafe class SdlControllerBackend : IControllerBackend
     private volatile bool _stop;
     private IControllerEvents? _events;
 
+    // Rumble asked for by the game, applied on the polling thread (SDL's controllers belong to it).
+    private readonly System.Collections.Concurrent.ConcurrentDictionary<int, float> _rumble = new();
+
+    /// <summary>How long one SDL rumble request lasts; it's renewed while the motor should run.</summary>
+    private const uint RumbleMs = 500;
+
     /// <summary>Why SDL couldn't start, or null if it did (or hasn't been started).</summary>
     public string? StartError { get; private set; }
 
@@ -32,6 +38,8 @@ public sealed unsafe class SdlControllerBackend : IControllerBackend
         _thread = new Thread(Run) { Name = "GameVault controllers", IsBackground = true };
         _thread.Start();
     }
+
+    public void SetRumble(int instanceId, float level) => _rumble[instanceId] = Math.Clamp(level, 0f, 1f);
 
     public void Dispose()
     {
@@ -105,6 +113,7 @@ public sealed unsafe class SdlControllerBackend : IControllerBackend
                     }
                 }
 
+                ApplyRumble(sdl, open, clock.ElapsedMilliseconds);
                 events.OnTick(clock.ElapsedMilliseconds);
                 Thread.Sleep(PollIntervalMs);
             }
@@ -117,6 +126,29 @@ public sealed unsafe class SdlControllerBackend : IControllerBackend
             }
 
             sdl.Quit();
+        }
+    }
+
+    private readonly Dictionary<int, (float Level, long SentMs)> _rumbleSent = [];
+
+    /// <summary>Sends each pad's motor level to SDL when it changes, and renews a running motor before it times out.</summary>
+    private void ApplyRumble(Sdl sdl, Dictionary<int, nint> open, long nowMs)
+    {
+        foreach (var (id, level) in _rumble)
+        {
+            var known = _rumbleSent.TryGetValue(id, out var sent);
+            if (known && sent.Level == level && (level == 0 || nowMs - sent.SentMs < RumbleMs / 2))
+            {
+                continue;
+            }
+
+            if (open.TryGetValue(id, out var controller))
+            {
+                var strength = (ushort)(level * 0xFFFF);
+                sdl.GameControllerRumble((GameController*)controller, strength, strength, level == 0 ? 0 : RumbleMs);
+            }
+
+            _rumbleSent[id] = (level, nowMs);
         }
     }
 

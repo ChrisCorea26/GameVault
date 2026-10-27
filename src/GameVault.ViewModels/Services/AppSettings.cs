@@ -104,6 +104,12 @@ public sealed record AppSettings
     public bool N64ExpansionPak { get; init; } = true;
 
     /// <summary>
+    /// A Rumble Pak in every N64 controller instead of the Controller Pak in the first, so games can shake the player's
+    /// pad. Off by default, since games can't save to the Controller Pak while it's out.
+    /// </summary>
+    public bool N64RumblePak { get; init; }
+
+    /// <summary>
     /// The player's own PlayStation 2 BIOS (4 MB, such as SCPH-39001), or empty. Discs need it; ELF programs run on
     /// GameVault's own kernel without it. GameVault never ships, downloads or links to it (SPEC §7.11).
     /// </summary>

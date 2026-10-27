@@ -183,7 +183,7 @@ internal static class ConsoleFactory
             var saveType = Library.Profiles.N64SaveTypes.Parse(profile.Save)
                 ?? N64Cartridge.HomebrewSaveType(rom)
                 ?? setup.SaveTypes?.Invoke(gameCode);
-            var console = new N64Console(new N64Cartridge(rom, saveType), setup.ExpansionPak);
+            var console = new N64Console(new N64Cartridge(rom, saveType), setup.ExpansionPak) { RumblePaks = setup.RumblePak };
             console.Rdp.ParallelWork = RenderThreads.Shared; // the RDP draws on the spare cores (the same pictures, sooner)
             return console;
         }

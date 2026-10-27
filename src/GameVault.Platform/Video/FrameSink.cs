@@ -24,12 +24,25 @@ public sealed class FrameSink : IVideoSink
         frame.Width = width;
         frame.Height = height;
         frame.PixelAspect = pixelAspect;
+        frame.IsArgb = false;
         indexedPixels[..(width * height)].CopyTo(frame.Pixels);
         if (!paletteArgb.IsEmpty && !paletteArgb.SequenceEqual(_palette))
         {
             _palette = paletteArgb.ToArray();
         }
 
+        _frames.Publish();
+        _frameReady.Set();
+    }
+
+    public void PresentArgb(ReadOnlySpan<uint> argb, int width, int height, double pixelAspect = 1.0)
+    {
+        var frame = _frames.BackBuffer;
+        frame.Width = width;
+        frame.Height = height;
+        frame.PixelAspect = pixelAspect;
+        frame.IsArgb = true;
+        argb[..(width * height)].CopyTo(frame.Argb);
         _frames.Publish();
         _frameReady.Set();
     }

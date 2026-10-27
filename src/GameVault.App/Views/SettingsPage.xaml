@@ -759,6 +759,27 @@
                 OffContent=""
                 OnContent="" />
           </Grid>
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Rumble Pak" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Puts a Rumble Pak in every controller instead of the Controller Pak, so games can shake your controller if it has motors. Games can't save to the Controller Pak while it's on. Takes effect the next time a game starts."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch
+                Grid.Column="1"
+                MinWidth="0"
+                AutomationProperties.Name="Nintendo 64 Rumble Pak"
+                IsOn="{x:Bind ViewModel.N64RumblePak, Mode=TwoWay}"
+                OffContent=""
+                OnContent="" />
+          </Grid>
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"

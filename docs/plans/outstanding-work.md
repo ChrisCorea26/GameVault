@@ -199,6 +199,19 @@ well A–Z and 0–9 match GameVault's own font, refusing files under 85 % agree
 - GameShark button codes (88/89).
 - The VI's anti-alias and divot filters, and 32-bit frames shown at full depth.
 
+**As built (first part).** `IN64Accessory` in each controller's slot; `N64RumblePak` (probe at $8000, motor at
+$C000); `N64Console.RumblePaks` (Settings → Nintendo 64 → Rumble Pak) puts one in every controller. The host passes
+`IRumbleSource.RumbleLevel` to `InputService.SetRumble`, and `ControllerManager` sends it to the pad on that port,
+where `SdlControllerBackend` runs `SDL_GameControllerRumble` from its polling thread. The motor isn't part of the save
+state. GameShark codes turned out not to exist for the N64 at all (cheats are NES-only from the store to the UI), so
+they are a separate part with the cheat system made per-system. Tests: `N64AccessoryTests`, `ControllerManagerTests`.
+
+32-bit frames: `IEmulatedConsole.TrueColorFrame` (empty unless the console drew more colours than the 15-bit
+indexed frame holds) goes through `IVideoSink.PresentArgb` and `VideoFrame.IsArgb` to both renderers and to
+screenshots; the N64 fills it when the VI is in 32-bit mode. The PlayStation's 24-bit mode (item 11) can use the
+same path. The VI's anti-alias and divot filters need each pixel's coverage, which the RDP computes but doesn't keep in RDRAM's
+hidden bits yet; they wait for that (with the GPU renderer, item 14). Tests: `N64ConsoleTests`, `FrameSinkTests`.
+
 ## 11. PlayStation peripherals and output
 - The mouse, the GunCon and the Justifier (with the PC mouse as the gun, as the NES Zapper does).
 - 24-bit output shown at full depth (FMVs).
@@ -224,6 +237,11 @@ well A–Z and 0–9 match GameVault's own font, refusing files under 85 % agree
 ## 15. N64 recompiler
 A VR4300 block recompiler to IL like the EE's, with the interpreter as the reference and the same kind of
 differential tests.
+
+**Measured first, and not needed now.** A loop of RDRAM loads, adds, stores and a branch runs at 369 M CPU cycles a
+second on the interpreter (Release, the Linux build machine): about four times the VR4300's 93.75 MHz, so the CPU
+isn't what holds N64 games below full speed; the RDP is (phase-17-performance.md §3). The recompiler waits until a
+profile of real games shows the CPU on top; until then the GPU renderer (item 14) is where N64 speed comes from.
 
 ## 16. PS2 netplay and run-ahead
 Make PS2 save states small and fast enough (dirty-page tracking for the 32 MB of RAM and the GS's 4 MB), then

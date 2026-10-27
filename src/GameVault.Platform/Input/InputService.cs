@@ -37,6 +37,30 @@ public sealed class InputService
     private readonly HashSet<(int Source, int Key)> _padHotkeys = [];
     private long _sequence;
 
+    private readonly float[] _rumble = new float[PortCount];
+
+    /// <summary>A port's rumble changed (port, 0–1). Raised on the emulator thread; the controllers pass it to the pad.</summary>
+    public event Action<int, float>? RumbleChanged;
+
+    /// <summary>The game set port <paramref name="port"/>'s motor (the N64's Rumble Pak).</summary>
+    public void SetRumble(int port, float level)
+    {
+        if (_rumble[port] != level)
+        {
+            _rumble[port] = level;
+            RumbleChanged?.Invoke(port, level);
+        }
+    }
+
+    /// <summary>Stops every motor (the game stopped).</summary>
+    public void StopRumble()
+    {
+        for (var port = 0; port < PortCount; port++)
+        {
+            SetRumble(port, 0);
+        }
+    }
+
     public InputService(KeyboardMapping keyboard)
     {
         _base = keyboard;
