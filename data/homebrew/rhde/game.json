@@ -1,0 +1,11 @@
+{
+  "file": "rhde.nes",
+  "title": "RHDE: Furniture Fight",
+  "developer": "Damian Yerrick",
+  "publisher": "Homebrew",
+  "year": 2011,
+  "genre": "Strategy",
+  "players": 2,
+  "license": "GNU All-Permissive",
+  "region": "World"
+}

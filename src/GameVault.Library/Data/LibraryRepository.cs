@@ -15,7 +15,9 @@ public sealed class LibraryRepository(LibraryDatabase database)
         using var connection = database.Open();
         using var command = connection.CreateCommand();
         command.CommandText = """
-            SELECT g.key, c.title, c.region, c.publisher, c.developer, c.year, c.genre, c.players, c.licensed,
+            SELECT g.key, c.title, COALESCE(c.region, col.custom_region), COALESCE(c.publisher, col.custom_publisher),
+                   COALESCE(c.developer, col.custom_developer), COALESCE(c.year, col.custom_year), COALESCE(c.genre, col.custom_genre),
+                   COALESCE(c.players, col.custom_players), c.licensed,
                    (SELECT f.path FROM files f WHERE f.game_key = g.key ORDER BY f.path LIMIT 1) AS path,
                    (SELECT f.sha1 FROM files f WHERE f.game_key = g.key ORDER BY f.path LIMIT 1) AS sha1,
                    col.owned, col.status, col.favorite, col.rating, col.notes, col.cover_path, col.custom_title,
@@ -37,21 +39,33 @@ public sealed class LibraryRepository(LibraryDatabase database)
 
     public GameEntry? GetGame(string key) => GetGames().FirstOrDefault(g => g.Key == key);
 
-    /// <summary>Saves the fields the user edits: ownership, status, favorite, rating, notes, cover, title.</summary>
+    /// <summary>
+    /// Saves the fields the user edits: ownership, status, favorite, rating, notes and cover, and for games no catalog
+    /// lists their title and details (SPEC §6.2; GV-011). Cataloged games keep the catalog's details.
+    /// </summary>
     public void SaveCollection(GameEntry game)
     {
         using var connection = database.Open();
+        var custom = !game.IsCataloged;
         LibraryDatabase.Execute(
             connection,
             """
-            INSERT INTO collection (game_key, owned, status, favorite, rating, notes, cover_path, custom_title)
-            VALUES ($k, $o, $s, $f, $r, $n, $c, $t)
+            INSERT INTO collection (game_key, owned, status, favorite, rating, notes, cover_path, custom_title,
+                custom_region, custom_publisher, custom_developer, custom_year, custom_genre, custom_players)
+            VALUES ($k, $o, $s, $f, $r, $n, $c, $t, $rg, $pb, $dv, $yr, $gn, $pl)
             ON CONFLICT(game_key) DO UPDATE SET owned = $o, status = $s, favorite = $f, rating = $r, notes = $n,
-                cover_path = $c, custom_title = $t;
+                cover_path = $c, custom_title = $t, custom_region = $rg, custom_publisher = $pb, custom_developer = $dv,
+                custom_year = $yr, custom_genre = $gn, custom_players = $pl;
             """,
             ("$k", game.Key), ("$o", (int)game.Owned), ("$s", (int)game.Status), ("$f", game.IsFavorite ? 1 : 0),
             ("$r", game.Rating), ("$n", game.Notes), ("$c", game.CoverPath),
-            ("$t", game.IsCataloged ? null : game.Title));
+            ("$t", custom ? game.Title : null),
+            ("$rg", custom && game.Region != GameRegion.Unknown ? (int)game.Region : null),
+            ("$pb", custom ? game.Publisher : null),
+            ("$dv", custom ? game.Developer : null),
+            ("$yr", custom ? game.ReleaseYear : null),
+            ("$gn", custom ? game.Genre : null),
+            ("$pl", custom && game.Players != 1 ? game.Players : null));
     }
 
     public void AddPlaytime(string key, TimeSpan time, DateTimeOffset when)

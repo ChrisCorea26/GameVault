@@ -1,0 +1,11 @@
+{
+  "file": "robotfindskitten.nes",
+  "title": "robotfindskitten",
+  "developer": "Damian Yerrick",
+  "publisher": "Homebrew",
+  "year": 2014,
+  "genre": "Adventure",
+  "players": 1,
+  "license": "zlib",
+  "region": "World"
+}

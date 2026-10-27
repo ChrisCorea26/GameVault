@@ -1,0 +1,11 @@
+{
+  "file": "croom.nes",
+  "title": "Concentration Room",
+  "developer": "Damian Yerrick",
+  "publisher": "Homebrew",
+  "year": 2010,
+  "genre": "Puzzle",
+  "players": 2,
+  "license": "GPL-3.0-or-later, with an exception for exact copies",
+  "region": "World"
+}

@@ -46,6 +46,9 @@ public sealed record AppSettings
     /// </summary>
     public int TurboPeriodFrames { get; init; } = 4;
 
+    /// <summary>True once the bundled homebrew folder (SPEC §6.4) was added to the library, so removing it sticks.</summary>
+    public bool BundledHomebrewAdded { get; init; }
+
     /// <summary>The player's button remaps (SPEC §5.4, GV-001) as JSON; see <c>Input.InputRemapSet</c>. Empty for none.</summary>
     public string InputRemaps { get; init; } = string.Empty;
 
