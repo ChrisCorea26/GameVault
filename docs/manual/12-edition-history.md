@@ -13,3 +13,4 @@
 | 9 | October 2026 | Japanese Master System games play their FM music (the FM Sound Unit), and SC-3000 programs (`.sc`) take typing from your keyboard. |
 | 10 | October 2026 | Apple II: **Settings → Apple II → Monitor** (colour TV, or a green, amber or white monitor) and an optional **Character ROM** for text in your own Apple's font; mode changes partway down the screen now show. |
 | 12 | October 2026 | Nintendo 64: **Settings → Nintendo 64 → Rumble Pak** puts a Rumble Pak in every controller, and games shake your controller through it; games in 32-bit colour show all their colours. |
+| 20 | October 2026 | Adds the GameCube's first milestone: its section in Supported systems (homebrew `.dol` and `.elf` programs, the controller). |

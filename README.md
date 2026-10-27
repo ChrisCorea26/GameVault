@@ -36,7 +36,8 @@ system, the BIOS and ROM files you must supply, controls, settings and troublesh
 | 15 | Sony PlayStation | ✅ R3000A passes PeterLemon's CPU tests; the GPU matches hardware VRAM dumps pixel for pixel; GTE, SPU, MDEC, CD-ROM (XA, CD-DA), pads and memory cards; .cue/.bin, .chd and .m3u. Needs your own BIOS; real-game checks are the owner's ([plan](docs/plans/phase-15.md)) |
 | 16 | Nintendo 64 | ✅ VR4300, FPU and RSP pass PeterLemon's test programs; a software RDP draws PeterLemon's 115 RDP programs; audio, controllers with the analog stick, Controller Pak, EEPROM, SRAM and FlashRAM; .z64, .v64 and .n64. The RDP is drawn in software on several cores (a GPU renderer is left for later); real-game checks are the owner's ([plan](docs/plans/phase-16.md)) |
 | 17 | Sony PlayStation 2 | ✅ 54 of ps2autotests' 55 EE programs match the hardware's output; EE, VU0/VU1, GS (software), IOP, SPU2, IPU, DualShock 2 and 8 MB memory cards; .iso, .chd, .cue/.bin and .elf. Discs need your own BIOS (ELF homebrew runs without one); the EE and both VUs run recompiled and the software GS draws on several cores, but many games still run below full speed (a GPU renderer is next, [plan](docs/plans/phase-17-performance.md)); real-game checks are the owner's ([plan](docs/plans/phase-17.md)) |
-| 18–19 | More systems | Planned (SPEC §7.11) |
+| 18 | GameCube (then the Wii) | 🟡 Milestone 1: the Gekko (integer, FPU, paired singles, exceptions, BATs) interpreted, with VI's frame buffer, SI controllers, EXI's SRAM and the DSP's boot handshake; `.dol` and `.elf` homebrew that draws to its frame buffer. The GPU, discs, the DSP's sound and the recompiler are the next milestones ([plan](docs/plans/phase-18.md)) |
+| 19 | Atari 2600 / 5200 | Planned (SPEC §7.11) |
 
 Test-ROM results are tracked in [`docs/compatibility.md`](docs/compatibility.md). Known bugs and missing features are
 tracked in [`docs/bugs.md`](docs/bugs.md).

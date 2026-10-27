@@ -1104,6 +1104,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             PlayStationConsole => PadLayout.PlayStation,
             N64Console => PadLayout.Nintendo64,
             Core.PlayStation2.Ps2Console => PadLayout.PlayStation2,
+            Core.GameCube.GameCubeConsole => PadLayout.PlayStation2,
             SegaConsole => PadLayout.Sega,
             _ => PadLayout.Nes,
         };

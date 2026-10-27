@@ -1,5 +1,5 @@
 ---
-edition: "Edition 12 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2"
+edition: "Edition 20 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2 and GameCube (homebrew)"
 ---
 
 # Introduction
@@ -26,6 +26,7 @@ four freely licensed NES homebrew games, so there is something to play the first
 | Super Nintendo / Super Famicom | `.sfc`, `.smc` | Only for DSP-chip games: that chip's program ROM, such as `dsp1b.rom` (8 KB) |
 | Sony PlayStation | `.cue` + `.bin`, `.chd`, `.m3u`, `.exe` | **Yes**: a 512 KB console BIOS such as SCPH-1001 |
 | Nintendo 64 | `.z64`, `.v64`, `.n64` | No |
+| Nintendo GameCube | `.dol`, `.elf` (homebrew programs; discs aren't supported yet) | No |
 | Sony PlayStation 2 | `.iso`, `.chd`, `.cue` + `.bin`, `.elf` | **Yes, for discs**: a 4 MB console BIOS such as SCPH-39001. Homebrew `.elf` programs run without it. |
 
 Cartridge games can also be inside a `.zip` file. Details for each system, including what isn't supported yet, are

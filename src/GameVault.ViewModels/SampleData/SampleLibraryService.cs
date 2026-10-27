@@ -61,6 +61,8 @@ public sealed class SampleLibraryService : ILibraryService
             Ownership.Cartridge | Ownership.DigitalDump, PlayStatus.Unplayed, system: GameSystem.Nintendo64),
         Game(22, "Skyline Courier", GameRegion.NorthAmerica, "Polyline Works", 2003, "Action",
             Ownership.Box | Ownership.Manual | Ownership.DigitalDump, PlayStatus.Playing, hours: 6.5, lastPlayedDaysAgo: 2, system: GameSystem.PlayStation2),
+        Game(27, "Orbit Gardener", GameRegion.NorthAmerica, "Polyline Works", 2004, "Puzzle",
+            Ownership.DigitalDump, PlayStatus.Unplayed, system: GameSystem.GameCube),
     ];
 
     private readonly List<GameEntry> _games;
@@ -220,6 +222,7 @@ public sealed class SampleLibraryService : ILibraryService
                     GameSystem.PlayStation => $@"C:\Games\PlayStation\{title}.cue",
                     GameSystem.Nintendo64 => $@"C:\Games\Nintendo 64\{title}.z64",
                     GameSystem.PlayStation2 => $@"C:\Games\PlayStation 2\{title}.iso",
+                    GameSystem.GameCube => $@"C:\Games\GameCube\{title}.dol",
                     _ => $@"C:\Games\NES\{title}.nes",
                 }
                 : null,

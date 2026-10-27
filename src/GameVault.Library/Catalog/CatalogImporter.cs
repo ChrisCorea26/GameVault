@@ -65,7 +65,9 @@ public sealed partial class CatalogImporter(LibraryDatabase database)
     }
 
     private static GameVault.Core.Systems.GameSystem SystemOfDat(string datName) =>
-        datName.Contains("Master System", StringComparison.OrdinalIgnoreCase) || datName.Contains("Mark III", StringComparison.OrdinalIgnoreCase)
+        datName.Contains("GameCube", StringComparison.OrdinalIgnoreCase)
+            ? GameVault.Core.Systems.GameSystem.GameCube
+            : datName.Contains("Master System", StringComparison.OrdinalIgnoreCase) || datName.Contains("Mark III", StringComparison.OrdinalIgnoreCase)
             ? GameVault.Core.Systems.GameSystem.MasterSystem
             : datName.Contains("SG-1000", StringComparison.OrdinalIgnoreCase) || datName.Contains("SC-3000", StringComparison.OrdinalIgnoreCase)
                 ? GameVault.Core.Systems.GameSystem.Sg1000

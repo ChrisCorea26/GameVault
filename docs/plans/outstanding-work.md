@@ -150,6 +150,10 @@ The sample Apple II, Genesis and SNES games show a test pattern. Run a freely li
 from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Player shows real pictures under
 `--sample-data`.
 
+**Deferred.** The Apple II can't run anything without Apple's own ROMs, which GameVault can't ship, so its sample
+stays a test pattern. For the Genesis and SNES a freely licensed build (such as the 240p Test Suite, GPL) would need
+its source bundled beside it, and this environment can't download it; it waits for the owner to add one.
+
 ## 7. Genesis: EEPROM saves, interlace mode 2, Master System mode
 - I²C EEPROM (24C01–24C65) saves with the game database's wiring for each board.
 - Interlace mode 2: 448-line double-resolution frames through the variable-size video path.
@@ -242,6 +246,13 @@ SH-2s and its VDP). Its own plan file first.
 
 ## 18. Phase 18: GameCube / Wii
 As SPEC §7.11 and §12. Its own `docs/plans/phase-18.md` first.
+
+**As built (milestone 1).** `docs/plans/phase-18.md`: `GekkoCpu` (interpreted: integer, FPU, paired singles, the
+SPRs, exceptions, the decrementer, BATs) and `GameCubeConsole` with `GcVideoInterface` (the XFB), `GcSerialInterface`
+(pads), `GcExternalInterface` (RTC/SRAM), `GcDspInterface` (the boot handshake, ARAM) and `GcExecutable` (DOL/ELF,
+started as the boot ROM leaves the machine). `.dol`/`.elf` files. Tests: `GekkoTests`, `GameCubeConsoleTests`,
+`GameCubeHostTests`. Measured at about 65 M instructions a second (an eighth of the Gekko's 486 MHz). The GPU and discs
+are milestone 2, the recompiler 3, the DSP 4, then the Wii.
 
 ## 19. Phase 19: Atari 2600 / 5200
 As SPEC §7.11 and §12. Its own `docs/plans/phase-19.md` first.
