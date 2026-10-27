@@ -52,22 +52,23 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
         var chip = _rom[_header + 0x16];
         Chip = chip;
         var battery = (chip & 0x0F) is 0x02 or 0x05 or 0x06 || chip == 0x1A;
+        var ramSize = _rom[_header + 0x18];
+        var country = _rom[_header + 0x19];
+        Pal = country is >= 0x02 and <= 0x0C;
         if (chip >= 0x03)
         {
             Coprocessor = (chip >> 4) switch
             {
                 0x0 => CreateDsp(chipRoms),
                 0x1 => CreateSuperFx(chip),
+                0x3 => new Sa1(_rom, ramSize is > 0 and <= 8 ? 1024 << ramSize : 0, Pal),
                 _ => throw new UnsupportedChipException(ChipName(chip)),
             };
         }
 
-        var ramSize = _rom[_header + 0x18];
-        _sram = Coprocessor is SuperFx || ramSize is 0 or > 7 ? [] : new byte[1024 << ramSize];
+        _sram = Coprocessor is SuperFx or Sa1 || ramSize is 0 or > 7 ? [] : new byte[1024 << ramSize];
         Array.Fill(_sram, (byte)0xFF);
-        HasBattery = battery && (_sram.Length > 0 || Coprocessor is SuperFx);
-        var country = _rom[_header + 0x19];
-        Pal = country is >= 0x02 and <= 0x0C;
+        HasBattery = battery && (_sram.Length > 0 || Coprocessor is SuperFx or Sa1);
     }
 
     public ReadOnlySpan<byte> Rom => _rom;
@@ -87,8 +88,13 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
 
     public bool HasBattery { get; }
 
-    /// <summary>The battery-backed RAM: the SRAM, or the Super FX's game pak RAM.</summary>
-    public Span<byte> BatteryRam => Coprocessor is SuperFx gsu ? gsu.Ram : _sram;
+    /// <summary>The battery-backed RAM: the SRAM, the Super FX's game pak RAM or the SA-1's BW-RAM.</summary>
+    public Span<byte> BatteryRam => Coprocessor switch
+    {
+        SuperFx gsu => gsu.Ram,
+        Sa1 sa1 => sa1.BwRam,
+        _ => _sram,
+    };
 
     /// <summary>True when the image looks like an SNES ROM (a header scores well somewhere).</summary>
     public static bool LooksLikeSnes(ReadOnlySpan<byte> image)
