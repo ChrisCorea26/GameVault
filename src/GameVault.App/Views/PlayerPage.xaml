@@ -445,6 +445,8 @@
     <controls:GameView
         x:Name="Game"
         Grid.Row="2"
+        GunEnabled="{x:Bind ViewModel.UsesGun, Mode=OneWay}"
+        MouseEnabled="{x:Bind ViewModel.UsesMouse, Mode=OneWay}"
         PaddleEnabled="{x:Bind ViewModel.UsesPaddle, Mode=OneWay}"
         ZapperEnabled="{x:Bind ViewModel.UsesZapper, Mode=OneWay}" />
 

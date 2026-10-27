@@ -15,3 +15,4 @@
 | 11 | October 2026 | Super Nintendo games with the SA-1 (*Super Mario RPG*, *Kirby Super Star*), S-DD1 (*Star Ocean*) or OBC1 chip play, and the ST010 and ST011 play with your own chip ROM. |
 | 12 | October 2026 | Nintendo 64: **Settings → Nintendo 64 → Rumble Pak** puts a Rumble Pak in every controller, and games shake your controller through it; games in 32-bit colour show all their colours. |
 | 13 | October 2026 | PlayStation 2: a memory card in slot 2 shared by every game, L2 and R2 pressure from analog triggers, and mipmapped textures. |
+| 14 | October 2026 | PlayStation: the controllers are DualShocks, with both sticks, L3 and R3, vibration and **Settings → PlayStation → Analog mode**; the GunCon and the mouse (chosen per game in Game Details); 24-bit videos show all their colours. |

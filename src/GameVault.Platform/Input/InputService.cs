@@ -207,6 +207,63 @@ public sealed class InputService
         }
     }
 
+    private (double X, double Y)? _gunAim;
+    private bool _gunTrigger;
+    private bool _gunA;
+    private bool _gunB;
+    private double _mouseDx;
+    private double _mouseDy;
+    private bool _mouseLeft;
+    private bool _mouseRight;
+
+    /// <summary>
+    /// The PlayStation's GunCon, driven by the mouse over the game: the aim as fractions of the picture (null off it),
+    /// the left button as the trigger, the right button as A and the middle one as B. Set on the UI thread.
+    /// </summary>
+    public void SetGun((double X, double Y)? aim, bool trigger, bool a, bool b)
+    {
+        lock (_gate)
+        {
+            _gunAim = aim;
+            _gunTrigger = trigger;
+            _gunA = a;
+            _gunB = b;
+        }
+    }
+
+    public ((double X, double Y)? Aim, bool Trigger, bool A, bool B) SampleGun()
+    {
+        lock (_gate)
+        {
+            return (_gunAim, _gunTrigger, _gunA, _gunB);
+        }
+    }
+
+    /// <summary>The PlayStation Mouse: movement since the last frame (in mouse counts) and the two buttons. UI thread.</summary>
+    public void MoveMouse(double dx, double dy, bool left, bool right)
+    {
+        lock (_gate)
+        {
+            _mouseDx += dx;
+            _mouseDy += dy;
+            _mouseLeft = left;
+            _mouseRight = right;
+        }
+    }
+
+    /// <summary>The movement since the last sample, in whole counts (the rest carries over), and the buttons.</summary>
+    public (int Dx, int Dy, bool Left, bool Right) SampleMouse()
+    {
+        lock (_gate)
+        {
+            var dx = (int)_mouseDx;
+            var dy = (int)_mouseDy;
+            _mouseDx -= dx;
+            _mouseDy -= dy;
+            return (dx, dy, _mouseLeft, _mouseRight);
+        }
+    }
+
     /// <summary>The Zapper state for the next frame (emulation thread).</summary>
     public ((int X, int Y)? Aim, bool Trigger) SampleZapper()
     {
@@ -624,7 +681,7 @@ public sealed class InputService
                 }
             }
 
-            if (Layout is PadLayout.Nintendo64 or PadLayout.PlayStation2)
+            if (Layout is PadLayout.Nintendo64 or PadLayout.PlayStation or PadLayout.PlayStation2)
             {
                 state = WithSticks(state, port);
                 return Layout == PadLayout.PlayStation2 ? WithPressure(state, port) : state;
@@ -733,12 +790,13 @@ public sealed class InputService
 
     /// <summary>
     /// The sticks for a port: the keyboard's arrows push the left stick all the way (their direction bits leave the
-    /// D-pad), and on the PS2 the right-stick keys push the right one; the strongest pad stick wins over them. Called
+    /// D-pad), and on the PlayStation and PS2 the right-stick keys push the right one; the strongest pad stick wins over them. Called
     /// with the lock held.
     /// </summary>
     private ControllerState WithSticks(ControllerState state, int port)
     {
-        var range = Layout == PadLayout.PlayStation2 ? DualShockStickRange : StickRange;
+        var dualShock = Layout is PadLayout.PlayStation or PadLayout.PlayStation2;
+        var range = dualShock ? DualShockStickRange : StickRange;
         ControllerState leftKeys = ControllerState.None, rightKeys = ControllerState.None;
         foreach (var ((source, p, bit), _) in _holdCount)
         {
@@ -767,7 +825,7 @@ public sealed class InputService
 
         var (lx, ly) = Strongest(leftKeys, port, right: false, range);
         state = state.WithStick(lx, ly);
-        if (Layout == PadLayout.PlayStation2)
+        if (dualShock)
         {
             var (rx, ry) = Strongest(rightKeys, port, right: true, range);
             state = state.WithRightStick(rx, ry);

@@ -791,6 +791,12 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     /// <inheritdoc />
     public bool UsesPaddle { get; private set; }
 
+    /// <summary>True when the game is set up for the PlayStation's GunCon, so the mouse aims it.</summary>
+    public bool UsesGun { get; private set; }
+
+    /// <summary>True when the game is set up for the PlayStation Mouse.</summary>
+    public bool UsesMouse { get; private set; }
+
     public bool UsesFourScore { get; private set; }
 
     public bool IsRewinding { get; private set; }
@@ -1198,6 +1204,15 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         Profile = profile;
         UsesZapper = nes?.InputSetup == InputSetup.Zapper;
         UsesPaddle = nes?.InputSetup == InputSetup.ArkanoidPaddle;
+        var psConsole = console as PlayStationConsole;
+        psConsole?.Sio.SetDevice(0, profile.Input switch
+        {
+            InputType.GunCon => PsPortDevice.GunCon,
+            InputType.Mouse => PsPortDevice.Mouse,
+            _ => PsPortDevice.DualShock,
+        });
+        UsesGun = psConsole?.Sio.DeviceIn(0) == PsPortDevice.GunCon;
+        UsesMouse = psConsole?.Sio.DeviceIn(0) == PsPortDevice.Mouse;
         _input.PowerPadActive = nes?.InputSetup == InputSetup.PowerPad;
         UsesFourScore = nes?.InputSetup == InputSetup.FourScore;
         DiskSideCount = nes?.Fds?.SideCount ?? DiscNames.Count;
@@ -1279,6 +1294,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         GameKey = null;
         UsesZapper = false;
         UsesPaddle = false;
+        UsesGun = false;
+        UsesMouse = false;
         _input.PowerPadActive = false;
         UsesFourScore = false;
         DiskSideCount = 0;
@@ -1562,6 +1579,21 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
                 var (aim, trigger) = _input.SampleZapper();
                 nes.Zapper.Aim = aim;
                 nes.Zapper.Trigger = trigger;
+            }
+
+            if (console is PlayStationConsole ps)
+            {
+                switch (ps.Sio.DeviceIn(0))
+                {
+                    case PsPortDevice.GunCon:
+                        var (aim, trigger, a, b) = _input.SampleGun();
+                        ps.Sio.Gun(0).Set(aim, trigger, a, b);
+                        break;
+                    case PsPortDevice.Mouse:
+                        var (dx, dy, left, right) = _input.SampleMouse();
+                        ps.Sio.Mouse(0).Move(dx, dy, left, right);
+                        break;
+                }
             }
 
             if (console is NesConsole { InputSetup: InputSetup.PowerPad } mat)

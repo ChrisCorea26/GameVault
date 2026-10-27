@@ -210,7 +210,7 @@ internal static class ConsoleFactory
         {
             try
             {
-                return new PlayStationConsole(bios, exe: PsExe.Parse(data));
+                return new PlayStationConsole(bios, exe: PsExe.Parse(data)) { AnalogPads = setup?.AnalogPads ?? false };
             }
             catch (InvalidDataException ex)
             {
@@ -234,7 +234,7 @@ internal static class ConsoleFactory
             throw new GameLoadException("GameVault couldn't open that disc: " + ex.Message, ex);
         }
 
-        return new PlayStationConsole(bios, disc, fastBoot: setup!.FastBoot);
+        return new PlayStationConsole(bios, disc, fastBoot: setup!.FastBoot) { AnalogPads = setup.AnalogPads };
     }
 
     /// <summary>

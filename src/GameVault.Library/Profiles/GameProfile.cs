@@ -16,6 +16,12 @@ public enum InputType
 
     /// <summary>The Arkanoid (Vaus) paddle in port 2, turned with the mouse (SPEC §4.7).</summary>
     ArkanoidPaddle,
+
+    /// <summary>The PlayStation's GunCon in port 1, aimed with the mouse (outstanding-work plan §11).</summary>
+    GunCon,
+
+    /// <summary>The PlayStation Mouse in port 1, moved with the PC's mouse.</summary>
+    Mouse,
 }
 
 /// <summary>Corrections for a wrong or missing iNES header. Null fields keep the header's value.</summary>

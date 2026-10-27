@@ -547,19 +547,21 @@ public sealed partial class PsGpu
 
     /// <summary>
     /// Copies the displayed part of VRAM into <paramref name="frame"/> (<see cref="DisplayWidth"/> × <see cref="DisplayHeight"/>
-    /// BGR555 indices). 24-bit mode is rounded to 15 bits; a disabled display is black.
+    /// BGR555 indices). 24-bit mode is rounded to 15 bits there, and kept at full depth in <paramref name="argb"/>
+    /// (outstanding-work plan §11); the return value says whether it was. A disabled display is black.
     /// </summary>
-    public void CopyDisplay(Span<ushort> frame)
+    public bool CopyDisplay(Span<ushort> frame, Span<uint> argb = default)
     {
         var width = DisplayWidth;
         var height = DisplayHeight;
         if (_displayDisabled)
         {
             frame[..(width * height)].Clear();
-            return;
+            return false;
         }
 
         var color24 = (_displayMode & 0x10) != 0;
+        var full = color24 && argb.Length >= width * height;
         for (var y = 0; y < height; y++)
         {
             var row = ((_displayY + y) & (VramHeight - 1)) * VramWidth;
@@ -581,8 +583,14 @@ public sealed partial class PsGpu
                 var offset = byteStart + x * 3;
                 int r = VramByte(row, offset), g = VramByte(row, offset + 1), b = VramByte(row, offset + 2);
                 line[x] = (ushort)(r >> 3 | (g >> 3) << 5 | (b >> 3) << 10);
+                if (full)
+                {
+                    argb[y * width + x] = 0xFF000000u | (uint)(r << 16 | g << 8 | b);
+                }
             }
         }
+
+        return full;
     }
 
     private int VramByte(int row, int byteOffset)

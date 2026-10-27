@@ -109,6 +109,7 @@ game started.
 |---|---|---|
 | **BIOS** | Path, for example `C:\PlayStation\scph1001.bin`, or **Choose…** | Empty |
 | **Skip the startup screens** | On / Off | Off |
+| **Analog mode** | On starts the controllers in analog mode, as if you'd pressed the DualShock's Analog button. Takes effect the next time a game starts. | Off |
 
 ## PlayStation 2
 

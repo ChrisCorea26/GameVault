@@ -122,6 +122,23 @@ tf1 Jump twice}");
     }
 
     [Fact]
+    public async Task A_playstation_game_chooses_what_is_in_port_1()
+    {
+        var vm = Details();
+        await vm.LoadCommand.ExecuteAsync("sample:20");
+        vm.IsPlayStation.Should().BeTrue();
+        vm.IsNes.Should().BeFalse();
+
+        vm.PlayStationInputIndex = 2; // GunCon
+        await Task.Yield();
+        (await _library.GetProfileOverridesAsync("sample:20"))!.Input.Should().Be(InputType.GunCon);
+
+        var again = Details();
+        await again.LoadCommand.ExecuteAsync("sample:20");
+        again.PlayStationInputIndex.Should().Be(2);
+    }
+
+    [Fact]
     public async Task Play_and_timeline_loads_launch_the_player()
     {
         var vm = Details();
