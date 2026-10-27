@@ -288,7 +288,7 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 | Netplay for Famicom Disk System games | `EmulatorHost.cs:382` |
 | SNES enhancement chips (DSP, Super FX, SA-1, …) | README status, `docs/plans/phase-14.md` |
 | SC-3000 keyboard, Japanese SMS FM sound (YM2413) | `docs/plans/phase-11.md` |
-| Genesis stereo, interlace mode 2, Master System mode, EEPROM saves, Sega CD, 32X | `docs/plans/phase-13.md` |
+| Genesis stereo, EEPROM saves on EA/Acclaim/Codemasters boards, Sega CD, 32X | `docs/plans/phase-13.md`, `docs/plans/outstanding-work.md` §7, §17 |
 | PlayStation DualShock analog and vibration, multitap, light guns, GameShark, memory card manager, GPU renderer | `docs/plans/phase-15.md` |
 | N64 GPU renderer and recompiler, Rumble Pak, Transfer Pak, 64DD, GameShark | README status, `docs/plans/phase-16.md` |
 | Apple II monochrome, user character ROM, mid-frame mode changes | `docs/plans/phase-12.md` |

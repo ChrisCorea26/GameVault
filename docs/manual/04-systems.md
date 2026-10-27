@@ -170,8 +170,13 @@ Properties → Controller** to *3-button*.
 While a Genesis game runs the shoulder buttons are game buttons, so use <kbd>Backspace</kbd> and <kbd>Tab</kbd> to
 rewind and fast-forward.
 
-**Not supported yet:** stereo sound (audio is mono), interlaced high-resolution mode, Master System mode, EEPROM
-saves, Sega CD and 32X.
+Games that save to a serial EEPROM chip and say so in their header (Sega's own, such as *Wonder Boy in Monster
+World* and *Mega Man: The Wily Wars*) save as `.sav` like battery games. EEPROM games from other publishers (EA,
+Acclaim, Codemasters) wire the chip differently and don't save yet. The double-resolution interlaced mode (*Sonic the
+Hedgehog 2*'s two-player game) shows all 448 lines. Master System games play on the Master System core instead (open
+the `.sms` file).
+
+**Not supported yet:** stereo sound (audio is mono), Sega CD and 32X.
 
 ## Super Nintendo
 

@@ -151,6 +151,11 @@ from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Pla
 - Interlace mode 2: 448-line double-resolution frames through the variable-size video path.
 - Master System mode (the Power Base Converter): the VDP's mode 4 and the SMS memory map, for `.sms` files the
   player chooses to run on the Genesis core.
+- **As built:** the I²C EEPROM (X24C01 and the 24Cxx family) with the wiring Sega's boards declare in the header
+  ("RA" $E8 $40 on $200001). EA, Acclaim and Codemasters boards wire it differently and need a per-game database
+  entry first, so they wait. Interlace mode 2 is done. Master System mode was dropped: a Power Base Converter just
+  runs the Master System's own hardware, which GameVault already has as the Master System core, so `.sms` files open
+  there.
 
 ## 8. Master System FM and the SC-3000 keyboard
 - YM2413 (OPLL) for Japanese Master System games, with its built-in instrument patches computed from the published
