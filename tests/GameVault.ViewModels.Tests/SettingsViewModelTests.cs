@@ -154,6 +154,20 @@ public class SettingsViewModelTests
     }
 
     [Fact]
+    public async Task N64_internal_resolution_starts_at_1x_and_is_saved()
+    {
+        var store = new InMemorySettingsStore();
+        var vm = new SettingsViewModel(store, new InputSettingsViewModel(new SampleInputDevicesService(), store), new LibrarySettingsViewModel(new SampleLibraryService(), new SampleGameFilePicker()));
+        await vm.LoadCommand.ExecuteAsync(null);
+        vm.N64ResolutionIndex.Should().Be(0);
+        vm.N64ResolutionOptions.Should().HaveCount(4);
+
+        vm.N64ResolutionIndex = 3;
+
+        store.Current.N64InternalResolution.Should().Be(4);
+    }
+
+    [Fact]
     public async Task The_n64_rumble_pak_is_off_by_default_and_saved()
     {
         var store = new InMemorySettingsStore();

@@ -107,6 +107,9 @@ public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHos
     private readonly uint[] _argb = new uint[MaxWidth * MaxHeight];
     private bool _trueColor;
 
+    /// <summary>The framebuffer the VI showed in the last frame: where it is, its stride and pixel size, and how much shows.</summary>
+    public N64VideoOutput VideoOutput { get; private set; }
+
     public ReadOnlySpan<uint> TrueColorFrame => _trueColor ? _argb.AsSpan(0, _frameWidth * _frameHeight) : default;
 
     /// <summary>The frame holds BGR555 colours, the same layout as the SNES's.</summary>
@@ -350,6 +353,7 @@ public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHos
     private void CaptureFrame()
     {
         _trueColor = false;
+        VideoOutput = default;
         var type = _vi[ViControl] & 3;
         var hStart = (int)(_vi[ViHVideo] >> 16) & 0x3FF;
         var hEnd = (int)_vi[ViHVideo] & 0x3FF;
@@ -371,6 +375,7 @@ public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHos
         var stride = (int)(_vi[ViWidth] & 0xFFF);
         var bytes = type == 3 ? 4 : 2;
         _trueColor = bytes == 4;
+        VideoOutput = new N64VideoOutput((uint)origin, stride, bytes, width, height);
         var argb = _argb;
         var rdram = _rdram;
         for (var y = 0; y < height; y++)
@@ -536,4 +541,13 @@ public sealed partial class N64Console : IEmulatedConsole, IR4300Bus, IN64RcpHos
 
         return hash;
     }
+}
+
+/// <summary>
+/// What the VI showed: the framebuffer at <paramref name="Origin"/> with <paramref name="Stride"/> pixels a line of
+/// <paramref name="BytesPerPixel"/> bytes, <paramref name="Width"/> × <paramref name="Height"/> of it. All zero when blanked.
+/// </summary>
+public readonly record struct N64VideoOutput(uint Origin, int Stride, int BytesPerPixel, int Width, int Height)
+{
+    public bool Blanked => Width == 0;
 }

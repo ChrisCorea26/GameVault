@@ -267,8 +267,9 @@ datagrams; with **Settings → Netplay → Relay server** set, hosting goes thro
   differences fixed-function blending makes.
 - Software stays the default where results must be exact (netplay, verified challenges).
 - Its own plan file first.
-- **Status:** milestone 1, the PlayStation GPU at 2× and 3×, is done (`docs/plans/gpu-renderers.md`). The N64 RDP
-  and PS2 GS milestones are future work, in that plan.
+- **Status:** milestone 1, the PlayStation GPU at 2× and 3×, and milestone 2, the N64 RDP at 2× to 4× (a compute
+  port of the RDP; sharper, not faster, as the software RDP still draws RDRAM), are done
+  (`docs/plans/gpu-renderers.md`). The PS2 GS milestone is next, in that plan.
 
 ## 15. N64 recompiler
 A VR4300 block recompiler to IL like the EE's, with the interpreter as the reference and the same kind of
@@ -277,7 +278,8 @@ differential tests.
 **Measured first, and not needed now.** A loop of RDRAM loads, adds, stores and a branch runs at 369 M CPU cycles a
 second on the interpreter (Release, the Linux build machine): about four times the VR4300's 93.75 MHz, so the CPU
 isn't what holds N64 games below full speed; the RDP is (phase-17-performance.md §3). The recompiler waits until a
-profile of real games shows the CPU on top; until then the GPU renderer (item 14) is where N64 speed comes from.
+profile of real games shows the CPU on top. The N64 GPU renderer (item 14) doesn't speed the RDP up either, as the
+software RDP still draws RDRAM; that is the place to look next for N64 speed.
 
 ## 16. PS2 netplay and run-ahead
 Make PS2 save states small and fast enough (dirty-page tracking for the 32 MB of RAM and the GS's 4 MB), then

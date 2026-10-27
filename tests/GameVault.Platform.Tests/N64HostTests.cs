@@ -12,6 +12,7 @@ using GameVault.Platform.Emulation;
 using GameVault.Platform.Input;
 using GameVault.Platform.Storage;
 using GameVault.Platform.Video;
+using GameVault.ViewModels.SampleData;
 using GameVault.ViewModels.Services;
 
 namespace GameVault.Platform.Tests;
@@ -78,6 +79,60 @@ public sealed class N64HostTests : IDisposable
         return rom;
     }
 
+    /// <summary>
+    /// A cartridge whose boot code shows a 320×240 16-bit framebuffer that the RDP fills green (a command list in
+    /// RDRAM at $100000), then counts in RDRAM at $10.
+    /// </summary>
+    internal static byte[] GreenRdpRom()
+    {
+        uint[] commands =
+        [
+            0x3F10013F, 0x00200000, // Set Color Image: RGBA16, 320 wide, at $200000
+            0x2D000000, 0x005003C0, // Set Scissor: 0, 0 to 320, 240
+            0x2F300000, 0x00000000, // Set Other Modes: fill
+            0x37000000, 0x07C107C1, // Set Fill Color: green
+            0x364FC3BC, 0x00000000, // Fill Rectangle: 0, 0 to 319, 239
+            0x29000000, 0x00000000, // Sync Full
+        ];
+        List<uint> program =
+        [
+            Lui(8, 0xA440),
+            Ori(9, 0, 0x3002), Sw(9, 8, 0x00), // 16-bit
+            Lui(9, 0x0020), Sw(9, 8, 0x04), // origin $200000
+            Ori(9, 0, 320), Sw(9, 8, 0x08),
+            Ori(9, 0, 0x20D), Sw(9, 8, 0x18),
+            Ori(9, 0, 0xC15), Sw(9, 8, 0x1C),
+            Lui(9, 0x006C), Ori(9, 9, 0x02EC), Sw(9, 8, 0x24),
+            Lui(9, 0x0025), Ori(9, 9, 0x01FF), Sw(9, 8, 0x28),
+            Ori(9, 0, 0x200), Sw(9, 8, 0x30),
+            Ori(9, 0, 0x400), Sw(9, 8, 0x34),
+            Lui(10, 0xA010), // the command list
+        ];
+        for (var i = 0; i < commands.Length; i++)
+        {
+            program.AddRange([Lui(9, (int)(commands[i] >> 16)), Ori(9, 9, (int)(commands[i] & 0xFFFF)), Sw(9, 10, i * 4)]);
+        }
+
+        program.AddRange(
+        [
+            Lui(8, 0xA410), // DPC_START and DPC_END
+            Lui(9, 0x0010), Sw(9, 8, 0x00),
+            Ori(9, 9, commands.Length * 4), Sw(9, 8, 0x04),
+            Lui(13, 0xA000),
+            Lw(14, 13, 0x10), Addiu(14, 14, 1), Sw(14, 13, 0x10), Beq(0, 0, -4), 0,
+        ]);
+        var rom = new byte[0x10_0000];
+        BinaryPrimitives.WriteUInt32BigEndian(rom, 0x8037_1240);
+        Encoding.ASCII.GetBytes("GAMEVAULT RDP TEST  ").CopyTo(rom, 0x20);
+        Encoding.ASCII.GetBytes("NGRE").CopyTo(rom, 0x3B);
+        for (var i = 0; i < program.Count; i++)
+        {
+            BinaryPrimitives.WriteUInt32BigEndian(rom.AsSpan(0x40 + i * 4), program[i]);
+        }
+
+        return rom;
+    }
+
     /// <summary>The same ROM in the .v64 (byte-swapped) order.</summary>
     private static byte[] ByteSwapped(byte[] rom)
     {
@@ -119,6 +174,36 @@ public sealed class N64HostTests : IDisposable
 
         host.Stop();
         input.Layout.Should().Be(PadLayout.Nes);
+    }
+
+    [Fact]
+    public async Task At_2x_the_gpu_renderer_draws_the_picture_on_windows_and_the_software_rdp_elsewhere()
+    {
+        var path = Path.Combine(_root.FullName, "Green.z64");
+        await File.WriteAllBytesAsync(path, GreenRdpRom());
+        var frames = new FrameSink();
+        var settings = new InMemorySettingsStore(new AppSettings { N64InternalResolution = 2 });
+        using var host = new EmulatorHost(frames, new InputService(KeyboardMapping.CreateDefault()), settings);
+
+        await host.LoadAsync(path);
+
+        // Direct3D only exists on Windows (CI's Windows runner has WARP); elsewhere the software picture stays.
+        var (width, height) = OperatingSystem.IsWindows() ? (640, 474) : (320, 237);
+        uint color = 0;
+        await WaitFor(() =>
+        {
+            if (frames.TryGetVideoFrame(out var frame) && frame.Width == width && frame.Height == height)
+            {
+                var argb = new uint[width * height];
+                frame.ToArgb(frames.Palette, argb);
+                color = argb[width * (height / 2) + width / 2];
+                return Task.FromResult(color != 0xFF000000);
+            }
+
+            return Task.FromResult(false);
+        });
+        color.Should().Be(0xFF00FF00u, "the RDP filled the screen green");
+        host.Stop();
     }
 
     [Fact]

@@ -100,6 +100,7 @@ public sealed partial class EmulatorHost
     /// </summary>
     private void AttachGpuRenderer(Core.Systems.IEmulatedConsole console)
     {
+        AttachN64Renderer(console);
         var scale = Math.Clamp(_playStation?.InternalResolution ?? 1, 1, D3D11PsGpuRenderer.MaxScale);
         if (console is not PlayStationConsole ps || scale <= 1 || !OperatingSystem.IsWindows())
         {
@@ -118,9 +119,14 @@ public sealed partial class EmulatorHost
         }
     }
 
-    /// <summary>The GPU renderer's picture, if one is attached and drawing this frame (not 24-bit video).</summary>
+    /// <summary>A GPU renderer's picture (N64 or PlayStation), if one is attached and drawing this frame (not 24-bit video).</summary>
     private bool TryPresentGpuPicture(Core.Systems.IEmulatedConsole console)
     {
+        if (TryPresentN64Picture(console))
+        {
+            return true;
+        }
+
         if (_psRenderer is null || console is not PlayStationConsole)
         {
             return false;
@@ -155,6 +161,7 @@ public sealed partial class EmulatorHost
 
         _psRenderer?.Dispose();
         _psRenderer = null;
+        ReleaseN64Renderer(console);
 
         ReleasePs2Disc(console);
     }

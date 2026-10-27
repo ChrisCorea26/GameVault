@@ -4,7 +4,14 @@
     <TargetFramework>net10.0-windows</TargetFramework>
     <RootNamespace>GameVault.Platform.Tests</RootNamespace>
     <EnableWindowsTargeting>true</EnableWindowsTargeting>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
+
+  <ItemGroup>
+    <!-- The GPU renderers' kernels on a Vulkan software device (SwiftShader or lavapipe), so they run on Linux. -->
+    <PackageReference Include="Silk.NET.Shaderc" />
+    <PackageReference Include="Silk.NET.Vulkan" />
+  </ItemGroup>
 
   <ItemGroup>
     <!-- Synthetic mapper ROMs shared with the core tests. -->
@@ -13,6 +20,8 @@
     <!-- PlayStation discs (ISO-9660 with SYSTEM.CNF and a boot executable) shared with the core tests. -->
     <Compile Include="..\GameVault.Core.Tests\PlayStation\TestDisc.cs" Link="TestDisc.cs" />
     <Compile Include="..\GameVault.Library.Tests\Discs\Ps2TestImages.cs" Link="Ps2TestImages.cs" />
+    <!-- Downloaded test suites (PeterLemon's N64 RDP programs, for the GPU renderer). -->
+    <Compile Include="..\GameVault.Core.Tests\Harness\TestRomLocator.cs" Link="TestRomLocator.cs" />
   </ItemGroup>
 
   <ItemGroup>

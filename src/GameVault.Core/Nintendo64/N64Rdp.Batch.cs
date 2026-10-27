@@ -151,6 +151,7 @@ public sealed partial class N64Rdp
 
     private void RecordDraw(int id)
     {
+        EmitPrimitive(id);
         var w = _command[0];
         int yTop, yBottom;
         if (id <= 0x0F)

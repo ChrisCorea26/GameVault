@@ -433,6 +433,55 @@ public sealed class N64RdpTests
         again.ToArray().Should().Equal(mine.ToArray());
     }
 
+    [Fact]
+    public void A_backend_sees_each_primitive_with_its_state_tmem_loads_the_end_of_each_run_and_state_loads()
+    {
+        var backend = new RecordingBackend();
+        _rdp.Backend = backend;
+        Setup16();
+        Add(OtherModes(CycleFill));
+        Add(0x37UL << 56 | 0x12345678);
+        Add(FillRect(10, 10, 19, 19));
+        Add(SetTextureImage(N64Rdp.FormatI, N64Rdp.Size8, 8, Texture));
+        Add(SetTile(N64Rdp.FormatI, N64Rdp.Size8, line: 1, tmem: 0, tile: 0));
+        Add(LoadTile(0, 0, 0, 7, 0));
+        Run();
+
+        backend.Primitives.Should().ContainSingle();
+        var fill = backend.Primitives[0];
+        fill.FillColor.Should().Be(0x12345678u);
+        fill.ColorAddress.Should().Be(Frame);
+        fill.ColorWidth.Should().Be(Width);
+        (fill.OtherModes >> 52 & 3).Should().Be(3UL);
+        (fill.Edges.Yh >> 2).Should().Be(10);
+        backend.TmemLoads.Should().Be(1);
+        backend.Done.Should().Be(1);
+
+        var state = new StateWriter();
+        _rdp.SaveState(state);
+        _rdp.LoadState(new StateReader(state.ToArray()));
+        backend.Resyncs.Should().Be(1);
+    }
+
+    private sealed class RecordingBackend : IN64RdpBackend
+    {
+        public List<N64RdpPrimitive> Primitives { get; } = [];
+
+        public int TmemLoads { get; private set; }
+
+        public int Done { get; private set; }
+
+        public int Resyncs { get; private set; }
+
+        public void Primitive(in N64RdpPrimitive primitive) => Primitives.Add(primitive);
+
+        public void TmemLoaded(ReadOnlySpan<byte> tmem) => TmemLoads++;
+
+        public void CommandsDone() => Done++;
+
+        public void Resync() => Resyncs++;
+    }
+
     // ---- Helpers ------------------------------------------------------------------------------------------------
 
     private void Setup16()

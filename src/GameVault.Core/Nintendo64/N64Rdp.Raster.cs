@@ -48,71 +48,79 @@ public sealed partial class N64Rdp
 
     private void DrawTriangle(int id)
     {
+        var edges = default(N64RdpEdges);
+        DecodeTriangle(id, ref edges);
+        WalkEdges(ref edges);
+    }
+
+    /// <summary>A triangle command's edges and coefficients (shade, texture and Z as the command's bits ask).</summary>
+    private void DecodeTriangle(int id, ref N64RdpEdges e)
+    {
         var c = _command;
         var w0 = c[0];
-        Span<int> value = stackalloc int[8];
-        Span<int> dx = stackalloc int[8];
-        Span<int> de = stackalloc int[8];
-        Span<int> dy = stackalloc int[8];
         var at = 4;
         if ((id & 4) != 0)
         {
-            ReadCoefficients(at, 0, value, dx, de, dy);
+            ReadCoefficients(at, 0, ref e);
             at += 8;
         }
 
         if ((id & 2) != 0)
         {
-            ReadCoefficients(at, 4, value, dx, de, dy);
+            ReadCoefficients(at, 4, ref e);
             at += 8;
         }
 
         if ((id & 1) != 0)
         {
-            value[AttrZ] = (int)(c[at] >> 32);
-            dx[AttrZ] = (int)c[at];
-            de[AttrZ] = (int)(c[at + 1] >> 32);
-            dy[AttrZ] = (int)c[at + 1];
+            e.Value[AttrZ] = (int)(c[at] >> 32);
+            e.Dx[AttrZ] = (int)c[at];
+            e.De[AttrZ] = (int)(c[at + 1] >> 32);
+            e.Dy[AttrZ] = (int)c[at + 1];
         }
 
-        WalkEdges(
-            ((w0 >> 55) & 1) != 0,
-            (int)(w0 >> 51) & 7,
-            (int)(w0 >> 48) & 7,
-            SignExtend((int)(w0 >> 32) & 0x3FFF, 14),
-            SignExtend((int)(w0 >> 16) & 0x3FFF, 14),
-            SignExtend((int)w0 & 0x3FFF, 14),
-            SignExtend((int)(c[1] >> 32), 28),
-            SignExtend((int)(c[2] >> 32), 28),
-            SignExtend((int)(c[3] >> 32), 28),
-            SignExtend((int)c[1], 30),
-            SignExtend((int)c[2], 30),
-            SignExtend((int)c[3], 30),
-            value, dx, de, dy);
+        e.Flip = ((w0 >> 55) & 1) != 0;
+        e.MaxLevel = (int)(w0 >> 51) & 7;
+        e.Tile = (int)(w0 >> 48) & 7;
+        e.Yl = SignExtend((int)(w0 >> 32) & 0x3FFF, 14);
+        e.Ym = SignExtend((int)(w0 >> 16) & 0x3FFF, 14);
+        e.Yh = SignExtend((int)w0 & 0x3FFF, 14);
+        e.Xl = SignExtend((int)(c[1] >> 32), 28);
+        e.Xh = SignExtend((int)(c[2] >> 32), 28);
+        e.Xm = SignExtend((int)(c[3] >> 32), 28);
+        e.DxlDy = SignExtend((int)c[1], 30);
+        e.DxhDy = SignExtend((int)c[2], 30);
+        e.DxmDy = SignExtend((int)c[3], 30);
     }
 
-    private void ReadCoefficients(int at, int slot, Span<int> value, Span<int> dx, Span<int> de, Span<int> dy)
+    private void ReadCoefficients(int at, int slot, ref N64RdpEdges e)
     {
         var c = _command;
         for (var i = 0; i < 4; i++)
         {
             var shift = 48 - i * 16;
-            value[slot + i] = Fixed(c[at], c[at + 2], shift);
-            dx[slot + i] = Fixed(c[at + 1], c[at + 3], shift);
-            de[slot + i] = Fixed(c[at + 4], c[at + 6], shift);
-            dy[slot + i] = Fixed(c[at + 5], c[at + 7], shift);
+            e.Value[slot + i] = Fixed(c[at], c[at + 2], shift);
+            e.Dx[slot + i] = Fixed(c[at + 1], c[at + 3], shift);
+            e.De[slot + i] = Fixed(c[at + 4], c[at + 6], shift);
+            e.Dy[slot + i] = Fixed(c[at + 5], c[at + 7], shift);
         }
     }
 
     /// <summary>Fill Rectangle: a left-major primitive with no attributes. In fill and copy modes the bottom row is included.</summary>
     private void FillRectangle(ulong w)
     {
+        var edges = default(N64RdpEdges);
+        DecodeFillRectangle(w, ref edges);
+        WalkEdges(ref edges);
+    }
+
+    private void DecodeFillRectangle(ulong w, ref N64RdpEdges e)
+    {
         var xl = (int)(w >> 44) & 0xFFF;
         var yl = (int)(w >> 32) & 0xFFF;
         var xh = (int)(w >> 12) & 0xFFF;
         var yh = (int)w & 0xFFF;
-        Span<int> zero = stackalloc int[8];
-        RectangleEdges(xl, yl, xh, yh, 0, zero, zero, zero, zero);
+        RectangleEdges(xl, yl, xh, yh, 0, ref e);
     }
 
     /// <summary>
@@ -120,6 +128,13 @@ public sealed partial class N64Rdp
     /// left-major primitive whose S changes along X and T along Y (the other way round when flipped).
     /// </summary>
     private void TextureRectangle(ulong w0, ulong w1, bool flip)
+    {
+        var edges = default(N64RdpEdges);
+        DecodeTextureRectangle(w0, w1, flip, ref edges);
+        WalkEdges(ref edges);
+    }
+
+    private void DecodeTextureRectangle(ulong w0, ulong w1, bool flip, ref N64RdpEdges e)
     {
         var xl = (int)(w0 >> 44) & 0xFFF;
         var yl = (int)(w0 >> 32) & 0xFFF;
@@ -130,29 +145,25 @@ public sealed partial class N64Rdp
         var t = (int)(w1 >> 32) & 0xFFFF;
         var dsdx = (int)(short)(w1 >> 16);
         var dtdy = (int)(short)w1;
-        Span<int> value = stackalloc int[8];
-        Span<int> dx = stackalloc int[8];
-        Span<int> de = stackalloc int[8];
-        Span<int> dy = stackalloc int[8];
-        value[AttrS] = s << 16;
-        value[AttrT] = t << 16;
+        e.Value[AttrS] = s << 16;
+        e.Value[AttrT] = t << 16;
 
         // s5.10 steps become s10.5 integer parts with 16 fraction bits: shift left by 11.
         if (!flip)
         {
-            dx[AttrS] = dsdx << 11;
-            de[AttrT] = dy[AttrT] = dtdy << 11;
+            e.Dx[AttrS] = dsdx << 11;
+            e.De[AttrT] = e.Dy[AttrT] = dtdy << 11;
         }
         else
         {
-            dx[AttrT] = dtdy << 11;
-            de[AttrS] = dy[AttrS] = dsdx << 11;
+            e.Dx[AttrT] = dtdy << 11;
+            e.De[AttrS] = e.Dy[AttrS] = dsdx << 11;
         }
 
-        RectangleEdges(xl, yl, xh, yh, tile, value, dx, de, dy);
+        RectangleEdges(xl, yl, xh, yh, tile, ref e);
     }
 
-    private void RectangleEdges(int xl, int yl, int xh, int yh, int tile, Span<int> value, Span<int> dx, Span<int> de, Span<int> dy)
+    private void RectangleEdges(int xl, int yl, int xh, int yh, int tile, ref N64RdpEdges e)
     {
         if (_cycleType is CycleFill or CycleCopy)
         {
@@ -161,13 +172,46 @@ public sealed partial class N64Rdp
 
         var xlFixed = ((xl >> 2) << 16) | ((xl & 3) << 14);
         var xhFixed = ((xh >> 2) << 16) | ((xh & 3) << 14);
-        WalkEdges(true, 0, tile, yl, yl, yh, xlFixed, xhFixed, xlFixed, 0, 0, 0, value, dx, de, dy);
+        e.Flip = true;
+        e.MaxLevel = 0;
+        e.Tile = tile;
+        e.Yl = yl;
+        e.Ym = yl;
+        e.Yh = yh;
+        e.Xl = xlFixed;
+        e.Xh = xhFixed;
+        e.Xm = xlFixed;
+        e.DxlDy = e.DxhDy = e.DxmDy = 0;
+    }
+
+    /// <summary>Decodes the drawing command in <see cref="_command"/> into the edge walker's inputs.</summary>
+    private void DecodePrimitive(int id, ref N64RdpEdges e)
+    {
+        switch (id)
+        {
+            case >= 0x08 and <= 0x0F:
+                DecodeTriangle(id, ref e);
+                break;
+            case 0x24:
+            case 0x25:
+                DecodeTextureRectangle(_command[0], _command[1], id == 0x25, ref e);
+                break;
+            default:
+                DecodeFillRectangle(_command[0], ref e);
+                break;
+        }
     }
 
     /// <summary>Walks the edges of a primitive into spans, then draws them with the current cycle type.</summary>
-    private void WalkEdges(bool flip, int maxLevel, int tile, int yl, int ym, int yh, int xl, int xh, int xm,
-        int dxldy, int dxhdy, int dxmdy, Span<int> value, Span<int> dx, Span<int> de, Span<int> dy)
+    private void WalkEdges(ref N64RdpEdges e)
     {
+        bool flip = e.Flip;
+        int maxLevel = e.MaxLevel, tile = e.Tile, yl = e.Yl, ym = e.Ym, yh = e.Yh, xl = e.Xl, xh = e.Xh, xm = e.Xm;
+        int dxldy = e.DxlDy, dxhdy = e.DxhDy, dxmdy = e.DxmDy;
+        Span<int> value = e.Value;
+        Span<int> dx = e.Dx;
+        Span<int> de = e.De;
+        Span<int> dy = e.Dy;
         _flip = flip;
         _maxLevel = maxLevel;
         _primTile = tile;
@@ -209,9 +253,9 @@ public sealed partial class N64Rdp
         {
             if (anchorQuarter == 3)
             {
-                var e = de[i] & ~0x1FF;
+                var alongEdge = de[i] & ~0x1FF;
                 var d = dy[i] & ~0x1FF;
-                offset[i] = e - (e >> 2) - d + (d >> 2);
+                offset[i] = alongEdge - (alongEdge >> 2) - d + (d >> 2);
             }
 
             perPixel[i] = copy ? 0 : (dx[i] >> 8) & ~1;
