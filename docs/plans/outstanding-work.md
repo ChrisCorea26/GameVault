@@ -187,6 +187,14 @@ hidden bits yet; they wait for that (with the GPU renderer, item 14). Tests: `N6
 ## 11. PlayStation peripherals and output
 - The mouse, the GunCon and the Justifier (with the PC mouse as the gun, as the NES Zapper does).
 - 24-bit output shown at full depth (FMVs).
+
+**As built (first part).** The pads are DualShocks (`PsDualShock`, byte by byte on SIO0): digital (41h), analog
+(73h) and config (F3h) modes with 43h–4Dh, the left stick working the D-pad while digital, and the motors mapped by
+4Dh driving `IRumbleSource` like the N64's Rumble Pak. **Settings → PlayStation → Analog mode** starts them analog,
+for games that wait for the Analog button. PlayStation games get both sticks, the stick clicks and T/F/G/H as the
+D-pad, as PS2 games do. 24-bit display goes through `TrueColorFrame`. SIO0's state is version 2 and still loads
+version 1. **Not done yet:** the mouse, GunCon, Justifier and a second multitap. Tests: `PsDualShockTests`,
+`PsGpuTrueColorTests`, `ControllerManagerTests`.
 - A second multitap (8 players): the input service and the Player grow to 8 ports.
 
 ## 12. PS2 peripherals and GS details

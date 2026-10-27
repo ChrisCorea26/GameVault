@@ -228,7 +228,8 @@ Real games are the owner's to try; see `docs/plans/phase-14.md`.
 | Disc images: .cue/.bin, .chd (cdzl, cdlz, cdfl), .m3u | ✅ Unit tests; CHD verified against chdman's output |
 | Fast boot and PS-EXE loading | ✅ Unit tests with a stand-in BIOS |
 | Whole machine: PeterLemon's `printgpu` demo through the frame loop | ✅ Golden image |
-| DualShock, multitap, mouse, light guns; GameShark codes | Not yet |
+| DualShock: digital, analog and config modes, the motors (passed to the player's pad); 24-bit display at full depth | ✅ Unit tests |
+| Multitap, mouse, light guns; GameShark codes | Not yet |
 
 Real discs need the owner's BIOS (Settings → PlayStation); real games are the owner's to try. See
 `docs/plans/phase-15.md`.

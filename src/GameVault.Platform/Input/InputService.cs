@@ -606,7 +606,7 @@ public sealed class InputService
                 }
             }
 
-            if (Layout is PadLayout.Nintendo64 or PadLayout.PlayStation2)
+            if (Layout is PadLayout.Nintendo64 or PadLayout.PlayStation or PadLayout.PlayStation2)
             {
                 return WithSticks(state, port);
             }
@@ -678,12 +678,13 @@ public sealed class InputService
 
     /// <summary>
     /// The sticks for a port: the keyboard's arrows push the left stick all the way (their direction bits leave the
-    /// D-pad), and on the PS2 the right-stick keys push the right one; the strongest pad stick wins over them. Called
+    /// D-pad), and on the PlayStation and PS2 the right-stick keys push the right one; the strongest pad stick wins over them. Called
     /// with the lock held.
     /// </summary>
     private ControllerState WithSticks(ControllerState state, int port)
     {
-        var range = Layout == PadLayout.PlayStation2 ? DualShockStickRange : StickRange;
+        var dualShock = Layout is PadLayout.PlayStation or PadLayout.PlayStation2;
+        var range = dualShock ? DualShockStickRange : StickRange;
         ControllerState leftKeys = ControllerState.None, rightKeys = ControllerState.None;
         foreach (var ((source, p, bit), _) in _holdCount)
         {
@@ -712,7 +713,7 @@ public sealed class InputService
 
         var (lx, ly) = Strongest(leftKeys, port, right: false, range);
         state = state.WithStick(lx, ly);
-        if (Layout == PadLayout.PlayStation2)
+        if (dualShock)
         {
             var (rx, ry) = Strongest(rightKeys, port, right: true, range);
             state = state.WithRightStick(rx, ry);

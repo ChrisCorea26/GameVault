@@ -249,7 +249,7 @@ Satellaview; interlaced modes; effects that change the picture partway along a l
 
 Discs are read from where they are; they're never copied or loaded into memory whole.
 
-**Controls** (digital pad):
+**Controls** (DualShock):
 
 | PlayStation | Keyboard | Controller (position) | Xbox label |
 |---|---|---|---|
@@ -257,12 +257,23 @@ Discs are read from where they are; they're never copied or loaded into memory w
 | Square, Triangle | <kbd>A</kbd>, <kbd>S</kbd> | Left, top | X, Y |
 | L1, R1 | <kbd>1</kbd>, <kbd>2</kbd> | Left shoulder, right shoulder | LB, RB |
 | L2, R2 | <kbd>3</kbd>, <kbd>4</kbd> | Left trigger, right trigger | LT, RT |
+| L3, R3 (analog mode) | <kbd>5</kbd>, <kbd>6</kbd> | Click the left stick, click the right stick | LS, RS |
 | Select, Start | <kbd>Right Shift</kbd>, <kbd>Enter</kbd> | Back, Start | View, Menu |
+| D-pad | <kbd>T</kbd> <kbd>F</kbd> <kbd>G</kbd> <kbd>H</kbd> | D-pad | D-pad |
+| Left stick | Arrow keys (full push) | Left stick | Left stick |
+| Right stick | <kbd>I</kbd> <kbd>J</kbd> <kbd>K</kbd> <kbd>L</kbd> (full push) | Right stick | Right stick |
+
+**Analog mode:** the controllers are DualShocks. They start digital, and the left stick (and the arrow keys) work the
+D-pad. Games that use the sticks switch them to analog themselves. For a game that supports the sticks but waits for
+you to press the DualShock's Analog button, turn on **Settings → PlayStation → Analog mode**. Games that rumble shake
+your controller, if it has motors.
 
 **Memory cards:** each game gets its own card in slot 1, so you never run out of space. Slot 2 is empty.
 
-**Not supported yet:** DualShock analog sticks and vibration, multitap, mouse, light guns, link cable, GameShark
-codes, a memory card manager, and enhanced (upscaled) graphics.
+Videos and other pictures in 24-bit colour are shown with all their colours.
+
+**Not supported yet:** multitap, mouse, light guns, link cable, GameShark codes, a memory card manager, and enhanced
+(upscaled) graphics.
 
 **Messages:**
 

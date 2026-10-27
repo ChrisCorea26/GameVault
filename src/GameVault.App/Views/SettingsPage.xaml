@@ -703,6 +703,27 @@
                 OffContent=""
                 OnContent="" />
           </Grid>
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
+              <TextBlock Text="Analog mode" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Starts the controllers in analog mode, as if you'd pressed the DualShock's Analog button, for games that use the sticks but don't turn them on themselves. Leave it off for older games that only know the digital controller. Takes effect the next time a game starts."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch
+                Grid.Column="1"
+                MinWidth="0"
+                AutomationProperties.Name="PlayStation controllers in analog mode"
+                IsOn="{x:Bind ViewModel.PlayStationAnalog, Mode=TwoWay}"
+                OffContent=""
+                OnContent="" />
+          </Grid>
           <TextBlock
               Foreground="{ThemeResource TextFillColorSecondaryBrush}"
               Style="{StaticResource CaptionTextBlockStyle}"

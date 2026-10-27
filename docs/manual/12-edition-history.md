@@ -10,3 +10,4 @@
 | 6 | October 2026 | Sound is in stereo on the Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64 and PlayStation 2, and **Settings → Audio → Mono** plays both channels on both speakers. |
 | 7 | October 2026 | Super Nintendo games with a Super FX chip (Star Fox, Yoshi's Island) play, and games with a DSP chip (Super Mario Kart, Pilotwings) play with your own chip ROM in **Settings → Super Nintendo → Enhancement chip ROMs**. |
 | 12 | October 2026 | Nintendo 64: **Settings → Nintendo 64 → Rumble Pak** puts a Rumble Pak in every controller, and games shake your controller through it; games in 32-bit colour show all their colours. |
+| 14 | October 2026 | PlayStation: the controllers are DualShocks, with both sticks, L3 and R3, vibration and **Settings → PlayStation → Analog mode**; 24-bit videos show all their colours. |
