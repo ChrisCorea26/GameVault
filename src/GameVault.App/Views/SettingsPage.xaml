@@ -603,6 +603,36 @@
         </StackPanel>
       </Border>
 
+      <!-- Super Nintendo (outstanding-work plan §4): the player's own enhancement chip ROMs; GameVault never ships them -->
+      <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="Super Nintendo" />
+      <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">
+        <StackPanel Spacing="8">
+          <TextBlock Text="Enhancement chip ROMs" />
+          <TextBlock
+              Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+              Style="{StaticResource CaptionTextBlockStyle}"
+              Text="Games with a DSP chip (such as Pilotwings and Super Mario Kart) need that chip's program, dumped from your own cartridge: dsp1b.rom (or dsp1.rom), dsp2.rom, dsp3.rom or dsp4.rom. Put the files in a folder and choose it here. GameVault doesn't include them. Super FX games, such as Star Fox, need nothing extra."
+              TextWrapping="Wrap" />
+          <Grid ColumnSpacing="8">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox
+                AutomationProperties.Name="Enhancement chip ROM folder"
+                LostFocus="SnesChipRomFolder_LostFocus"
+                PlaceholderText="C:\Super Nintendo\Chips"
+                Text="{x:Bind ViewModel.SnesChipRomFolder, Mode=TwoWay}" />
+            <Button
+                Grid.Column="1"
+                VerticalAlignment="Center"
+                AutomationProperties.Name="Choose the enhancement chip ROM folder"
+                Command="{x:Bind ViewModel.ChooseSnesChipRomFolderCommand}"
+                Content="Choose…" />
+          </Grid>
+        </StackPanel>
+      </Border>
+
       <!-- PlayStation (SPEC §7.11): the player's own BIOS; GameVault never ships it -->
       <TextBlock Margin="0,16,0,4" Style="{StaticResource BodyStrongTextBlockStyle}" Text="PlayStation" />
       <Border Padding="16" Background="{ThemeResource CardBackgroundFillColorDefaultBrush}" CornerRadius="8">

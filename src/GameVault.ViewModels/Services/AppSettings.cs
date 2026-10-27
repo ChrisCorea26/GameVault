@@ -106,6 +106,12 @@ public sealed record AppSettings
     /// <summary>Skip the PlayStation 2 BIOS's startup screens and start the disc's game directly. Off by default.</summary>
     public bool PlayStation2FastBoot { get; init; }
 
+    /// <summary>
+    /// The folder holding the player's own Super Nintendo enhancement chip program ROMs (dsp1b.rom and the others), or
+    /// empty. GameVault never ships, downloads or links to them (SPEC §7.11).
+    /// </summary>
+    public string SnesChipRomFolder { get; init; } = string.Empty;
+
     /// <summary>Game volume, 0–100 (0 mutes).</summary>
     public int Volume { get; init; } = 80;
 

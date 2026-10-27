@@ -7,6 +7,7 @@ using GameVault.Platform.Achievements;
 using GameVault.Platform.Emulation;
 using GameVault.Platform.Input;
 using GameVault.Platform.Video;
+using GameVault.ViewModels.SampleData;
 using GameVault.ViewModels.Services;
 
 namespace GameVault.Platform.Tests;
@@ -94,6 +95,29 @@ public sealed class SnesHostTests : IDisposable
         var act = () => host.LoadAsync(path);
 
         (await act.Should().ThrowAsync<GameLoadException>()).Which.Message.Should().Contain("SA-1");
+    }
+
+    [Fact]
+    public async Task A_dsp_game_finds_its_program_rom_in_the_chip_folder_or_says_where_it_goes()
+    {
+        var path = Path.Combine(_root.FullName, "Dsp.sfc");
+        await File.WriteAllBytesAsync(path, CountingRom(chip: 0x03));
+        var chips = Directory.CreateDirectory(Path.Combine(_root.FullName, "chips"));
+        var settings = new InMemorySettingsStore(new AppSettings { SnesChipRomFolder = chips.FullName });
+
+        using (var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), settings))
+        {
+            var act = () => host.LoadAsync(path);
+            (await act.Should().ThrowAsync<GameLoadException>()).Which.Message.Should().Contain("dsp1b.rom").And.Contain("Settings → Super Nintendo");
+        }
+
+        await File.WriteAllBytesAsync(Path.Combine(chips.FullName, "DSP1B.ROM"), new byte[GameVault.Core.Snes.NecDsp.DumpSize]);
+        using (var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), settings))
+        {
+            await host.LoadAsync(path);
+            await WaitFor(async () => await host.InspectAsync(c => c.PeekMemory(0x10)) > 5);
+            host.System.Should().Be(GameSystem.Snes);
+        }
     }
 
     [Fact]

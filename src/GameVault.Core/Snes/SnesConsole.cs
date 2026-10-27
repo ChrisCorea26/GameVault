@@ -41,6 +41,7 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
     private readonly ControllerState[] _pads = new ControllerState[2];
     private readonly ushort[] _joypads = new ushort[4];
     private readonly int[] _serial = new int[2];
+    private readonly ISnesCoprocessor? _coprocessor;
 
     private long _clock;        // master clocks since the frame started
     private long _apuClock;     // master clocks the sound module has caught up to
@@ -75,6 +76,7 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
         Apu = new SnesApu();
         Apu.Dsp.SampleReady = OnSample;
         RomHash = HashRom(cartridge.Rom);
+        _coprocessor = cartridge.Coprocessor;
     }
 
     public GameSystem System => GameSystem.Snes;
@@ -133,6 +135,7 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
         Array.Clear(_dma);
         Ppu.Power();
         Apu.Power();
+        _coprocessor?.Power();
         ResetState();
         FrameCount = 0;
     }
@@ -140,6 +143,7 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
     public void Reset()
     {
         Apu.Reset();
+        _coprocessor?.Reset();
         ResetState();
     }
 
@@ -188,6 +192,12 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
         }
 
         CatchUpApu();
+        if (_coprocessor is { } chip)
+        {
+            chip.CatchUp(_clock);
+            chip.EndFrame((long)lines * ClocksPerLine);
+        }
+
         _clock -= (long)lines * ClocksPerLine;
         _apuClock -= (long)lines * ClocksPerLine;
         Audio?.EndFrame(_samples);
@@ -252,7 +262,17 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
         while (_clock < end)
         {
             CheckIrq(start);
-            Cpu.Irq = _irqFlag;
+            if (_coprocessor is { } chip)
+            {
+                // The chip runs alongside the CPU; its interrupt (the Super FX's STOP) joins the timer's.
+                chip.CatchUp(_clock);
+                Cpu.Irq = _irqFlag || chip.Irq;
+            }
+            else
+            {
+                Cpu.Irq = _irqFlag;
+            }
+
             Cpu.Step();
             if (!_hdmaDone && _clock - start >= HdmaClock)
             {
@@ -385,6 +405,12 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
             return _wram[(int)(bank & 1) << 16 | offset];
         }
 
+        if (_coprocessor is { } chip && chip.Claims(address))
+        {
+            chip.CatchUp(_clock);
+            return chip.Read(address, _openBus);
+        }
+
         if ((bank & 0x40) == 0)
         {
             switch (offset)
@@ -425,6 +451,13 @@ public sealed class SnesConsole : IEmulatedConsole, IW65816Bus
         if (bank is 0x7E or 0x7F)
         {
             _wram[(int)(bank & 1) << 16 | offset] = value;
+            return;
+        }
+
+        if (_coprocessor is { } chip && chip.Claims(address))
+        {
+            chip.CatchUp(_clock);
+            chip.Write(address, value);
             return;
         }
 

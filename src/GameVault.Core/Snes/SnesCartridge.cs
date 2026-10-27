@@ -20,9 +20,11 @@ public sealed class UnsupportedChipException(string chip) : Exception($"This gam
 /// <summary>
 /// A Super Nintendo cartridge (SPEC §7.11, Phase 14): LoROM, HiROM or ExHiROM, found by scoring the internal header
 /// at $7FC0, $FFC0 or $40FFC0 (map mode, checksum and complement, reset vector, printable title). A 512-byte copier
-/// header is skipped. Battery SRAM is sized from the header. Games with enhancement chips are refused clearly.
+/// header is skipped. Battery SRAM is sized from the header. The DSP-n (with the player's own program ROM) and the
+/// Super FX are emulated (outstanding-work plan §4); games with other enhancement chips are refused clearly.
 /// </summary>
-/// <remarks>References: fullsnes ("SNES Cartridges"); the SNES Development Manual's header layout.</remarks>
+/// <remarks>References: fullsnes ("SNES Cartridges", "SNES Cart DSP-n", "SNES Cart GSU-n"); the SNES Development
+/// Manual's header layout; the boards' DSP addresses as bsnes's board database lists them.</remarks>
 public sealed class SnesCartridge : IStateful, IBatteryBacked
 {
     private static readonly StateTag Tag = StateTag.From("SNCR");
@@ -31,7 +33,13 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
     private readonly byte[] _sram;
     private readonly int _header;
 
-    public SnesCartridge(byte[] image)
+    /// <param name="image">The cartridge dump.</param>
+    /// <param name="chipRoms">
+    /// The player's enhancement chip program ROMs by file name ("dsp1b.rom"), or null when none are set up.
+    /// </param>
+    /// <exception cref="UnsupportedChipException">A chip GameVault doesn't emulate.</exception>
+    /// <exception cref="MissingChipRomException">A chip whose program ROM isn't among <paramref name="chipRoms"/>.</exception>
+    public SnesCartridge(byte[] image, Func<string, byte[]?>? chipRoms = null)
     {
         _rom = image.Length % 1024 == 512 ? image[512..] : image;
         if (_rom.Length < 0x8000)
@@ -42,20 +50,33 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
         (Map, _header) = DetectMap(_rom);
         Title = Encoding.ASCII.GetString(_rom, _header, 21).Trim();
         var chip = _rom[_header + 0x16];
+        Chip = chip;
+        var battery = (chip & 0x0F) is 0x02 or 0x05 or 0x06 || chip == 0x1A;
         if (chip >= 0x03)
         {
-            throw new UnsupportedChipException(ChipName(chip));
+            Coprocessor = (chip >> 4) switch
+            {
+                0x0 => CreateDsp(chipRoms),
+                0x1 => CreateSuperFx(chip),
+                _ => throw new UnsupportedChipException(ChipName(chip)),
+            };
         }
 
         var ramSize = _rom[_header + 0x18];
-        _sram = ramSize is > 0 and <= 7 ? new byte[1024 << ramSize] : [];
+        _sram = Coprocessor is SuperFx || ramSize is 0 or > 7 ? [] : new byte[1024 << ramSize];
         Array.Fill(_sram, (byte)0xFF);
-        HasBattery = _sram.Length > 0 && chip == 0x02;
+        HasBattery = battery && (_sram.Length > 0 || Coprocessor is SuperFx);
         var country = _rom[_header + 0x19];
         Pal = country is >= 0x02 and <= 0x0C;
     }
 
     public ReadOnlySpan<byte> Rom => _rom;
+
+    /// <summary>The header's chipset byte ($xFD6): the chip in the high nibble, ROM/RAM/battery in the low one.</summary>
+    public byte Chip { get; }
+
+    /// <summary>The cartridge's enhancement chip, if it has one GameVault emulates.</summary>
+    public ISnesCoprocessor? Coprocessor { get; }
 
     public SnesMap Map { get; }
 
@@ -66,7 +87,8 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
 
     public bool HasBattery { get; }
 
-    public Span<byte> BatteryRam => _sram;
+    /// <summary>The battery-backed RAM: the SRAM, or the Super FX's game pak RAM.</summary>
+    public Span<byte> BatteryRam => Coprocessor is SuperFx gsu ? gsu.Ram : _sram;
 
     /// <summary>True when the image looks like an SNES ROM (a header scores well somewhere).</summary>
     public static bool LooksLikeSnes(ReadOnlySpan<byte> image)
@@ -136,6 +158,53 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
         }
 
         return score;
+    }
+
+    /// <summary>
+    /// The DSP-n by game (they share the header's chip code): DSP-2 for Dungeon Master, DSP-3 for SD Gundam GX, DSP-4
+    /// for Top Gear 3000, otherwise the DSP-1. Each board puts the chip's ports at its own addresses.
+    /// </summary>
+    private NecDsp CreateDsp(Func<string, byte[]?>? chipRoms)
+    {
+        var title = Title.ToUpperInvariant();
+        var (name, files, map) = title switch
+        {
+            _ when title.StartsWith("DUNGEON MASTER", StringComparison.Ordinal) =>
+                ("DSP-2", new[] { "dsp2.rom" }, new NecDspMap(0x60, 0x20, 0x6000, 0x7FFF, 0x1000)),
+            _ when title.Contains("GUNDAM GX", StringComparison.Ordinal) =>
+                ("DSP-3", new[] { "dsp3.rom" }, new NecDspMap(0x60, 0x20, 0x8000, 0xFFFF, 0x4000)),
+            _ when title.Contains("TOP GEAR 3000", StringComparison.Ordinal) || title.Contains("TG3000", StringComparison.Ordinal) =>
+                ("DSP-4", new[] { "dsp4.rom" }, NecDspMap.LoRom1Mb),
+            _ => ("DSP-1", new[] { "dsp1b.rom", "dsp1.rom" }, Map == SnesMap.LoRom
+                ? (_rom.Length > 0x100000 ? NecDspMap.LoRom2Mb : NecDspMap.LoRom1Mb)
+                : NecDspMap.HiRom),
+        };
+
+        foreach (var file in files)
+        {
+            if (chipRoms?.Invoke(file) is { Length: NecDsp.DumpSize } dump)
+            {
+                var (program, data) = NecDsp.SplitDump(dump);
+                return new NecDsp(name, program, data, map);
+            }
+        }
+
+        throw new MissingChipRomException(name, files);
+    }
+
+    /// <summary>
+    /// The Super FX: the GSU-2 when the header says so ($1A), else the GSU-1. Its RAM size is in the extended header
+    /// ($xFBD, as 1 KB shifted left) when there is one, else 32 KB.
+    /// </summary>
+    private SuperFx CreateSuperFx(byte chip)
+    {
+        var ramSize = 0x8000;
+        if (_rom[_header + 0x1A] == 0x33 && _header >= 3 && _rom[_header - 3] is >= 5 and <= 7 and var shift)
+        {
+            ramSize = 1024 << shift;
+        }
+
+        return new SuperFx(_rom, ramSize, chip == 0x1A ? (byte)4 : (byte)1);
     }
 
     private static string ChipName(byte chip) => (chip >> 4) switch
@@ -248,6 +317,7 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
     {
         writer.BeginChunk(Tag, 1);
         writer.WriteBytes(_sram);
+        Coprocessor?.SaveState(writer); // only cartridges with a chip have this, so other games' states are unchanged
         writer.EndChunk();
     }
 
@@ -255,6 +325,7 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
     {
         reader.BeginChunk(Tag);
         reader.ReadBytes(_sram);
+        Coprocessor?.LoadState(reader);
         reader.EndChunk();
     }
 }
