@@ -155,16 +155,33 @@ from `data/homebrew/` (its licence recorded as for the NES homebrew), so the Pla
 - Interlace mode 2: 448-line double-resolution frames through the variable-size video path.
 - Master System mode (the Power Base Converter): the VDP's mode 4 and the SMS memory map, for `.sms` files the
   player chooses to run on the Genesis core.
+- **As built:** the I²C EEPROM (X24C01 and the 24Cxx family) with the wiring Sega's boards declare in the header
+  ("RA" $E8 $40 on $200001). EA, Acclaim and Codemasters boards wire it differently and need a per-game database
+  entry first, so they wait. Interlace mode 2 is done. Master System mode was dropped: a Power Base Converter just
+  runs the Master System's own hardware, which GameVault already has as the Master System core, so `.sms` files open
+  there.
 
 ## 8. Master System FM and the SC-3000 keyboard
 - YM2413 (OPLL) for Japanese Master System games, with its built-in instrument patches computed from the published
   register values; the FM unit's detection port.
 - The SC-3000 keyboard matrix on the PPI, mapped to the PC keyboard (like the Apple II), so BASIC cartridges run.
+- **As built:** the VRC7's FM engine became `Opll`, shared by both (the VRC7's output is pinned sample for sample by
+  a fingerprint test); the YM2413 adds three channels, the rhythm sounds and the YM2413's instruments (emu2413's
+  table, MIT). The unit is there for Japanese cartridges (header region 3, or a Japan profile). `.sc` files get the
+  keyboard.
 
 ## 9. Apple II: monochrome, character ROM, mid-frame changes
 - Settings → Apple II → "Monochrome" (green, amber or white).
 - The player's own character ROM (Settings), with the built-in font as today when none is chosen.
 - Draw the video per scanline from the soft switches then, so mid-frame mode changes show.
+
+**As built.** `AppleConsole.RunFrame` runs the CPU 65 cycles at a time and draws each of the 192 visible lines
+(`AppleVideo.RenderLine`) from the memory and switches when the beam finishes it. `AppleMonitor` (Color, Green,
+Amber, White) picks the palette; on a monochrome monitor hi-res, lo-res and double hi-res show their dots, with no
+artifact colour, in the phosphor's colour. `AppleCharacterRom` reads the player's 2, 4 or 8 KB character ROM and
+finds its layout (index by ASCII, low six bits or screen code; active high or low; bit order; first line) by how
+well A–Z and 0–9 match GameVault's own font, refusing files under 85 % agreement. Settings → Apple II gains
+**Character ROM** and **Monitor**. Tests: `AppleDisplayTests`. The floating bus stays open.
 
 ## 10. N64 accessories and video
 - The Rumble Pak (rumble through SDL) and the Transfer Pak (the player's own Game Boy cartridge dump and save).
