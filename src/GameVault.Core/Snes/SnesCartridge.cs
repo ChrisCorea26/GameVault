@@ -52,7 +52,7 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
         Title = Encoding.ASCII.GetString(_rom, _header, 21).Trim();
         var chip = _rom[_header + 0x16];
         Chip = chip;
-        var battery = (chip & 0x0F) is 0x02 or 0x05 or 0x06 || chip == 0x1A;
+        var battery = (chip & 0x0F) is 0x02 or 0x05 or 0x06 || chip is 0x1A or 0xF9;
         var ramSize = _rom[_header + 0x18];
         var country = _rom[_header + 0x19];
         Pal = country is >= 0x02 and <= 0x0C;
@@ -67,13 +67,15 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
                 0x4 => new Sdd1(_rom),
                 0x5 => new SharpRtc(Pal ? SnesConsole.PalMasterClock : SnesConsole.NtscMasterClock),
                 0xF when chip == 0xF6 => CreateSeta(chipRoms),
+                0xF when IsSpc7110(chip) => new Spc7110(_rom, ramSize is > 0 and <= 8 ? 1024 << ramSize : 0, withRtc: chip == 0xF9,
+                    Pal ? SnesConsole.PalMasterClock : SnesConsole.NtscMasterClock),
                 _ => throw new UnsupportedChipException(ChipName(chip)),
             };
         }
 
-        _sram = Coprocessor is SuperFx or Sa1 or Obc1 or NecDsp { IsUpd96050: true } || ramSize is 0 or > 7 ? [] : new byte[1024 << ramSize];
+        _sram = Coprocessor is SuperFx or Sa1 or Obc1 or Spc7110 or NecDsp { IsUpd96050: true } || ramSize is 0 or > 7 ? [] : new byte[1024 << ramSize];
         Array.Fill(_sram, (byte)0xFF);
-        HasBattery = battery && (_sram.Length > 0 || Coprocessor is SuperFx or Sa1 or Obc1 or NecDsp { IsUpd96050: true });
+        HasBattery = battery && (_sram.Length > 0 || Coprocessor is SuperFx or Sa1 or Obc1 or Spc7110 { Ram.Length: > 0 } or NecDsp { IsUpd96050: true });
     }
 
     public ReadOnlySpan<byte> Rom => _rom;
@@ -99,6 +101,7 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
         SuperFx gsu => gsu.Ram,
         Sa1 sa1 => sa1.BwRam,
         Obc1 obc1 => obc1.Ram,
+        Spc7110 spc7110 => spc7110.Ram,
         NecDsp { IsUpd96050: true } seta => seta.DataRam,
         _ => _sram,
     };
@@ -138,7 +141,7 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
             0xFFC0 => 0x21,
             _ => 0x25,
         };
-        if (mapMode == expected)
+        if (mapMode == expected || (header == 0xFFC0 && mapMode == 0x2A)) // $3A: HiROM with the SPC7110
         {
             score += 4;
         }
@@ -224,6 +227,27 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
     }
 
     /// <summary>
+    /// Hudson's SPC7110 boards: chipset $F9 (with the RTC), or $F5 whose extended header's subtype ($xFBF) is 0 (the
+    /// ST018 shares $F5 with subtype 2). A cartridge without an extended header counts by its size, the program ROM's
+    /// megabyte and a data ROM.
+    /// </summary>
+    private bool IsSpc7110(byte chip)
+    {
+        if (chip == 0xF9)
+        {
+            return true;
+        }
+
+        if (chip != 0xF5)
+        {
+            return false;
+        }
+
+        var extended = _rom[_header + 0x1A] == 0x33 && _header >= 1;
+        return extended ? _rom[_header - 1] == 0x00 : _rom.Length > 0x100000;
+    }
+
+    /// <summary>
     /// The Super FX: the GSU-2 when the header says so ($1A), else the GSU-1. Its RAM size is in the extended header
     /// ($xFBD, as 1 KB shifted left) when there is one, else 32 KB.
     /// </summary>
@@ -247,7 +271,7 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
         0x4 => "S-DD1",
         0x5 => "S-RTC",
         0xE => "Super Game Boy or Satellaview",
-        _ => "custom (Cx4, SPC7110 or ST01x)",
+        _ => "custom (Cx4 or ST018)",
     };
 
     /// <summary>Reads the cartridge's part of the address space. Returns false where the cartridge doesn't answer.</summary>

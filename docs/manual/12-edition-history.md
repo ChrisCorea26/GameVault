@@ -28,4 +28,5 @@
 | 24 | October 2026 | Genesis / Mega Drive: EA, Acclaim and Codemasters games that save to an EEPROM (*NHLPA Hockey '93*, *NBA Jam*, *Micro Machines 2*) keep their saves. Sega CD: cartridges that use the CD (mode 1, such as MSU-MD games) with a disc of the same name beside them, and CD+G graphics from a `.sub` file. 32X: the SH-2s' caches, and changes partway down the screen show where they happen. |
 | 25 | October 2026 | Super Nintendo: *Daikaijuu Monogatari II*'s clock (the S-RTC chip), set from your PC's time. |
 | 26 | October 2026 | PlayStation 2: games run faster, as the console's float maths is done with your PC's own. **Settings → PlayStation 2 → Exact emulation** does it exactly instead, for a game that misbehaves. |
-| 27 | October 2026 | PlayStation 2: with Direct3D 11 your graphics card draws the graphics instead of the processor, at every internal resolution, so heavy 3D games run faster. **Exact emulation** turns this off too. |
+| 27 | October 2026 | Super Nintendo: games with the SPC7110 chip (*Far East of Eden Zero*, *Momotarou Dentetsu Happy*, *Super Power League 4*), and *Far East of Eden Zero*'s clock. |
+| 28 | October 2026 | PlayStation 2: with Direct3D 11 your graphics card draws the graphics instead of the processor, at every internal resolution, so heavy 3D games run faster. **Exact emulation** turns this off too. |
