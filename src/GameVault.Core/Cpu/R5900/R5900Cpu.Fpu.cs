@@ -1,3 +1,4 @@
+using GameVault.Core.PlayStation2;
 using System.Numerics;
 using System.Runtime.CompilerServices;
 using GameVault.Core.State;
@@ -335,9 +336,16 @@ public sealed partial class R5900Cpu
         return Ps2Float.Multiply(s, reciprocal, booth: false).Value;
     }
 
-    private static FloatResult Add(uint a, uint b) => Ps2Float.Add(a, b);
+    /// <summary>
+    /// The FPU's add and multiply in the host's float arithmetic, clamped to the PS2's rules, instead of bit-exactly
+    /// (ps2-full-speed.md §2). Off by default; the host turns it on for normal play unless the player asks for exact
+    /// emulation. Netplay and challenge checks keep it off.
+    /// </summary>
+    public bool FastFloat { get; set; }
 
-    private static FloatResult Multiply(uint a, uint b) => Ps2Float.Multiply(a, b);
+    private FloatResult Add(uint a, uint b) => FastFloat ? Ps2FastFloat.AddResult(a, b) : Ps2Float.Add(a, b);
+
+    private FloatResult Multiply(uint a, uint b) => FastFloat ? Ps2FastFloat.MultiplyResult(a, b) : Ps2Float.Multiply(a, b);
 
     /// <summary>
     /// The order MAX/MIN use: sign and magnitude as an integer (no NaNs on the PS2), with −0 below +0

@@ -488,10 +488,14 @@ sequel can find a save that the earlier game wrote there.
 - **Reduce input lag** (run-ahead) is always off for PlayStation 2 games.
 - **Netplay** isn't available for PlayStation 2 games.
 
-**Performance:** the PlayStation 2 is emulated in software. GameVault translates the main processor's code into
-your PC's own as it runs, and draws the graphics on several processor cores at once, so a CPU with more cores
-helps. Lighter games can reach full speed on a fast PC, but many games still run below it, especially 3D games that
-lean on the PS2's vector units. More speed-ups are planned.
+**Performance:** the PlayStation 2 is emulated in software. GameVault translates the main processor's and the
+vector units' code into your PC's own as it runs, and draws the graphics on several processor cores at once, so a
+CPU with more cores helps. It also does the console's float maths with your PC's own, which is much faster and
+differs from the console only in the last digit of some results. If a game misbehaves (a character falls through
+the floor, a camera spins), try **Settings → PlayStation 2 → Exact emulation**: it does the maths exactly as the
+console does, at a much lower speed. Netplay and challenges always run exactly. Lighter games reach full speed on a
+fast PC; heavy 3D games may still run below it, as the graphics are drawn by the processor. More speed-ups are
+planned.
 
 **Sharper 3D:** **Settings → PlayStation 2 → Internal resolution** draws games at two, three or four times the
 console's resolution on your graphics card (Direct3D 11). Polygons get smooth edges, and effects games draw into

@@ -99,5 +99,42 @@ public sealed class R5900BenchmarkTests(ITestOutputHelper output)
 
             output.WriteLine($"EE, integer code, {(recompiler ? "recompiled" : "interpreted")}: {200_000_000 / watch.Elapsed.TotalSeconds / 1e6:F1} M instructions/s");
         }
+
+        // FPU-heavy code (a dot product's adds and multiplies), recompiled, with the exact and the fast float maths
+        // (ps2-full-speed.md §2).
+        uint[] fpu =
+        [
+            Ee.FpuS(0x02, 3, 1, 2), // MUL.S
+            Ee.FpuS(0x02, 4, 2, 5), // MUL.S
+            Ee.FpuS(0x00, 6, 3, 4), // ADD.S
+            Ee.FpuS(0x01, 7, 6, 1), // SUB.S
+            Ee.FpuS(0x02, 8, 7, 5), // MUL.S
+            Ee.FpuS(0x00, 9, 8, 6), // ADD.S
+            Ee.Addiu(10, 10, -1),
+            Ee.Bne(10, 0, -8),
+            Ee.FpuS(0x00, 11, 9, 3), // ADD.S in the delay slot
+            Ee.Beq(0, 0, -10),
+            Ee.Lui(10, 0x10),
+        ];
+        machine.Load(0x8034_0000, fpu);
+        cpu.RecompilerEnabled = true;
+        foreach (var fast in new[] { false, true })
+        {
+            cpu.FastFloat = fast;
+            cpu.SetFpr(1, 0x3F99_999A); // 1.2
+            cpu.SetFpr(2, 0x4019_999A); // 2.4
+            cpu.SetFpr(5, 0x3F00_0000); // 0.5
+            cpu.SetGpr64(10, 0x10_0000);
+            cpu.Jump(0x8034_0000);
+            cpu.Run(cpu.Cycles + 5_000_000);
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+            var target = cpu.Cycles + 200_000_000;
+            while (cpu.Cycles < target)
+            {
+                cpu.Run(cpu.Cycles + 100_000);
+            }
+
+            output.WriteLine($"EE, FPU code, recompiled, {(fast ? "fast" : "exact")} floats: {200_000_000 / watch.Elapsed.TotalSeconds / 1e6:F1} M cycles/s");
+        }
     }
 }

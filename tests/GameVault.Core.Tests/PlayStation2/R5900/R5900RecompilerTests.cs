@@ -18,14 +18,18 @@ public sealed class R5900RecompilerTests(Xunit.Abstractions.ITestOutputHelper ou
 
     // r3: the program's end (for JR), r4: data, r27: I/O, r28: code (for self-modifying stores), r29: the instruction
     // they store, r31: links. The others are free.
+    // Every S-format function (the arithmetic and accumulator forms, compares, MAX/MIN, conversions) and a reserved one.
+    private static readonly uint[] s_fpuFunctions =
+        [0x00, 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x16, 0x18, 0x19, 0x1A, 0x1C, 0x1D, 0x1E, 0x1F, 0x24, 0x28, 0x29, 0x30, 0x32, 0x34, 0x36, 0x3F];
+
     private static readonly int[] Free = [2, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25];
 
     [Theory]
     [MemberData(nameof(Seeds))]
-    public void Random_programs_run_the_same_recompiled_as_interpreted(int seed)
+    public void Random_programs_run_the_same_recompiled_as_interpreted(int seed, bool fast)
     {
-        var interpreted = new Machine(seed, recompiler: false);
-        var recompiled = new Machine(seed, recompiler: true);
+        var interpreted = new Machine(seed, recompiler: false, fast);
+        var recompiled = new Machine(seed, recompiler: true, fast);
         var random = new Random(seed * 7919);
         for (var slice = 0; slice < 400; slice++)
         {
@@ -67,12 +71,18 @@ public sealed class R5900RecompilerTests(Xunit.Abstractions.ITestOutputHelper ou
         output.WriteLine($"seed {seed}: {recompiled.Cpu.CompiledBlocks} blocks, {recompiled.Cpu.RecompiledInstructions * 100.0 / recompiled.Cpu.Cycles:F1}% of the cycles in them");
     }
 
-    public static TheoryData<int> Seeds()
+    /// <summary>48 programs with the exact float maths, and 16 with the fast maths (ps2-full-speed.md §2) on both sides.</summary>
+    public static TheoryData<int, bool> Seeds()
     {
-        var seeds = new TheoryData<int>();
+        var seeds = new TheoryData<int, bool>();
         for (var seed = 1; seed <= 48; seed++)
         {
-            seeds.Add(seed);
+            seeds.Add(seed, false);
+        }
+
+        for (var seed = 1; seed <= 16; seed++)
+        {
+            seeds.Add(seed, true);
         }
 
         return seeds;
@@ -140,11 +150,12 @@ public sealed class R5900RecompilerTests(Xunit.Abstractions.ITestOutputHelper ou
         public readonly R5900Cpu Cpu;
         private readonly StateWriter _writer = new();
 
-        public Machine(int seed, bool recompiler)
+        public Machine(int seed, bool recompiler, bool fast = false)
         {
             Cpu = new R5900Cpu(Bus, new FakeCop2());
             Bus.Cpu = Cpu;
             Cpu.RecompilerEnabled = recompiler;
+            Cpu.FastFloat = fast;
             Cpu.CompileThreshold = 2; // nearly everything the program reaches gets compiled
             Cpu.Status = R5900Cpu.StatusCu0 | R5900Cpu.StatusCu1 | R5900Cpu.StatusCu2
                 | R5900Cpu.StatusIe | R5900Cpu.StatusEie | R5900Cpu.StatusIm2;
@@ -260,7 +271,9 @@ public sealed class R5900RecompilerTests(Xunit.Abstractions.ITestOutputHelper ou
                 26 or 27 => Ee.I(new uint[] { 0x28, 0x29, 0x2B, 0x3F, 0x1F }[random.Next(5)], t, 4, dataOffset), // SB, SH, SW, SD, SQ
                 28 => Ee.I(new uint[] { 0x2A, 0x2E, 0x2C, 0x2D }[random.Next(4)], t, 4, dataOffset), // SWL, SWR, SDL, SDR
                 29 => Ee.I(0x31 + (uint)random.Next(2) * 8, random.Next(32), 4, dataOffset), // LWC1, SWC1
-                30 => Ee.FpuS(new uint[] { 0x00, 0x01, 0x02, 0x03, 0x04, 0x06, 0x07 }[random.Next(7)], random.Next(32), random.Next(32), random.Next(32)),
+                30 => random.Next(16) == 0
+                    ? 0x4680_0020u | (uint)(random.Next(32) << 11 | random.Next(32) << 6) // CVT.S.W
+                    : Ee.FpuS(s_fpuFunctions[random.Next(s_fpuFunctions.Length)], random.Next(32), random.Next(32), random.Next(32)),
                 31 => random.Next(2) == 0 ? Ee.Mtc1(s, random.Next(32)) : Ee.Mfc1(d, random.Next(32)),
                 32 => new[] { Ee.Por(d, s, t), Ee.Pcpyld(d, s, t), Ee.Mmi(0x08, d, s, t, 0x00), Ee.Qfsrv(d, s, t) }[random.Next(4)],
                 33 or 34 or 35 => Ee.I(new uint[] { 0x04, 0x05, 0x06, 0x07 }[random.Next(4)], t, s, branch), // BEQ, BNE, BLEZ, BGTZ

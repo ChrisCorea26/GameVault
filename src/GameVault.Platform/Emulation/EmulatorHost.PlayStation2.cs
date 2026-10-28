@@ -175,6 +175,18 @@ public sealed partial class EmulatorHost
         _runAhead.Allowed = SystemBudgets.AllowsRunAhead(system);
     }
 
+    /// <summary>
+    /// Turns a running PS2's fast float maths on or off (docs/plans/ps2-full-speed.md §2): off while a challenge attempt
+    /// runs, as its check replays it exactly, and back to the setting after. Emulation thread.
+    /// </summary>
+    private static void SetPs2FastFloat(IEmulatedConsole? console, bool fast)
+    {
+        if (console is Ps2Console ps2)
+        {
+            ps2.FastFloat = fast;
+        }
+    }
+
     /// <summary>Closes the disc of a PS2 console that is being replaced. Emulation thread.</summary>
     private static void ReleasePs2Disc(IEmulatedConsole? console)
     {

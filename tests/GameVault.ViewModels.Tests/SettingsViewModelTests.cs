@@ -101,11 +101,14 @@ public class SettingsViewModelTests
             vm.PlayStation2BiosPath = bios;
             await vm.SavePlayStation2BiosPathCommand.ExecuteAsync(null);
             vm.PlayStation2FastBoot = true;
+            vm.PlayStation2ExactEmulation.Should().BeFalse("fast floats are on by default");
+            vm.PlayStation2ExactEmulation = true;
 
             vm.HasPlayStation2BiosProblem.Should().BeFalse();
             vm.PlayStation2BiosStatus.Should().Be("PlayStation 2 BIOS version 2.00, Japan, 2004-06-14.");
             store.Current.PlayStation2BiosPath.Should().Be(bios);
             store.Current.PlayStation2FastBoot.Should().BeTrue();
+            store.Current.PlayStation2ExactEmulation.Should().BeTrue();
             store.Current.PlayStationFastBoot.Should().BeFalse("the PlayStation's own setting is separate");
         }
         finally
