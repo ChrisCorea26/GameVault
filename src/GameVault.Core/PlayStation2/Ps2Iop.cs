@@ -125,6 +125,9 @@ public sealed partial class Ps2Iop : IR3000Bus, IStateful
     /// <summary>Characters the IOP writes to its console output byte at $1F80380C (the BIOS's TTY).</summary>
     public Action<char>? DebugOutput { get; set; }
 
+    /// <summary>Each device register the IOP reads (the host's boot log; null while unused).</summary>
+    public Action<uint>? DeviceReadProbe { get; set; }
+
     /// <summary>The disc in the CDVD drive.</summary>
     public IPs2Disc? Disc
     {
@@ -402,6 +405,7 @@ public sealed partial class Ps2Iop : IR3000Bus, IStateful
     /// <summary>A device read of <paramref name="size"/> bytes (aligned to it).</summary>
     private uint ReadDevice(uint address, int size)
     {
+        DeviceReadProbe?.Invoke(address);
         switch (address)
         {
             case >= 0x1D000000 and < 0x1D000070:

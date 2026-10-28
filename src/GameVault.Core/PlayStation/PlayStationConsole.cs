@@ -146,6 +146,9 @@ public sealed partial class PlayStationConsole : IEmulatedConsole, IR3000Bus, IR
 
     public PsSio Sio { get; }
 
+    /// <summary>Each I/O register the CPU reads (the host's boot log; null while unused).</summary>
+    public Action<uint>? IoReadProbe { get; set; }
+
     /// <summary>False when no BIOS was given: only bare-metal PS-EXE programs can run.</summary>
     public bool HasBios { get; }
 
@@ -672,6 +675,7 @@ public sealed partial class PlayStationConsole : IEmulatedConsole, IR3000Bus, IR
     /// </summary>
     private uint ReadIo(uint address, int size)
     {
+        IoReadProbe?.Invoke(address);
         switch (address)
         {
             case >= 0x1F801040 and < 0x1F801050:

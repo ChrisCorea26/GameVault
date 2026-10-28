@@ -22,6 +22,7 @@ files are read from where you put them.
 | `Profiles\<id>\` | The same files for each extra family profile |
 | `bios\` | Copies of the BIOS files you chose with **Choose…** (`fds\`, `ps1\`, `ps2\`), shared by every family profile |
 | `logs\crash.log` | Details of any crash |
+| `logs\boot-ps1.log`, `logs\boot-ps2.log` | The first minute of the last PlayStation or PlayStation 2 game you started: what the console was doing while its BIOS started the game |
 
 Cover pictures stay where you chose them; only their location is stored, so don't move or delete them.
 
@@ -69,6 +70,7 @@ The RetroAchievements sign-in is tied to your Windows account, so sign in again 
 | A PlayStation 2 game won't start with fast boot | Turn off **Settings → PlayStation 2 → Skip the startup screens**. |
 | A PlayStation 2 game runs slowly | Make sure **Settings → PlayStation 2 → Exact emulation** is off. Heavy 3D games may still run below full speed (see [PlayStation 2](#sony-playstation-2), *Performance*). If you built GameVault yourself, use a Release build (see [Installing GameVault](#installing-gamevault)). Close other heavy programs. |
 | A PlayStation 2 game misbehaves (objects in the wrong place, a camera that spins, a game that stops) | Turn on **Settings → PlayStation 2 → Exact emulation** and start the game again. If that fixes it, the game needs the console's exact float maths; it runs slower that way. |
+| A PlayStation or PlayStation 2 game stays on a BIOS screen or a black screen | Include `%LOCALAPPDATA%\GameVault\logs\boot-ps1.log` (PlayStation) or `boot-ps2.log` (PlayStation 2) when you report it: it shows where the console stopped. It's written again each time a game starts, so send it straight after trying the game. |
 | A PlayStation 2 game isn't in the library | Discs are recognised by their SYSTEM.CNF file; check the image isn't damaged. A `.bin` must come with its `.cue`. |
 | Settings are greyed out | The family profile is locked. A parent can unlock it with the PIN. |
 | GameVault crashed | Details are in `%LOCALAPPDATA%\GameVault\logs\crash.log`. Include that file when you report the problem. |
