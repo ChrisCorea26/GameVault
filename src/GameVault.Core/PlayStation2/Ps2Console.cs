@@ -353,6 +353,22 @@ public sealed partial class Ps2Console : IEmulatedConsole, IStateful
 
     // ---- Running ----
 
+    /// <summary>
+    /// The VUs' and the EE FPU's add and multiply in the host's own float arithmetic instead of bit-exactly
+    /// (ps2-full-speed.md §2): several times faster on transform-heavy code, differing from the hardware in the last bit
+    /// of some results. Off by default; the host turns it on for normal play.
+    /// </summary>
+    public bool FastFloat
+    {
+        get => Cpu.FastFloat;
+        set
+        {
+            Cpu.FastFloat = value;
+            Vu0.FastFloat = value;
+            Vu1.FastFloat = value;
+        }
+    }
+
     public void RunFrame()
     {
         _frameDone = false;

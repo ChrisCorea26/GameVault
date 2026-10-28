@@ -110,6 +110,8 @@ public sealed class PlayStation2PlatformTests : IDisposable
         var none = await PlayStation2Setup.LoadAsync(new AppSettings { PlayStation2FastBoot = true });
         none.Bios.Should().BeNull();
         none.FastBoot.Should().BeTrue();
+        none.FastFloat.Should().BeTrue("Exact emulation is off by default");
+        (await PlayStation2Setup.LoadAsync(new AppSettings { PlayStation2ExactEmulation = true })).FastFloat.Should().BeFalse();
 
         var bios = Write("scph39001.bin", new byte[4 * 1024 * 1024]);
         (await PlayStation2Setup.LoadAsync(new AppSettings { PlayStation2BiosPath = bios })).Bios.Should().HaveCount(4 * 1024 * 1024);
