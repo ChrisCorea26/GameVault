@@ -55,6 +55,13 @@ public sealed class Ps2Cdvd : IStateful
     private readonly byte[] _raw = new byte[ICdImage.SectorSize];
     private readonly byte[] _mgBuffer = new byte[2048];
 
+    // The disc key ReadKey makes from the disc's serial, the key XOR, and DEC-SET, the decryption the drive applies to
+    // the sectors it reads (PCSX2's cdvdReadKey and mechaDecryptBytes, read for facts only). The BIOS's start-up
+    // checks the key before it boots a disc; with no key it shows its own menu (docs/bugs.md GV-024).
+    private readonly byte[] _key = new byte[16];
+    private byte _keyXor;
+    private byte _decSet;
+
     private IPs2Disc? _disc;
     private bool _trayOpen;
 
@@ -220,6 +227,8 @@ public sealed class Ps2Cdvd : IStateful
         CancelCommand();
         _configMode = _configArea = _configBlocks = _configIndex = 0;
         _mgSize = 0;
+        Array.Clear(_key);
+        _keyXor = _decSet = 0;
         _rtcBaseTicks = RtcStart.Ticks;
         _rtcBaseCycle = 0;
     }
@@ -275,6 +284,18 @@ public sealed class Ps2Cdvd : IStateful
                 return Bcd((int)(_currentSector % 75));
             case 0x0F:
                 return DiscType;
+            case >= 0x20 and <= 0x24:
+                return _key[offset - 0x20];
+            case >= 0x28 and <= 0x2C:
+                return _key[offset - 0x23];
+            case >= 0x30 and <= 0x34:
+                return _key[offset - 0x26];
+            case 0x38: // which parts of the key are valid
+                return _key[15];
+            case 0x39:
+                return _keyXor;
+            case 0x3A:
+                return _decSet;
             case 0x13:
                 return SpeedRegister();
             case 0x16:
@@ -319,6 +340,9 @@ public sealed class Ps2Cdvd : IStateful
                 break;
             case 0x08:
                 _iStat &= (byte)~value;
+                break;
+            case 0x3A: // DEC-SET
+                _decSet = value;
                 break;
             case 0x16:
                 RunSCommand(value, now);
@@ -370,8 +394,12 @@ public sealed class Ps2Cdvd : IStateful
 
         switch (command)
         {
+            case 0x0C: // ReadKey: arg2 (the key's sector) is parameters 3–6
+                ReadKey(BinaryPrimitives.ReadUInt32LittleEndian(_nParams.AsSpan(3)));
+                _status = StatusPause;
+                Complete();
+                break;
             case 0x00: // NOP
-            case 0x0C: // ReadKey
             case 0x0F: // ChgSpdlCtrl
                 Complete();
                 break;
@@ -572,7 +600,98 @@ public sealed class Ps2Cdvd : IStateful
         }
     }
 
+    /// <summary>
+    /// The disc key from the boot executable's serial (SYSTEM.CNF's BOOT2, "SLUS_209.46"): the letters and number
+    /// packed into key bytes 0–4, then 14 and 15 by the sector asked for (PCSX2's cdvdReadKey).
+    /// </summary>
+    private void ReadKey(uint sector)
+    {
+        Array.Clear(_key);
+        _keyXor = 0;
+        var serial = _disc is null ? null : DiscSerial(Ps2DiscFiles.ReadBoot2(_disc));
+        int numbers = 0, letters = 0;
+        if (serial is not null)
+        {
+            numbers = int.Parse(serial.AsSpan(5, 3), System.Globalization.CultureInfo.InvariantCulture) * 100
+                + int.Parse(serial.AsSpan(9, 2), System.Globalization.CultureInfo.InvariantCulture);
+            letters = (serial[3] & 0x7F) | ((serial[2] & 0x7F) << 7) | ((serial[1] & 0x7F) << 14) | ((serial[0] & 0x7F) << 21);
+        }
+
+        var key0To3 = (uint)(((numbers & 0x1FC00) >> 10) | ((0x01FFFFFF & letters) << 7));
+        _key[0] = (byte)key0To3;
+        _key[1] = (byte)(key0To3 >> 8);
+        _key[2] = (byte)(key0To3 >> 16);
+        _key[3] = (byte)(key0To3 >> 24);
+        _key[4] = (byte)(((numbers & 0x1F) << 3) | ((0x0E000000 & letters) >> 25));
+        switch (sector)
+        {
+            case 75:
+                _key[14] = (byte)(((numbers & 0x3E0) >> 2) | 0x04);
+                _key[15] = 0x05;
+                break;
+            case 4246:
+                _key[0] = 0x07;
+                _key[1] = 0xF7;
+                _key[2] = 0xF2;
+                _key[3] = 0x01;
+                _key[4] = 0x00;
+                _key[15] = 0x01;
+                break;
+            default:
+                _key[15] = 0x01;
+                break;
+        }
+    }
+
+    /// <summary>"SLUS_209.46" from "cdrom0:\SLUS_209.46;1", or null when the name isn't a serial (four letters, three digits, a dot, two digits).</summary>
+    public static string? DiscSerial(string? bootPath)
+    {
+        if (bootPath is null)
+        {
+            return null;
+        }
+
+        var name = bootPath[(Math.Max(bootPath.LastIndexOf('\\'), bootPath.LastIndexOf(':')) + 1)..];
+        var semicolon = name.IndexOf(';');
+        if (semicolon >= 0)
+        {
+            name = name[..semicolon];
+        }
+
+        return name.Length >= 11 && name[4] is '_' or '-' && name[8] == '.'
+            && char.IsAsciiDigit(name[5]) && char.IsAsciiDigit(name[6]) && char.IsAsciiDigit(name[7])
+            && char.IsAsciiDigit(name[9]) && char.IsAsciiDigit(name[10])
+            ? name[..11]
+            : null;
+    }
+
     private void FillSector(long lba)
+    {
+        FillBlock(lba);
+        if (_decSet != 0)
+        {
+            // DEC-SET: XOR with key byte 4 (bit 0), then rotate right (bit 1) by bits 4–6.
+            var shift = (_decSet >> 4) & 7;
+            var block = _buffer.AsSpan(0, _blockSize);
+            for (var i = 0; i < block.Length; i++)
+            {
+                var value = block[i];
+                if ((_decSet & 1) != 0)
+                {
+                    value ^= _key[4];
+                }
+
+                if ((_decSet & 2) != 0)
+                {
+                    value = (byte)((value >> shift) | (value << (8 - shift)));
+                }
+
+                block[i] = value;
+            }
+        }
+    }
+
+    private void FillBlock(long lba)
     {
         var block = _buffer.AsSpan(0, _blockSize);
         block.Clear();
@@ -1045,7 +1164,7 @@ public sealed class Ps2Cdvd : IStateful
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 1);
+        writer.BeginChunk(Tag, 2);
         writer.WriteBool(_trayOpen);
         writer.WriteByte(_nCommand);
         writer.WriteInt32(_nParamCount);
@@ -1083,12 +1202,16 @@ public sealed class Ps2Cdvd : IStateful
         writer.WriteInt64(_rtcBaseTicks);
         writer.WriteInt64(_rtcBaseCycle);
         writer.WriteBytes(Nvm);
+        writer.WriteBytes(_key);
+        writer.WriteByte(_keyXor);
+        writer.WriteByte(_decSet);
         writer.EndChunk();
     }
 
     public void LoadState(StateReader reader)
     {
-        if (reader.BeginChunk(Tag) != 1)
+        var version = reader.BeginChunk(Tag);
+        if (version is not (1 or 2))
         {
             throw new StateFormatException("Unsupported CDVD state version.");
         }
@@ -1130,6 +1253,15 @@ public sealed class Ps2Cdvd : IStateful
         _rtcBaseTicks = reader.ReadInt64();
         _rtcBaseCycle = reader.ReadInt64();
         reader.ReadBytes(Nvm);
+        Array.Clear(_key);
+        _keyXor = _decSet = 0;
+        if (version >= 2)
+        {
+            reader.ReadBytes(_key);
+            _keyXor = reader.ReadByte();
+            _decSet = reader.ReadByte();
+        }
+
         reader.EndChunk();
     }
 }

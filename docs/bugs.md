@@ -35,6 +35,7 @@ content is missing. **Low** = wrong text or a small inconsistency.
 | [GV-023](#gv-023) | High | PlayStation | Discs stop on the BIOS's white Sony logo | Fixed (b3c1816; pending a check with a retail BIOS) |
 | [GV-024](#gv-024) | High | PlayStation 2 | Discs stay on a black screen with the player's BIOS | Open |
 | [GV-025](#gv-025) | High | PlayStation | Games run slowly and ignore the keyboard at their menu | Open |
+| [GV-026](#gv-026) | High | Atari 5200 | Games show the BIOS's title and then a black screen | Fixed (pending a check with the game) |
 
 ---
 
@@ -335,6 +336,14 @@ content is missing. **Low** = wrong text or a small inconsistency.
   for its status at $1A000006 to say ready (bit 1). `Ps2Dve` now models it as PCSX2's `ba0R16`/`ba0W16` do
   (commands, power, the status that turns ready a few reads after a command, the error bit), and it is in the save
   state (console chunk version 3). Test: `Ps2ConsoleTests.The_video_encoder_reports_ready_a_few_status_reads_after_a_command`.
+- **Fourth stop:** the BIOS now finishes its start-up, shows the Sony screen and runs its browser, but showed its
+  main menu (only the ✕ "Enter" hint drawn) instead of booting the disc. The drive's ReadKey command (N 0Ch) gave no
+  key: registers $20–$39 read 0 and DEC-SET ($3A) wasn't there. ReadKey now makes the key from the boot serial as
+  PCSX2's `cdvdReadKey` does, the key registers read it back, and DEC-SET decrypts the sectors read (XOR with key
+  byte 4, then a rotate). Saved in the CDVD's state, version 2. Test:
+  `CdvdTests.Read_key_gives_the_disc_key_made_from_the_boot_serial_and_dec_set_decrypts_sectors`.
+- **Still open:** the browser's menu draws almost nothing (its text and background are missing), and the log showed
+  4–8 s of real time per 60 frames in a Release build.
 
 ### GV-025
 
@@ -357,6 +366,23 @@ content is missing. **Low** = wrong text or a small inconsistency.
   each second, the buttons the host passed to pad 1, how many conversations the game started on the port, and the
   last one byte by byte (sent>received, `!` where the device didn't answer with /ACK), so the next log shows whether
   keys reach the pad and whether the game is reading it.
+
+### GV-026
+
+**Games show the BIOS's title and then a black screen** · High · Atari 5200 · **Fixed (pending a check with the game)**
+
+- **Reported:** a 5200 game shows the Atari logo with its name, then a black screen.
+- **Cause found:** a 16 KB cartridge is either one 16 KB chip (code at $8000–$BFFF, mirrored at $4000) or two 8 KB
+  chips (the first at $4000–$7FFF, the second at $8000–$BFFF), and many of Atari's own 16 KB games are two-chip.
+  GameVault used the two-chip layout only when a game's profile named it, and none ship. Mapped as one chip, a
+  two-chip game's name and start address still read correctly (they sit at the end of the second chip, file
+  offset $3FE8–$3FFF, either way), so the BIOS shows the title; the game then jumps into code that isn't where it
+  expects and crashes.
+- **Fixed:** with no model in the profile, `Atari5200Cartridge.LooksTwoChip` decides from the ROM's code: a one-chip
+  game's JSRs and JMPs point into $8000–$BFFF, a two-chip game's also into $4000–$7FFF. The profile's model
+  (`two-chip`, or the new `one-chip`) still wins. Test:
+  `Atari5200Tests.A_16k_games_board_is_told_from_where_its_code_calls_unless_the_profile_names_it`. Not yet checked
+  with the reporter's game.
 
 ---
 
