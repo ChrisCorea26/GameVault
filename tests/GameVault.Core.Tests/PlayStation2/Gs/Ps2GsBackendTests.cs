@@ -21,6 +21,10 @@ public sealed class Ps2GsBackendTests
 
         public Ps2Gs? Gs { get; set; }
 
+        public bool Authoritative => false;
+
+        public void ReadBack(ReadOnlySpan<ulong> pages) => throw new InvalidOperationException("only an authoritative backend holds pages");
+
         public void Draw(ReadOnlySpan<Ps2Gs.Command> commands, ReadOnlySpan<Ps2Gs.DrawState> states, ReadOnlySpan<ulong> writes, ReadOnlySpan<ulong> reads) =>
             Batches.Add((commands.Length, states.Length, FirstPage(writes), Gs!.Memory.AsSpan(7 * 8192, 8192).IndexOfAnyExcept((byte)0) < 0));
 
