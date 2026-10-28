@@ -248,7 +248,8 @@ Real games are the owner's to try; see `docs/plans/phase-13.md`.
 | S-RTC: the read and write protocol, the weekday, seconds counted from the master clock, the PC's time at start | ✅ Unit tests; a time set in the game isn't kept after closing it |
 | SPC7110: the ROM windows, SRAM enable, the decompressor (1, 2 and 4 bpp), the data port's modes, the ALU | ✅ Unit tests; the decompressor matches ares' own decoder row for row on test data; real games are the owner's |
 | RTC-4513 (Far East of Eden Zero): the protocol and ready flag, 12/24-hour, calendar, rounding, the periodic flag, pause | ✅ Unit tests; a time set in the game isn't kept after closing it |
-| Cx4, ST018 | Not yet: such games get a message naming the chip |
+| Cx4 (HG51B169, with the player's own data ROM): instructions, flags, multiplier, cache pages, DMA, the bus hold, IRQ | 🟡 Unit tests on hand-assembled HG51B programs; real games with the player's dump are the owner's |
+| ST018 | Not yet: such games get a message naming the chip |
 
 Real games are the owner's to try; see `docs/plans/phase-14.md`.
 

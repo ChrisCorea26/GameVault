@@ -1,5 +1,5 @@
 ---
-edition: "Edition 27 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, GameCube, Atari 2600, Atari 5200, Sega CD and 32X"
+edition: "Edition 28 · October 2026 · Covers NES and Famicom Disk System, SG-1000 and Master System, Apple II, Genesis / Mega Drive, Super Nintendo, PlayStation, Nintendo 64, PlayStation 2, GameCube, Atari 2600, Atari 5200, Sega CD and 32X"
 ---
 
 # Introduction
@@ -23,7 +23,7 @@ four freely licensed NES homebrew games, so there is something to play the first
 | Sega Master System | `.sms` | No |
 | Apple II, II+, IIe | `.dsk`, `.do`, `.po`, `.nib`, `.woz` | **Yes**: system ROM (12 or 16 KB) and Disk II boot ROM (256 bytes) |
 | Sega Genesis / Mega Drive | `.md`, `.gen`, `.smd`, `.bin` | No |
-| Super Nintendo / Super Famicom | `.sfc`, `.smc` | Only for DSP and ST01x chip games: that chip's program ROM, such as `dsp1b.rom` (8 KB) |
+| Super Nintendo / Super Famicom | `.sfc`, `.smc` | Only for DSP, ST01x and Cx4 chip games: that chip's ROM, such as `dsp1b.rom` (8 KB) or `cx4.rom` (3 KB) |
 | Sony PlayStation | `.cue` + `.bin`, `.chd`, `.m3u`, `.exe` | **Yes**: a 512 KB console BIOS such as SCPH-1001 |
 | Nintendo 64 | `.z64`, `.v64`, `.n64` | No |
 | 32X | `.32x` | **Yes**: the 32X's three BIOS files (256 bytes, 2 KB and 1 KB) |
@@ -45,7 +45,7 @@ GameVault works out of the box, but some things only you can provide. This check
 | **Your games** (ROM files and disc images) | Yes, beyond the bundled homebrew | Any folder; add it in the Library | [Quick start](#quick-start) |
 | **Famicom Disk System BIOS** (`disksys.rom`, 8 KB) | Only for `.fds` games | Settings → Disk System | [Famicom Disk System](#famicom-disk-system) |
 | **Apple II system ROM** (12 KB for II/II+, 16 KB for IIe) and **Disk II boot ROM** (256 bytes) | Only for Apple II | Settings → Apple II | [Apple II](#apple-ii-ii-and-iie) |
-| **Super Nintendo DSP chip ROMs** (`dsp1b.rom` and the others, 8 KB each; `st010.rom` and `st011.rom`, 52 KB) | Only for games with a DSP or ST01x chip, such as *Super Mario Kart* | Settings → Super Nintendo | [Super Nintendo](#super-nintendo) |
+| **Super Nintendo chip ROMs** (`dsp1b.rom` and the others, 8 KB each; `st010.rom` and `st011.rom`, 52 KB; `cx4.rom`, 3 KB) | Only for games with a DSP, ST01x or Cx4 chip, such as *Super Mario Kart* or *Mega Man X2* | Settings → Super Nintendo | [Super Nintendo](#super-nintendo) |
 | **Atari 5200 BIOS** (`5200.rom`, 2 KB) | Only for Atari 5200 games | Settings → Atari 5200 | [Atari 5200](#atari-5200) |
 | **32X BIOS files** (256 bytes, 2 KB and 1 KB) | Only for 32X games | Settings → 32X | [32X](#sega-32x) |
 | **Sega CD BIOS** (128 KB, of your discs' region) | Only for Sega CD discs | Settings → Sega CD | [Sega CD](#sega-cd-mega-cd) |

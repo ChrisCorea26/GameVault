@@ -29,3 +29,4 @@
 | 25 | October 2026 | Super Nintendo: *Daikaijuu Monogatari II*'s clock (the S-RTC chip), set from your PC's time. |
 | 26 | October 2026 | PlayStation 2: games run faster, as the console's float maths is done with your PC's own. **Settings → PlayStation 2 → Exact emulation** does it exactly instead, for a game that misbehaves. |
 | 27 | October 2026 | Super Nintendo: games with the SPC7110 chip (*Far East of Eden Zero*, *Momotarou Dentetsu Happy*, *Super Power League 4*), and *Far East of Eden Zero*'s clock. |
+| 28 | October 2026 | Super Nintendo: *Mega Man X2* and *X3* (the Cx4 chip), with your own `cx4.rom`. |
