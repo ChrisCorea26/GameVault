@@ -189,7 +189,9 @@ Real disks need the owner's Apple ROMs (Settings → Apple II) and disk images; 
 | SN76489, Z80 sound CPU, bus request/reset, bank window | ✅ Unit tests |
 | Cartridges: raw and .smd, header region, SRAM (odd/even/word), SSF2 mapper | ✅ Unit tests |
 | 3- and 6-button pads | ✅ Unit tests |
-| EEPROM saves (I²C: X24C01 and 24C01–24C512), with Sega's header-declared wiring on $200001 | ✅ Unit tests (page writes, wrap, random reads, the cartridge's lines, save states); EA, Acclaim and Codemasters wiring not yet |
+| EEPROM saves (I²C: X24C01 and 24C01–24C512), with Sega's header-declared wiring on $200001 | ✅ Unit tests (page writes, wrap, random reads, the cartridge's lines, save states) |
+| EEPROM boards by product code: EA, Acclaim (16M and 32M), Codemasters, and Sega games whose header doesn't declare it | ✅ Unit tests for each wiring; real cartridges not checked yet (the owner's) |
+| J-Cart (Codemasters' extra pad ports) | Not yet: its pad lines read as idle |
 | 32X | See below |
 
 ### 32X (outstanding-work item 17, milestone 2)
@@ -197,10 +199,11 @@ Real disks need the owner's Apple ROMs (Settings → Apple II) and disk images; 
 | Part | State |
 |---|---|
 | SH-2: the instruction set, delayed branches, MAC, DIV0/DIV1 (the manual's division programs), exceptions, interrupts, SLEEP | ✅ Unit tests (37) |
-| SH7604 on-chip: DIVU, DMAC (auto-request, DREQ), FRT, WDT interval mode, interrupt priorities | ✅ Unit tests; the cache isn't modelled |
+| SH7604 on-chip: DIVU, DMAC (auto-request, DREQ), FRT, WDT interval mode, interrupt priorities | ✅ Unit tests |
+| SH7604 cache: four ways, LRU, write-through, CCR (ID, OD, two-way, purge), the purge and address-array areas, DMA around it | ✅ Unit tests (10); a miss costs no extra time |
 | The adapter: 68000 mapping, the SH-2s' reset, both boot ROMs, communication ports, CMD/V/H/PWM interrupts | ✅ Unit tests |
 | VDP: packed, direct-colour and run-length lines, FS swap, auto fill, overwrite image, palette priority | ✅ Unit tests |
-| The picture over the Genesis' (PRI, the colour's priority bit, the Genesis backdrop) | ✅ Unit test; laid on once a frame |
+| The picture over the Genesis' (PRI, the colour's priority bit, the Genesis backdrop), line by line | ✅ Unit tests, including a palette change on an H interrupt |
 | The 68000-to-SH-2 FIFO into DMA | ✅ Unit test |
 | PWM sound | 🟡 Plays; not checked against hardware recordings |
 | Booting the real BIOS and games | Not checked yet (the owner's) |
@@ -210,7 +213,10 @@ Real disks need the owner's Apple ROMs (Settings → Apple II) and disk images; 
 | Part | State |
 |---|---|
 | Sub CPU (the 68000 core), reset and bus request from the main CPU, level 2 interrupt, communication words and flags | ✅ Unit tests with programs on both CPUs |
-| PRG-RAM banking and write protect; Word RAM in 2M and 1M mode, the dot image and its priority modes | ✅ Unit tests; 1M mode's cell-image view for the main CPU not yet |
+| PRG-RAM banking and write protect; Word RAM in 2M and 1M mode, the dot image and its priority modes | ✅ Unit tests |
+| 1M mode's cell-image view for the main CPU ($220000–$23FFFF, all five areas) | ✅ Unit tests |
+| Mode 1: a cartridge booting with the unit at $400000 (MSU-MD), with a disc of the same name beside it | ✅ Unit and host tests; real MSU-MD games not checked yet (the owner's) |
+| Subcode: the 64-word buffer, its pointer and the level 6 interrupt, from a .sub file beside the cue sheet (CD+G) | ✅ Unit tests; CHD subcode isn't read |
 | Timer, stopwatch, font generator, backup RAM | ✅ Unit tests |
 | CDD: TOC reports, seek, play, pause, stop, scan, the status checksum | ✅ Unit tests; seek times are estimates |
 | CDC: decoding into its buffer, the host ports, DMA to PRG-RAM, Word RAM and PCM RAM | ✅ Unit tests |

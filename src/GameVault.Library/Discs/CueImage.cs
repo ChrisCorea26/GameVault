@@ -6,15 +6,20 @@ namespace GameVault.Library.Discs;
 /// <summary>
 /// A disc as a cue sheet over one or more .bin files (one bin for the whole disc, or one per track). Understands FILE
 /// (BINARY, and MOTOROLA for byte-swapped audio), TRACK (AUDIO, MODE1/2048, MODE1/2352, MODE2/2336, MODE2/2352),
-/// INDEX 00/01, PREGAP and POSTGAP. Sectors are read from the files as needed.
+/// INDEX 00/01, PREGAP and POSTGAP. Sectors are read from the files as needed. A .sub file named like the cue sheet
+/// (CloneCD's layout: 96 bytes a sector from 00:02:00, 12 for each of the channels P to W) supplies the subcode, for
+/// CD+G discs (genesis-gaps.md §4).
 /// </summary>
 /// <remarks>
 /// Track 1's index 1 sits at disc address 150 (MSF 00:02:00), after the lead-in pregap. A later track's pregap is
 /// its PREGAP (not in the file, read as zeros) followed by its INDEX 00 frames (in the file).
 /// </remarks>
-public sealed class CueImage : ExtentCdImage
+public sealed class CueImage : ExtentCdImage, ICdSubcode
 {
     private readonly List<FileStream> _streams = [];
+    private readonly object _subcodeGate = new();
+    private readonly byte[] _subcodeChannels = new byte[ICdSubcode.Size];
+    private FileStream? _subcode;
 
     private CueImage()
     {
@@ -57,6 +62,7 @@ public sealed class CueImage : ExtentCdImage
         try
         {
             image.Build(cuePath, files);
+            image.OpenSubcode(cuePath);
             return image;
         }
         catch
@@ -373,6 +379,49 @@ public sealed class CueImage : ExtentCdImage
         data[read..].Clear();
     }
 
+    // ---- Subcode ----
+
+    public bool HasSubcode => _subcode is not null;
+
+    /// <summary>The .sub file named like the cue sheet, in its folder (ignoring case), when there is one.</summary>
+    private void OpenSubcode(string cuePath)
+    {
+        var folder = Path.GetDirectoryName(Path.GetFullPath(cuePath)) ?? ".";
+        var name = Path.GetFileNameWithoutExtension(cuePath) + ".sub";
+        var path = Directory.EnumerateFiles(folder).FirstOrDefault(f => string.Equals(Path.GetFileName(f), name, StringComparison.OrdinalIgnoreCase));
+        if (path is null)
+        {
+            return;
+        }
+
+        try
+        {
+            _subcode = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.RandomAccess);
+        }
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
+        {
+            _subcode = null; // the disc still plays, without CD+G
+        }
+    }
+
+    public void ReadSubcode(int lba, Span<byte> destination)
+    {
+        var symbols = destination[..ICdSubcode.Size];
+        var offset = (long)(lba - 150) * ICdSubcode.Size;
+        lock (_subcodeGate)
+        {
+            if (_subcode is null || offset < 0 || offset + ICdSubcode.Size > _subcode.Length)
+            {
+                symbols.Clear();
+                return;
+            }
+
+            _subcode.Position = offset;
+            _subcode.ReadExactly(_subcodeChannels);
+            CdSubcode.FromChannels(_subcodeChannels, symbols);
+        }
+    }
+
     protected override void Dispose(bool disposing)
     {
         if (disposing)
@@ -383,6 +432,8 @@ public sealed class CueImage : ExtentCdImage
             }
 
             _streams.Clear();
+            _subcode?.Dispose();
+            _subcode = null;
         }
 
         base.Dispose(disposing);

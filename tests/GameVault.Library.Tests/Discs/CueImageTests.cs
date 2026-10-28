@@ -41,6 +41,42 @@ public sealed class CueImageTests
     }
 
     [Fact]
+    public void A_sub_file_named_like_the_cue_sheet_gives_each_sectors_subcode()
+    {
+        using var folder = new TempFolder();
+        folder.Write("mixed disc.bin", SyntheticDisc.MixedBin());
+        var cue = folder.Write("mixed.cue", SyntheticDisc.MixedCue);
+        using (var plain = (CueImage)DiscImages.Open(cue))
+        {
+            plain.HasSubcode.Should().BeFalse("most images come without subcode");
+        }
+
+        // CloneCD's layout: per sector, 12 bytes of P, then Q, R … W, each MSB first.
+        var sub = new byte[3 * 96];
+        sub[0] = 0x80;                        // sector 0: P's first bit (symbol 0)
+        sub.AsSpan(2 * 12, 12).Fill(0xFF);   // sector 0: R in every symbol
+        sub[96 + 7 * 12 + 11] = 0x01;         // sector 1: W's last bit (symbol 95)
+        folder.Write("MIXED.SUB", sub);
+
+        using var image = (CueImage)DiscImages.Open(cue);
+        image.HasSubcode.Should().BeTrue();
+        var symbols = new byte[96];
+
+        image.ReadSubcode(150, symbols);
+        symbols[0].Should().Be(0xA0, "P (bit 7) and R (bit 5)");
+        symbols[1..].Should().AllBeEquivalentTo((byte)0x20);
+
+        image.ReadSubcode(151, symbols);
+        symbols[95].Should().Be(0x01, "W is bit 0");
+        symbols[..95].Should().AllBeEquivalentTo((byte)0);
+
+        image.ReadSubcode(149, symbols);
+        symbols.Should().AllBeEquivalentTo((byte)0, "the lead-in pregap has none in the file");
+        image.ReadSubcode(400, symbols);
+        symbols.Should().AllBeEquivalentTo((byte)0);
+    }
+
+    [Fact]
     public void One_bin_per_track_with_index_00_in_each_file()
     {
         using var folder = new TempFolder();

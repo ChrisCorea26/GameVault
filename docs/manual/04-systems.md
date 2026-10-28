@@ -191,10 +191,12 @@ Properties → Controller** to *3-button*.
 While a Genesis game runs the shoulder buttons are game buttons, so use <kbd>Backspace</kbd> and <kbd>Tab</kbd> to
 rewind and fast-forward.
 
-Games that save to a serial EEPROM chip and say so in their header (Sega's own, such as *Wonder Boy in Monster
-World* and *Mega Man: The Wily Wars*) save as `.sav` like battery games. EEPROM games from other publishers (EA,
-Acclaim, Codemasters) wire the chip differently and don't save yet. The double-resolution interlaced mode (*Sonic the
-Hedgehog 2*'s two-player game) shows all 448 lines. Master System games play on the Master System core instead (open
+Games that save to a serial EEPROM chip save as `.sav` like battery games. That covers Sega's own (such as *Wonder
+Boy in Monster World* and *Mega Man: The Wily Wars*) and the EA, Acclaim and Codemasters games that use one (such as
+*NHLPA Hockey '93*, *NBA Jam*, *College Slam* and *Micro Machines 2*). GameVault knows those by the code in the
+game's header. Codemasters' J-Cart games (with two extra pad ports on the cartridge) save, but their extra pads
+don't work yet. The double-resolution interlaced mode (*Sonic the Hedgehog 2*'s two-player game) shows all 448
+lines. Master System games play on the Master System core instead (open
 the `.sms` file).
 
 The 32X has its own section below.
@@ -212,8 +214,17 @@ Sega CD can sit in the same folder. Its region is read from the disc; **Game Det
 
 **Controls** are the Genesis pad's (see above). The Sega CD's CD music and PCM sound play with the Genesis' sound.
 
-**Not supported yet:** cartridges that use the CD (*mode 1*), CD+G graphics, the backup RAM cartridge, and the 32X
-Sega CD games. Each part is tested with programs written for GameVault, not yet with a real BIOS, so whether a disc
+**CD+G discs:** a CD+G disc's graphics travel in the disc's subcode, which a `.bin` doesn't hold. Keep the subcode
+as a `.sub` file with the same name as the `.cue` (for example `Karaoke.cue`, `Karaoke.bin` and `Karaoke.sub`; CloneCD
+and most disc-ripping tools can write one). The Sega CD's own CD player then shows the graphics. Subcode inside a
+`.chd` isn't read.
+
+**Cartridges that use the CD (mode 1):** some Genesis cartridges, such as MSU-MD games, play music from a CD while
+the game runs from the cartridge. Put the cartridge's `.cue` (or `.chd`) beside it with the same name (for example
+`Game.md` and `Game.cue`), choose your Sega CD BIOS in **Settings → Sega CD**, and open the cartridge as usual. The
+game saves to its own save if it has one, and to the Sega CD's backup RAM if it doesn't.
+
+**Not supported yet:** the backup RAM cartridge, and the 32X Sega CD games. Each part is tested with programs written for GameVault, not yet with a real BIOS, so whether a disc
 boots is the first thing to check.
 
 **Messages:**
@@ -234,8 +245,8 @@ boots is the first thing to check.
 
 **Controls** are the Genesis pad's (see above).
 
-The 32X's picture is laid over the Genesis' once a frame; games that change it partway down the screen show the
-whole frame as it was at the end. The SH-2s' caches aren't emulated, which a few games notice.
+The 32X's picture is laid over the Genesis' line by line, so games that change it partway down the screen show the
+change where it happens. The SH-2s' caches are emulated, including the stale data games must clear themselves.
 
 **Not supported yet:** 32X games on Sega CD discs; PAL 32X games' 240-line mode. Each part is tested with programs
 written for GameVault, not yet with the real BIOS files, so whether a game boots is the first thing to check.
