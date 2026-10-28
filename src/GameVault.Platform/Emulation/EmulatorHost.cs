@@ -1284,6 +1284,12 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         var profile = ProfileResolver?.Invoke(hashes.Sha1) ?? new GameProfile { Sha1 = hashes.Sha1 };
         n64 ??= IsNintendo64(system) ? new N64Setup(SaveTypes: N64SaveTypes) : null;
         var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation, n64, playStation2, snes, atari5200Bios, segaCdBios, sega32XBios);
+        if (console is SnesConsole { Cartridge.Coprocessor: ISnesRealTimeClock clock })
+        {
+            // A cartridge clock starts at the PC's time for normal play (netplay and challenge replays keep its fixed start).
+            clock.SetTime(DateTime.Now);
+        }
+
         var nes = console as NesConsole;
 
         if (_audio is not null)

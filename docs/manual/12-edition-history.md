@@ -25,3 +25,4 @@
 | 21 | October 2026 | PlayStation: **Settings → PlayStation → Internal resolution** draws 3D games at 2× or 3× on your graphics card. |
 | 22 | October 2026 | Nintendo 64: **Settings → Nintendo 64 → Internal resolution** draws games at 2×, 3× or 4× on your graphics card. |
 | 23 | October 2026 | PlayStation 2: **Settings → PlayStation 2 → Internal resolution** draws games at 2×, 3× or 4× on your graphics card. |
+| 25 | October 2026 | Super Nintendo: *Daikaijuu Monogatari II*'s clock (the S-RTC chip), set from your PC's time. |
