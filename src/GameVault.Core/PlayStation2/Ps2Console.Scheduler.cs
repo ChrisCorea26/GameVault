@@ -231,7 +231,7 @@ public sealed partial class Ps2Console
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 2);
+        writer.BeginChunk(Tag, 3);
         writer.WriteBytes(_rdram);
         writer.WriteBytes(MemoryMarshal.AsBytes(_frame.AsSpan()));
         writer.WriteInt64(FrameCount);
@@ -252,6 +252,7 @@ public sealed partial class Ps2Console
         writer.WriteBool(_inHBlank);
         SaveIo(writer);
         writer.WriteBool(_bootHookArmed);
+        Dve.SaveState(writer);
         writer.EndChunk();
         Cpu.SaveState(writer);
         Vu0.SaveState(writer);
@@ -275,7 +276,7 @@ public sealed partial class Ps2Console
     public void LoadState(StateReader reader)
     {
         var version = reader.BeginChunk(Tag);
-        if (version is not (1 or 2))
+        if (version is not (1 or 2 or 3))
         {
             throw new StateFormatException("Unsupported PlayStation 2 state version.");
         }
@@ -300,6 +301,15 @@ public sealed partial class Ps2Console
         _inHBlank = reader.ReadBool();
         LoadIo(reader);
         _bootHookArmed = version >= 2 && reader.ReadBool();
+        if (version >= 3)
+        {
+            Dve.LoadState(reader);
+        }
+        else
+        {
+            Dve.Reset();
+        }
+
         reader.EndChunk();
         Cpu.LoadState(reader);
         Vu0.LoadState(reader);

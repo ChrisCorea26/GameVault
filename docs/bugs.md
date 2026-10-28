@@ -329,6 +329,12 @@ content is missing. **Low** = wrong text or a small inconsistency.
   now has a watchdog: when no frame finishes for three seconds it writes, from its own thread, the EE's and IOP's PCs
   and cycle counts, the last 16 registers each wrote, and the emulation thread's managed stack (read with ClrMD from
   a snapshot of the process). The next log will name the method it is stuck in.
+- **Third stop (the watchdog's log):** frames were finishing after all (the earlier log had simply been closed
+  early); the EE now spun at $80007CC4 reading $1A000004 42 million times a second, right after "Initialize GS ...".
+  $1A000000 is the DVE, the video encoder, which wasn't mapped (reads gave 0): the BIOS sends it commands and waits
+  for its status at $1A000006 to say ready (bit 1). `Ps2Dve` now models it as PCSX2's `ba0R16`/`ba0W16` do
+  (commands, power, the status that turns ready a few reads after a command, the error bit), and it is in the save
+  state (console chunk version 3). Test: `Ps2ConsoleTests.The_video_encoder_reports_ready_a_few_status_reads_after_a_command`.
 
 ### GV-025
 
@@ -339,7 +345,15 @@ content is missing. **Low** = wrong text or a small inconsistency.
 - **Speed:** the core runs a GPU test program at 826 frames a second in a Release build and 128 in a Debug build
   (`dotnet run` builds Debug unless given `-c Release`), so a Debug build may fall below 60 in a real game. The boot
   log now gives the build and the real time each 60 frames took.
-- **Keyboard:** the pad's replies and button bits read correctly in the code and tests. The boot log now gives,
+- **From the next log:** it was a Debug build, at about 2.7 s of real time per 60 frames. `GameVault.Core` is now
+  compiled optimized in Debug builds too: the GPU test program runs at 725 frames a second in Debug (146 before),
+  close to Release's 826.
+- **Keyboard, from the same log:** the game polls the pad 120 times a second and the pad answers correctly (a digital
+  pad, nothing pressed: `01>FF 42>41 00>5A 00>FF 00>FF`), but the host passed no button to pad 1 in any second while
+  the reporter pressed keys. `InputService` maps the PlayStation's keys correctly (Enter → Start, X → ○, the arrows →
+  the stick), so the keys don't reach it: most likely the game picture didn't have keyboard focus. The boot log now
+  counts the key presses the game picture passes in each second, to confirm.
+- **Keyboard, first look:** the pad's replies and button bits read correctly in the code and tests. The boot log now gives,
   each second, the buttons the host passed to pad 1, how many conversations the game started on the port, and the
   last one byte by byte (sent>received, `!` where the device didn't answer with /ACK), so the next log shows whether
   keys reach the pad and whether the game is reading it.

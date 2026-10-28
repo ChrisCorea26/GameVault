@@ -32,7 +32,7 @@ public sealed class BootLogTests : IDisposable
 
         var text = File.ReadAllText(Path.Combine(_root.FullName, "boot-ps1.log"));
         text.Should().Contain("Test Disc").And.Contain("cd").And.Contain("command 01").And.Contain("INT3 12");
-        text.Should().Contain("of real time for 60 frames) pc 8001000").And.Contain("I_STAT ").And.Contain("pad 1 held: Start  port conversations: 0");
+        text.Should().Contain("of real time for 60 frames) pc 8001000").And.Contain("I_STAT ").And.Contain("keys pressed in the game picture: 0  pad 1 held: Start  port conversations: 0");
         text.Should().Contain("(end of the boot log)");
         console.TtyOutput.Should().BeNull();
         console.IoReadProbe.Should().BeNull();

@@ -471,8 +471,14 @@ public sealed class InputService
         }
     }
 
+    /// <summary>Every key press the game picture has passed in, bound or not (the boot log: zero means it never had focus).</summary>
+    public long KeyPresses => Interlocked.Read(ref _keyPresses);
+
+    private long _keyPresses;
+
     public bool KeyDown(int virtualKey)
     {
+        Interlocked.Increment(ref _keyPresses);
         if (PowerPadKey(virtualKey, down: true) || KeypadKeyChanged(virtualKey, down: true))
         {
             return true;
