@@ -292,6 +292,14 @@ content is missing. **Low** = wrong text or a small inconsistency.
   interrupt's I_STAT bit and the BIOS waited for it forever. A waiting response now arrives 1,000 cycles after the
   acknowledge, and a sector's INT1 no longer queues behind one still unacknowledged (as DuckStation does). Test:
   `PlayStationMachineTests.A_response_waiting_behind_another_still_interrupts_after_the_bios_acknowledges_both`.
+- **Second cause, from the reporter's `boot-ps1.log` (SCPH-1001, BIOS 2.2, *Crash Bandicoot*):** with the drive fixed,
+  the BIOS read the licence and logo sectors and then spent every cycle in its interrupt handler, reading I_MASK,
+  I_STAT and DICR 80,000 times a second. A DICR write cleared bit 31 before the edge check, so every write while
+  another enabled channel's flag stayed set looked like a new rising edge and raised IRQ 3 again: each time the
+  handler acknowledged the CD-ROM's DMA it interrupted itself. Bit 31 is now kept across the write, so only a real
+  rise raises IRQ 3 (psx-spx "DMA Interrupt Register"). Test:
+  `PlayStationMachineTests.Writing_dicr_while_its_irq_flag_stays_set_raises_no_new_interrupt`. The log line now
+  shows I_STAT, I_MASK and DICR.
 - **Still to check:** no retail BIOS is available to the tests. If a disc still stops, `logs\boot-ps1.log` (below)
   shows the drive's last command and where the CPU is waiting.
 
@@ -307,7 +315,13 @@ content is missing. **Low** = wrong text or a small inconsistency.
 - **To diagnose:** every PlayStation and PlayStation 2 game now writes its first minute to `logs\boot-ps1.log` or
   `logs\boot-ps2.log` (`BootLog`): once a second where the EE and the IOP are, the hardware registers each reads most
   (a stuck BIOS spins on one), PMODE/SMODE2, and the BIOS's own text output; on the PlayStation every CD-ROM command and
-  response. The next step is to read a log from the reporter's BIOS and disc.
+  response.
+- **First cause, from the reporter's `boot-ps2.log` (*GTA San Andreas*):** the BIOS printed "Initialize memory" and
+  then the EE read $1000F410 42 million times a second at $9FC41928, while the IOP waited on the SIF for it. That
+  register kept whatever was written to it; the BIOS waits for it to read 0, as PCSX2 returns. It now reads 0, and so
+  does the SIO status at $1000F130 (KPUTCHAR's wait), the only other register on that page that differed. Test:
+  `Ps2ConsoleTests.The_bioss_wait_registers_read_zero_whatever_was_written`. The BIOS may stop further on; the next
+  log will show where.
 
 ---
 

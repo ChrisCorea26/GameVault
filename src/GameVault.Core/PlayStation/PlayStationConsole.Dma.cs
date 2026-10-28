@@ -48,9 +48,10 @@ public sealed partial class PlayStationConsole
             }
             else if ((offset & 0xF) == 4)
             {
-                // Bits 24–30 acknowledge on writing 1; the rest are written as given.
+                // Bits 24–30 acknowledge on writing 1; the rest are written as given. Bit 31 is kept for the edge check:
+                // only its rise raises IRQ 3, so a write that leaves it set raises nothing.
                 var flags = (_dmaInterrupt & ~value) & 0x7F000000;
-                _dmaInterrupt = (value & 0x00FF803F) | flags;
+                _dmaInterrupt = (value & 0x00FF803F) | flags | (_dmaInterrupt & 0x80000000);
                 UpdateDmaInterrupt();
             }
 

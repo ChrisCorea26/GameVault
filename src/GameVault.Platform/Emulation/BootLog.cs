@@ -133,7 +133,8 @@ internal sealed class BootLog : IDisposable
             switch (_console)
             {
                 case PlayStationConsole ps:
-                    line.Append($"pc {ps.Cpu.Pc:X8}  reads {Top(_mainReads)}");
+                    var (status, mask, dma) = ps.InterruptRegisters;
+                    line.Append($"pc {ps.Cpu.Pc:X8}  I_STAT {status:X3} I_MASK {mask:X3} DICR {dma:X8}  reads {Top(_mainReads)}");
                     break;
                 case Ps2Console ps2:
                     line.Append($"EE pc {ps2.Cpu.Pc:X8}  IOP pc {ps2.Iop.Cpu.Pc:X8}  PMODE {ps2.Gs.ReadPrivileged(Ps2Gs.PrivPmode):X}  SMODE2 {ps2.Gs.ReadPrivileged(Ps2Gs.PrivSmode2):X}");
