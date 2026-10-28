@@ -21,7 +21,8 @@ public sealed class UnsupportedChipException(string chip) : Exception($"This gam
 /// A Super Nintendo cartridge (SPEC §7.11, Phase 14): LoROM, HiROM or ExHiROM, found by scoring the internal header
 /// at $7FC0, $FFC0 or $40FFC0 (map mode, checksum and complement, reset vector, printable title). A 512-byte copier
 /// header is skipped. Battery SRAM is sized from the header. The DSP-n (with the player's own program ROM) and the
-/// Super FX are emulated (outstanding-work plan §4); games with other enhancement chips are refused clearly.
+/// Super FX are emulated (outstanding-work plan §4), and the chips of snes-chips-3.md as they arrive; games with other
+/// enhancement chips are refused clearly.
 /// </summary>
 /// <remarks>References: fullsnes ("SNES Cartridges", "SNES Cart DSP-n", "SNES Cart GSU-n"); the SNES Development
 /// Manual's header layout; the boards' DSP addresses as bsnes's board database lists them.</remarks>
@@ -64,6 +65,7 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
                 0x2 => new Obc1(),
                 0x3 => new Sa1(_rom, ramSize is > 0 and <= 8 ? 1024 << ramSize : 0, Pal),
                 0x4 => new Sdd1(_rom),
+                0x5 => new SharpRtc(Pal ? SnesConsole.PalMasterClock : SnesConsole.NtscMasterClock),
                 0xF when chip == 0xF6 => CreateSeta(chipRoms),
                 _ => throw new UnsupportedChipException(ChipName(chip)),
             };
