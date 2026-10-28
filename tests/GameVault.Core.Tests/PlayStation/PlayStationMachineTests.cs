@@ -131,6 +131,29 @@ public sealed class PlayStationMachineTests
         (console.Read32(0x1F8010F4) & 0x84000000).Should().Be(0);
     }
 
+    [Fact]
+    public void Writing_dicr_while_its_irq_flag_stays_set_raises_no_new_interrupt()
+    {
+        var console = Idle();
+        SetWord(console, 0x100000, 0x00FFFFFF); // an empty linked list
+
+        console.Write32(0x1F801074, (uint)PsInterrupt.Dma);
+        console.Write32(0x1F8010F0, 0x00000800);
+        console.Write32(0x1F8010F4, 0x00840000); // channel 2's flag enabled, and the master
+        console.Write32(0x1F8010A0, 0x100000);
+        console.Write32(0x1F8010A8, 0x01000401);
+        (console.Read32(0x1F801070) & (uint)PsInterrupt.Dma).Should().NotBe(0);
+
+        // The BIOS's CD-ROM DMA handler acknowledges channel 3 (DICR = (DICR & $FFFFFF) | $88000000) and I_STAT, while
+        // channel 2's flag stays set: bit 31 stays 1, so there is no rising edge and no new IRQ 3 (psx-spx "DMA Interrupt
+        // Register"). A new one each time would keep the CPU in the handler forever.
+        console.Write32(0x1F801070, ~(uint)PsInterrupt.Dma);
+        console.Write32(0x1F8010F4, (console.Read32(0x1F8010F4) & 0x00FFFFFF) | 0x88000000);
+
+        (console.Read32(0x1F8010F4) & 0x80000000).Should().NotBe(0, "channel 2's flag still holds bit 31");
+        (console.Read32(0x1F801070) & (uint)PsInterrupt.Dma).Should().Be(0);
+    }
+
     // ---- Timers ----
 
     [Fact]

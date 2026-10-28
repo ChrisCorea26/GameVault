@@ -292,6 +292,14 @@ content is missing. **Low** = wrong text or a small inconsistency.
   interrupt's I_STAT bit and the BIOS waited for it forever. A waiting response now arrives 1,000 cycles after the
   acknowledge, and a sector's INT1 no longer queues behind one still unacknowledged (as DuckStation does). Test:
   `PlayStationMachineTests.A_response_waiting_behind_another_still_interrupts_after_the_bios_acknowledges_both`.
+- **Second cause, from the reporter's `boot-ps1.log` (SCPH-1001, BIOS 2.2, *Crash Bandicoot*):** with the drive fixed,
+  the BIOS read the licence and logo sectors and then spent every cycle in its interrupt handler, reading I_MASK,
+  I_STAT and DICR 80,000 times a second. A DICR write cleared bit 31 before the edge check, so every write while
+  another enabled channel's flag stayed set looked like a new rising edge and raised IRQ 3 again: each time the
+  handler acknowledged the CD-ROM's DMA it interrupted itself. Bit 31 is now kept across the write, so only a real
+  rise raises IRQ 3 (psx-spx "DMA Interrupt Register"). Test:
+  `PlayStationMachineTests.Writing_dicr_while_its_irq_flag_stays_set_raises_no_new_interrupt`. The log line now
+  shows I_STAT, I_MASK and DICR.
 - **Still to check:** no retail BIOS is available to the tests. If a disc still stops, `logs\boot-ps1.log` (below)
   shows the drive's last command and where the CPU is waiting.
 

@@ -146,6 +146,9 @@ public sealed partial class PlayStationConsole : IEmulatedConsole, IR3000Bus, IR
 
     public PsSio Sio { get; }
 
+    /// <summary>I_STAT, I_MASK and DICR, read without touching the bus (the host's boot log).</summary>
+    public (uint Status, uint Mask, uint Dma) InterruptRegisters => (_interruptStatus, _interruptMask, _dmaInterrupt);
+
     /// <summary>Each I/O register the CPU reads (the host's boot log; null while unused).</summary>
     public Action<uint>? IoReadProbe { get; set; }
 
