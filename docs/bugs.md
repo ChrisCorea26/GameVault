@@ -284,7 +284,7 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 
 | Item | Source |
 |---|---|
-| SNES enhancement chips still missing: Cx4, ST018 (the SA-1, S-DD1, OBC1, ST010, ST011, S-RTC and SPC7110 are done) | `docs/plans/snes-chips-3.md` |
+| SNES enhancement chips still missing: ST018 (the SA-1, S-DD1, OBC1, ST010, ST011, S-RTC, SPC7110 and Cx4 are done) | `docs/plans/snes-chips-3.md` |
 | ~~Genesis stereo, EEPROM saves on EA/Acclaim/Codemasters boards; the Sega CD's mode 1, CD+G and 1M cell-image view; the 32X's SH-2 caches and mid-frame picture changes~~ Done (`docs/plans/genesis-gaps.md`; stereo came with outstanding-work §2). Still open: the J-Cart's extra pads, CHD subcode | `docs/plans/genesis-gaps.md` |
 | PlayStation multitap, Justifier, GameShark, memory card manager (the DualShock, GunCon, mouse and GPU renderer are done) | `docs/plans/phase-15.md` |
 | N64 recompiler, Transfer Pak, 64DD, GameShark (the Rumble Pak and GPU renderer are done) | README status, `docs/plans/phase-16.md` |

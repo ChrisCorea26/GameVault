@@ -64,9 +64,9 @@ public sealed class SnesChipCartridgeTests
     [Fact]
     public void Chips_gamevault_does_not_emulate_yet_are_refused_clearly()
     {
-        var act = () => new SnesCartridge(SnesTests.Rom([0x80, 0xFE], chip: 0xF3));
+        var act = () => new SnesCartridge(SnesTests.Rom([0x80, 0xFE], chip: 0xF5)); // the ST018's chipset, on a small ROM
 
-        act.Should().Throw<UnsupportedChipException>().Which.Chip.Should().Contain("Cx4");
+        act.Should().Throw<UnsupportedChipException>().Which.Chip.Should().Contain("ST018");
     }
 
     [Fact]
