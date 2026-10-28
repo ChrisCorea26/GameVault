@@ -182,7 +182,10 @@ public sealed class GameWatcherTests : IDisposable
         host.Resume();
         await WaitFor(() => Volatile.Read(ref loaded) == 1, 30);
         input.KeyUp(VirtualKeys.F2);
-        (await host.InspectNesAsync(c => c.Bus.Peek(0x10))).Should().Be((byte)(livesNow + 1), "back to before the life was lost");
+        // On a very slow runner the ROM can run out of lives first: its counter wraps from 0 to $FF, which isn't a life
+        // lost, so the newest before-death state is the one from losing the last life (1 left).
+        var expected = livesNow == 0xFF ? (byte)1 : (byte)(livesNow + 1);
+        (await host.InspectNesAsync(c => c.Bus.Peek(0x10))).Should().Be(expected, "back to before the life was lost");
     }
 
     private static async Task WaitFor(Func<bool> condition, int seconds)
