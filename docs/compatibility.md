@@ -246,7 +246,9 @@ Real games are the owner's to try; see `docs/plans/phase-13.md`.
 | OBC1 | ✅ Unit test of its sprite table |
 | ST010/ST011 (µPD96050, with the player's own program ROM): two program halves, shared data RAM (the ST010's save) | 🟡 Unit tests on hand-assembled programs; real games are the owner's |
 | S-RTC: the read and write protocol, the weekday, seconds counted from the master clock, the PC's time at start | ✅ Unit tests; a time set in the game isn't kept after closing it |
-| Cx4, SPC7110, ST018 | Not yet: such games get a message naming the chip |
+| SPC7110: the ROM windows, SRAM enable, the decompressor (1, 2 and 4 bpp), the data port's modes, the ALU | ✅ Unit tests; the decompressor matches ares' own decoder row for row on test data; real games are the owner's |
+| RTC-4513 (Far East of Eden Zero): the protocol and ready flag, 12/24-hour, calendar, rounding, the periodic flag, pause | ✅ Unit tests; a time set in the game isn't kept after closing it |
+| Cx4, ST018 | Not yet: such games get a message naming the chip |
 
 Real games are the owner's to try; see `docs/plans/phase-14.md`.
 
