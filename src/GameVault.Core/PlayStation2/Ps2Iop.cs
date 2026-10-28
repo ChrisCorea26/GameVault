@@ -128,6 +128,9 @@ public sealed partial class Ps2Iop : IR3000Bus, IStateful
     /// <summary>Each device register the IOP reads (the host's boot log; null while unused).</summary>
     public Action<uint>? DeviceReadProbe { get; set; }
 
+    /// <summary>Each device register the IOP writes, with the value (the host's boot log; null while unused).</summary>
+    public Action<uint, uint>? DeviceWriteProbe { get; set; }
+
     /// <summary>The disc in the CDVD drive.</summary>
     public IPs2Disc? Disc
     {
@@ -462,6 +465,7 @@ public sealed partial class Ps2Iop : IR3000Bus, IStateful
 
     private void WriteDevice(uint address, uint value, int size)
     {
+        DeviceWriteProbe?.Invoke(address, value);
         switch (address)
         {
             case >= 0x1D000000 and < 0x1D000070:
