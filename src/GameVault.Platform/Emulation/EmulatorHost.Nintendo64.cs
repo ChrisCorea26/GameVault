@@ -68,7 +68,7 @@ public sealed partial class EmulatorHost
     /// Makes a GPU renderer on a background thread and hands it to <paramref name="attach"/> on the emulation thread,
     /// unless <paramref name="console"/> has been replaced since (then it's disposed).
     /// </summary>
-    private void AttachInBackground<T>(Func<D3D11Compute, T> create, Action<T> attach, IEmulatedConsole console, string unavailable)
+    private void AttachInBackground<T>(Func<D3D11Compute, T> create, Action<T> attach, IEmulatedConsole console, string? unavailable)
         where T : class, IDisposable
     {
         var attempt = ++_gpuAttach;
@@ -87,7 +87,11 @@ public sealed partial class EmulatorHost
                 // Any failure here (no Direct3D 11, a driver's compiler error) leaves the software picture; this runs
                 // on a pool thread, so nothing else would see it.
                 gpu?.Dispose();
-                RaiseNotice(unavailable);
+                if (unavailable is not null)
+                {
+                    RaiseNotice(unavailable);
+                }
+
                 return;
             }
 

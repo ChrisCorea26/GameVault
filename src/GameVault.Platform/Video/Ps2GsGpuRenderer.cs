@@ -1,22 +1,24 @@
 using System.Buffers.Binary;
-using System.IO.Hashing;
 using System.Numerics;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using GameVault.Core.PlayStation2;
 
 namespace GameVault.Platform.Video;
 
 /// <summary>
 /// The PlayStation 2's GS on the GPU at an internal resolution of <see cref="Scale"/> × (docs/plans/gpu-renderers.md,
-/// milestone 3). The software GS stays authoritative for local memory; this draws each batch the GS hands over
-/// (<see cref="IPs2GsBackend"/>) again, with the compute shader in Shaders/Ps2Gs.hlsl, into a copy of local memory that
-/// keeps Scale × Scale samples a pixel, and shows the picture the PCRTC reads from it.
+/// milestone 3). It draws each batch the GS hands over (<see cref="IPs2GsBackend"/>), with the compute shader in
+/// Shaders/Ps2Gs.hlsl, into a copy of local memory that keeps Scale × Scale samples a pixel, and shows the picture the
+/// PCRTC reads from it. By default the software GS draws too and stays authoritative; with <see cref="Authoritative"/>
+/// set it draws only here, and reads back the pages it needs (docs/plans/ps2-full-speed.md §3).
 /// </summary>
 /// <remarks>
-/// Each 8 KB page of the GPU's copy is in step with local memory or seeded from it: before a batch uses a page, a hash
-/// of the page in local memory is compared with the one taken after the GPU last drew it, and a page that changed some
-/// other way (an upload, a copy, the CPU, a state load) is seeded again, each word repeated in every sample. Pages the
-/// GPU drew are "HD": textures in them are sampled on their sample grid, so render targets keep their detail.
+/// Each 8 KB page of the GPU's copy is in step with local memory, seeded from it, or the GPU's own (drawn in the GS's
+/// place and not read back yet). Before a batch uses a page, the page's version in the GS is compared with the one it
+/// had when the GPU last drew or read it back, and a page that changed some other way (an upload, a copy, the CPU, a
+/// state load) is seeded again, each word repeated in every sample. Pages the GPU drew are "HD": textures in them are
+/// sampled on their sample grid, so render targets keep their detail.
 /// </remarks>
 public sealed class Ps2GsGpuRenderer : IPs2GsBackend, IDisposable
 {
@@ -33,6 +35,8 @@ public sealed class Ps2GsGpuRenderer : IPs2GsBackend, IDisposable
     private readonly bool _ownsGpu;
     private readonly IGpuKernel _draw;
     private readonly IGpuKernel _display;
+    private readonly IGpuKernel _resolve;
+    private IGpuBuffer? _resolved;
     private readonly IGpuBuffer _params;
     private readonly IGpuBuffer _tables;
     private readonly IGpuBuffer _memory;
@@ -46,7 +50,7 @@ public sealed class Ps2GsGpuRenderer : IPs2GsBackend, IDisposable
     private uint[] _stateData = new uint[16 * StateWords];
     private uint[] _paletteData = new uint[4 * 256];
     private (int X0, int Y0, int X1, int Y1)[] _commandBoxes = new (int, int, int, int)[256];
-    private readonly ulong[] _pageHash = new ulong[Pages];
+    private readonly uint[] _pageVersion = new uint[Pages];
     private readonly bool[] _pageKnown = new bool[Pages];
     private readonly uint[] _pageHd = new uint[Pages];
     private bool _hdDirty = true;
@@ -63,6 +67,7 @@ public sealed class Ps2GsGpuRenderer : IPs2GsBackend, IDisposable
         var source = LoadShaderSource();
         _draw = gpu.CreateKernel(source, "Draw");
         _display = gpu.CreateKernel(source, "Display");
+        _resolve = gpu.CreateKernel(source, "Resolve");
         _params = gpu.CreateBuffer(64);
         _tables = gpu.CreateBuffer(TableWords);
         _memory = gpu.CreateBuffer(Ps2Gs.LocalMemorySize / 4 * Scale * Scale);
@@ -75,6 +80,15 @@ public sealed class Ps2GsGpuRenderer : IPs2GsBackend, IDisposable
     }
 
     public int Scale { get; }
+
+    /// <summary>
+    /// Draw in the software GS's place (docs/plans/ps2-full-speed.md §3): the GS stops drawing and reads back the pages
+    /// it needs. The host sets it for normal play unless Exact emulation is on. Change it only between frames.
+    /// </summary>
+    public bool Authoritative { get; set; }
+
+    /// <summary>Pages read back into local memory so far (diagnostics and tests).</summary>
+    public int ReadBacks { get; private set; }
 
     /// <summary>Dispatches of the drawing kernel so far (diagnostics and tests).</summary>
     public int Dispatches { get; private set; }
@@ -172,20 +186,22 @@ public sealed class Ps2GsGpuRenderer : IPs2GsBackend, IDisposable
             DispatchRun(start, end);
             start = end;
         }
+
+        if (Authoritative)
+        {
+            MarkHd(writes); // the GS won't draw them: they are this copy's until read back
+        }
     }
 
-    void IPs2GsBackend.Drawn(ReadOnlySpan<ulong> writes)
+    private void MarkHd(ReadOnlySpan<ulong> pages)
     {
-        var memory = _gs.Memory;
-        for (var word = 0; word < writes.Length; word++)
+        for (var word = 0; word < pages.Length; word++)
         {
-            var bits = writes[word];
+            var bits = pages[word];
             while (bits != 0)
             {
                 var page = (word * 64) + BitOperations.TrailingZeroCount(bits);
                 bits &= bits - 1;
-                _pageHash[page] = XxHash3.HashToUInt64(memory.AsSpan(page * PageBytes, PageBytes));
-                _pageKnown[page] = true;
                 if (_pageHd[page] == 0)
                 {
                     _pageHd[page] = 1;
@@ -195,23 +211,98 @@ public sealed class Ps2GsGpuRenderer : IPs2GsBackend, IDisposable
         }
     }
 
+    void IPs2GsBackend.Drawn(ReadOnlySpan<ulong> writes)
+    {
+        for (var word = 0; word < writes.Length; word++)
+        {
+            var bits = writes[word];
+            while (bits != 0)
+            {
+                var page = (word * 64) + BitOperations.TrailingZeroCount(bits);
+                bits &= bits - 1;
+                _pageVersion[page] = _gs.PageVersion(page);
+                _pageKnown[page] = true;
+            }
+        }
+
+        MarkHd(writes);
+    }
+
     /// <summary>
-    /// Nothing to forget: each page's hash is checked before it is next used, so a page a state load changed is seeded
-    /// again and one it left as the GPU drew it keeps its detail (run-ahead loads a state every frame).
+    /// Copies pages drawn in the GS's place into local memory: runs of pages at a time, at 1× straight from the GPU's
+    /// copy, above it through the Resolve kernel (each pixel's first sample), so only the native size is read.
+    /// </summary>
+    void IPs2GsBackend.ReadBack(ReadOnlySpan<ulong> pages)
+    {
+        var memory = _gs.Memory;
+        var page = 0;
+        while (page < Pages)
+        {
+            if ((pages[page >> 6] & (1UL << (page & 63))) == 0)
+            {
+                page++;
+                continue;
+            }
+
+            var first = page;
+            while (page < Pages && (pages[page >> 6] & (1UL << (page & 63))) != 0)
+            {
+                page++;
+            }
+
+            var words = (page - first) * PageWords;
+            var into = MemoryMarshal.Cast<byte, uint>(memory.AsSpan(first * PageBytes, words * 4));
+            if (Scale == 1)
+            {
+                _gpu.Read(_memory, into, first * PageWords);
+            }
+            else
+            {
+                if (_resolved is null || _resolved.Words < words)
+                {
+                    _resolved?.Dispose();
+                    _resolved = _gpu.CreateBuffer(Math.Max(words, 16 * PageWords));
+                }
+
+                Span<uint> p = stackalloc uint[4];
+                p[0] = (uint)(first * PageWords);
+                p[1] = (uint)words;
+                p[2] = (uint)(Scale * Scale);
+                _gpu.Write(_params, p);
+                _gpu.Dispatch(_resolve, [_params, _resolved, _states, _tables, _palettes, _memory, _hd], (words + 63) / 64, 1);
+                _gpu.Read(_resolved, into);
+            }
+
+            for (var p = first; p < page; p++)
+            {
+                _pageVersion[p] = _gs.PageVersion(p);
+                _pageKnown[p] = true;
+            }
+
+            ReadBacks += page - first;
+        }
+    }
+
+    /// <summary>
+    /// Nothing to forget: the GS changes every page's version, so each page is seeded again before it is next used.
     /// </summary>
     void IPs2GsBackend.Resync()
     {
     }
 
-    /// <summary>Seeds a page from local memory when it no longer holds what the GPU last left there.</summary>
+    /// <summary>
+    /// Seeds a page from local memory when local memory's copy changed since the GPU last drew or read it back. A page
+    /// the GPU drew in the GS's place is its own: local memory's copy is the stale one.
+    /// </summary>
     private void Sync(byte[] memory, int page)
     {
-        var native = memory.AsSpan(page * PageBytes, PageBytes);
-        var hash = XxHash3.HashToUInt64(native);
-        if (_pageKnown[page] && _pageHash[page] == hash)
+        var version = _gs.PageVersion(page);
+        if ((_pageKnown[page] && _pageVersion[page] == version) || _gs.IsGpuOwned(page))
         {
             return;
         }
+
+        var native = memory.AsSpan(page * PageBytes, PageBytes);
 
         Seeds++;
         var samples = Scale * Scale;
@@ -221,7 +312,7 @@ public sealed class Ps2GsGpuRenderer : IPs2GsBackend, IDisposable
         }
 
         _gpu.Write(_memory, _seed, page * PageWords * samples);
-        _pageHash[page] = hash;
+        _pageVersion[page] = version;
         _pageKnown[page] = true;
         if (_pageHd[page] != 0)
         {
@@ -809,8 +900,7 @@ public sealed class Ps2GsGpuRenderer : IPs2GsBackend, IDisposable
     }
 
     /// <summary>Whether the GPU's copy of a page is in step with local memory (tests).</summary>
-    internal bool InStep(int page) =>
-        _pageKnown[page] && _pageHash[page] == XxHash3.HashToUInt64(_gs.Memory.AsSpan(page * PageBytes, PageBytes));
+    internal bool InStep(int page) => _pageKnown[page] && _pageVersion[page] == _gs.PageVersion(page) && !_gs.IsGpuOwned(page);
 
     /// <summary>Local memory's words as the GPU has them, sample 0 of each (tests).</summary>
     internal uint[] ReadMemory(int sample = 0)
@@ -839,6 +929,8 @@ public sealed class Ps2GsGpuRenderer : IPs2GsBackend, IDisposable
         _picture?.Dispose();
         _draw.Dispose();
         _display.Dispose();
+        _resolve.Dispose();
+        _resolved?.Dispose();
         if (_ownsGpu)
         {
             _gpu.Dispose();

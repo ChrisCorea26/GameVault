@@ -806,3 +806,15 @@ void Display(uint3 id : SV_DispatchThreadID)
 
     Commands[(uint)(Y * width + X)] = 0xFF000000u | ((color & 0xFF) << 16) | (color & 0xFF00) | ((color >> 16) & 0xFF);
 }
+
+// ---- Reading pages back (ps2-full-speed.md §3) ------------------------------------------------------------------
+
+// Native words [first, first + count) of local memory, each pixel's first sample, into Commands (u1), so reading pages
+// back moves the native size whatever the scale. Params: first word, count, samples a word.
+[numthreads(64, 1, 1)]
+void Resolve(uint3 id : SV_DispatchThreadID)
+{
+    uint i = id.x;
+    if (i >= Params[1]) return;
+    Commands[i] = Mem[(Params[0] + i) * Params[2]];
+}

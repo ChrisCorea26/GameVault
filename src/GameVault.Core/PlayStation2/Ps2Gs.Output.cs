@@ -100,6 +100,8 @@ public sealed partial class Ps2Gs
         var slbg = (_pmode & (1 << 7)) != 0;
         var alp = (int)((_pmode >> 8) & 0xFF);
         LastDisplay = new DisplayLayout(c1, c2, bg, minDx, minDy, sourceWidth, width, height, fieldMode, mmod, slbg, alp);
+        EnsureNativeCircuit(c1, fieldMode); // the pages an authoritative backend drew (ps2-full-speed.md §3)
+        EnsureNativeCircuit(c2, fieldMode);
 
         for (var y = 0; y < height; y++)
         {
