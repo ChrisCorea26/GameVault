@@ -245,7 +245,8 @@ Real games are the owner's to try; see `docs/plans/phase-13.md`.
 | S-DD1: memory controller and the decompressor on the DMA | 🟡 Unit tests for the mapping, the DMA hookup and save states; the decoder follows Andreas Naive's description but hasn't been checked against real compressed data |
 | OBC1 | ✅ Unit test of its sprite table |
 | ST010/ST011 (µPD96050, with the player's own program ROM): two program halves, shared data RAM (the ST010's save) | 🟡 Unit tests on hand-assembled programs; real games are the owner's |
-| Cx4, SPC7110, ST018, S-RTC | Not yet: such games get a message naming the chip |
+| S-RTC: the read and write protocol, the weekday, seconds counted from the master clock, the PC's time at start | ✅ Unit tests; a time set in the game isn't kept after closing it |
+| Cx4, SPC7110, ST018 | Not yet: such games get a message naming the chip |
 
 Real games are the owner's to try; see `docs/plans/phase-14.md`.
 
