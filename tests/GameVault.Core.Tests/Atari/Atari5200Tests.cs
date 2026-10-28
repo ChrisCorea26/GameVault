@@ -196,6 +196,51 @@ public sealed class Atari5200Tests
         act.Should().Throw<RomFormatException>().WithMessage("*40 KB*");
     }
 
+    /// <summary>
+    /// 16 KB of code making <paramref name="calls"/> JSRs and JMPs to the given targets, the rest data that now and
+    /// then looks like a JSR or JMP to anywhere, as graphics do.
+    /// </summary>
+    private static byte[] SixteenK(int calls, Func<int, int> target)
+    {
+        var rom = new byte[16384];
+        var random = new Random(5200);
+        random.NextBytes(rom);
+        for (var i = 0; i < rom.Length; i++)
+        {
+            if (rom[i] is 0x20 or 0x4C && random.Next(4) != 0)
+            {
+                rom[i] = 0xEA; // keep the data's look-alikes to about one in 512 bytes
+            }
+        }
+
+        for (var n = 0; n < calls; n++)
+        {
+            var at = n * (rom.Length - 3) / calls;
+            var address = target(n);
+            rom[at] = (byte)(n % 3 == 0 ? 0x4C : 0x20);
+            rom[at + 1] = (byte)address;
+            rom[at + 2] = (byte)(address >> 8);
+        }
+
+        return rom;
+    }
+
+    [Fact]
+    public void A_16k_games_board_is_told_from_where_its_code_calls_unless_the_profile_names_it()
+    {
+        // One chip: code linked for $8000–$BFFF. Two chips: code in both, calling $4000–$5FFF and $A000–$BFFF.
+        var oneChip = SixteenK(600, n => 0x8000 + (n * 37 % 0x4000));
+        var twoChip = SixteenK(600, n => n % 2 == 0 ? 0x4000 + (n * 37 % 0x2000) : 0xA000 + (n * 37 % 0x2000));
+
+        Atari5200Cartridge.LooksTwoChip(oneChip).Should().BeFalse();
+        Atari5200Cartridge.LooksTwoChip(twoChip).Should().BeTrue();
+        new Atari5200Cartridge(oneChip).Board.Should().Be(Atari5200Board.Standard);
+        new Atari5200Cartridge(twoChip).Board.Should().Be(Atari5200Board.TwoChip16K, "a two-chip game shows its title and then crashes when mapped as one chip");
+        new Atari5200Cartridge(twoChip, "one-chip").Board.Should().Be(Atari5200Board.Standard, "the profile's model wins");
+        new Atari5200Cartridge(oneChip, "two-chip").Board.Should().Be(Atari5200Board.TwoChip16K);
+        Atari5200Cartridge.LooksTwoChip(new byte[32768]).Should().BeFalse("only 16 KB games come in two chips");
+    }
+
     [Fact]
     public void Mode_2_text_shows_pf1s_luminance_on_pf2_inside_the_window()
     {

@@ -35,6 +35,7 @@ content is missing. **Low** = wrong text or a small inconsistency.
 | [GV-023](#gv-023) | High | PlayStation | Discs stop on the BIOS's white Sony logo | Fixed (b3c1816; pending a check with a retail BIOS) |
 | [GV-024](#gv-024) | High | PlayStation 2 | Discs stay on a black screen with the player's BIOS | Open |
 | [GV-025](#gv-025) | High | PlayStation | Games run slowly and ignore the keyboard at their menu | Open |
+| [GV-026](#gv-026) | High | Atari 5200 | Games show the BIOS's title and then a black screen | Fixed (pending a check with the game) |
 
 ---
 
@@ -357,6 +358,23 @@ content is missing. **Low** = wrong text or a small inconsistency.
   each second, the buttons the host passed to pad 1, how many conversations the game started on the port, and the
   last one byte by byte (sent>received, `!` where the device didn't answer with /ACK), so the next log shows whether
   keys reach the pad and whether the game is reading it.
+
+### GV-026
+
+**Games show the BIOS's title and then a black screen** · High · Atari 5200 · **Fixed (pending a check with the game)**
+
+- **Reported:** a 5200 game shows the Atari logo with its name, then a black screen.
+- **Cause found:** a 16 KB cartridge is either one 16 KB chip (code at $8000–$BFFF, mirrored at $4000) or two 8 KB
+  chips (the first at $4000–$7FFF, the second at $8000–$BFFF), and many of Atari's own 16 KB games are two-chip.
+  GameVault used the two-chip layout only when a game's profile named it, and none ship. Mapped as one chip, a
+  two-chip game's name and start address still read correctly (they sit at the end of the second chip, file
+  offset $3FE8–$3FFF, either way), so the BIOS shows the title; the game then jumps into code that isn't where it
+  expects and crashes.
+- **Fixed:** with no model in the profile, `Atari5200Cartridge.LooksTwoChip` decides from the ROM's code: a one-chip
+  game's JSRs and JMPs point into $8000–$BFFF, a two-chip game's also into $4000–$7FFF. The profile's model
+  (`two-chip`, or the new `one-chip`) still wins. Test:
+  `Atari5200Tests.A_16k_games_board_is_told_from_where_its_code_calls_unless_the_profile_names_it`. Not yet checked
+  with the reporter's game.
 
 ---
 

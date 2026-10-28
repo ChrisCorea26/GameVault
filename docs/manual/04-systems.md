@@ -587,8 +587,9 @@ E7, the Supercharger); PAL games' own colours (they show NTSC colours).
 While a 5200 game runs, the number row is controller 1's keypad, so <kbd>1</kbd>–<kbd>4</kbd> don't do what they do
 for other systems. Controllers 2–4 are the second to fourth controllers; their keypads aren't on the keyboard.
 
-**Cartridges:** 4K to 32K games. A few 16K games are built from two 8K chips; if one of them shows garbage, set
-**Game Details → Properties**' model to `two-chip`.
+**Cartridges:** 4K to 32K games. Many 16K games are built from two 8K chips; GameVault tells them from one-chip
+games by their code. If a 16K game shows its title and then a black screen or garbage, set **Game Details →
+Properties**' model to `two-chip` (or to `one-chip` if GameVault guessed two chips wrongly).
 
 **Not supported yet:** *Bounty Bob Strikes Back!* (its 40K board), the trak-ball, PAL 5200s, and light pens. The
 keypad's codes follow published hardware notes and haven't been checked against a real console.
