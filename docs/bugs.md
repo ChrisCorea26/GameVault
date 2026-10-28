@@ -32,7 +32,7 @@ content is missing. **Low** = wrong text or a small inconsistency.
 | [GV-020](#gv-020) | Low | Video | Overscan crop is only on or off | Fixed (12a99fa) |
 | [GV-021](#gv-021) | High | Input | App crashes on launching a game after visiting Settings | Fixed |
 | [GV-022](#gv-022) | High | UX | Most pages can't be used with a controller alone | Fixed (e0b0e8a) |
-| [GV-023](#gv-023) | High | PlayStation | Discs stop on the BIOS's white Sony logo | Fixed (pending a check with a retail BIOS) |
+| [GV-023](#gv-023) | High | PlayStation | Discs stop on the BIOS's white Sony logo | Fixed (b3c1816; pending a check with a retail BIOS) |
 | [GV-024](#gv-024) | High | PlayStation 2 | Discs stay on a black screen with the player's BIOS | Open |
 
 ---
@@ -280,7 +280,7 @@ content is missing. **Low** = wrong text or a small inconsistency.
 
 ### GV-023
 
-**Discs stop on the BIOS's white Sony logo** · High · PlayStation · **Fixed (pending a check with a retail BIOS)**
+**Discs stop on the BIOS's white Sony logo** · High · PlayStation · **Fixed in b3c1816 (pending a check with a retail BIOS)**
 
 - **Expected:** With the player's BIOS and fast boot off, a disc goes from the white Sony Computer Entertainment logo to
   the black PlayStation logo and the game.
