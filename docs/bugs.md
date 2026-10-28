@@ -329,6 +329,12 @@ content is missing. **Low** = wrong text or a small inconsistency.
   now has a watchdog: when no frame finishes for three seconds it writes, from its own thread, the EE's and IOP's PCs
   and cycle counts, the last 16 registers each wrote, and the emulation thread's managed stack (read with ClrMD from
   a snapshot of the process). The next log will name the method it is stuck in.
+- **Third stop (the watchdog's log):** frames were finishing after all (the earlier log had simply been closed
+  early); the EE now spun at $80007CC4 reading $1A000004 42 million times a second, right after "Initialize GS ...".
+  $1A000000 is the DVE, the video encoder, which wasn't mapped (reads gave 0): the BIOS sends it commands and waits
+  for its status at $1A000006 to say ready (bit 1). `Ps2Dve` now models it as PCSX2's `ba0R16`/`ba0W16` do
+  (commands, power, the status that turns ready a few reads after a command, the error bit), and it is in the save
+  state (console chunk version 3). Test: `Ps2ConsoleTests.The_video_encoder_reports_ready_a_few_status_reads_after_a_command`.
 
 ### GV-025
 

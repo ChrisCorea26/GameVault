@@ -27,6 +27,7 @@ public sealed partial class Ps2Console : IR5900Bus, IPs2VuHost
         _mchRicm = _mchDrd = 0;
         _rdramDeviceId = 0;
         Array.Clear(_miscRegisters);
+        Dve.Reset();
     }
 
     // ---- Reads ----
@@ -43,6 +44,12 @@ public sealed partial class Ps2Console : IR5900Bus, IPs2VuHost
             return memory[offset];
         }
 
+        if (address - Ps2Dve.Base < Ps2Dve.Size)
+        {
+            RegisterReadProbe?.Invoke(address);
+            return (byte)(Dve.Read16(address & ~1u) >> (int)((address & 1) * 8));
+        }
+
         return (byte)(Read32(address & ~3u) >> (int)((address & 3) * 8));
     }
 
@@ -56,6 +63,12 @@ public sealed partial class Ps2Console : IR5900Bus, IPs2VuHost
         if (TryMemory(address, out var memory, out var offset))
         {
             return BinaryPrimitives.ReadUInt16LittleEndian(memory.AsSpan(offset));
+        }
+
+        if (address - Ps2Dve.Base < Ps2Dve.Size)
+        {
+            RegisterReadProbe?.Invoke(address);
+            return Dve.Read16(address & ~1u);
         }
 
         return (ushort)(Read32(address & ~3u) >> (int)((address & 2) * 8));
@@ -152,6 +165,13 @@ public sealed partial class Ps2Console : IR5900Bus, IPs2VuHost
             return;
         }
 
+        if (address - Ps2Dve.Base < Ps2Dve.Size)
+        {
+            RegisterWriteProbe?.Invoke(address, value);
+            Dve.Write16(address & ~1u, value);
+            return;
+        }
+
         WriteRegister32(address & ~3u, (uint)value << (int)((address & 3) * 8), 8);
     }
 
@@ -166,6 +186,13 @@ public sealed partial class Ps2Console : IR5900Bus, IPs2VuHost
         if (TryWritableMemory(address, out var memory, out var offset))
         {
             BinaryPrimitives.WriteUInt16LittleEndian(memory.AsSpan(offset), value);
+            return;
+        }
+
+        if (address - Ps2Dve.Base < Ps2Dve.Size)
+        {
+            RegisterWriteProbe?.Invoke(address, value);
+            Dve.Write16(address & ~1u, value);
             return;
         }
 
@@ -339,6 +366,8 @@ public sealed partial class Ps2Console : IR5900Bus, IPs2VuHost
                 return ReadMiscRegister(address);
             case 0x1200_0 or 0x1200_1:
                 return Gs.ReadPrivileged32(address - 0x1200_0000);
+            case >= 0x1A00_0 and <= 0x1A00_F:
+                return Dve.Read16(address) | ((uint)Dve.Read16(address + 2) << 16);
             default:
                 return 0;
         }
@@ -446,6 +475,11 @@ public sealed partial class Ps2Console : IR5900Bus, IPs2VuHost
                 break;
             case 0x1200_0 or 0x1200_1:
                 Gs.WritePrivileged32(address - 0x1200_0000, value);
+                break;
+            case >= 0x1A00_0 and <= 0x1A00_F:
+                // The upper half first, so a command written with its mode in one store runs in that mode.
+                Dve.Write16(address + 2, (ushort)(value >> 16));
+                Dve.Write16(address, (ushort)value);
                 break;
             default:
                 return; // unmapped: ignored

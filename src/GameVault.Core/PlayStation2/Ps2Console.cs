@@ -215,6 +215,9 @@ public sealed partial class Ps2Console : IEmulatedConsole, IStateful
 
     public Ps2Gs Gs { get; }
 
+    /// <summary>The video encoder's registers at $1A000000, which the BIOS's GS start-up waits on.</summary>
+    public Ps2Dve Dve { get; } = new();
+
     public Ps2Gif Gif { get; }
 
     public Ps2Dmac Dmac { get; }

@@ -114,6 +114,36 @@ public sealed class Ps2ConsoleTests(ITestOutputHelper log)
     }
 
     [Fact]
+    public void The_video_encoder_reports_ready_a_few_status_reads_after_a_command()
+    {
+        // The BIOS's "Initialize GS" polls $1A000006 after sending the DVE a command (a player's boot log: GV-024).
+        var console = new Ps2Console(Ps2Boot.FromElf(MakeElf([Loop, Nop])));
+        console.Write16(0x1A00_000A, 1); // power on
+        console.Write16(0x1A00_0002, 0x43); // write mode
+        console.Write16(0x1A00_0010, 0x05); // the encoder's register 5
+        console.Write16(0x1A00_0012, 0x1234);
+        console.Write16(0x1A00_0000, 0x82); // run: two words (the register, then its value)
+
+        var reads = new List<int>();
+        for (var i = 0; i < 4; i++)
+        {
+            reads.Add(console.Read16(0x1A00_0006));
+        }
+
+        reads.Should().Equal(0, 0, 2, 2);
+        ((console.Read32(0x1A00_0004) >> 16) & 3).Should().Be(2, "a word read sees the status in its upper half");
+
+        console.Write16(0x1A00_000A, 0); // powered off: the error bit
+        (console.Read16(0x1A00_0006) & 1).Should().Be(1);
+
+        var state = new GameVault.Core.State.StateWriter();
+        console.SaveState(state);
+        var restored = new Ps2Console(Ps2Boot.FromElf(MakeElf([Loop, Nop])));
+        restored.LoadState(new GameVault.Core.State.StateReader(state.ToArray()));
+        (restored.Read16(0x1A00_0006) & 1).Should().Be(1, "the DVE's registers are in the save state");
+    }
+
+    [Fact]
     public void The_memory_map_reaches_vu_memory_the_gs_and_the_iop_ram()
     {
         var console = new Ps2Console(Ps2Boot.FromElf(MakeElf([Loop, Nop])));
