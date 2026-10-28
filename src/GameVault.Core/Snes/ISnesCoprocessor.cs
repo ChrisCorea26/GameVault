@@ -41,3 +41,13 @@ public sealed class MissingChipRomException(string chip, IReadOnlyList<string> f
 
     public IReadOnlyList<string> FileNames { get; } = fileNames;
 }
+
+/// <summary>
+/// A cartridge clock chip (snes-chips-3.md): it counts emulated time from the master clock, so save states and replays
+/// see the same time. The host sets it to the PC's local time when a game starts for normal play; netplay and
+/// challenge replays leave it at its fixed start (1 January 2000, midnight).
+/// </summary>
+public interface ISnesRealTimeClock
+{
+    void SetTime(DateTime time);
+}
