@@ -125,6 +125,13 @@ held back by two things, the second by far the more:
   nothing a game can see.
 - **Measure first:** time spent compiling during the autotests' boot and the homebrew's first seconds. Build this
   only if it is a real part of a frame. Otherwise it stays recorded here as not needed.
+- **Measured: not needed for speed.** The homebrew compiles 11–14 EE blocks in all. ps2autotests' `cpu/ee/alu`
+  compiles 262 in its first frame, which then takes 460–600 ms against 280–310 ms interpreted: about 1 ms a block.
+  Building the IL (`R5900Recompiler.Compile`) is only 0.14 ms of that; the rest is the JIT, which .NET does on a
+  dynamic method's first call, on the emulation thread. So a worker would save little unless it also forced the JIT
+  off the thread (running each new block once on a throwaway CPU), which is more machinery than a hitch at a level
+  load justifies now. Steady play isn't affected: once compiled, blocks stay. Left for when an owner's game shows
+  hitches.
 
 ## 5. Docs
 - `docs/bugs.md` and `docs/compatibility.md`: PS2 speed and what fast mode changes.
@@ -133,7 +140,7 @@ held back by two things, the second by far the more:
 - The manual's edition history and PDF.
 
 ## Order
-Three PRs: fast floats (§2), the GPU GS (§3), then background recompilation (§4) if the measurement asks for it.
+Two PRs: fast floats (§2) and the GPU GS (§3). Background recompilation (§4) was measured and isn't needed for speed.
 
 ## Owner checks
 - With Exact emulation off, 3D games (Gran Turismo 3, Shadow of the Colossus, Final Fantasy X) run at full speed and
