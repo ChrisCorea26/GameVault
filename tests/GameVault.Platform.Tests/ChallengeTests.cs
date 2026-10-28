@@ -73,9 +73,10 @@ public sealed class ChallengeTests : IDisposable
     {
         _host.Load(NetplayTests.TwoPlayerRom(), "Two players");
         var start = (await _host.CaptureStateAsync())!;
-        // Three seconds, so the attempt is still running when the load below reaches the emulation thread on a busy
-        // runner (once time is up, loading states is allowed again).
-        var challenge = await _host.CreateChallengeAsync("Too slow", HoldingA, timeLimitFrames: 180, note: null);
+        // Ten seconds, so the attempt is still running when the load below reaches the emulation thread on a busy
+        // runner (once time is up, loading states is allowed again). Three weren't always enough on CI's Windows
+        // runner while the GPU tests had WARP on every core.
+        var challenge = await _host.CreateChallengeAsync("Too slow", HoldingA, timeLimitFrames: 600, note: null);
 
         var finished = new TaskCompletionSource<ChallengeOutcome>();
         _host.ChallengeFinished += (_, outcome) => finished.TrySetResult(outcome);
@@ -84,7 +85,7 @@ public sealed class ChallengeTests : IDisposable
 
         var outcome = await finished.Task.WaitAsync(TimeSpan.FromSeconds(60));
         outcome.Kind.Should().Be(ChallengeOutcomeKind.TimeUp);
-        outcome.Frames.Should().Be(180);
+        outcome.Frames.Should().Be(600);
         outcome.Result.Should().BeNull();
     }
 

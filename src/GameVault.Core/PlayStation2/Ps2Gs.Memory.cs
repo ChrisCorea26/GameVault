@@ -247,6 +247,7 @@ public sealed partial class Ps2Gs
     public uint ReadPixel(int psm, int bp, int bw, int x, int y)
     {
         Flush();
+        EnsureAllNative();
         return ReadPixel(_memory, psm, bp, bw, x, y);
     }
 
@@ -254,6 +255,8 @@ public sealed partial class Ps2Gs
     public void WritePixel(int psm, int bp, int bw, int x, int y, uint value)
     {
         Flush();
+        EnsureAllNative();
+        BumpAll();
         WritePixel(_memory, psm, bp, bw, x, y, value);
     }
 

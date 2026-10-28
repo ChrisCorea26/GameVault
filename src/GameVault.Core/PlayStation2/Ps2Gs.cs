@@ -145,12 +145,16 @@ public sealed partial class Ps2Gs : IStateful
         Reset();
     }
 
-    /// <summary>The 4 MB local memory, little-endian, in the hardware's swizzled layout (with every queued primitive drawn).</summary>
+    /// <summary>
+    /// The 4 MB local memory, little-endian, in the hardware's swizzled layout (with every queued primitive drawn, and
+    /// every page a GPU drew read back). For reading: write through <see cref="WritePixel(int, int, int, int, int, uint)"/>.
+    /// </summary>
     public byte[] LocalMemory
     {
         get
         {
             Flush();
+            EnsureAllNative();
             return _memory;
         }
     }
@@ -199,7 +203,8 @@ public sealed partial class Ps2Gs : IStateful
         _cbp0 = _cbp1 = 0;
         ResetDrawing();
         ResetTransfer();
-        Backend?.Resync();
+        ForgetOwnership();
+        _backend?.Resync();
     }
 
     // ---- General registers ------------------------------------------------------------------------------------
@@ -538,6 +543,7 @@ public sealed partial class Ps2Gs : IStateful
     public void SaveState(StateWriter writer)
     {
         Flush();
+        EnsureAllNative();
         writer.BeginChunk(Tag, 1);
         writer.WriteBytes(_memory);
         foreach (var r in _regs)
@@ -619,7 +625,8 @@ public sealed partial class Ps2Gs : IStateful
         LoadDrawing(reader);
         LoadTransfer(reader);
         reader.EndChunk();
-        Backend?.Resync();
+        ForgetOwnership();
+        _backend?.Resync();
         _drawStateDirty = true;
     }
 }

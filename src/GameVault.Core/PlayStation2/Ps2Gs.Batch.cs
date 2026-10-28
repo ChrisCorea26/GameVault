@@ -60,12 +60,6 @@ public sealed partial class Ps2Gs
     /// </summary>
     public IParallelWork? ParallelWork { get; set; }
 
-    /// <summary>Draws every batch again at its own resolution (the GPU renderer); null for none.</summary>
-    internal IPs2GsBackend? Backend { get; set; }
-
-    /// <summary>Local memory as it stands, without drawing the batch first (for <see cref="Backend"/>).</summary>
-    internal byte[] Memory => _memory;
-
     /// <summary>Primitives drawn by more than one renderer so far (diagnostics and tests; not part of the state).</summary>
     public long ParallelPrimitives { get; private set; }
 
@@ -181,7 +175,18 @@ public sealed partial class Ps2Gs
             return;
         }
 
-        Backend?.Draw(_commands.AsSpan(0, _count), _states.AsSpan(0, _stateCount), _pendingWrites, _pendingReads);
+        if (_backend is { Authoritative: true } gpu)
+        {
+            // The backend draws in the GS's place (ps2-full-speed.md §3): the pages are its own until read back.
+            gpu.Draw(_commands.AsSpan(0, _count), _states.AsSpan(0, _stateCount), _pendingWrites, _pendingReads);
+            TakeOwnership(_pendingWrites);
+            BumpActiveUpload();
+            DiscardBatch();
+            return;
+        }
+
+        EnsureAllNative(); // a backend that stopped drawing in the GS's place
+        _backend?.Draw(_commands.AsSpan(0, _count), _states.AsSpan(0, _stateCount), _pendingWrites, _pendingReads);
         _renderers ??= CreateRenderers();
         var bands = Math.Clamp(ParallelWork?.Concurrency ?? 1, 1, MaxBands);
         var i = 0;
@@ -224,7 +229,9 @@ public sealed partial class Ps2Gs
             i = j;
         }
 
-        Backend?.Drawn(_pendingWrites);
+        BumpPages(_pendingWrites);
+        _backend?.Drawn(_pendingWrites);
+        BumpActiveUpload();
         DiscardBatch();
     }
 
@@ -401,35 +408,43 @@ public sealed partial class Ps2Gs
         _surfaces.Add(surface);
     }
 
-    /// <summary>Before writing a transfer's pixels: draws the batch if it reads or draws the transfer's pages.</summary>
+    /// <summary>
+    /// Before writing a transfer's pixels: draws the batch if it reads or draws the transfer's pages, and reads back
+    /// those an authoritative backend holds (the transfer may write only part of one).
+    /// </summary>
     private void FlushForUpload()
     {
         if (_count > 0 && (Intersects(_uploadPages, _pendingWrites) || Intersects(_uploadPages, _pendingReads)))
         {
             Flush();
         }
+
+        EnsureNative(_uploadPages);
+    }
+
+    /// <summary>
+    /// A batch was drawn while an upload is under way: the upload's later pixels change its pages again after the backend
+    /// saw them (their versions changed when it began; see <see cref="BeginTransfer"/>).
+    /// </summary>
+    private void BumpActiveUpload()
+    {
+        if (_upActive)
+        {
+            BumpPages(_uploadPages);
+        }
     }
 
     /// <summary>Marks the pages a host-to-local transfer writes.</summary>
-    private void SetUploadPages(int bp, int bw, int psm, int x, int y, int width, int height)
-    {
-        Array.Clear(_uploadPages);
-        var x1 = x + width - 1;
-        var y1 = y + height - 1;
-        if (x1 >= 2048 || y1 >= 2048)
-        {
-            Array.Fill(_uploadPages, ulong.MaxValue); // coordinates wrap: anywhere
-            return;
-        }
+    private void SetUploadPages(int bp, int bw, int psm, int x, int y, int width, int height) =>
+        MarkRect(_uploadPages, bp, bw, psm, x, y, width, height);
 
-        var (first, count) = BufferPages(bp, bw, psm, x1, y, y1);
-        Mark(_uploadPages, first, count);
-    }
-
-    /// <summary>Before a CLUT load: draws the batch if it draws to the pages the CLUT comes from.</summary>
+    /// <summary>
+    /// Before a CLUT load: draws the batch if it draws to the pages the CLUT comes from, and reads back those an
+    /// authoritative backend holds.
+    /// </summary>
     private void FlushForClut(int cbp, int cbw, int psm, int x1, int y0, int y1)
     {
-        if (_count == 0)
+        if (_count == 0 && !_gpuOwnedAny)
         {
             return;
         }
@@ -437,9 +452,11 @@ public sealed partial class Ps2Gs
         Array.Clear(_scratchC);
         var (first, count) = BufferPages(cbp, cbw, psm, x1, y0, y1);
         Mark(_scratchC, first, count);
-        if (Intersects(_scratchC, _pendingWrites))
+        if (_count > 0 && Intersects(_scratchC, _pendingWrites))
         {
             Flush();
         }
+
+        EnsureNative(_scratchC);
     }
 }

@@ -810,7 +810,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             _challenge = challenge;
             _challengeInputs = [];
             _challengeActive = true;
-            SetPs2FastFloat(console, false); // the attempt is checked by replaying it exactly
+            SetPs2Exact(console, true); // the attempt is checked by replaying it exactly
             _present(console);
             started.SetResult();
         });
@@ -863,7 +863,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _challenge = null;
         _challengeInputs = [];
         _challengeActive = false;
-        SetPs2FastFloat(_console, _playStation2?.FastFloat ?? false);
+        SetPs2Exact(_console, false);
         Raise(() => ChallengeFinished?.Invoke(this, outcome));
     }
 

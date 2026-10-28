@@ -90,6 +90,7 @@ public sealed partial class Ps2Gs
                 _upAcc = 0;
                 _upAccBits = 0;
                 SetUploadPages(dbp, dbw, dpsm, dsax, dsay, width, height);
+                BumpPages(_uploadPages); // the pixels to come change them (and again after any batch drawn meanwhile)
                 break;
             case 1:
                 _downActive = width > 0 && height > 0;
@@ -105,10 +106,15 @@ public sealed partial class Ps2Gs
                 _downQwordsLeft = ((_downPixelsLeft * _downBits) + 127) / 128;
                 _downCarry = 0;
                 _downCarryBits = 0;
+                MarkRect(_downloadPages, sbp, sbw, spsm, ssax, ssay, width, height);
                 break;
             case 2:
                 Flush();
+                EnsureNativeRect(sbp, sbw, spsm, ssax, ssay, width, height);
+                EnsureNativeRect(dbp, dbw, dpsm, dsax, dsay, width, height); // it may write only part of a page
                 CopyLocal(sbp, sbw, spsm, ssax, ssay, dbp, dbw, dpsm, dsax, dsay, width, height, (int)((pos >> 59) & 3));
+                MarkRect(_scratchRect, dbp, dbw, dpsm, dsax, dsay, width, height);
+                BumpPages(_scratchRect);
                 break;
         }
     }
@@ -175,6 +181,7 @@ public sealed partial class Ps2Gs
         }
 
         Flush();
+        EnsureNative(_downloadPages);
         var count = 0;
         while (count < destination.Length && _downQwordsLeft > 0)
         {

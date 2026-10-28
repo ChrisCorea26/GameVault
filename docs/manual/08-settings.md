@@ -139,7 +139,7 @@ game started.
 |---|---|---|
 | **BIOS** | Path, for example `C:\PlayStation 2\scph39001.bin`, or **Choose…**. GameVault checks it's a 4 MB BIOS and shows its version. | Empty |
 | **Skip the startup screens** | On / Off | Off |
-| **Exact emulation** | On does the console's float maths exactly as the PlayStation 2 does. Off (the default) does it with your PC's own, which is much faster and differs only in the last digit of some results. Turn it on only if a game misbehaves. Netplay and challenges always run exactly. Takes effect the next time a game starts. | Off |
+| **Exact emulation** | On does the console's float maths exactly as the PlayStation 2 does, and has the processor draw the graphics as the console does. Off (the default) does the maths with your PC's own and, with Direct3D 11, has your graphics card draw: much faster, and different only in the last digit of some results and a few pixels at the edges of shapes. Turn it on only if a game misbehaves. Netplay and challenges always run exactly. Takes effect the next time a game starts. | Off |
 | **Internal resolution** | **1× (original)**, **2×**, **3×** or **4×**. Above 1×, your graphics card draws games at that many times the PlayStation 2's resolution, for sharper 3D; videos look as they always do. Needs Direct3D 11 (without it the picture stays at 1×). Takes effect the next time a game starts; the first start after an update plays at 1× for a minute or two while the graphics card's program is prepared. | 1× (original) |
 
 ## Nintendo 64

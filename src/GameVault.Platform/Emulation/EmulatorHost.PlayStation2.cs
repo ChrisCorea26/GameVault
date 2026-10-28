@@ -13,7 +13,10 @@ public sealed partial class EmulatorHost
 {
     private PlayStation2Setup? _playStation2;
 
-    /// <summary>The GPU renderer drawing the running PS2's picture at a higher resolution; null at 1×.</summary>
+    /// <summary>
+    /// The GPU renderer drawing the running PS2's picture at a higher resolution, or in the software GS's place
+    /// (docs/plans/ps2-full-speed.md §3); null when neither is asked for, or before it is ready.
+    /// </summary>
     private Ps2GsGpuRenderer? _ps2Renderer;
 
     // One 8 MB card per game in slot 1, saved as a raw .ps2 image (Ps2MemoryCardStore).
@@ -176,16 +179,25 @@ public sealed partial class EmulatorHost
     }
 
     /// <summary>
-    /// Turns a running PS2's fast float maths on or off (docs/plans/ps2-full-speed.md §2): off while a challenge attempt
-    /// runs, as its check replays it exactly, and back to the setting after. Emulation thread.
+    /// Turns a running PS2's fast float maths and GPU drawing on or off (docs/plans/ps2-full-speed.md): off while a
+    /// challenge attempt runs, as its check replays it exactly, and back to the settings after. Emulation thread.
     /// </summary>
-    private static void SetPs2FastFloat(IEmulatedConsole? console, bool fast)
+    private void SetPs2Exact(IEmulatedConsole? console, bool exact)
     {
-        if (console is Ps2Console ps2)
+        if (console is not Ps2Console ps2)
         {
-            ps2.FastFloat = fast;
+            return;
+        }
+
+        ps2.FastFloat = !exact && (_playStation2?.FastFloat ?? false);
+        if (_ps2Renderer is { } renderer)
+        {
+            renderer.Authoritative = !exact && Ps2GpuDraws; // the GS reads back what the GPU held before it draws again
         }
     }
+
+    /// <summary>The GPU draws in the software GS's place: Settings asks for it, and no netplay session or challenge needs the exact GS.</summary>
+    private bool Ps2GpuDraws => (_playStation2?.GpuDrawing ?? false) && !_netplayActive && !_challengeActive;
 
     /// <summary>Closes the disc of a PS2 console that is being replaced. Emulation thread.</summary>
     private static void ReleasePs2Disc(IEmulatedConsole? console)
@@ -198,14 +210,15 @@ public sealed partial class EmulatorHost
 
     /// <summary>
     /// Attaches the GPU renderer to a PS2 that has just started, when Settings asks for more than 1×
-    /// (docs/plans/gpu-renderers.md, milestone 3). The software GS still draws local memory. As for the N64, the
-    /// renderer is made in the background and attached when it's ready; until then, and without Direct3D 11, the
-    /// software picture shows. Emulation thread.
+    /// (docs/plans/gpu-renderers.md, milestone 3) or for the GPU to draw in the software GS's place
+    /// (docs/plans/ps2-full-speed.md §3, unless Exact emulation is on). As for the N64, the renderer is made in the
+    /// background and attached when it's ready; until then, and without Direct3D 11, the software GS draws. Emulation
+    /// thread.
     /// </summary>
     private void AttachPs2Renderer(IEmulatedConsole console)
     {
         var scale = Math.Clamp(_playStation2?.InternalResolution ?? 1, 1, Ps2GsGpuRenderer.MaxScale);
-        if (console is not Ps2Console ps2 || scale <= 1 || !OperatingSystem.IsWindows())
+        if (console is not Ps2Console ps2 || (scale <= 1 && !Ps2GpuDraws) || !OperatingSystem.IsWindows())
         {
             return;
         }
@@ -214,19 +227,20 @@ public sealed partial class EmulatorHost
             gpu => new Ps2GsGpuRenderer(gpu, ps2.Gs, scale, ownsGpu: true),
             renderer =>
             {
+                renderer.Authoritative = Ps2GpuDraws;
                 _ps2Renderer = renderer;
                 ps2.Gs.Backend = renderer;
             },
             console,
-            "Direct3D 11 isn't available, so the PlayStation 2 is drawn at its own resolution.");
+            scale > 1 ? "Direct3D 11 isn't available, so the PlayStation 2 is drawn at its own resolution." : null);
     }
 
     /// <summary>The PS2 GPU renderer's picture of what the PCRTC showed this frame.</summary>
     private bool TryPresentPs2Picture(IEmulatedConsole console)
     {
-        if (_ps2Renderer is null || console is not Ps2Console)
+        if (_ps2Renderer is not { Scale: > 1 } || console is not Ps2Console)
         {
-            return false;
+            return false; // at 1× the console's own picture is the same (it reads back what the GPU drew)
         }
 
         var picture = _ps2Renderer.ReadDisplay(out var width, out var height);

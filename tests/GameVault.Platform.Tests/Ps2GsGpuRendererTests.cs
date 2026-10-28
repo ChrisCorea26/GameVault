@@ -18,10 +18,10 @@ public sealed class Ps2GsGpuRendererTests(ITestOutputHelper output)
 {
     private sealed class Rig : IDisposable
     {
-        public Rig(IGpuCompute gpu, int scale)
+        public Rig(IGpuCompute gpu, int scale, bool authoritative = false)
         {
             Gpu = gpu;
-            Renderer = new Ps2GsGpuRenderer(gpu, Gs, scale);
+            Renderer = new Ps2GsGpuRenderer(gpu, Gs, scale) { Authoritative = authoritative };
             Gs.Backend = Renderer;
             W(Ps2Gs.RegPrModeCont, 1);
             W(Ps2Gs.RegFrame1, Frame(0, 4, Ps2Gs.PsmCt32));
@@ -31,6 +31,27 @@ public sealed class Ps2GsGpuRendererTests(ITestOutputHelper output)
         }
 
         public Ps2Gs Gs { get; } = new();
+
+        /// <summary>A software GS given the same writes as <see cref="Gs"/> (for the GPU-only tests).</summary>
+        public Ps2Gs Software { get; } = CreateSoftware();
+
+        private static Ps2Gs CreateSoftware()
+        {
+            var gs = new Ps2Gs();
+            gs.WriteRegister(Ps2Gs.RegPrModeCont, 1);
+            gs.WriteRegister(Ps2Gs.RegFrame1, Frame(0, 4, Ps2Gs.PsmCt32));
+            gs.WriteRegister(Ps2Gs.RegZbuf1, Zbuf(100, Ps2Gs.PsmZ32));
+            gs.WriteRegister(Ps2Gs.RegScissor1, Scissor(0, 255, 0, 255));
+            gs.WriteRegister(Ps2Gs.RegTest1, Test(zte: false));
+            return gs;
+        }
+
+        /// <summary>A register write to both GSs.</summary>
+        public void Both(int register, ulong value)
+        {
+            Gs.WriteRegister(register, value);
+            Software.WriteRegister(register, value);
+        }
 
         public IGpuCompute Gpu { get; }
 
@@ -65,7 +86,7 @@ public sealed class Ps2GsGpuRendererTests(ITestOutputHelper output)
         }
     }
 
-    private Rig? NewRig(int scale = 1)
+    private Rig? NewRig(int scale = 1, bool authoritative = false)
     {
         var gpu = N64RdpGpuRendererTests.CreateGpu(out var why);
         if (gpu is null)
@@ -74,7 +95,31 @@ public sealed class Ps2GsGpuRendererTests(ITestOutputHelper output)
             return null;
         }
 
-        return new Rig(gpu, scale);
+        return new Rig(gpu, scale, authoritative);
+    }
+
+    /// <summary>The words that differ between two local memories (the GPU-only GS's, read back, and the software GS's).</summary>
+    private int CountDifferences(byte[] gpu, byte[] software, string what)
+    {
+        var count = 0;
+        var first = "";
+        for (var w = 0; w < gpu.Length / 4; w++)
+        {
+            var a = BitConverter.ToUInt32(gpu, w * 4);
+            var b = BitConverter.ToUInt32(software, w * 4);
+            if (a != b)
+            {
+                if (count == 0)
+                {
+                    first = $"; first word {w:X} (page {w / 2048}): GPU {a:X8}, GS {b:X8}";
+                }
+
+                count++;
+            }
+        }
+
+        output.WriteLine($"{what}: {count} of {gpu.Length / 4} words differ{first}");
+        return count;
     }
 
     /// <summary>The words that differ between local memory and the GPU's copy (sample 0), over the pages in step.</summary>
@@ -380,6 +425,212 @@ public sealed class Ps2GsGpuRendererTests(ITestOutputHelper output)
 
         output.WriteLine($"{name}: at worst {worst} pixels differ in a frame; {renderer.Dispatches} dispatches");
         worst.Should().BeLessThan(console.FrameBuffer.Length / 100, "the GPU draws what the software GS draws");
+    }
+
+    // ---- Drawing in the GS's place (docs/plans/ps2-full-speed.md §3) ----
+
+    /// <summary>
+    /// Random scenes drawn only on the GPU (the GS skips its own drawing): everything that reads local memory on the way
+    /// (uploads over drawn pages, copies, CLUT loads) reads back what the GPU drew, and local memory at the end, read
+    /// back, matches a software GS given the same writes, but for the words float interpolation rounds the other way.
+    /// </summary>
+    [Theory]
+    [InlineData(1, 1)]
+    [InlineData(2, 1)]
+    [InlineData(3, 1)]
+    [InlineData(4, 2)]
+    public void Random_scenes_drawn_only_on_the_gpu_match_the_software_gs(int seed, int scale)
+    {
+        using var rig = NewRig(scale, authoritative: true);
+        if (rig is null)
+        {
+            return;
+        }
+
+        var random = new Random(seed);
+        var owned = false;
+        for (var step = 0; step < 300; step++)
+        {
+            foreach (var (register, value) in RandomStep(random))
+            {
+                rig.Both(register, value);
+            }
+
+            for (var page = 0; page < 512 && !owned; page++)
+            {
+                owned = rig.Gs.IsGpuOwned(page);
+            }
+        }
+
+        owned.Should().BeTrue("the GPU drew pages the GS didn't");
+        rig.Renderer.Dispatches.Should().BePositive();
+        rig.Gs.ParallelPrimitives.Should().Be(0);
+        var count = CountDifferences(rig.Gs.LocalMemory, rig.Software.LocalMemory, $"seed {seed} at {scale}×");
+        output.WriteLine($"{rig.Renderer.ReadBacks} pages read back, {rig.Renderer.Seeds} seeded");
+        rig.Renderer.ReadBacks.Should().BePositive();
+        // Above 1× each pixel's first sample is read back, a quarter of a pixel off its centre, and textures drawn here
+        // are sampled at the scaled grid: edges and render-to-texture passes differ more than at 1×.
+        count.Should().BeLessThan(Ps2Gs.LocalMemorySize / 4 / (scale == 1 ? 100 : 20));
+    }
+
+    /// <summary>A sprite the GPU drew, then each way local memory is read: they all see it.</summary>
+    [Fact]
+    public void Downloads_clut_loads_uploads_and_copies_see_what_the_gpu_drew()
+    {
+        using var rig = NewRig(authoritative: true);
+        if (rig is null)
+        {
+            return;
+        }
+
+        void Sprite(int x0, int y0, int x1, int y1, int r, int g, int b)
+        {
+            rig.Both(Ps2Gs.RegPrim, Prim(Ps2Gs.PrimSprite));
+            rig.Both(Ps2Gs.RegRgbaq, Rgbaq(r, g, b, 0x80));
+            rig.Both(Ps2Gs.RegXyz2, Xyz(x0 * 16, y0 * 16, 0));
+            rig.Both(Ps2Gs.RegXyz2, Xyz(x1 * 16, y1 * 16, 0));
+        }
+
+        Sprite(0, 0, 256, 256, 10, 20, 30);
+        Sprite(0, 0, 16, 16, 200, 100, 50); // the CLUT's 256 entries come from here
+
+        // A download of 8 pixels at (4, 4).
+        UInt128[] Download(Ps2Gs gs)
+        {
+            gs.WriteRegister(Ps2Gs.RegBitBltBuf, BitBltBuf(0, 4, Ps2Gs.PsmCt32, 0, 0, 0));
+            gs.WriteRegister(Ps2Gs.RegTrxPos, TrxPos(4, 4, 0, 0));
+            gs.WriteRegister(Ps2Gs.RegTrxReg, TrxReg(8, 1));
+            gs.WriteRegister(Ps2Gs.RegTrxDir, 1);
+            gs.WritePrivileged(Ps2Gs.PrivBusDir, 1);
+            var data = new UInt128[2];
+            gs.ReadDownload(data).Should().Be(2);
+            gs.WritePrivileged(Ps2Gs.PrivBusDir, 0);
+            return data;
+        }
+
+        Download(rig.Gs).Should().Equal(Download(rig.Software));
+        Download(rig.Gs)[0].Should().Be(((UInt128)0x803264C8u << 96) | ((UInt128)0x803264C8u << 64) | ((UInt128)0x803264C8u << 32) | 0x803264C8u);
+
+        // An 8-bit texture over the whole frame with its CLUT loaded from the drawn page, drawn somewhere else.
+        rig.Both(Ps2Gs.RegTex0_1, Tex0(100 * 32, 4, Ps2Gs.PsmT8, 8, 8, true, 1, 0, Ps2Gs.PsmCt32, false, 0, 1));
+        rig.Both(Ps2Gs.RegFrame1, Frame(200, 4, Ps2Gs.PsmCt32));
+        rig.Both(Ps2Gs.RegPrim, Prim(Ps2Gs.PrimSprite, tme: true, fst: true));
+        rig.Both(Ps2Gs.RegUv, Uv(0, 0));
+        rig.Both(Ps2Gs.RegXyz2, Xyz(0, 0, 0));
+        rig.Both(Ps2Gs.RegUv, Uv(64 * 16, 64 * 16));
+        rig.Both(Ps2Gs.RegXyz2, Xyz(64 * 16, 64 * 16, 0));
+
+        // A partial upload over the drawn frame, and a copy out of it.
+        rig.Both(Ps2Gs.RegBitBltBuf, BitBltBuf(0, 0, 0, 0, 4, Ps2Gs.PsmCt32));
+        rig.Both(Ps2Gs.RegTrxPos, TrxPos(0, 0, 30, 30));
+        rig.Both(Ps2Gs.RegTrxReg, TrxReg(2, 1));
+        rig.Both(Ps2Gs.RegTrxDir, 0);
+        rig.Both(Ps2Gs.RegHwReg, 0x11223344_55667788);
+        rig.Both(Ps2Gs.RegBitBltBuf, BitBltBuf(0, 4, Ps2Gs.PsmCt32, 300 * 32, 4, Ps2Gs.PsmCt32));
+        rig.Both(Ps2Gs.RegTrxPos, TrxPos(0, 0, 0, 0));
+        rig.Both(Ps2Gs.RegTrxReg, TrxReg(64, 64));
+        rig.Both(Ps2Gs.RegTrxDir, 2);
+
+        CountDifferences(rig.Gs.LocalMemory, rig.Software.LocalMemory, "after the CLUT, the upload and the copy").Should().Be(0,
+            "sprites with flat colour and point-sampled textures are exact");
+    }
+
+    [Fact]
+    public void A_save_state_holds_what_the_gpu_drew_and_a_load_or_reset_gives_the_pages_back_to_the_gs()
+    {
+        using var rig = NewRig(authoritative: true);
+        if (rig is null)
+        {
+            return;
+        }
+
+        rig.Sprite(0, 0, 256, 256, 10, 20, 30);
+        rig.Sprite(13, 7, 100, 90, 200, 100, 50);
+        var writer = new GameVault.Core.State.StateWriter();
+        rig.Gs.SaveState(writer);
+        rig.Gs.IsGpuOwned(0).Should().BeFalse("saving read the pages back");
+
+        var software = new Ps2Gs();
+        software.LoadState(new GameVault.Core.State.StateReader(writer.ToArray()));
+        software.ReadPixel(Ps2Gs.PsmCt32, 0, 4, 50, 50).Should().Be(0x803264C8u);
+        software.ReadPixel(Ps2Gs.PsmCt32, 0, 4, 200, 200).Should().Be(0x801E140Au);
+
+        rig.Sprite(0, 0, 32, 32, 1, 2, 3);
+        rig.Gs.LoadState(new GameVault.Core.State.StateReader(writer.ToArray()));
+        rig.Gs.IsGpuOwned(0).Should().BeFalse();
+        rig.Gs.ReadPixel(Ps2Gs.PsmCt32, 0, 4, 5, 5).Should().Be(0x801E140Au, "the state's picture, not the sprite drawn after it");
+
+        rig.Sprite(0, 0, 32, 32, 1, 2, 3);
+        rig.Gs.ReadPixel(Ps2Gs.PsmCt32, 0, 4, 5, 5).Should().Be(0x80030201u);
+        rig.Sprite(0, 0, 32, 32, 4, 5, 6);
+        rig.Gs.Reset();
+        rig.Gs.IsGpuOwned(0).Should().BeFalse();
+        rig.Gs.ReadPixel(Ps2Gs.PsmCt32, 0, 4, 5, 5).Should().Be(0u, "a reset clears local memory");
+    }
+
+    [Fact]
+    public void Detaching_or_turning_off_the_gpu_reads_back_what_it_drew()
+    {
+        using var rig = NewRig(authoritative: true);
+        if (rig is null)
+        {
+            return;
+        }
+
+        rig.Sprite(0, 0, 256, 256, 10, 20, 30);
+        rig.Sprite(0, 0, 64, 64, 7, 8, 9);
+        rig.Gs.ReadPixel(Ps2Gs.PsmCt32, 0, 4, 1, 1).Should().Be(0x80090807u);
+
+        rig.Sprite(64, 0, 128, 64, 1, 1, 1);
+        rig.Renderer.Authoritative = false;
+        rig.Sprite(128, 0, 192, 64, 2, 2, 2); // the GS draws again, after reading back the GPU's pages
+        rig.Gs.ReadPixel(Ps2Gs.PsmCt32, 0, 4, 70, 1).Should().Be(0x80010101u);
+        rig.Gs.ReadPixel(Ps2Gs.PsmCt32, 0, 4, 130, 1).Should().Be(0x80020202u);
+
+        rig.Renderer.Authoritative = true;
+        rig.Sprite(192, 0, 256, 64, 3, 3, 3);
+        rig.Gs.Backend = null; // reads back first
+        rig.Gs.ReadPixel(Ps2Gs.PsmCt32, 0, 4, 200, 1).Should().Be(0x80030303u);
+    }
+
+    /// <summary>GameVault's PS2 homebrew with the GPU drawing in the GS's place: the console's own picture matches the software GS's.</summary>
+    [Theory]
+    [InlineData("gs-basic")]
+    [InlineData("gs-texture")]
+    [InlineData("vu1-path1")]
+    public void The_homebrew_draws_the_same_frames_when_only_the_gpu_draws(string name)
+    {
+        var gpu = N64RdpGpuRendererTests.CreateGpu(out var why);
+        if (gpu is null)
+        {
+            output.WriteLine("Skipped: " + why);
+            return;
+        }
+
+        using var _ = gpu;
+        var elf = File.ReadAllBytes(ElfPath(name));
+        var gpuOnly = new Ps2Console(Ps2Boot.FromElf(elf));
+        var software = new Ps2Console(Ps2Boot.FromElf(elf));
+        using var renderer = new Ps2GsGpuRenderer(gpu, gpuOnly.Gs, 1) { Authoritative = true };
+        gpuOnly.Gs.Backend = renderer;
+        var worst = 0;
+        for (var frame = 0; frame < 20; frame++)
+        {
+            gpuOnly.RunFrame();
+            software.RunFrame();
+            gpuOnly.FrameBuffer.Length.Should().Be(software.FrameBuffer.Length, $"frame {frame}");
+            var differing = 0;
+            for (var i = 0; i < software.FrameBuffer.Length; i++)
+            {
+                differing += gpuOnly.FrameBuffer[i] != software.FrameBuffer[i] ? 1 : 0;
+            }
+
+            worst = Math.Max(worst, differing);
+        }
+
+        output.WriteLine($"{name}: at worst {worst} pixels differ in a frame; {renderer.Dispatches} dispatches, {renderer.ReadBacks} pages read back");
+        gpuOnly.Gs.ParallelPrimitives.Should().Be(0);
+        worst.Should().BeLessThan(software.FrameBuffer.Length / 100, "the GPU draws what the software GS draws");
     }
 
     private static string ElfPath(string name)

@@ -504,14 +504,15 @@ CPU with more cores helps. It also does the console's float maths with your PC's
 differs from the console only in the last digit of some results. If a game misbehaves (a character falls through
 the floor, a camera spins), try **Settings → PlayStation 2 → Exact emulation**: it does the maths exactly as the
 console does, at a much lower speed. Netplay and challenges always run exactly. Lighter games reach full speed on a
-fast PC; heavy 3D games may still run below it, as the graphics are drawn by the processor. More speed-ups are
-planned.
+fast PC. With Direct3D 11, your graphics card draws the graphics instead of the processor, which is what lets heavy
+3D games keep up; **Exact emulation** turns that off too. Without Direct3D 11 the processor draws them, and heavy
+3D games may run below full speed.
 
 **Sharper 3D:** **Settings → PlayStation 2 → Internal resolution** draws games at two, three or four times the
 console's resolution on your graphics card (Direct3D 11). Polygons get smooth edges, and effects games draw into
 their own pictures first (glow, shadows, reflections) keep their detail too. Videos and pictures a game sends
 straight to the screen show at the console's own resolution. The game itself runs exactly as it does at 1× (and no
-faster), so save states and rewind are unaffected. As for the N64, the first start after installing or updating
+faster than at 1×), so save states and rewind are unaffected. As for the N64, the first start after installing or updating
 GameVault plays at 1× for a minute or two while the graphics card's program is prepared.
 
 **Not supported yet:** changing discs in multi-disc games (an `.m3u` starts its first disc), vibration, the multitap,
