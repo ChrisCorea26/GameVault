@@ -48,6 +48,8 @@ public sealed partial class R5900Cpu
         private static readonly MethodInfo SqMethod = Method(nameof(JitSq));
         private static readonly MethodInfo Lwc1Method = Method(nameof(JitLwc1));
         private static readonly MethodInfo Swc1Method = Method(nameof(JitSwc1));
+        private static readonly MethodInfo JitCop1Method = Method(nameof(JitCop1));
+        private static readonly MethodInfo JitFpuSingleMethod = Method(nameof(JitFpuSingle));
         private static readonly MethodInfo MultMethod = Method(nameof(JitMult));
         private static readonly MethodInfo MultuMethod = Method(nameof(JitMultu));
         private static readonly MethodInfo MfHiLoMethod = Method(nameof(JitMfHiLo));
@@ -536,9 +538,35 @@ public sealed partial class R5900Cpu
                     case 0x3E: // SQC2
                         EmitInterpret(leave: true);
                         break;
-                    case 0x11: // the FPU (its branches are branches)
+                    case 0x11 when Rs == 0x08: // the FPU's branches are branches
                         EmitDirect(Cop1Method, stops: false);
                         break;
+                    case 0x11: // the rest of the FPU: reads the time (its stall), as LWC1 does
+                    {
+                        FlushAll();
+                        _il.Emit(OpCodes.Ldarg_0);
+                        if (Rs == 0x10 && (JitInlineFpuFunctions >> (int)(_op & 0x3F) & 1) != 0)
+                        {
+                            Ldc(_op & 0x3F);
+                            Ldc((_op >> 6) & 31);
+                            Ldc((_op >> 11) & 31);
+                            Ldc((uint)Rt);
+                            _il.Emit(OpCodes.Call, JitFpuSingleMethod);
+                        }
+                        else
+                        {
+                            Ldc(_op);
+                            _il.Emit(OpCodes.Call, JitCop1Method);
+                        }
+
+                        var done = _il.DefineLabel();
+                        _il.Emit(OpCodes.Brtrue, done);
+                        EmitInterpret(leave: true, currentFlushed: true);
+                        _il.MarkLabel(done);
+                        EmitFitCheck();
+                        break;
+                    }
+
                     case 0x12: // COP2: VU0's registers and macro instructions
                         EmitDirect(Cop2Method, stops: true);
                         break;

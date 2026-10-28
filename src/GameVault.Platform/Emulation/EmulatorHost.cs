@@ -557,7 +557,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     {
         var data = _romData!;
         var profile = Profile ?? new GameProfile { Sha1 = string.Empty };
-        var console = ConsoleFactory.Create(data, _romSystem, profile, _fdsBios, _romExtension, _appleRoms, _playStation, _n64, _playStation2, _snes, _atari5200Bios, _segaCdBios, _sega32XBios, _segaCdMode1Disc);
+        var exact = _playStation2 is null ? null : _playStation2 with { FastFloat = false }; // both sides must agree bit for bit
+        var console = ConsoleFactory.Create(data, _romSystem, profile, _fdsBios, _romExtension, _appleRoms, _playStation, _n64, exact, _snes, _atari5200Bios, _segaCdBios, _sega32XBios, _segaCdMode1Disc);
         if (_audioActive && _audio is not null)
         {
             console.EnableAudio(_audio.SampleRate);
@@ -809,6 +810,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             _challenge = challenge;
             _challengeInputs = [];
             _challengeActive = true;
+            SetPs2FastFloat(console, false); // the attempt is checked by replaying it exactly
             _present(console);
             started.SetResult();
         });
@@ -861,6 +863,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _challenge = null;
         _challengeInputs = [];
         _challengeActive = false;
+        SetPs2FastFloat(_console, _playStation2?.FastFloat ?? false);
         Raise(() => ChallengeFinished?.Invoke(this, outcome));
     }
 

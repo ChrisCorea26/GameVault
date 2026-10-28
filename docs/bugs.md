@@ -291,5 +291,6 @@ These are left for later by the SPEC, README or a phase plan, so they aren't fil
 | ~~Apple II monochrome, user character ROM, mid-frame mode changes~~ Done (outstanding-work §9) | `docs/plans/phase-12.md` |
 | RetroAchievements approval for hardcore unlocks; real-game and real-cartridge checks | Owner tasks in README and phase plans |
 | ~~GPU renderers~~ Done for the PlayStation, N64 and PlayStation 2 (they sharpen, they don't speed up: the software renderers still draw) | `docs/plans/gpu-renderers.md`, `docs/plans/outstanding-work.md` §14 |
+| PlayStation 2 speed: heavy 3D games may still run below full speed. Fast float maths is done (on by default; **Exact emulation** turns it off); the GPU drawing the GS instead of the software GS is next | `docs/plans/ps2-full-speed.md` |
 | PlayStation 2 multitap and DualShock 2 vibration (slot 2, pressure and mipmapping are done) | `docs/plans/outstanding-work.md` §12 |
 | GameCube: the GPU (Flipper), discs, the DSP's sound, memory cards, the recompiler (it runs at about an eighth of full speed); the Wii; the 2600's paddles, rarer boards and PAL colours; the 5200's trak-ball, 40 KB boards and PAL machines | SPEC §7.11, `docs/plans/phase-18.md`, `docs/plans/phase-19.md` |

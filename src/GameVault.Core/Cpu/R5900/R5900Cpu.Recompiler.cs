@@ -410,6 +410,119 @@ public sealed partial class R5900Cpu
         return true;
     }
 
+    /// <summary>
+    /// The S-format functions <see cref="JitCop1"/> runs: the arithmetic, moves, compares, MAX/MIN and CVT.W.S, which
+    /// raise no exception and don't branch.
+    /// </summary>
+    private const ulong JitFpuFunctions =
+        0xFFul | 1ul << 0x16 | 0xF7ul << 0x18 /* 18–1A, 1C–1F */ | 1ul << 0x24 | 1ul << 0x28 | 1ul << 0x29
+        | 1ul << 0x30 | 1ul << 0x32 | 1ul << 0x34 | 1ul << 0x36;
+
+    /// <summary>
+    /// The FPU without the interpreter's call around it (ps2-full-speed.md §2): MFC1, MTC1, CVT.S.W and the S format's
+    /// <see cref="JitFpuFunctions"/>, as <see cref="ExecuteCop1"/> does them, with the FPU's stall. False (nothing done)
+    /// for the slow path: COP1 unusable, its branches, CFC1/CTC1, a reserved encoding, or MFC1 to r0.
+    /// </summary>
+    internal bool JitCop1(uint op)
+    {
+        if ((_status & StatusCu1) == 0)
+        {
+            return false;
+        }
+
+        var fs = (int)(op >> 11) & 31;
+        var rt = (int)(op >> 16) & 31;
+        switch ((op >> 21) & 31)
+        {
+            case 0x00 when rt != 0: // MFC1
+                FpuWait();
+                Gpr(rt) = SignExtend32(_fpr[fs]);
+                return true;
+            case 0x04: // MTC1
+                FpuWait();
+                _fpr[fs] = (uint)Gpr(rt);
+                return true;
+            case 0x10 when (JitFpuFunctions >> (int)(op & 0x3F) & 1) != 0:
+                FpuWait();
+                ExecuteFpuSingle(op, fs, rt);
+                return true;
+            case 0x14 when (op & 0x3F) == 0x20: // CVT.S.W
+                FpuWait();
+                _fpr[(int)(op >> 6) & 31] = IntToFloat((int)_fpr[fs]);
+                return true;
+            default:
+                return false;
+        }
+    }
+
+    /// <summary>The S-format functions a block calls <see cref="JitFpuSingle"/> for, with the function as a constant.</summary>
+    internal const ulong JitInlineFpuFunctions =
+        1ul << 0x00 | 1ul << 0x01 | 1ul << 0x02 | 1ul << 0x05 | 1ul << 0x06 | 1ul << 0x07
+        | 1ul << 0x18 | 1ul << 0x19 | 1ul << 0x1A | 1ul << 0x1C | 1ul << 0x1D | 1ul << 0x1E | 1ul << 0x1F;
+
+    /// <summary>
+    /// One of <see cref="JitInlineFpuFunctions"/>, as <see cref="ExecuteFpuSingle"/> does it. Inlined into the block
+    /// with <paramref name="function"/> a constant, so the switch folds away. False (nothing done) when COP1 is unusable.
+    /// </summary>
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal bool JitFpuSingle(int function, int fd, int fs, int ft)
+    {
+        if ((_status & StatusCu1) == 0)
+        {
+            return false;
+        }
+
+        FpuWait();
+        var s = _fpr[fs];
+        var t = _fpr[ft];
+        switch (function)
+        {
+            case 0x00: // ADD.S
+                _fpr[fd] = Arithmetic(Add(s, t));
+                break;
+            case 0x01: // SUB.S
+                _fpr[fd] = Arithmetic(Add(s, t ^ SignBit));
+                break;
+            case 0x02: // MUL.S
+                _fpr[fd] = Arithmetic(Multiply(s, t));
+                break;
+            case 0x05: // ABS.S
+                _fcr31 &= ~(FlagO | FlagU);
+                _fpr[fd] = s & ~SignBit;
+                break;
+            case 0x06: // MOV.S
+                _fpr[fd] = s;
+                break;
+            case 0x07: // NEG.S
+                _fcr31 &= ~(FlagO | FlagU);
+                _fpr[fd] = s ^ SignBit;
+                break;
+            case 0x18: // ADDA.S
+                _fpuAcc = Arithmetic(Add(s, t));
+                break;
+            case 0x19: // SUBA.S
+                _fpuAcc = Arithmetic(Add(s, t ^ SignBit));
+                break;
+            case 0x1A: // MULA.S
+                _fpuAcc = Arithmetic(Multiply(s, t));
+                break;
+            case 0x1C: // MADD.S
+                _fpr[fd] = MultiplyAdd(_fpuAcc, s, t, false);
+                break;
+            case 0x1D: // MSUB.S
+                _fpr[fd] = MultiplyAdd(_fpuAcc, s, t, true);
+                break;
+            case 0x1E: // MADDA.S
+                _fpuAcc = MultiplyAdd(_fpuAcc, s, t, false);
+                break;
+            default: // MSUBA.S
+                _fpuAcc = MultiplyAdd(_fpuAcc, s, t, true);
+                break;
+        }
+
+        return true;
+    }
+
     /// <summary>SWC1: false (nothing done) for the slow path.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal bool JitSwc1(uint address, int ft) => (_status & StatusCu1) != 0 && JitStore32(address, _fpr[ft]);

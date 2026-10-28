@@ -1059,6 +1059,27 @@
               <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel>
+              <TextBlock Text="Exact emulation" />
+              <TextBlock
+                  Foreground="{ThemeResource TextFillColorSecondaryBrush}"
+                  Style="{StaticResource CaptionTextBlockStyle}"
+                  Text="Does the console's float maths exactly as the hardware does, instead of with your PC's own. Much slower, so leave it off unless a game misbehaves. Netplay and challenges always run exactly. Takes effect the next time a game starts."
+                  TextWrapping="Wrap" />
+            </StackPanel>
+            <ToggleSwitch
+                Grid.Column="1"
+                MinWidth="0"
+                AutomationProperties.Name="Exact PlayStation 2 emulation"
+                IsOn="{x:Bind ViewModel.PlayStation2ExactEmulation, Mode=TwoWay}"
+                OffContent=""
+                OnContent="" />
+          </Grid>
+          <Grid ColumnSpacing="16">
+            <Grid.ColumnDefinitions>
+              <ColumnDefinition Width="*" />
+              <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <StackPanel>
               <TextBlock Text="Internal resolution" />
               <TextBlock
                   Foreground="{ThemeResource TextFillColorSecondaryBrush}"

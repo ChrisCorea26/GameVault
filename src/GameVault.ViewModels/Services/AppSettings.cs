@@ -168,6 +168,13 @@ public sealed record AppSettings
     public int PlayStation2InternalResolution { get; init; } = 1;
 
     /// <summary>
+    /// Run the PlayStation 2 bit-exactly: the EE's and the VUs' float maths done as the hardware does it, instead of in
+    /// the PC's own float arithmetic (docs/plans/ps2-full-speed.md). Slower; for a game that misbehaves. Off by default.
+    /// Netplay and challenges always run exactly.
+    /// </summary>
+    public bool PlayStation2ExactEmulation { get; init; }
+
+    /// <summary>
     /// The folder holding the player's own Super Nintendo enhancement chip program ROMs (dsp1b.rom and the others), or
     /// empty. GameVault never ships, downloads or links to them (SPEC §7.11).
     /// </summary>
