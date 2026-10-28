@@ -41,6 +41,8 @@ internal sealed class BootLog : IDisposable
     private int _padPolls;
     private readonly StringBuilder _packet = new();
     private string _lastPacket = "none";
+    private Func<long>? _keyPresses;
+    private long _keysAtLastSecond;
     private bool _closed;
     private int _framesAtLastTick;
     private readonly System.Diagnostics.Stopwatch _clock = System.Diagnostics.Stopwatch.StartNew();
@@ -59,7 +61,9 @@ internal sealed class BootLog : IDisposable
     /// <summary>Starts a log for a PlayStation or PlayStation 2 game; null for other systems or when the file can't be written.</summary>
     /// <param name="tick">How often the watchdog looks (tests shorten it); a second by default.</param>
     /// <param name="stallTicks">Ticks without a frame before it reports a stall.</param>
-    public static BootLog? Start(IEmulatedConsole console, string? logsDirectory, string game, TimeSpan? tick = null, int stallTicks = 3)
+    /// <param name="keyPresses">The key presses the game picture has passed to the input service so far.</param>
+    public static BootLog? Start(
+        IEmulatedConsole console, string? logsDirectory, string game, TimeSpan? tick = null, int stallTicks = 3, Func<long>? keyPresses = null)
     {
         var name = console switch
         {
@@ -84,13 +88,13 @@ internal sealed class BootLog : IDisposable
         }
 
 #if DEBUG
-        const string build = "Debug build (several times slower than Release)";
+        const string build = "Debug build (the emulation core is still optimized)";
 #else
         const string build = "Release build";
 #endif
         writer.WriteLine($"GameVault boot log, {DateTime.Now:yyyy-MM-dd HH:mm:ss}: {game}");
         writer.WriteLine($"{build}, .NET {Environment.Version}, {Environment.ProcessorCount} logical processors");
-        var log = new BootLog(console, writer, tick ?? TimeSpan.FromSeconds(1), stallTicks);
+        var log = new BootLog(console, writer, tick ?? TimeSpan.FromSeconds(1), stallTicks) { _keyPresses = keyPresses };
         lock (log._gate)
         {
             log.Attach();
@@ -221,7 +225,9 @@ internal sealed class BootLog : IDisposable
                 case PlayStationConsole ps:
                     var (status, mask, dma) = ps.InterruptRegisters;
                     line.Append($"pc {ps.Cpu.Pc:X8}  I_STAT {status:X3} I_MASK {mask:X3} DICR {dma:X8}  reads {Top(_mainReads)}");
-                    line.Append($"\n      pad 1 held: {(_padsHeld == ControllerState.None ? "nothing" : _padsHeld.ToString())}  port conversations: {_padPolls}  last: {_lastPacket.TrimEnd()}");
+                    var keys = _keyPresses?.Invoke() ?? 0;
+                    line.Append($"\n      keys pressed in the game picture: {keys - _keysAtLastSecond}  pad 1 held: {(_padsHeld == ControllerState.None ? "nothing" : _padsHeld.ToString())}  port conversations: {_padPolls}  last: {_lastPacket.TrimEnd()}");
+                    _keysAtLastSecond = keys;
                     _padsHeld = ControllerState.None;
                     _padPolls = 0;
                     break;

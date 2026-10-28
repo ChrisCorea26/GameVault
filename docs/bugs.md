@@ -339,7 +339,15 @@ content is missing. **Low** = wrong text or a small inconsistency.
 - **Speed:** the core runs a GPU test program at 826 frames a second in a Release build and 128 in a Debug build
   (`dotnet run` builds Debug unless given `-c Release`), so a Debug build may fall below 60 in a real game. The boot
   log now gives the build and the real time each 60 frames took.
-- **Keyboard:** the pad's replies and button bits read correctly in the code and tests. The boot log now gives,
+- **From the next log:** it was a Debug build, at about 2.7 s of real time per 60 frames. `GameVault.Core` is now
+  compiled optimized in Debug builds too: the GPU test program runs at 725 frames a second in Debug (146 before),
+  close to Release's 826.
+- **Keyboard, from the same log:** the game polls the pad 120 times a second and the pad answers correctly (a digital
+  pad, nothing pressed: `01>FF 42>41 00>5A 00>FF 00>FF`), but the host passed no button to pad 1 in any second while
+  the reporter pressed keys. `InputService` maps the PlayStation's keys correctly (Enter → Start, X → ○, the arrows →
+  the stick), so the keys don't reach it: most likely the game picture didn't have keyboard focus. The boot log now
+  counts the key presses the game picture passes in each second, to confirm.
+- **Keyboard, first look:** the pad's replies and button bits read correctly in the code and tests. The boot log now gives,
   each second, the buttons the host passed to pad 1, how many conversations the game started on the port, and the
   last one byte by byte (sent>received, `!` where the device didn't answer with /ACK), so the next log shows whether
   keys reach the pad and whether the game is reading it.

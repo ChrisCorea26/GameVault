@@ -1471,7 +1471,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             ReleaseDiscs(_console);
             _console = console;
             AttachGpuRenderer(console);
-            _bootLog = BootLog.Start(console, _logsDirectory, title);
+            _bootLog = BootLog.Start(console, _logsDirectory, title, keyPresses: () => _input.KeyPresses);
             _seenCheats = null;
             _cheatsActive = false;
             _diskOriginal = diskOriginal;

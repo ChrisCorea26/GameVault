@@ -9,6 +9,10 @@
     <RootNamespace>GameVault.Core</RootNamespace>
     <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
     <AllowUnsafeBlocks>false</AllowUnsafeBlocks>
+    <!-- The emulation cores are compiled optimized in Debug builds too: unoptimized, the PlayStation runs at a third of
+         full speed and later systems slower still (docs/bugs.md GV-025). Debug symbols stay, so the app can still be
+         debugged; stepping through the core may skip lines. -->
+    <Optimize>true</Optimize>
   </PropertyGroup>
 
   <ItemGroup>
