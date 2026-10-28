@@ -167,9 +167,9 @@ tracking.
   which texels it sees of its own pixels can differ from the software GS's row order.
 
 ### Speed
-The software GS keeps drawing (it is what downloads and save states read), so this makes PS2 games sharper, not
-faster. Skipping the software draw of frames nothing reads back is the step after, and needs the GPU memory to be
-authoritative for those pages (written back on a download).
+At first the software GS kept drawing (it is what downloads and save states read), so this made PS2 games sharper,
+not faster. **Done since** (`docs/plans/ps2-full-speed.md` §3): for normal play the renderer draws in the software
+GS's place, also at 1×, and the GS reads back the pages it needs.
 
 ### Tests
 - **The kernel on Linux** (lavapipe in CI, SwiftShader locally) and **on Windows** (WARP), with

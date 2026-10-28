@@ -83,14 +83,22 @@ held back by two things, the second by far the more:
   states, `LocalMemory`). These now also call `EnsureNative(pages)`. For each GPU-owned page among them, the
   backend copies the GPU's copy back to local memory and the page stops being GPU-owned. At 1× that copy is the
   picture itself; above 1× it is each pixel's first sample. Pages read back keep their high-resolution detail on the
-  GPU, because the backend records the hash of what it wrote back. The readers are:
+  GPU, because the backend records the page's version once it is read back. Above 1× the Resolve kernel copies the
+  first samples into a compact buffer, so a read back moves the native size whatever the scale. The readers are:
   - local-to-host downloads and the source of local-to-local copies;
   - host-to-local uploads and the destination of local copies, when they write part of a GPU-owned page;
   - CLUT loads;
   - the PCRTC's software picture (its display pages);
   - save states, rewind and `LocalMemory` (every page).
 - **Never stale:** the backend's `Sync` skips GPU-owned pages, which it holds the only good copy of. A reset or a
-  state load clears GPU ownership, since local memory is good again.
+  state load clears GPU ownership, since local memory is good again. Detaching the backend, or turning
+  `Authoritative` off (a challenge attempt), reads back what it held first.
+- **Page versions instead of hashes:** once the software GS no longer draws, hashing every page a batch uses would
+  cost megabytes a batch. Instead the GS keeps a version for each page, bumped by everything that changes local
+  memory: software drawing, an upload when it starts (and again if a batch is drawn while it runs), a local copy, a
+  read back, `WritePixel`, a reset and a state load. The backend compares versions.
+- **The picture:** at 1× the console's own picture (read back from the display pages) is the GPU's, so the host
+  shows it; above 1× the host shows the GPU's picture as before.
 - **When:** authoritative only when fast mode is on and Direct3D 11 is there. The renderer is attached at 1× too.
   Until it is attached, and without Direct3D, the software GS draws as now. Netplay and challenges never attach it as
   authoritative.
@@ -102,6 +110,10 @@ held back by two things, the second by far the more:
   - A save state taken after GPU drawing loads into a software-only console with the same picture.
   - Ownership is cleared by a reset and by a state load.
   - The homebrew draws the same frames as the software GS.
+- **Results** (SwiftShader): random scenes drawn only on the GPU match the software GS in all but 0.2–0.7% of
+  words at 1× and 2.6% at 2× (sample 0 is a quarter of a pixel off centre); the homebrew's frames match (0 to 45
+  pixels a frame); each read-back path matches exactly. How much faster real games run depends on the graphics card,
+  so it is the owner's to measure: the software GS's work (33–37 Mpixels/s on 4 threads) goes away.
 
 ## 4. Recompiling in the background
 - **What it fixes:** the EE recompiler compiles a block on the emulation thread the first time it gets hot.

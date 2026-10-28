@@ -320,6 +320,7 @@ Real cartridges are the owner's to try; see `docs/plans/phase-16.md`.
 | Booting the player's BIOS, ELF and disc fast boot | 🟡 Checked with a stand-in BIOS; real BIOSes and discs are the owner's to try |
 | GS mipmapping: TEX1's LOD, MIPTBP1/2 and MTBA, nearest and blended levels | ✅ Unit tests |
 | Memory card slot 2 (one shared card); L2/R2 pressure from analog triggers | ✅ Unit tests |
+| The GPU drawing in the software GS's place (the default for normal play with Direct3D 11; `docs/plans/ps2-full-speed.md` §3): pages read back for downloads, copies, uploads over drawn pages, CLUT loads, the picture and save states | 🟡 Random scenes, the homebrew and each read-back path match the software GS on a Vulkan software device (CI: lavapipe, WARP), but for the pixels float interpolation rounds the other way; real games are the owner's to try |
 | Fast float maths (the default for normal play; `docs/plans/ps2-full-speed.md` §2): the EE FPU's and the VUs' add and multiply in the PC's own arithmetic, clamped to the PS2's range | 🟡 Results equal the exact maths or differ in the last bit; the PS2's top binade saturates. **Settings → PlayStation 2 → Exact emulation** brings back the bit-exact maths, which netplay and challenges always use |
 | GS anti-aliasing, the IPU's command timing, PS1 mode, multitap | Not yet |
 
