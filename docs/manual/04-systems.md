@@ -282,13 +282,15 @@ There's no turbo on the SNES. Use <kbd>Backspace</kbd> and <kbd>Tab</kbd> to rew
   need the chip's program from your own cartridge, named `st010.rom` or `st011.rom` (52 KB), in the same folder.
 - **S-RTC** (*Daikaijuu Monogatari II*): the cartridge's clock works with nothing extra. It starts at your PC's
   time whenever you open the game. A time you set inside the game lasts until you close it.
+- **SPC7110** (*Far East of Eden Zero*, *Momotarou Dentetsu Happy*, *Super Power League 4*): works with nothing
+  extra. *Far East of Eden Zero*'s clock starts at your PC's time, like the S-RTC's.
 
 | Message | What to do |
 |---|---|
 | *This game needs the DSP-1 chip's program ROM. Put your own dump (dsp1b.rom or dsp1.rom) in the folder chosen in Settings → Super Nintendo → Enhancement chip ROMs. GameVault doesn't include it.* | Add the file and choose its folder, then open the game again. |
 | *This game needs the … chip, which GameVault doesn't support yet.* | The chip isn't emulated yet. |
 
-**Not supported yet:** the Cx4 (*Mega Man X2*, *X3*), SPC7110 and ST018 chips, the Super Game Boy and the
+**Not supported yet:** the Cx4 (*Mega Man X2*, *X3*) and ST018 chips, the Super Game Boy and the
 Satellaview; interlaced modes; effects that change the picture partway along a line.
 
 ## Sony PlayStation

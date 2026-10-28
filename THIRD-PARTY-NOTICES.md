@@ -33,6 +33,31 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 ```
 
+## ares
+- **Source:** https://github.com/ares-emulator/ares
+- **Location:** ported to C# in `src/GameVault.Core/Snes/Spc7110.cs` (the SPC7110's decompressor, Neviksti's
+  reverse engineering as talarubi optimised it); the SNES chips in `docs/plans/snes-chips-3.md` follow ares'
+  behaviour
+- **Licence:** ISC
+
+```
+ares
+
+Copyright (c) 2004-2025 ares team, Near et al
+
+Permission to use, copy, modify, and/or distribute this software for any
+purpose with or without fee is hereby granted, provided that the above
+copyright notice and this permission notice appear in all copies.
+
+THE SOFTWARE IS PROVIDED "AS IS" AND THE AUTHOR DISCLAIMS ALL WARRANTIES
+WITH REGARD TO THIS SOFTWARE INCLUDING ALL IMPLIED WARRANTIES OF
+MERCHANTABILITY AND FITNESS. IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR
+ANY SPECIAL, DIRECT, INDIRECT, OR CONSEQUENTIAL DAMAGES OR ANY DAMAGES
+WHATSOEVER RESULTING FROM LOSS OF USE, DATA OR PROFITS, WHETHER IN AN
+ACTION OF CONTRACT, NEGLIGENCE OR OTHER TORTIOUS ACTION, ARISING OUT OF
+OR IN CONNECTION WITH THE USE OR PERFORMANCE OF THIS SOFTWARE.
+```
+
 ## Bundled homebrew games (SPEC §6.4)
 Shipped unmodified in `data/homebrew/`, each with its full license text as `LICENSE` and its source and notice in
 `README.md`. All are by Damian Yerrick.

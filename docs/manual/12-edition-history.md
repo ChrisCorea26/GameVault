@@ -26,3 +26,4 @@
 | 22 | October 2026 | Nintendo 64: **Settings → Nintendo 64 → Internal resolution** draws games at 2×, 3× or 4× on your graphics card. |
 | 23 | October 2026 | PlayStation 2: **Settings → PlayStation 2 → Internal resolution** draws games at 2×, 3× or 4× on your graphics card. |
 | 25 | October 2026 | Super Nintendo: *Daikaijuu Monogatari II*'s clock (the S-RTC chip), set from your PC's time. |
+| 26 | October 2026 | Super Nintendo: games with the SPC7110 chip (*Far East of Eden Zero*, *Momotarou Dentetsu Happy*, *Super Power League 4*), and *Far East of Eden Zero*'s clock. |
