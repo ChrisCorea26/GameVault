@@ -124,6 +124,34 @@ public sealed class PlayStation2HostTests(ITestOutputHelper output) : IDisposabl
         host.Stop();
     }
 
+    [Theory]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    public async Task Fast_floats_follow_the_exact_emulation_setting(bool exact, bool fast)
+    {
+        var settings = new InMemorySettingsStore(new AppSettings { PlayStation2ExactEmulation = exact });
+        using var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), settings);
+
+        await host.LoadAsync(ElfPath("gs-basic"));
+
+        (await host.InspectAsync(c => ((Ps2Console)c).FastFloat)).Should().Be(fast);
+        (await host.InspectAsync(c => ((Ps2Console)c).Vu1.FastFloat)).Should().Be(fast);
+        host.Stop();
+    }
+
+    [Fact]
+    public void Consoles_made_without_settings_use_the_exact_maths()
+    {
+        // The challenge verifier and the tests make consoles this way: they must replay exactly.
+        var data = File.ReadAllBytes(ElfPath("gs-basic"));
+        var profile = new GameProfile { Sha1 = string.Empty };
+        ((Ps2Console)ConsoleFactory.Create(data, GameSystem.PlayStation2, profile, null)).FastFloat.Should().BeFalse();
+        ((Ps2Console)ConsoleFactory.Create(data, GameSystem.PlayStation2, profile, null, playStation2: new PlayStation2Setup(null)))
+            .FastFloat.Should().BeFalse();
+        ((Ps2Console)ConsoleFactory.Create(data, GameSystem.PlayStation2, profile, null, playStation2: new PlayStation2Setup(null, FastFloat: true)))
+            .FastFloat.Should().BeTrue();
+    }
+
     [Fact]
     public async Task Ps2_input_reaches_the_consoles_pad()
     {

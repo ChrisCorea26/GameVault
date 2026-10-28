@@ -56,7 +56,7 @@ public static class ChallengeVerifier
         {
             console = ConsoleFactory.Create(
                 romImage, system, new GameVault.Library.Profiles.GameProfile { Sha1 = challenge.RomSha1 }, fdsBios: null, playStation: playStation, n64: n64,
-                playStation2: playStation2, snes: snes);
+                playStation2: playStation2 is null ? null : playStation2 with { FastFloat = false }, snes: snes); // results are checked exactly
         }
         catch (GameLoadException)
         {

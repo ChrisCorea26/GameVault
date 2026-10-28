@@ -289,19 +289,19 @@ public sealed partial class Ps2Vu
         switch (kind)
         {
             case UpperKind.Add:
-                result = Ps2VuFloat.Add4(s, t, out overflow, out underflow);
+                result = Add4(s, t, out overflow, out underflow);
                 break;
             case UpperKind.Sub:
-                result = Ps2VuFloat.Add4(s, t ^ sign, out overflow, out underflow);
+                result = Add4(s, t ^ sign, out overflow, out underflow);
                 break;
             case UpperKind.Mul:
-                result = Ps2VuFloat.Mul4(s, t, out overflow, out underflow);
+                result = Mul4(s, t, out overflow, out underflow);
                 break;
             case UpperKind.Madd:
-                result = Ps2VuFloat.Add4(Vector128.LoadUnsafe(ref accRef), Ps2VuFloat.Mul4(s, t, out _, out _), out overflow, out underflow);
+                result = Add4(Vector128.LoadUnsafe(ref accRef), Mul4(s, t, out _, out _), out overflow, out underflow);
                 break;
             case UpperKind.Msub:
-                result = Ps2VuFloat.Add4(Vector128.LoadUnsafe(ref accRef), Ps2VuFloat.Mul4(s, t, out _, out _) ^ sign, out overflow, out underflow);
+                result = Add4(Vector128.LoadUnsafe(ref accRef), Mul4(s, t, out _, out _) ^ sign, out overflow, out underflow);
                 break;
             case UpperKind.Max:
                 result = Vector128.ConditionalSelect(Vector128.GreaterThanOrEqual(OrderKey4(s), OrderKey4(t)).AsUInt32(), s, t);
@@ -328,6 +328,21 @@ public sealed partial class Ps2Vu
             QueueFlag(FlagKindMac, Ps2VuFloat.MacBits4(result, overflow, underflow, dest));
         }
     }
+
+    /// <summary>
+    /// The FMAC's add and multiply in the host's float arithmetic, clamped to the PS2's rules, instead of bit-exactly
+    /// (ps2-full-speed.md §2). Off by default; the host turns it on for normal play unless the player asks for exact
+    /// emulation. Netplay and challenge checks keep it off. The EFU stays exact.
+    /// </summary>
+    public bool FastFloat { get; set; }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Vector128<uint> Add4(Vector128<uint> a, Vector128<uint> b, out Vector128<uint> overflow, out Vector128<uint> underflow) =>
+        FastFloat ? Ps2FastFloat.Add4(a, b, out overflow, out underflow) : Ps2VuFloat.Add4(a, b, out overflow, out underflow);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private Vector128<uint> Mul4(Vector128<uint> a, Vector128<uint> b, out Vector128<uint> overflow, out Vector128<uint> underflow) =>
+        FastFloat ? Ps2FastFloat.Mul4(a, b, out overflow, out underflow) : Ps2VuFloat.Mul4(a, b, out overflow, out underflow);
 
     /// <summary><see cref="Ps2VuFloat.OrderKey"/> on four lanes.</summary>
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -363,7 +378,7 @@ public sealed partial class Ps2Vu
             // x = s.y·t.z, y = s.z·t.x, z = s.x·t.y
             var a = _vf[s + ((lane + 1) % 3)];
             var b = _vf[t + ((lane + 2) % 3)];
-            var product = Ps2VuFloat.Mul(a, b, out var ou);
+            var product = FastFloat ? Ps2FastFloat.Mul(a, b, out var ou) : Ps2VuFloat.Mul(a, b, out ou);
             uint result;
             if (fd < 0)
             {
@@ -372,7 +387,7 @@ public sealed partial class Ps2Vu
             }
             else
             {
-                result = Ps2VuFloat.Sub(_acc[lane], product, out ou);
+                result = FastFloat ? Ps2FastFloat.Sub(_acc[lane], product, out ou) : Ps2VuFloat.Sub(_acc[lane], product, out ou);
                 _stage[lane] = result;
             }
 

@@ -11,7 +11,7 @@ public sealed class Ps2VuBenchmarkTests(ITestOutputHelper output)
 {
     /// <summary>
     /// Reports VU1 cycles a second on a vertex transform (a matrix multiply through ACC, the perspective divide, FTOI4
-    /// and a store per vertex), as games' VU1 programs do. Interpreted, then recompiled. Only with <c>GAMEVAULT_VU_BENCHMARK=1</c>, best in Release;
+    /// and a store per vertex), as games' VU1 programs do. Interpreted and recompiled, with exact and fast floats. Only with <c>GAMEVAULT_VU_BENCHMARK=1</c>, best in Release;
     /// it makes no timing assertion. The real VU1 runs 294.912 M cycles a second.
     /// </summary>
     [Fact]
@@ -22,10 +22,11 @@ public sealed class Ps2VuBenchmarkTests(ITestOutputHelper output)
             return;
         }
 
-        foreach (var recompiled in new[] { false, true })
+        foreach (var (recompiled, fast) in new[] { (false, false), (true, false), (false, true), (true, true) })
         {
             var (_, vu1, _) = FakeVuHost.CreatePair();
             vu1.RecompilerEnabled = recompiled;
+            vu1.FastFloat = fast;
             var program = TransformLoop();
             for (var i = 0; i < program.Length; i++)
             {
@@ -66,7 +67,7 @@ public sealed class Ps2VuBenchmarkTests(ITestOutputHelper output)
             }
 
             cycles.Should().BePositive();
-            output.WriteLine($"VU1, transform loop, {(recompiled ? "recompiled" : "interpreted")}: {cycles / watch.Elapsed.TotalSeconds / 1e6:F1} M cycles/s");
+            output.WriteLine($"VU1, transform loop, {(recompiled ? "recompiled" : "interpreted")}, {(fast ? "fast" : "exact")} floats: {cycles / watch.Elapsed.TotalSeconds / 1e6:F1} M cycles/s");
         }
     }
 
