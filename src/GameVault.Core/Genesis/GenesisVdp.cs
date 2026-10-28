@@ -113,6 +113,9 @@ public sealed class GenesisVdp : IStateful
     /// <summary>The field's offset in interlace mode 2: 1 on odd fields.</summary>
     private int FieldLine => Interlace2 && _oddFrame ? 1 : 0;
 
+    /// <summary>The frame's row line <paramref name="line"/> is drawn on: twice the line, plus the field, in interlace mode 2.</summary>
+    public int FrameRow(int line) => Interlace2 ? line * 2 + FieldLine : line;
+
     /// <summary>Pixel rows per tile: 16 in interlace mode 2, else 8.</summary>
     private int TileHeight => Interlace2 ? 16 : 8;
 
@@ -533,7 +536,7 @@ public sealed class GenesisVdp : IStateful
         var width = H40 ? 320 : 256;
 
         // In interlace mode 2 the picture's line is twice the field's, plus one on odd fields.
-        var y = Interlace2 ? line * 2 + FieldLine : line;
+        var y = FrameRow(line);
         if ((y + 1) * _frameWidth > _frame.Length)
         {
             return;

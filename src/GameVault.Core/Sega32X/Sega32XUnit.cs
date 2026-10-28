@@ -205,34 +205,28 @@ public sealed class Sega32XUnit : IStateful
     public void SetHBlank(bool hblank) => Vdp.SetHBlank(hblank);
 
     /// <summary>
-    /// Lays the 32X picture over the Genesis' (called as vertical blank starts): a 32X pixel shows in front when PRI
-    /// (or its colour's bit 15, swapping it) says so, and always where only the Genesis' background colour shows.
+    /// Lays 32X line <paramref name="line"/> over the Genesis' row <paramref name="row"/>, as the Genesis draws that
+    /// line (genesis-gaps.md §6), so the mode, palette, shift, priority and line table are the ones in force as it's
+    /// scanned. A 32X pixel shows in front when PRI (or its colour's bit 15, swapping it) says so, and always where only
+    /// the Genesis' background colour shows.
     /// </summary>
     /// <param name="frame">The Genesis frame's palette indices; 32X colours go in as 1536 + their 15-bit colour.</param>
-    public void Compose(Span<ushort> frame, ReadOnlySpan<bool> backdrop, int width, int height)
+    public void ComposeLine(Span<ushort> frame, ReadOnlySpan<bool> backdrop, int width, int line, int row)
     {
-        if (Vdp.Mode == 0)
+        if (!Vdp.RenderLine(line, _line) || (row + 1) * width > frame.Length)
         {
             return;
         }
 
         var inFront = Vdp.InFront;
-        for (var y = 0; y < height; y++)
+        var start = row * width;
+        for (var x = 0; x < Math.Min(width, Mars32XVdp.Width); x++)
         {
-            if (!Vdp.RenderLine(y, _line))
+            var pixel = _line[x];
+            var front = inFront ^ ((pixel & 0x8000) != 0);
+            if (front || backdrop[start + x])
             {
-                return;
-            }
-
-            var row = y * width;
-            for (var x = 0; x < Math.Min(width, Mars32XVdp.Width); x++)
-            {
-                var pixel = _line[x];
-                var front = inFront ^ ((pixel & 0x8000) != 0);
-                if (front || backdrop[row + x])
-                {
-                    frame[row + x] = (ushort)(Sega32XPalette.First + (pixel & 0x7FFF));
-                }
+                frame[start + x] = (ushort)(Sega32XPalette.First + (pixel & 0x7FFF));
             }
         }
     }
