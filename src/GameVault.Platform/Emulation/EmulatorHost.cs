@@ -199,6 +199,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     private byte[]? _atari5200Bios;
     /// <summary>The player's Sega CD BIOS for the disc loaded (netplay builds its console again).</summary>
     private byte[]? _segaCdBios;
+    private string? _segaCdMode1Disc;
 
     /// <summary>The player's 32X BIOS files for the game loaded.</summary>
     private GameVault.Core.Sega32X.Sega32XBios? _sega32XBios;
@@ -556,7 +557,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
     {
         var data = _romData!;
         var profile = Profile ?? new GameProfile { Sha1 = string.Empty };
-        var console = ConsoleFactory.Create(data, _romSystem, profile, _fdsBios, _romExtension, _appleRoms, _playStation, _n64, _playStation2, _snes, _atari5200Bios, _segaCdBios, _sega32XBios);
+        var console = ConsoleFactory.Create(data, _romSystem, profile, _fdsBios, _romExtension, _appleRoms, _playStation, _n64, _playStation2, _snes, _atari5200Bios, _segaCdBios, _sega32XBios, _segaCdMode1Disc);
         if (_audioActive && _audio is not null)
         {
             console.EnableAudio(_audio.SampleRate);
@@ -1177,8 +1178,11 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             }
         }
 
+        // A Genesis cartridge with a disc of the same name beside it (an MSU-MD game) uses the Sega CD in mode 1.
+        var mode1Disc = rom.System == GameSystem.Genesis ? FindMode1Disc(path) : null;
+        string? mode1Notice = null;
         byte[]? segaCdBios = null;
-        if (rom.System == GameSystem.SegaCd && _settings is not null)
+        if ((rom.System == GameSystem.SegaCd || mode1Disc is not null) && _settings is not null)
         {
             var biosPath = (await _settings.LoadAsync(cancellationToken).ConfigureAwait(false)).SegaCdBiosPath;
             if (!string.IsNullOrWhiteSpace(biosPath))
@@ -1192,6 +1196,12 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
                     throw new GameLoadException("GameVault couldn't open your Sega CD BIOS. Check the file chosen in Settings → Sega CD.", ex);
                 }
             }
+        }
+
+        if (mode1Disc is not null && segaCdBios is null)
+        {
+            mode1Notice = Mode1WithoutBiosNotice;
+            mode1Disc = null;
         }
 
         GameVault.Core.Sega32X.Sega32XBios? sega32XBios = null;
@@ -1218,7 +1228,54 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         var snes = rom.System == GameSystem.Snes && _settings is not null
             ? await SnesSetup.LoadAsync(await _settings.LoadAsync(cancellationToken).ConfigureAwait(false), cancellationToken).ConfigureAwait(false)
             : null;
-        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation, n64, playStation2, snes, atari5200Bios, segaCdBios, sega32XBios);
+        Load(data, Path.GetFileNameWithoutExtension(path), bios, rom.System, rom.Extension, appleRoms, playStation, n64, playStation2, snes, atari5200Bios, segaCdBios, sega32XBios, mode1Disc);
+        if (mode1Notice is not null)
+        {
+            RaiseNotice(mode1Notice);
+        }
+    }
+
+    /// <summary>Shown when a cartridge has a disc beside it for the Sega CD, but no Sega CD BIOS is chosen.</summary>
+    public const string Mode1WithoutBiosNotice =
+        "This cartridge has a disc beside it for the Sega CD. To use it, choose your own Sega CD BIOS in Settings → Sega CD; until then the cartridge plays without it.";
+
+    /// <summary>A .cue or .chd named like the cartridge, in its folder, or null.</summary>
+    internal static string? FindMode1Disc(string cartridgePath)
+    {
+        var folder = Path.GetDirectoryName(Path.GetFullPath(cartridgePath));
+        if (folder is null || !Directory.Exists(folder))
+        {
+            return null;
+        }
+
+        var name = Path.GetFileNameWithoutExtension(cartridgePath);
+        foreach (var candidate in Directory.EnumerateFiles(folder))
+        {
+            var extension = Path.GetExtension(candidate).ToLowerInvariant();
+            if (extension is not (".cue" or ".chd")
+                || !string.Equals(Path.GetFileNameWithoutExtension(candidate), name, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            // A cue sheet that names this very file means it's a disc's track, not a cartridge.
+            try
+            {
+                if (extension == ".cue" && GameVault.Library.Discs.CueImage.ListFiles(candidate)
+                        .Any(f => string.Equals(f, Path.GetFullPath(cartridgePath), StringComparison.OrdinalIgnoreCase)))
+                {
+                    return null;
+                }
+            }
+            catch (InvalidDataException)
+            {
+                return null;
+            }
+
+            return candidate;
+        }
+
+        return null;
     }
 
     /// <summary>Shown when an Apple II disk starts without the Disk II boot ROM chosen in Settings.</summary>
@@ -1269,7 +1326,8 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         SnesSetup? snes = null,
         byte[]? atari5200Bios = null,
         byte[]? segaCdBios = null,
-        GameVault.Core.Sega32X.Sega32XBios? sega32XBios = null)
+        GameVault.Core.Sega32X.Sega32XBios? sega32XBios = null,
+        string? segaCdMode1Disc = null)
     {
         RomHashes hashes;
         try
@@ -1283,7 +1341,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
 
         var profile = ProfileResolver?.Invoke(hashes.Sha1) ?? new GameProfile { Sha1 = hashes.Sha1 };
         n64 ??= IsNintendo64(system) ? new N64Setup(SaveTypes: N64SaveTypes) : null;
-        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation, n64, playStation2, snes, atari5200Bios, segaCdBios, sega32XBios);
+        var console = ConsoleFactory.Create(data, system, profile, fdsBios, extension, appleRoms, playStation, n64, playStation2, snes, atari5200Bios, segaCdBios, sega32XBios, segaCdMode1Disc);
         if (console is SnesConsole { Cartridge.Coprocessor: ISnesRealTimeClock clock })
         {
             // A cartridge clock starts at the PC's time for normal play (netplay and challenge replays keep its fixed start).
@@ -1336,6 +1394,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _snes = snes;
         _atari5200Bios = atari5200Bios;
         _segaCdBios = segaCdBios;
+        _segaCdMode1Disc = segaCdMode1Disc;
         _sega32XBios = sega32XBios;
         LoadControllerPak(console);
         LoadPs2MemoryCard(console);

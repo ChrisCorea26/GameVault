@@ -28,6 +28,7 @@ public sealed class SegaCdDrive : IStateful
     private readonly byte[] _command = new byte[10];
     private readonly byte[] _sector = new byte[ICdImage.SectorSize];
     private readonly short[] _audio = new short[588 * 2];
+    private readonly byte[] _subcode = new byte[ICdSubcode.Size];
     private int _state;
     private int _position;
     private int _seekTarget;
@@ -52,6 +53,14 @@ public sealed class SegaCdDrive : IStateful
     public ReadOnlySpan<short> AudioSector => _audio;
 
     public bool AudioPlaying => _audioValid && _state == Playing;
+
+    /// <summary>
+    /// The last tick played a sector and the disc has subcode: <see cref="Subcode"/> holds its 96 symbols for the
+    /// gate array's subcode buffer (genesis-gaps.md §4). Cleared at the start of each tick.
+    /// </summary>
+    public bool SubcodeReady { get; private set; }
+
+    public ReadOnlySpan<byte> Subcode => _subcode;
 
     public Span<byte> Command => _command;
 
@@ -142,6 +151,7 @@ public sealed class SegaCdDrive : IStateful
     /// <summary>A 75 Hz tick: seeks progress, and while playing one sector goes to the CDC (data) or the CD-DA output (audio).</summary>
     public void Tick(Lc8951 cdc)
     {
+        SubcodeReady = false;
         if (Disc is not { } disc)
         {
             return;
@@ -166,6 +176,12 @@ public sealed class SegaCdDrive : IStateful
                 }
 
                 disc.ReadSector(_position, _sector);
+                if (disc is ICdSubcode { HasSubcode: true } subcode)
+                {
+                    subcode.ReadSubcode(_position, _subcode);
+                    SubcodeReady = true;
+                }
+
                 if (TrackAt(_position) is { Type: CdTrackType.Audio })
                 {
                     for (var i = 0; i < _audio.Length; i++)
