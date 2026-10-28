@@ -11,6 +11,7 @@
   </PropertyGroup>
 
   <ItemGroup>
+    <PackageReference Include="Microsoft.Diagnostics.Runtime" />
     <PackageReference Include="NAudio.Wasapi" />
     <PackageReference Include="Silk.NET.SDL" />
     <PackageReference Include="System.IO.Hashing" />

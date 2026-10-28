@@ -205,6 +205,7 @@ public sealed partial class Ps2Console : IR5900Bus, IPs2VuHost
 
         if (address - 0x1200_0000 < 0x2000)
         {
+            RegisterWriteProbe?.Invoke(address, (uint)value);
             Gs.WritePrivileged(address - 0x1200_0000, value);
             UpdateInterruptLines();
             return;
@@ -237,6 +238,7 @@ public sealed partial class Ps2Console : IR5900Bus, IPs2VuHost
         }
 
         // The FIFOs take whole quadwords (ps2tek: "EE Map"); a full FIFO drops the write, as the hardware stalls instead.
+        RegisterWriteProbe?.Invoke(address, (uint)value);
         switch (address)
         {
             case 0x1000_4000:
@@ -410,6 +412,7 @@ public sealed partial class Ps2Console : IR5900Bus, IPs2VuHost
 
     private void WriteRegister32(uint address, uint value, int width)
     {
+        RegisterWriteProbe?.Invoke(address, value);
         switch (address >> 12)
         {
             case 0x1000_0 or 0x1000_1:

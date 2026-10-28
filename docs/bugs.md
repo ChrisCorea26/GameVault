@@ -34,6 +34,7 @@ content is missing. **Low** = wrong text or a small inconsistency.
 | [GV-022](#gv-022) | High | UX | Most pages can't be used with a controller alone | Fixed (e0b0e8a) |
 | [GV-023](#gv-023) | High | PlayStation | Discs stop on the BIOS's white Sony logo | Fixed (b3c1816; pending a check with a retail BIOS) |
 | [GV-024](#gv-024) | High | PlayStation 2 | Discs stay on a black screen with the player's BIOS | Open |
+| [GV-025](#gv-025) | High | PlayStation | Games run slowly and ignore the keyboard at their menu | Open |
 
 ---
 
@@ -320,8 +321,28 @@ content is missing. **Low** = wrong text or a small inconsistency.
   then the EE read $1000F410 42 million times a second at $9FC41928, while the IOP waited on the SIF for it. That
   register kept whatever was written to it; the BIOS waits for it to read 0, as PCSX2 returns. It now reads 0, and so
   does the SIO status at $1000F130 (KPUTCHAR's wait), the only other register on that page that differed. Test:
-  `Ps2ConsoleTests.The_bioss_wait_registers_read_zero_whatever_was_written`. The BIOS may stop further on; the next
-  log will show where.
+  `Ps2ConsoleTests.The_bioss_wait_registers_read_zero_whatever_was_written`.
+- **Second stop (the next log):** the BIOS now prints "Total accessable memory size: 32 MB", the TLB setup,
+  "Initialize Start." and "Initialize GS ...", and then the log ends: not even the once-a-second line comes, so no
+  frame finished. The EE's own frame limit (a tenth of a second of its cycles) would end a frame if the EE were
+  running, so the emulator itself is stuck in C# (a device loop or a wait), not the BIOS in a MIPS loop. The boot log
+  now has a watchdog: when no frame finishes for three seconds it writes, from its own thread, the EE's and IOP's PCs
+  and cycle counts, the last 16 registers each wrote, and the emulation thread's managed stack (read with ClrMD from
+  a snapshot of the process). The next log will name the method it is stuck in.
+
+### GV-025
+
+**Games run slowly and ignore the keyboard at their menu** · High · PlayStation · **Open**
+
+- **Reported** after GV-023's fixes: *Crash Bandicoot* reaches its menu, but runs very slowly with dragging sound,
+  and no keyboard key works there.
+- **Speed:** the core runs a GPU test program at 826 frames a second in a Release build and 128 in a Debug build
+  (`dotnet run` builds Debug unless given `-c Release`), so a Debug build may fall below 60 in a real game. The boot
+  log now gives the build and the real time each 60 frames took.
+- **Keyboard:** the pad's replies and button bits read correctly in the code and tests. The boot log now gives,
+  each second, the buttons the host passed to pad 1, how many conversations the game started on the port, and the
+  last one byte by byte (sent>received, `!` where the device didn't answer with /ACK), so the next log shows whether
+  keys reach the pad and whether the game is reading it.
 
 ---
 

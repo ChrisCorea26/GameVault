@@ -125,6 +125,12 @@ public sealed class PsSio : IStateful
         _cards[1] = slot2;
     }
 
+    /// <summary>
+    /// Each byte exchanged: whether it opens a conversation (the first byte after selecting), what the CPU sent, what
+    /// came back, and whether the device answered with /ACK (the host's boot log; null while unused).
+    /// </summary>
+    public Action<bool, byte, byte, bool>? Trace { get; set; }
+
     /// <summary>IRQ 7, raised on /ACK when enabled.</summary>
     public Action? Interrupt { get; set; }
 
@@ -264,7 +270,9 @@ public sealed class PsSio : IStateful
     private void StartTransfer(byte data, long now)
     {
         _txData = data;
+        var first = _device == Device.None;
         _rxData = Exchange(data, out _pendingAck);
+        Trace?.Invoke(first, data, _rxData, _pendingAck);
         var factor = (_mode & 3) switch { 2 => 16, 3 => 64, _ => 1 };
         _transferDoneAt = now + Math.Max(64, _baud * factor * 8 / 2);
     }

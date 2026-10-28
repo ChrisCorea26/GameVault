@@ -263,6 +263,9 @@ public sealed partial class Ps2Console : IEmulatedConsole, IStateful
     /// <summary>Each hardware register the EE reads (the host's boot log; null while unused).</summary>
     public Action<uint>? RegisterReadProbe { get; set; }
 
+    /// <summary>Each hardware register (or FIFO) the EE writes, with the value's low word (the host's boot log; null while unused).</summary>
+    public Action<uint, uint>? RegisterWriteProbe { get; set; }
+
     /// <summary>The program ended (Exit, or its last thread exited, on GameVault's kernel): the EE stops.</summary>
     public bool Exited { get; internal set; }
 
