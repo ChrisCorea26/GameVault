@@ -67,6 +67,7 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
                 0x4 => new Sdd1(_rom),
                 0x5 => new SharpRtc(Pal ? SnesConsole.PalMasterClock : SnesConsole.NtscMasterClock),
                 0xF when chip == 0xF6 => CreateSeta(chipRoms),
+                0xF when chip == 0xF3 => CreateCx4(chipRoms),
                 0xF when IsSpc7110(chip) => new Spc7110(_rom, ramSize is > 0 and <= 8 ? 1024 << ramSize : 0, withRtc: chip == 0xF9,
                     Pal ? SnesConsole.PalMasterClock : SnesConsole.NtscMasterClock),
                 _ => throw new UnsupportedChipException(ChipName(chip)),
@@ -226,6 +227,17 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
         throw new MissingChipRomException(name, [file]);
     }
 
+    /// <summary>Capcom's Cx4 (chipset $F3), with the player's own data ROM.</summary>
+    private Cx4 CreateCx4(Func<string, byte[]?>? chipRoms)
+    {
+        if (chipRoms?.Invoke("cx4.rom") is { Length: Cx4.DataRomSize } dataRom)
+        {
+            return new Cx4(_rom, dataRom, Pal ? SnesConsole.PalMasterClock : SnesConsole.NtscMasterClock);
+        }
+
+        throw new MissingChipRomException("Cx4", ["cx4.rom"]);
+    }
+
     /// <summary>
     /// Hudson's SPC7110 boards: chipset $F9 (with the RTC), or $F5 whose extended header's subtype ($xFBF) is 0 (the
     /// ST018 shares $F5 with subtype 2). A cartridge without an extended header counts by its size, the program ROM's
@@ -271,7 +283,7 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
         0x4 => "S-DD1",
         0x5 => "S-RTC",
         0xE => "Super Game Boy or Satellaview",
-        _ => "custom (Cx4 or ST018)",
+        _ => "ST018",
     };
 
     /// <summary>Reads the cartridge's part of the address space. Returns false where the cartridge doesn't answer.</summary>
