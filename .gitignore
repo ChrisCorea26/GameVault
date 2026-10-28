@@ -28,6 +28,8 @@ x64/
 x86/
 [Ww][Ii][Nn]32/
 [Aa][Rr][Mm]/
+# ...but not the core's ARM CPU (the SNES ST018's), which lives in a folder of that name.
+!src/GameVault.Core/Cpu/Arm/
 [Aa][Rr][Mm]64/
 bld/
 [Bb]in/
