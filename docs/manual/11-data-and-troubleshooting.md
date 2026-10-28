@@ -53,6 +53,8 @@ The RetroAchievements sign-in is tied to your Windows account, so sign in again 
 | A key or button does the wrong thing | It may be remapped. Open **Remap…** for that keyboard or controller and choose **Back to the standard layout**; in the Player, check whether a remap is set **Only for** this game. |
 | A European game runs too fast, or a US game too slow | Set **Game Details → Properties → Region**. |
 | An Apple II disk shows only the startup screen | Set the Disk II boot ROM in **Settings → Apple II**. |
+| *This cartridge has a disc beside it for the Sega CD…* | The cartridge (an MSU-MD game, say) wants the Sega CD for its music. Choose your Sega CD BIOS in **Settings → Sega CD**; until then it plays without the CD. |
+| A CD+G disc shows no graphics | Keep its subcode as a `.sub` file named like the `.cue`, beside it. A `.chd`'s subcode isn't read. |
 | No sound | Check **Settings → Audio → Game volume** and the Windows volume mixer. Sound is muted while fast-forwarding. |
 | Sound or picture stutters | Close other heavy programs, set **Reduce input lag** to *Low* or *Off*, and choose **Sharp pixels**. The heaviest Nintendo 64 3D scenes can run below full speed on a CPU with few cores. |
 | The game pauses when I click another window | That's **Pause when GameVault is in the background**; turn it off in Settings → Gameplay. |
