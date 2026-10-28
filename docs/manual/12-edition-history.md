@@ -32,3 +32,4 @@
 | 28 | October 2026 | Super Nintendo: *Mega Man X2* and *X3* (the Cx4 chip), with your own `cx4.rom`. |
 | 29 | October 2026 | Super Nintendo: *Hayazashi Nidan Morita Shogi 2* (the ST018 chip), with your own `st018.rom`. Every enhancement chip is now supported. |
 | 30 | October 2026 | PlayStation 2: with Direct3D 11 your graphics card draws the graphics instead of the processor, at every internal resolution, so heavy 3D games run faster. **Exact emulation** turns this off too. |
+| 31 | October 2026 | PlayStation: discs no longer stop on the BIOS's white Sony logo. PlayStation and PlayStation 2 games write their first minute to `logs\boot-ps1.log` or `logs\boot-ps2.log`, to send with a report when a game stays on a BIOS screen or a black screen. |

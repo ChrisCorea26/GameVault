@@ -158,6 +158,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
         _audio = audio;
         _batteries = paths is null ? null : new BatterySaveStore(paths);
         _shaderCache = paths is null ? null : Path.Combine(paths.Root, "Shaders");
+        _logsDirectory = paths is null ? null : Path.GetDirectoryName(paths.CrashLogFile);
         _diskSaves = paths is null ? null : new BatterySaveStore(paths, ".fdssave");
         _appleDiskSaves = paths is null ? null : new BatterySaveStore(paths, ".a2save");
         _memoryCards = paths is null ? null : new BatterySaveStore(paths, ".mcd");
@@ -1470,6 +1471,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             ReleaseDiscs(_console);
             _console = console;
             AttachGpuRenderer(console);
+            _bootLog = BootLog.Start(console, _logsDirectory, title);
             _seenCheats = null;
             _cheatsActive = false;
             _diskOriginal = diskOriginal;
@@ -1941,6 +1943,7 @@ public sealed partial class EmulatorHost : IEmulatorService, IDisposable
             }
 
             var runAheadOff = _runAhead.RunFrame(console, _present);
+            _bootLog?.OnFrame();
             if (console is NesConsole passwordConsole && _passwords.OnFrame(passwordConsole) is { } password)
             {
                 var png = PngEncoder.Encode(PngEncoder.ToArgb(console.FrameBuffer, _palette), 256, 240);

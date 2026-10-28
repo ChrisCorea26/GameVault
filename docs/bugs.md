@@ -32,6 +32,8 @@ content is missing. **Low** = wrong text or a small inconsistency.
 | [GV-020](#gv-020) | Low | Video | Overscan crop is only on or off | Fixed (12a99fa) |
 | [GV-021](#gv-021) | High | Input | App crashes on launching a game after visiting Settings | Fixed |
 | [GV-022](#gv-022) | High | UX | Most pages can't be used with a controller alone | Fixed (e0b0e8a) |
+| [GV-023](#gv-023) | High | PlayStation | Discs stop on the BIOS's white Sony logo | Fixed (pending a check with a retail BIOS) |
+| [GV-024](#gv-024) | High | PlayStation 2 | Discs stay on a black screen with the player's BIOS | Open |
 
 ---
 
@@ -275,6 +277,37 @@ content is missing. **Low** = wrong text or a small inconsistency.
 - **Fixed** in `e0b0e8a`: `PadFocusPlanner` decides each press from the focused element and `PadNavigation` carries it out
   with XY focus and UI Automation on every page and flyout; the shoulders, triggers, North and Start were added
   (`docs/design/input.md` §7.1, `docs/plans/outstanding-work.md` §1).
+
+### GV-023
+
+**Discs stop on the BIOS's white Sony logo** · High · PlayStation · **Fixed (pending a check with a retail BIOS)**
+
+- **Expected:** With the player's BIOS and fast boot off, a disc goes from the white Sony Computer Entertainment logo to
+  the black PlayStation logo and the game.
+- **Actual (reported):** a `.cue`/`.bin` disc stays on the white logo, which is where the BIOS starts the CD-ROM drive
+  and reads the disc.
+- **Cause found:** when a response waited behind an unacknowledged one (GetID's or Init's second response, for example),
+  `PsCdRom` delivered it inside the write that acknowledged the first. The BIOS's handler acknowledges the controller
+  first and I_STAT after (OpenBIOS `cdromIOVerifier`/`cdromIOHandler`), so the second write cleared the new
+  interrupt's I_STAT bit and the BIOS waited for it forever. A waiting response now arrives 1,000 cycles after the
+  acknowledge, and a sector's INT1 no longer queues behind one still unacknowledged (as DuckStation does). Test:
+  `PlayStationMachineTests.A_response_waiting_behind_another_still_interrupts_after_the_bios_acknowledges_both`.
+- **Still to check:** no retail BIOS is available to the tests. If a disc still stops, `logs\boot-ps1.log` (below)
+  shows the drive's last command and where the CPU is waiting.
+
+### GV-024
+
+**Discs stay on a black screen with the player's BIOS** · High · PlayStation 2 · **Open**
+
+- **Expected:** With the player's BIOS, a disc (`.iso`) shows the BIOS's start-up screens and then the game.
+- **Actual (reported):** a black screen from the start, with fast boot off and with **Exact emulation** on (so the GPU
+  renderer isn't the cause). The BIOS never reaches a picture, so the EE or the IOP is stuck early in its boot.
+- **Why it's still open:** the BIOS boot has only been tested with the stand-in BIOS the tests build
+  (`docs/plans/phase-17.md`); a retail BIOS can't be in the repository or the tests.
+- **To diagnose:** every PlayStation and PlayStation 2 game now writes its first minute to `logs\boot-ps1.log` or
+  `logs\boot-ps2.log` (`BootLog`): once a second where the EE and the IOP are, the hardware registers each reads most
+  (a stuck BIOS spins on one), PMODE/SMODE2, and the BIOS's own text output; on the PlayStation every CD-ROM command and
+  response. The next step is to read a log from the reporter's BIOS and disc.
 
 ---
 

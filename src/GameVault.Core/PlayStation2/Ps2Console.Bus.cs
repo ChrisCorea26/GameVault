@@ -90,6 +90,7 @@ public sealed partial class Ps2Console : IR5900Bus, IPs2VuHost
 
         if (address - 0x1200_0000 < 0x2000)
         {
+            RegisterReadProbe?.Invoke(address);
             return Gs.ReadPrivileged(address - 0x1200_0000);
         }
 
@@ -316,6 +317,7 @@ public sealed partial class Ps2Console : IR5900Bus, IPs2VuHost
 
     private uint ReadRegister32(uint address)
     {
+        RegisterReadProbe?.Invoke(address);
         switch (address >> 12)
         {
             case 0x1000_0 or 0x1000_1:

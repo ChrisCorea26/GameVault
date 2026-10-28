@@ -211,6 +211,30 @@ public sealed class PlayStationMachineTests
     }
 
     [Fact]
+    public void A_response_waiting_behind_another_still_interrupts_after_the_bios_acknowledges_both()
+    {
+        var console = Idle(TestDisc.Create(PlayStationConsoleTests.Exe(Mips.Nop)));
+        Command(console, 0x01);
+        console.Write8(0x1F801800, 1);
+        console.Write8(0x1F801802, 0x1F); // every CD-ROM interrupt enabled
+
+        // GetID, with the CPU busy until both its responses are due.
+        console.Write8(0x1F801800, 0);
+        console.Write8(0x1F801801, 0x1A);
+        console.RunCycles(300_000);
+        console.Write8(0x1F801800, 1);
+        (console.Read8(0x1F801803) & 7).Should().Be(3);
+
+        // The BIOS's handler acknowledges the controller, then I_STAT (OpenBIOS cdromIOVerifier, cdromIOHandler).
+        console.Write8(0x1F801803, 0x07);
+        console.Write32(0x1F801070, ~4u);
+        console.RunCycles(5_000);
+
+        (console.Read32(0x1F801070) & 4).Should().Be(4, "GetID's second response raises its own interrupt");
+        (console.Read8(0x1F801803) & 7).Should().Be(2);
+    }
+
+    [Fact]
     public void Gettn_and_gettd_describe_the_tracks()
     {
         var console = Idle(TestDisc.Create(PlayStationConsoleTests.Exe(Mips.Nop), audioSectors: 75 * 3));

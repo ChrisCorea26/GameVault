@@ -22,6 +22,11 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
     private const int GetIdSecondDelay = 0x4A00;
     private const int PauseSecondDelay = 0x21181;
     private const int SingleSpeedSector = CyclesPerSecond / 75;
+
+    // A response waiting behind an unacknowledged one arrives this long after the acknowledge, not during it: the
+    // BIOS's handler acknowledges the controller before I_STAT, so an interrupt raised inside the first write would be
+    // cleared by the second and never seen (DuckStation's MINIMUM_INTERRUPT_DELAY, read for facts only).
+    private const int InterruptDelay = 1000;
     private const int AudioCapacity = 0x4000; // stereo samples buffered for the SPU (power of two)
 
     private static readonly StateTag Tag = StateTag.From("PCDR");
@@ -74,6 +79,8 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
     private long _secondAt = long.MaxValue;
     private byte _secondCommand;
     private long _sectorAt = long.MaxValue;
+    private long _deliverAt = long.MaxValue;
+    private long _lastAcknowledge = long.MinValue / 2;
     private int _queueCount;
     private int _reportCounter;
 
@@ -107,6 +114,9 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
 
     public ICdImage? Disc => _disc;
 
+    /// <summary>Each command the drive carries out and each response it gives, as text (the host's boot log; null while unused).</summary>
+    public Action<string>? Trace { get; set; }
+
     public bool ShellOpen => _shellOpen;
 
     public void Reset()
@@ -126,7 +136,8 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
         _state = DriveState.Idle;
         _setloc = _position = 150;
         _setlocPending = false;
-        _commandAt = _secondAt = _sectorAt = long.MaxValue;
+        _commandAt = _secondAt = _sectorAt = _deliverAt = long.MaxValue;
+        _lastAcknowledge = long.MinValue / 2;
         _queueCount = 0;
         _audioWrite = _audioRead = 0;
         _xaCount = 0;
@@ -232,15 +243,17 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
                 break;
             case (3, 1):
                 // Acknowledge: writing 1s clears flags; bit 6 clears the parameter FIFO.
+                var wasFlagged = _interruptFlags != 0;
                 _interruptFlags &= (byte)~(value & 0x1F);
                 if ((value & 0x40) != 0)
                 {
                     _parameterCount = 0;
                 }
 
-                if (_interruptFlags == 0)
+                if (_interruptFlags == 0 && wasFlagged)
                 {
-                    DeliverQueued();
+                    _lastAcknowledge = _now;
+                    ScheduleDelivery();
                 }
 
                 UpdateInterrupt();
@@ -296,7 +309,7 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
     {
         while (true)
         {
-            var next = Math.Min(_commandAt, Math.Min(_secondAt, _sectorAt));
+            var next = NextEvent;
             if (next > now)
             {
                 _now = now;
@@ -316,6 +329,14 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
                 _secondAt = long.MaxValue;
                 SecondResponse(_secondCommand);
             }
+            else if (next == _deliverAt)
+            {
+                _deliverAt = long.MaxValue;
+                if (_interruptFlags == 0)
+                {
+                    DeliverQueued();
+                }
+            }
             else
             {
                 _sectorAt = long.MaxValue;
@@ -325,7 +346,7 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
     }
 
     /// <summary>Cycles from <paramref name="now"/> until the drive next needs attention.</summary>
-    public long NextEvent => Math.Min(_commandAt, Math.Min(_secondAt, _sectorAt));
+    public long NextEvent => Math.Min(Math.Min(_commandAt, _deliverAt), Math.Min(_secondAt, _sectorAt));
 
     private int SectorCycles => (_mode & 0x80) != 0 ? SingleSpeedSector / 2 : SingleSpeedSector;
 
@@ -370,6 +391,7 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
     {
         var p = _parameters.AsSpan(0, _parameterCount);
         _parameterCount = 0;
+        Trace?.Invoke($"{_now,12} command {command:X2} {Convert.ToHexString(p)}");
 
         if (_disc is null && command is 0x06 or 0x1B or 0x03 or 0x15 or 0x16 or 0x1E or 0x1A)
         {
@@ -915,13 +937,41 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
             pending.Bytes |= (ulong)bytes[i] << (8 * i);
         }
 
-        if (_interruptFlags == 0 && _queueCount == 0)
+        if (type == 1 && (_interruptFlags == 1 || QueueHolds(1)))
+        {
+            return; // a sector's INT1 while the last one waits: the buffer simply holds the newer sector
+        }
+
+        if (_interruptFlags == 0 && _queueCount == 0 && _now - _lastAcknowledge >= InterruptDelay)
         {
             Deliver(pending);
         }
         else if (_queueCount < _queue.Length)
         {
             _queue[_queueCount++] = pending;
+            ScheduleDelivery();
+        }
+    }
+
+    private bool QueueHolds(byte type)
+    {
+        for (var i = 0; i < _queueCount; i++)
+        {
+            if (_queue[i].Type == type)
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>With the flags clear and a response waiting, delivers it once the delay after the last acknowledge has passed.</summary>
+    private void ScheduleDelivery()
+    {
+        if (_interruptFlags == 0 && _queueCount > 0 && _deliverAt == long.MaxValue)
+        {
+            _deliverAt = Math.Max(_now, _lastAcknowledge + InterruptDelay);
         }
     }
 
@@ -947,6 +997,7 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
         }
 
         _interruptFlags = pending.Type;
+        Trace?.Invoke($"{_now,12} INT{pending.Type} {Convert.ToHexString(_response.AsSpan(0, _responseCount))}");
         UpdateInterrupt();
     }
 
@@ -966,7 +1017,7 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 1);
+        writer.BeginChunk(Tag, 2);
         writer.WriteBytes(_parameters);
         writer.WriteBytes(_response);
         writer.WriteBytes(_sector);
@@ -1025,12 +1076,14 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
         }
 
         writer.WriteInt64(_xaPhase);
+        writer.WriteInt64(_deliverAt);
+        writer.WriteInt64(_lastAcknowledge);
         writer.EndChunk();
     }
 
     public void LoadState(StateReader reader)
     {
-        reader.BeginChunk(Tag);
+        var version = reader.BeginChunk(Tag);
         reader.ReadBytes(_parameters);
         reader.ReadBytes(_response);
         reader.ReadBytes(_sector);
@@ -1092,6 +1145,18 @@ public sealed class PsCdRom : IStateful, ICdAudioSource
         }
 
         _xaPhase = reader.ReadInt64();
+        _deliverAt = long.MaxValue;
+        _lastAcknowledge = long.MinValue / 2;
+        if (version >= 2)
+        {
+            _deliverAt = reader.ReadInt64();
+            _lastAcknowledge = reader.ReadInt64();
+        }
+        else if (_interruptFlags == 0 && _queueCount > 0)
+        {
+            _deliverAt = _now; // a version-1 state could hold a response that was due at once
+        }
+
         reader.EndChunk();
     }
 }

@@ -20,6 +20,11 @@ public sealed partial class EmulatorHost
     /// <summary>The Direct3D renderer drawing the running PlayStation's picture at a higher resolution; null at 1×.</summary>
     private D3D11PsGpuRenderer? _psRenderer;
 
+    /// <summary>The first minute of a PlayStation or PlayStation 2 game, logged to <c>logs\boot-ps1.log</c> or <c>boot-ps2.log</c>.</summary>
+    private BootLog? _bootLog;
+
+    private readonly string? _logsDirectory;
+
     /// <summary>The discs of an .m3u game, by file name, for the Player's disc picker; empty for other games.</summary>
     public IReadOnlyList<string> DiscNames { get; private set; } = [];
 
@@ -149,6 +154,8 @@ public sealed partial class EmulatorHost
     /// </summary>
     private void ReleaseDiscs(Core.Systems.IEmulatedConsole? console)
     {
+        _bootLog?.Dispose();
+        _bootLog = null;
         if (console is PlayStationConsole ps)
         {
             (ps.CdRom.Disc as IDisposable)?.Dispose();
