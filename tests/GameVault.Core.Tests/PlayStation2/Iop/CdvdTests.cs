@@ -74,6 +74,37 @@ public sealed class CdvdTests
     }
 
     [Fact]
+    public void Read_key_gives_the_disc_key_made_from_the_boot_serial_and_dec_set_decrypts_sectors()
+    {
+        // The BIOS checks the disc's key before it boots a disc; with no key it shows its own menu (GV-024).
+        var iso = GameVault.Core.Tests.PlayStation2.Console.Ps2BiosBootTests.Iso(null, "BOOT2 = cdrom0:\\SLUS_209.46;1\r\nVER = 1.00\r\n");
+        Iop.Disc = new MemoryPs2Disc(iso, Ps2DiscType.Dvd);
+        _h.Run(Second / 2);
+
+        NCommand(0x0C, 0, 0, 0, 75, 0, 0, 0); // ReadKey for sector 75
+        _h.Run(Second / 10);
+        Completed.Should().BeTrue();
+
+        // PCSX2's cdvdReadKey for "SLUS-20946": the letters and number packed into bytes 0–4, byte 14 from the number.
+        byte[] key = [_h.Read8(Cdvd + 0x20), _h.Read8(Cdvd + 0x21), _h.Read8(Cdvd + 0x22), _h.Read8(Cdvd + 0x23), _h.Read8(Cdvd + 0x24)];
+        key.Should().Equal(0x94, 0x69, 0x95, 0x39, 0x95);
+        _h.Read8(Cdvd + 0x34).Should().Be(0x74);
+        _h.Read8(Cdvd + 0x38).Should().Be(0x05, "for sector 75 the first and last parts are valid");
+
+        Ps2Cdvd.DiscSerial("cdrom0:\\SCES_123.45;1").Should().Be("SCES_123.45");
+        Ps2Cdvd.DiscSerial("cdrom0:\\MAIN.ELF;1").Should().BeNull();
+
+        // DEC-SET 01h: the sectors read come XORed with key byte 4.
+        _h.Write8(Cdvd + 0x3A, 0x01);
+        _h.Iop.Ram.AsSpan(0x10000, 2048).Clear();
+        StartDma3(0x10000, 2048, 1);
+        NCommand(0x08, ReadParams(18, 1));
+        _h.Run(Second / 2);
+        var expected = iso[(18 * 2048) + 12] ^ 0x95;
+        _h.Iop.Ram[0x10000 + 24].Should().Be((byte)expected, "a DVD block is the 12-byte header, then the sector");
+    }
+
+    [Fact]
     public void A_nop_completes_with_the_cdvd_interrupt()
     {
         (_h.Read8(Cdvd + 5) & 0xC0).Should().Be(0x40, "ready, not busy");

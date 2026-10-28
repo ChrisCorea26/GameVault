@@ -83,7 +83,7 @@ public sealed class Ps2BiosBootTests
     /// An ISO 9660 image: the volume descriptors at 16 and 17, the root directory at 18 with SYSTEM.CNF (19) and, when
     /// given, the boot ELF (from 20), then numbered sectors up to 64.
     /// </summary>
-    private static byte[] Iso(byte[]? elf, string? systemCnf)
+    internal static byte[] Iso(byte[]? elf, string? systemCnf)
     {
         const int sectors = 64;
         var image = new byte[sectors * 2048];

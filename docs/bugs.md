@@ -336,6 +336,14 @@ content is missing. **Low** = wrong text or a small inconsistency.
   for its status at $1A000006 to say ready (bit 1). `Ps2Dve` now models it as PCSX2's `ba0R16`/`ba0W16` do
   (commands, power, the status that turns ready a few reads after a command, the error bit), and it is in the save
   state (console chunk version 3). Test: `Ps2ConsoleTests.The_video_encoder_reports_ready_a_few_status_reads_after_a_command`.
+- **Fourth stop:** the BIOS now finishes its start-up, shows the Sony screen and runs its browser, but showed its
+  main menu (only the ✕ "Enter" hint drawn) instead of booting the disc. The drive's ReadKey command (N 0Ch) gave no
+  key: registers $20–$39 read 0 and DEC-SET ($3A) wasn't there. ReadKey now makes the key from the boot serial as
+  PCSX2's `cdvdReadKey` does, the key registers read it back, and DEC-SET decrypts the sectors read (XOR with key
+  byte 4, then a rotate). Saved in the CDVD's state, version 2. Test:
+  `CdvdTests.Read_key_gives_the_disc_key_made_from_the_boot_serial_and_dec_set_decrypts_sectors`.
+- **Still open:** the browser's menu draws almost nothing (its text and background are missing), and the log showed
+  4–8 s of real time per 60 frames in a Release build.
 
 ### GV-025
 
