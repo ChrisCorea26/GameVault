@@ -10,8 +10,8 @@ namespace GameVault.Core.SegaCd;
 /// The Sega CD (Mega-CD), as the Genesis sees it plugged in underneath (sega-cd-32x.md, milestone 1): the sub CPU
 /// and its memory, the gate array that joins the two CPUs, the drive (<see cref="SegaCdDrive"/>), the CDC
 /// (<see cref="Lc8951"/>), the PCM chip (<see cref="Rf5c164"/>) and the graphics ASIC (<see cref="SegaCdGraphics"/>).
-/// <see cref="Genesis.GenesisConsole"/> routes the main CPU's $000000–$3FFFFF and $A12000–$A1202F here and runs the
-/// unit in step with its master clock.
+/// <see cref="Genesis.GenesisConsole"/> routes the main CPU's $000000–$3FFFFF (or $400000–$7FFFFF in
+/// <see cref="Mode1"/>) and $A12000–$A1202F here and runs the unit in step with its master clock.
 /// </summary>
 /// <remarks>
 /// The sub CPU runs at 12.5 MHz. Word RAM is held in its 2M layout; in 1M mode bank 0 is its even words and bank 1
@@ -34,6 +34,7 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
     private readonly byte[] _backupRam = new byte[0x2000];
     private readonly byte[] _commCommand = new byte[16];
     private readonly byte[] _commStatus = new byte[16];
+    private readonly byte[] _subcodeBuffer = new byte[128];
     private readonly long _masterClock;
 
     private bool _subReset = true;
@@ -61,6 +62,7 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
     private int _dmaAddress;
     private bool _dmaRunning;
     private bool _cdcInterrupt;
+    private byte _subcodeAddress;
 
     private long _subCycles;
     private long _frameBase;      // master clocks before this frame
@@ -115,6 +117,13 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
     }
 
     public M68000Cpu Cpu { get; }
+
+    /// <summary>
+    /// Mode 1: a cartridge is in the slot and the Genesis boots it, with this unit moved up to $400000–$7FFFFF (the
+    /// BIOS at $400000, PRG-RAM's bank at $420000, Word RAM at $600000). The gate array stays at $A12000. Mode 2 (no
+    /// cartridge) boots the BIOS at $000000.
+    /// </summary>
+    public bool Mode1 { get; init; }
 
     public SegaCdDrive Drive { get; }
 
@@ -181,6 +190,8 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
         _dmaAddress = 0;
         _dmaRunning = false;
         _cdcInterrupt = false;
+        _subcodeAddress = 0;
+        Array.Clear(_subcodeBuffer);
         _tickCountdown = ClocksPerTick;
         Pcm.Reset();
         Cdc.Reset();
@@ -257,6 +268,11 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
             if ((_driveControl & 0x04) != 0)
             {
                 Raise(4); // HOCK: the drive reports each tick
+            }
+
+            if (Drive.SubcodeReady)
+            {
+                StoreSubcode(Drive.Subcode);
             }
         }
 
@@ -361,6 +377,26 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
         }
     }
 
+    /// <summary>
+    /// A sector's subcode reaches the gate array (genesis-gaps.md §4): the pointer at $FF8069 moves on by 98 bytes
+    /// (the sector's two sync symbols and 96 symbols) within the 64-word buffer at $FF8100, the 96 symbols go in from
+    /// there two to a word, and the level 6 interrupt is raised. The BIOS's CD player decodes CD+G from the buffer.
+    /// Behaviour follows Genesis Plus GX's cdd.c, read for behaviour only.
+    /// </summary>
+    private void StoreSubcode(ReadOnlySpan<byte> symbols)
+    {
+        _subcodeAddress = (byte)((_subcodeAddress + 98) & 0x7E);
+        var word = _subcodeAddress >> 1;
+        for (var i = 0; i < ICdSubcode.Size; i += 2)
+        {
+            _subcodeBuffer[word * 2] = symbols[i];
+            _subcodeBuffer[word * 2 + 1] = symbols[i + 1];
+            word = (word + 1) & 0x3F;
+        }
+
+        Raise(6);
+    }
+
     // ---- Word RAM ----
 
     /// <summary>In 1M mode RET gives bank 1 to the main CPU when set, bank 0 when clear; the sub CPU has the other.</summary>
@@ -372,6 +408,40 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
     private static int BankAddress(int bank, int offset) => ((((offset >> 1) << 1) | bank) << 1 | (offset & 1)) & 0x3FFFF;
 
     private bool MainHasWordRam => _mode1M || _ret;
+
+    /// <summary>
+    /// The main CPU's 1M-mode cell image ($220000–$23FFFF): its bank read as a bitmap 64 cells (512 dots) wide, long
+    /// words re-ordered so that consecutive ones run down a column of cells, and a VDP DMA from it moves whole tiles.
+    /// The column is 32 cells tall over the first 64 KB, 16 over the next 32 KB, 8 over the next 16 KB, and 4 over
+    /// each of the last two 8 KB. Returns the byte's place in the bank. Mega-CD hardware manual, "Word RAM: cell
+    /// image"; PicoDrive's cell_map gives the same order.
+    /// </summary>
+    internal static int CellImageAddress(int offset)
+    {
+        var cell = (offset >> 2) & 0x7FFF; // the long word within the image
+        int column, row;
+        switch (cell >> 12)
+        {
+            case < 4: // 32 cells tall: 256 lines
+                column = cell >> 8;
+                row = cell & 0xFF;
+                break;
+            case < 6: // 16 cells: lines 256–383
+                column = cell >> 7;
+                row = 0x100 | (cell & 0x7F);
+                break;
+            case 6: // 8 cells: lines 384–447
+                column = cell >> 6;
+                row = 0x180 | (cell & 0x3F);
+                break;
+            default: // 4 cells: lines 448–479, then 480–511
+                column = cell >> 5;
+                row = ((cell & 0x7800) >> 6) | (cell & 0x1F);
+                break;
+        }
+
+        return (((column & 0x3F) + row * 64) << 2) | (offset & 3);
+    }
 
     private bool SubHasWordRam => _mode1M || !_ret;
 
@@ -420,7 +490,7 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
         var word = (int)(address & 0x3FFFF);
         if (_mode1M)
         {
-            return word < 0x20000 ? _wordRam[BankAddress(MainBank, word)] : (byte)0;
+            return _wordRam[BankAddress(MainBank, word < 0x20000 ? word : CellImageAddress(word - 0x20000))];
         }
 
         return MainHasWordRam ? _wordRam[word] : (byte)0;
@@ -445,10 +515,7 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
         var word = (int)(address & 0x3FFFF);
         if (_mode1M)
         {
-            if (word < 0x20000)
-            {
-                _wordRam[BankAddress(MainBank, word)] = value;
-            }
+            _wordRam[BankAddress(MainBank, word < 0x20000 ? word : CellImageAddress(word - 0x20000))] = value;
         }
         else if (MainHasWordRam)
         {
@@ -777,6 +844,8 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
 
             case 0x58: return (byte)(Graphics.Busy ? 0x80 : 0);
             case 0x59: return (byte)Graphics.StampSize;
+            case 0x69: return _subcodeAddress;
+            case >= 0x100: return _subcodeBuffer[a & 0x7F]; // 64 words, mirrored at $FF8180
             default: return 0;
         }
     }
@@ -890,7 +959,7 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
 
     public void SaveState(StateWriter writer)
     {
-        writer.BeginChunk(Tag, 1);
+        writer.BeginChunk(Tag, 2);
         Cpu.SaveState(writer);
         Drive.SaveState(writer);
         Cdc.SaveState(writer);
@@ -932,12 +1001,14 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
         writer.WriteInt32(_tickCountdown);
         writer.WriteInt64(_cddTicks);
         writer.WriteInt64(_lastCddCycle);
+        writer.WriteBytes(_subcodeBuffer);
+        writer.WriteByte(_subcodeAddress);
         writer.EndChunk();
     }
 
     public void LoadState(StateReader reader)
     {
-        reader.BeginChunk(Tag);
+        var version = reader.BeginChunk(Tag);
         Cpu.LoadState(reader);
         Drive.LoadState(reader);
         Cdc.LoadState(reader);
@@ -979,6 +1050,17 @@ public sealed class SegaCdUnit : IM68000Bus, IStateful, IBatteryBacked
         _tickCountdown = Math.Clamp(reader.ReadInt32(), 1, ClocksPerTick);
         _cddTicks = reader.ReadInt64();
         _lastCddCycle = reader.ReadInt64();
+        if (version >= 2)
+        {
+            reader.ReadBytes(_subcodeBuffer);
+            _subcodeAddress = (byte)(reader.ReadByte() & 0x7E);
+        }
+        else
+        {
+            Array.Clear(_subcodeBuffer);
+            _subcodeAddress = 0;
+        }
+
         reader.EndChunk();
         _lastLeft = _lastRight = 0;
     }

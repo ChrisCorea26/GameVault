@@ -276,6 +276,47 @@ public sealed class SegaCdTests
         unit.WordRam[3].Should().Be(0x70);
     }
 
+    [Theory]
+    [InlineData(0x00000, 32)] // the first 64 KB: columns 32 cells tall
+    [InlineData(0x10000, 16)]
+    [InlineData(0x18000, 8)]
+    [InlineData(0x1C000, 4)]
+    [InlineData(0x1E000, 4)]
+    public void In_1m_mode_the_cell_image_reads_the_main_cpus_bank_cell_by_cell(int areaStart, int cellsTall)
+    {
+        var unit = Console(Loop).SegaCd!;
+        unit.WriteByte(0xFF8003, 0x04); // 1M mode
+
+        // The bank as a bitmap 512 dots (256 bytes) wide: give each byte its line and its column of cells.
+        var lineBase = areaStart / 256;
+        for (var line = 0; line < cellsTall * 8; line++)
+        {
+            for (var column = 0; column < 64; column++)
+            {
+                for (var b = 0; b < 4; b++)
+                {
+                    unit.MainWriteByte((uint)(0x200000 + (lineBase + line) * 256 + column * 4 + b), (byte)(line * 4 + b ^ column));
+                }
+            }
+        }
+
+        // In the cell image the area's long words run down each column: 8 lines make a cell, then the next cell below.
+        for (var column = 0; column < 64; column += 21)
+        {
+            for (var line = 0; line < cellsTall * 8; line += 5)
+            {
+                var image = (uint)(0x220000 + areaStart + (column * cellsTall * 8 + line) * 4);
+                for (var b = 0; b < 4; b++)
+                {
+                    unit.MainReadByte(image + (uint)b).Should().Be((byte)(line * 4 + b ^ column), $"column {column}, line {line}");
+                }
+            }
+        }
+
+        unit.MainWriteByte((uint)(0x220000 + areaStart + 4), 0xEE); // the second long word: line 1 of column 0
+        unit.MainReadByte((uint)(0x200000 + (lineBase + 1) * 256)).Should().Be(0xEE, "writes go through the view as well");
+    }
+
     // ---- The drive ----
 
     [Fact]
@@ -529,5 +570,178 @@ public sealed class SegaCdTests
 
         unit.MainReadGate(0x20).Should().Be(count);
         unit.Drive.Position.Should().Be(position);
+    }
+
+    // ---- Mode 1: a cartridge that uses the CD ----
+
+    /// <summary>A Genesis booting a cartridge (<paramref name="main"/> at $200), with the Sega CD in mode 1.</summary>
+    private static GenesisConsole Mode1Console(ushort[] main, ushort[]? sub = null, Action<byte[]>? rom = null)
+    {
+        var cartridge = new byte[0x20000];
+        Long(cartridge, 0, 0xFFFFFE00);
+        Long(cartridge, 4, 0x200);
+        "SEGA GENESIS    "u8.CopyTo(cartridge.AsSpan(0x100));
+        Put(cartridge, 0x200, main);
+        rom?.Invoke(cartridge);
+
+        var bios = Bios(Loop);
+        "SEGA"u8.CopyTo(bios.AsSpan(0x100));
+        var unit = new SegaCdUnit(bios, Disc(), GenesisConsole.NtscMasterClock) { Mode1 = true };
+        var console = new GenesisConsole(new GenesisCartridge(cartridge), GenesisRegion.Americas, segaCd: unit);
+        console.Power();
+        Long(unit.PrgRam, 0, 0x0007FF00);
+        Long(unit.PrgRam, 4, 0x1000);
+        Put(unit.PrgRam, 0x1000, sub ?? Loop);
+        return console;
+    }
+
+    [Fact]
+    public void In_mode_1_the_cartridge_boots_and_the_unit_answers_at_400000()
+    {
+        // The cartridge copies the BIOS's "SEGA" into RAM, writes PRG-RAM through $420000 and starts the sub CPU.
+        var main = Words(
+            MoveBMem(0x400100, 0xFFFF00),
+            MoveBMem(0x400103, 0xFFFF01),
+            MoveB(0x77, 0x420010),
+            MoveB(0x33, 0xA12010),
+            MoveB(0x01, 0xA12001),
+            Loop);
+        var sub = Words(MoveBMem(0xFF8010, 0xFF8020), Loop);
+        var console = Mode1Console(main, sub);
+        var unit = console.SegaCd!;
+
+        console.RunFrame();
+
+        console.System.Should().Be(GameVault.Core.Systems.GameSystem.Genesis, "a mode 1 game is a cartridge");
+        console.WorkRam[0xFF00].Should().Be((byte)'S', "the BIOS reads at $400000");
+        console.WorkRam[0xFF01].Should().Be((byte)'A');
+        unit.PrgRam[0x10].Should().Be(0x77, "PRG-RAM's bank is at $420000");
+        unit.SubRunning.Should().BeTrue();
+        unit.MainReadGate(0x20).Should().Be(0x33, "the sub CPU read the main CPU's command word");
+        console.ReadByte(0x000100).Should().Be((byte)'S', "the cartridge stays at $000000");
+        console.ReadByte(0x000101).Should().Be((byte)'E');
+        console.RomHash.Should().NotBe(unit.DiscHash, "the game is the cartridge");
+    }
+
+    [Fact]
+    public void In_mode_1_word_ram_is_at_600000()
+    {
+        var console = Mode1Console(Words(MoveB(0x5C, 0x600002), MoveBMem(0x600002, 0xFFFF00), Loop));
+
+        console.RunFrame();
+
+        console.SegaCd!.WordRam[2].Should().Be(0x5C);
+        console.WorkRam[0xFF00].Should().Be(0x5C);
+    }
+
+    [Fact]
+    public void In_mode_1_the_cartridges_own_save_wins_over_backup_ram()
+    {
+        var plain = Mode1Console(Loop);
+        plain.Battery.Should().BeSameAs(plain.SegaCd, "a cartridge without a save uses backup RAM");
+
+        var saving = Mode1Console(Loop, rom: rom =>
+        {
+            "RA"u8.CopyTo(rom.AsSpan(0x1B0));
+            rom[0x1B2] = 0xF8;
+            rom[0x1B3] = 0x20;
+            Long(rom, 0x1B4, 0x200001); // byte-wide SRAM on the odd bytes of $200001–$203FFF
+            Long(rom, 0x1B8, 0x203FFF);
+        });
+        saving.Battery.Should().BeSameAs(saving.Cartridge);
+    }
+
+    [Fact]
+    public void A_mode_1_save_state_round_trips_the_cartridge_and_the_unit()
+    {
+        var sub = Words(AddqB(0xFF8020), [0x60F8]);
+        var console = Mode1Console(Words(MoveB(0x01, 0xA12001), AddqB(0xFFFF10), [0x60F8]), sub);
+        console.RunFrame();
+
+        var state = console.SaveSnapshot();
+        console.RunFrame();
+        var count = console.SegaCd!.MainReadGate(0x20);
+        var ram = console.WorkRam[0xFF10];
+
+        console.LoadSnapshot(state);
+        console.RunFrame();
+
+        console.SegaCd.MainReadGate(0x20).Should().Be(count);
+        console.WorkRam[0xFF10].Should().Be(ram);
+    }
+
+    // ---- Subcode (CD+G) ----
+
+    [Fact]
+    public void Subcode_reaches_the_gate_arrays_buffer_with_the_level_6_interrupt()
+    {
+        // Each sector's 96 symbols: the sector's number, then the symbol's.
+        var data = Disc();
+        var sectors = new byte[150 * ICdImage.SectorSize];
+        var subcode = new byte[150 * 96];
+        for (var sector = 0; sector < 150; sector++)
+        {
+            data.ReadSector(150 + sector, sectors.AsSpan(sector * ICdImage.SectorSize, ICdImage.SectorSize));
+            for (var symbol = 0; symbol < 96; symbol++)
+            {
+                subcode[sector * 96 + symbol] = (byte)(sector * 3 + symbol);
+            }
+        }
+
+        var disc = new MemoryCdImage(sectors, data.Tracks, subcode);
+        var sub = Words(MoveB(0x40, 0xFF8033), EnableInterrupts, Loop);
+        var console = Console(Words(MoveB(0x01, 0xA12001), Loop), sub, disc, prg: prg =>
+        {
+            Long(prg, 0x78, 0x2000); // level 6
+            Put(prg, 0x2000, Words(AddqB(0xFF8020), Rte));
+        });
+        var unit = console.SegaCd!;
+        console.RunFrame();
+        Command(unit, 0x3, 0, 0, 0, 0, 2, 0, 0); // play from 00:02:00
+        for (var i = 0; i < 30; i++)
+        {
+            console.RunFrame();
+        }
+
+        var played = unit.Drive.Position - 150; // sectors played so far
+        played.Should().BeGreaterThan(5);
+        unit.MainReadGate(0x20).Should().Be((byte)played, "one level 6 interrupt a sector");
+
+        // The pointer moved 98 bytes a sector; the last sector's symbols start there, two to a word, wrapping in 128 bytes.
+        var pointer = unit.ReadByte(0xFF8069);
+        pointer.Should().Be((byte)(played * 98 & 0x7E));
+        var last = played - 1;
+        for (var symbol = 0; symbol < 96; symbol++)
+        {
+            var at = (uint)(0xFF8100 + ((pointer + symbol) & 0x7F));
+            unit.ReadByte(at).Should().Be((byte)(last * 3 + symbol), $"symbol {symbol}");
+        }
+
+        unit.ReadWord(0xFF8180 + (uint)(pointer & 0x7E)).Should().Be(unit.ReadWord(0xFF8100 + (uint)(pointer & 0x7E)), "the buffer is mirrored");
+
+        var state = console.SaveSnapshot();
+        var buffer = Enumerable.Range(0, 128).Select(i => unit.ReadByte(0xFF8100 + (uint)i)).ToArray();
+        console.RunFrame();
+        console.LoadSnapshot(state);
+        Enumerable.Range(0, 128).Select(i => unit.ReadByte(0xFF8100 + (uint)i)).Should().Equal(buffer);
+        unit.ReadByte(0xFF8069).Should().Be(pointer);
+    }
+
+    [Fact]
+    public void Subcode_kept_channel_by_channel_becomes_a_byte_per_symbol()
+    {
+        var channels = new byte[96];
+        channels[0] = 0b1000_0001; // P: symbols 0 and 7
+        channels[12 + 1] = 0x80;   // Q: symbol 8
+        channels[7 * 12 + 11] = 1; // W: symbol 95
+        var symbols = new byte[96];
+
+        CdSubcode.FromChannels(channels, symbols);
+
+        symbols[0].Should().Be(0x80);
+        symbols[7].Should().Be(0x80);
+        symbols[8].Should().Be(0x40);
+        symbols[95].Should().Be(0x01);
+        symbols.Count(b => b != 0).Should().Be(4);
     }
 }

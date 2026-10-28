@@ -5,6 +5,7 @@ using GameVault.Library.Scanning;
 using GameVault.Platform.Emulation;
 using GameVault.Platform.Input;
 using GameVault.Platform.Video;
+using GameVault.ViewModels.SampleData;
 using GameVault.ViewModels.Services;
 
 namespace GameVault.Platform.Tests;
@@ -100,5 +101,58 @@ public sealed class SegaCdHostTests : IDisposable
         var act = () => host.LoadAsync(cue);
 
         (await act.Should().ThrowAsync<GameLoadException>()).Which.Message.Should().Contain("Settings → Sega CD");
+    }
+
+    // ---- Mode 1: a cartridge with a disc of the same name beside it ----
+
+    private string Cartridge(string name = "Game.md")
+    {
+        var path = Path.Combine(_root.FullName, name);
+        File.WriteAllBytes(path, GenesisHostTests.CountingRom());
+        return path;
+    }
+
+    [Fact]
+    public void A_cue_or_chd_named_like_the_cartridge_is_its_mode_1_disc()
+    {
+        var cue = Disc();
+        var cartridge = Cartridge();
+
+        EmulatorHost.FindMode1Disc(cartridge).Should().Be(cue);
+        EmulatorHost.FindMode1Disc(Cartridge("Other.md")).Should().BeNull();
+        EmulatorHost.FindMode1Disc(Path.Combine(_root.FullName, "Game.bin")).Should().BeNull("the cue sheet names it: it's the disc's own track");
+    }
+
+    [Fact]
+    public async Task With_the_bios_chosen_the_cartridge_boots_with_the_sega_cd_in_mode_1()
+    {
+        Disc();
+        var cartridge = Cartridge();
+        var biosPath = Path.Combine(_root.FullName, "bios.bin");
+        await File.WriteAllBytesAsync(biosPath, Bios());
+        var settings = new InMemorySettingsStore(new AppSettings { SegaCdBiosPath = biosPath });
+        using var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), settings);
+
+        await host.LoadAsync(cartridge);
+
+        host.System.Should().Be(GameSystem.Genesis);
+        (await host.InspectAsync(c => (c as GameVault.Core.Genesis.GenesisConsole)?.SegaCd?.Mode1)).Should().BeTrue();
+        host.Stop();
+    }
+
+    [Fact]
+    public async Task Without_the_bios_the_cartridge_plays_alone_and_the_player_is_told()
+    {
+        Disc();
+        var cartridge = Cartridge();
+        var notices = new List<string>();
+        using var host = new EmulatorHost(new FrameSink(), new InputService(KeyboardMapping.CreateDefault()), new InMemorySettingsStore());
+        host.Notice += (_, notice) => notices.Add(notice);
+
+        await host.LoadAsync(cartridge);
+
+        (await host.InspectAsync(c => (c as GameVault.Core.Genesis.GenesisConsole)?.SegaCd)).Should().BeNull();
+        notices.Should().Contain(EmulatorHost.Mode1WithoutBiosNotice);
+        host.Stop();
     }
 }

@@ -44,19 +44,77 @@ public interface ICdImage
     void ReadSector(int lba, Span<byte> destination);
 }
 
+/// <summary>
+/// A disc image that also holds each sector's subcode (the P–W channels; CD+G graphics live in R–W), as the Sega CD's
+/// gate array reads it (genesis-gaps.md §4). Reads are pure, like <see cref="ICdImage.ReadSector"/>.
+/// </summary>
+public interface ICdSubcode
+{
+    public const int Size = 96;
+
+    /// <summary>False when the image came without subcode (most don't); then every read is zeros.</summary>
+    bool HasSubcode { get; }
+
+    /// <summary>
+    /// The 96 subcode symbols of the sector at disc address <paramref name="lba"/> (after the two sync symbols), one
+    /// byte each with P in bit 7 down to W in bit 0.
+    /// </summary>
+    void ReadSubcode(int lba, Span<byte> destination);
+}
+
+/// <summary>Subcode layouts.</summary>
+public static class CdSubcode
+{
+    /// <summary>
+    /// Turns subcode stored channel by channel (12 bytes of P, then Q, … then W, each MSB first: CloneCD's .sub
+    /// layout) into a byte per symbol.
+    /// </summary>
+    public static void FromChannels(ReadOnlySpan<byte> channels, Span<byte> symbols)
+    {
+        for (var symbol = 0; symbol < ICdSubcode.Size; symbol++)
+        {
+            var value = 0;
+            for (var channel = 0; channel < 8; channel++)
+            {
+                var bit = (channels[channel * 12 + (symbol >> 3)] >> (7 - (symbol & 7))) & 1;
+                value |= bit << (7 - channel);
+            }
+
+            symbols[symbol] = (byte)value;
+        }
+    }
+}
+
 /// <summary>A disc image held in memory (tests and small homebrew discs).</summary>
-public sealed class MemoryCdImage : ICdImage
+public sealed class MemoryCdImage : ICdImage, ICdSubcode
 {
     private readonly byte[] _data;
+    private readonly byte[]? _subcode;
 
     /// <param name="sectors">Raw 2,352-byte sectors from track 1's index 1 onwards.</param>
     /// <param name="tracks">The tracks, or null for one mode 2 data track covering every sector.</param>
-    public MemoryCdImage(byte[] sectors, IReadOnlyList<CdTrack>? tracks = null)
+    /// <param name="subcode">96 subcode symbols per sector, in the same order as <paramref name="sectors"/>, or none.</param>
+    public MemoryCdImage(byte[] sectors, IReadOnlyList<CdTrack>? tracks = null, byte[]? subcode = null)
     {
         _data = sectors;
+        _subcode = subcode;
         var count = sectors.Length / ICdImage.SectorSize;
         Tracks = tracks ?? [new CdTrack(1, CdTrackType.Mode2, 150, count, 150)];
         LeadOut = Tracks[^1].End;
+    }
+
+    public bool HasSubcode => _subcode is not null;
+
+    public void ReadSubcode(int lba, Span<byte> destination)
+    {
+        var offset = (long)(lba - Tracks[0].Start) * ICdSubcode.Size;
+        if (_subcode is null || offset < 0 || offset + ICdSubcode.Size > _subcode.Length)
+        {
+            destination[..ICdSubcode.Size].Clear();
+            return;
+        }
+
+        _subcode.AsSpan((int)offset, ICdSubcode.Size).CopyTo(destination);
     }
 
     public IReadOnlyList<CdTrack> Tracks { get; }

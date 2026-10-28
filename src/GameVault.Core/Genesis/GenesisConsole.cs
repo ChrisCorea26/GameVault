@@ -50,7 +50,10 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
     private float _lastFmLeft;
     private float _lastFmRight;
 
-    /// <param name="segaCd">The Sega CD plugged in underneath, for a disc (the cartridge is then an empty stand-in).</param>
+    /// <param name="segaCd">
+    /// The Sega CD plugged in underneath: for a disc (the cartridge is then an empty stand-in), or in its
+    /// <see cref="SegaCdUnit.Mode1"/> beside a cartridge that boots and uses it.
+    /// </param>
     /// <param name="sega32X">The 32X in the cartridge slot, for a 32X cartridge (which it holds).</param>
     public GenesisConsole(GenesisCartridge cartridge, GenesisRegion? region = null, bool sixButton = true, SegaCdUnit? segaCd = null, Sega32XUnit? sega32X = null)
     {
@@ -66,10 +69,17 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         Fm = new Ym2612();
         Psg = new Sn76489();
         _psgSink = new ScaledSink(15, 0.5f);
-        RomHash = segaCd is null ? HashRom(cartridge.Rom) : segaCd.DiscHash;
+        RomHash = segaCd is { Mode1: false } ? segaCd.DiscHash : HashRom(cartridge.Rom);
     }
 
-    public GameSystem System => SegaCd is not null ? GameSystem.SegaCd : Sega32X is not null ? GameSystem.Sega32X : GameSystem.Genesis;
+    /// <summary>A mode 1 game is a Genesis cartridge that also uses the Sega CD.</summary>
+    public GameSystem System => SegaCd is { Mode1: false } ? GameSystem.SegaCd : Sega32X is not null ? GameSystem.Sega32X : GameSystem.Genesis;
+
+    /// <summary>The Sega CD in mode 2, answering for the cartridge's space ($000000–$3FFFFF).</summary>
+    private SegaCdUnit? BootUnit => SegaCd is { Mode1: false } cd ? cd : null;
+
+    /// <summary>The Sega CD in mode 1, at $400000–$7FFFFF.</summary>
+    private SegaCdUnit? ExpansionUnit => SegaCd is { Mode1: true } cd ? cd : null;
 
     /// <summary>The 32X in the cartridge slot, or null.</summary>
     public Sega32XUnit? Sega32X { get; }
@@ -120,7 +130,8 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
 
     public int ControllerPorts => 2;
 
-    public IBatteryBacked? Battery => SegaCd is { } cd ? cd : Cartridge.HasBattery ? Cartridge : null;
+    /// <summary>The disc's backup RAM, or the cartridge's save (a mode 1 cartridge without one saves in backup RAM).</summary>
+    public IBatteryBacked? Battery => BootUnit is { } cd ? cd : Cartridge.HasBattery ? Cartridge : SegaCd;
 
     /// <summary>The 64 KB of 68000 work RAM ($FF0000–$FFFFFF).</summary>
     public ReadOnlySpan<byte> WorkRam => _ram;
@@ -239,17 +250,16 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         _lineStart[0] = start;
         if (Sega32X is { } mars)
         {
-            if (line == Vdp.ActiveHeight)
-            {
-                // The picture is done: the 32X's goes over it before the 32X's frame buffers can swap.
-                mars.Compose(Vdp.WritableFrame, Vdp.Backdrop, Vdp.FrameWidth, Math.Min(Vdp.FrameHeight, Vdp.ActiveHeight));
-            }
-
             mars.SetHBlank(false);
             mars.BeginLine(line, Vdp.ActiveHeight);
         }
 
         Vdp.BeginLine(line);
+        if (Sega32X is { } mars32 && line < Vdp.ActiveHeight)
+        {
+            // The 32X's line goes over the Genesis' as it's drawn, so changes made between lines show where they were made.
+            mars32.ComposeLine(Vdp.WritableFrame, Vdp.Backdrop, Vdp.FrameWidth, line, Vdp.FrameRow(line));
+        }
         RunTo(start + ActiveMasterClocks, line);
         Vdp.BeginHBlank();
         Sega32X?.SetHBlank(true);
@@ -346,7 +356,9 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         switch (address >> 16)
         {
             case < 0x40:
-                return SegaCd is { } cd ? cd.MainReadByte(address) : Sega32X is { } mars ? mars.MainReadByte(address) : Cartridge.ReadByte(address);
+                return BootUnit is { } cd ? cd.MainReadByte(address) : Sega32X is { } mars ? mars.MainReadByte(address) : Cartridge.ReadByte(address);
+            case < 0x80 when ExpansionUnit is { } expansion:
+                return expansion.MainReadByte(address);
             case >= 0x84 and < 0xA0 when Sega32X is { } mars32:
                 return mars32.MainReadByte(address);
             case 0xA0:
@@ -377,7 +389,9 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         switch (address >> 16)
         {
             case < 0x40:
-                return SegaCd is { } cd ? cd.MainReadWord(address) : Sega32X is { } mars ? mars.MainReadWord(address) : Cartridge.ReadWord(address);
+                return BootUnit is { } cd ? cd.MainReadWord(address) : Sega32X is { } mars ? mars.MainReadWord(address) : Cartridge.ReadWord(address);
+            case < 0x80 when ExpansionUnit is { } expansion:
+                return expansion.MainReadWord(address);
             case >= 0x84 and < 0xA0 when Sega32X is { } mars32:
                 return mars32.MainReadWord(address);
             case 0xA0:
@@ -420,7 +434,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         switch (address >> 16)
         {
             case < 0x40:
-                if (SegaCd is { } cd)
+                if (BootUnit is { } cd)
                 {
                     cd.MainWriteByte(address, value);
                 }
@@ -429,6 +443,9 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
                     Cartridge.WriteByte(address, value);
                 }
 
+                break;
+            case < 0x80 when ExpansionUnit is { } expansion:
+                expansion.MainWriteByte(address, value);
                 break;
             case >= 0x84 and < 0xA0 when Sega32X is { } mars32:
                 mars32.MainWriteByte(address, value);
@@ -476,7 +493,7 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
         switch (address >> 16)
         {
             case < 0x40:
-                if (SegaCd is { } cd)
+                if (BootUnit is { } cd)
                 {
                     cd.MainWriteWord(address, value);
                 }
@@ -485,6 +502,9 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
                     Cartridge.WriteWord(address, value);
                 }
 
+                break;
+            case < 0x80 when ExpansionUnit is { } expansion:
+                expansion.MainWriteWord(address, value);
                 break;
             case >= 0x84 and < 0xA0 when Sega32X is { } mars32:
                 mars32.MainWriteWord(address, value);
@@ -566,7 +586,8 @@ public sealed class GenesisConsole : IEmulatedConsole, IM68000Bus, IZ80Bus
 
     private ushort DmaRead(uint address) => (address >> 16) switch
     {
-        < 0x40 => SegaCd is { } cd ? cd.MainReadWord(address) : Sega32X is { } mars ? mars.MainReadWord(address) : Cartridge.ReadWord(address),
+        < 0x40 => BootUnit is { } cd ? cd.MainReadWord(address) : Sega32X is { } mars ? mars.MainReadWord(address) : Cartridge.ReadWord(address),
+        < 0x80 when ExpansionUnit is { } expansion => expansion.MainReadWord(address),
         >= 0x84 and < 0xA0 when Sega32X is { } mars32 => mars32.MainReadWord(address),
         >= 0xE0 => (ushort)(_ram[address & 0xFFFF] << 8 | _ram[(address + 1) & 0xFFFF]),
         _ => 0,

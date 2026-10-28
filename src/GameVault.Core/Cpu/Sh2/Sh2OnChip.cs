@@ -225,13 +225,13 @@ public sealed class Sh2OnChip : IStateful
             switch (bytes)
             {
                 case 1:
-                    _cpu.Write8(destination, _cpu.Read8(source));
+                    _cpu.DmaWrite8(destination, _cpu.DmaRead8(source));
                     break;
                 case 2:
-                    _cpu.Write16(destination, _cpu.Read16(source));
+                    _cpu.DmaWrite16(destination, _cpu.DmaRead16(source));
                     break;
                 default:
-                    _cpu.Write32(destination + (uint)(size == 3 ? offset : 0), _cpu.Read32(source + (uint)(size == 3 ? offset : 0)));
+                    _cpu.DmaWrite32(destination + (uint)(size == 3 ? offset : 0), _cpu.DmaRead32(source + (uint)(size == 3 ? offset : 0)));
                     break;
             }
         }
@@ -302,6 +302,7 @@ public sealed class Sh2OnChip : IStateful
             case 0x15: return (byte)((_regs[0x17] & 0x10) != 0 ? _ocrb : _ocra);
             case 0x80: return _wtcsr;
             case 0x81: return _wtcnt;
+            case 0x92: return _cpu.Ccr;
             case >= 0x100:
             {
                 var word = Read32(address & ~3u);
@@ -382,6 +383,9 @@ public sealed class Sh2OnChip : IStateful
                     _ocra = (ushort)((_frtTemp << 8) | value);
                 }
 
+                return;
+            case 0x92:
+                _cpu.Ccr = value;
                 return;
             case >= 0x100:
                 return; // the 32-bit modules take long (or word) writes only
