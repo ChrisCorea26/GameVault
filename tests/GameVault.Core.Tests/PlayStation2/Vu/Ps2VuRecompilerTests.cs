@@ -15,13 +15,14 @@ public sealed class Ps2VuRecompilerTests
 {
     private sealed record Side(Ps2Vu Unit, FakeVuHost Host, Ps2Vu Vu1);
 
-    private static Side Create(int index, bool recompiled)
+    private static Side Create(int index, bool recompiled, bool fast = false)
     {
         var (vu0, vu1, host) = FakeVuHost.CreatePair();
         foreach (var unit in new[] { vu0, vu1 })
         {
             unit.RecompilerEnabled = recompiled;
             unit.CompileThreshold = 1;
+            unit.FastFloat = fast;
         }
 
         return new Side(index == 0 ? vu0 : vu1, host, vu1);
@@ -158,16 +159,18 @@ public sealed class Ps2VuRecompilerTests
         b.Unit.LoadState(new StateReader(writer.ToArray()));
     }
 
-    public static IEnumerable<object[]> Seeds() => Enumerable.Range(0, 48).Select(seed => new object[] { seed });
+    /// <summary>48 programs with the exact float maths, and 16 more with the fast maths (ps2-full-speed.md §2) on both units.</summary>
+    public static IEnumerable<object[]> Seeds() =>
+        Enumerable.Range(0, 48).Select(seed => new object[] { seed, false }).Concat(Enumerable.Range(0, 16).Select(seed => new object[] { seed, true }));
 
     [Theory]
     [MemberData(nameof(Seeds))]
-    public void Random_programs_match_the_interpreter_slice_by_slice(int seed)
+    public void Random_programs_match_the_interpreter_slice_by_slice(int seed, bool fast)
     {
         var random = new Random(seed);
         var index = seed % 2;
-        var interpreted = Create(index, recompiled: false);
-        var recompiled = Create(index, recompiled: true);
+        var interpreted = Create(index, recompiled: false, fast);
+        var recompiled = Create(index, recompiled: true, fast);
         Fill(random, interpreted, recompiled, index);
         State(recompiled).Should().Equal(State(interpreted));
 

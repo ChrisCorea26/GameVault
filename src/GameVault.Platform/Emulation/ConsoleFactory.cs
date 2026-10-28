@@ -426,7 +426,11 @@ internal static class ConsoleFactory
 
             try
             {
-                return WithRenderThreads(new Ps2Console(Ps2Boot.FromElf(data), bios, Ps2MemoryCard.CreateFormatted()) { MemoryCard2 = Ps2MemoryCard.CreateFormatted() });
+                return WithRenderThreads(new Ps2Console(Ps2Boot.FromElf(data), bios, Ps2MemoryCard.CreateFormatted())
+                {
+                    MemoryCard2 = Ps2MemoryCard.CreateFormatted(),
+                    FastFloat = setup?.FastFloat ?? false,
+                });
             }
             catch (InvalidDataException ex)
             {
@@ -454,6 +458,7 @@ internal static class ConsoleFactory
             return WithRenderThreads(new Ps2Console(Ps2Boot.FromDisc(disc), bios, Ps2MemoryCard.CreateFormatted(), new Ps2ConsoleOptions { FastBoot = setup!.FastBoot })
             {
                 MemoryCard2 = Ps2MemoryCard.CreateFormatted(),
+                FastFloat = setup.FastFloat,
             });
         }
         catch

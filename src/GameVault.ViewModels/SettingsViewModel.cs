@@ -287,6 +287,10 @@ public sealed partial class SettingsViewModel(
     [ObservableProperty]
     public partial bool PlayStation2FastBoot { get; set; }
 
+    /// <summary>Run the PlayStation 2 bit-exactly (slower).</summary>
+    [ObservableProperty]
+    public partial bool PlayStation2ExactEmulation { get; set; }
+
     public IReadOnlyList<string> PlayStation2ResolutionOptions { get; } = ["1× (original)", "2×", "3×", "4×"];
 
     /// <summary>The PlayStation 2's internal resolution, as an index into <see cref="PlayStation2ResolutionOptions"/>.</summary>
@@ -415,6 +419,7 @@ public sealed partial class SettingsViewModel(
         N64ResolutionIndex = Math.Clamp(settings.N64InternalResolution, 1, 4) - 1;
         PlayStation2BiosPath = settings.PlayStation2BiosPath;
         PlayStation2FastBoot = settings.PlayStation2FastBoot;
+        PlayStation2ExactEmulation = settings.PlayStation2ExactEmulation;
         PlayStation2ResolutionIndex = Math.Clamp(settings.PlayStation2InternalResolution, 1, 4) - 1;
         await CheckPlayStation2BiosAsync();
         _isLoaded = true;
@@ -524,6 +529,8 @@ public sealed partial class SettingsViewModel(
 
     partial void OnPlayStation2FastBootChanged(bool value) => SaveIfLoaded();
 
+    partial void OnPlayStation2ExactEmulationChanged(bool value) => SaveIfLoaded();
+
     partial void OnPlayStation2ResolutionIndexChanged(int value) => SaveIfLoaded();
 
     private async Task CheckPlayStation2BiosAsync()
@@ -591,6 +598,7 @@ public sealed partial class SettingsViewModel(
             N64InternalResolution = Math.Clamp(N64ResolutionIndex, 0, 3) + 1,
             PlayStation2BiosPath = PlayStation2BiosPath.Trim().Trim('"'),
             PlayStation2FastBoot = PlayStation2FastBoot,
+            PlayStation2ExactEmulation = PlayStation2ExactEmulation,
             PlayStation2InternalResolution = Math.Clamp(PlayStation2ResolutionIndex, 0, 3) + 1,
             RewindMemoryMb = RewindMemoryIndex >= 0 && RewindMemoryIndex < RewindMemoryValues.Length
                 ? RewindMemoryValues[RewindMemoryIndex]
