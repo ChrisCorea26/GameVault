@@ -122,7 +122,7 @@ game started.
 
 | Setting | Values | Default |
 |---|---|---|
-| **Enhancement chip ROMs** | A folder holding your own `dsp1b.rom` (or `dsp1.rom`), `dsp2.rom`, `dsp3.rom`, `dsp4.rom`, `st010.rom`, `st011.rom` or `cx4.rom`, or **Choose…** | Empty |
+| **Enhancement chip ROMs** | A folder holding your own `dsp1b.rom` (or `dsp1.rom`), `dsp2.rom`, `dsp3.rom`, `dsp4.rom`, `st010.rom`, `st011.rom`, `cx4.rom` or `st018.rom`, or **Choose…** | Empty |
 
 ## PlayStation
 

@@ -243,7 +243,7 @@ Real games are the owner's to try; see `docs/plans/phase-13.md`.
 | SPC7110: the ROM windows, SRAM enable, the decompressor (1, 2 and 4 bpp), the data port's modes, the ALU | ✅ Unit tests; the decompressor matches ares' own decoder row for row on test data; real games are the owner's |
 | RTC-4513 (Far East of Eden Zero): the protocol and ready flag, 12/24-hour, calendar, rounding, the periodic flag, pause | ✅ Unit tests; a time set in the game isn't kept after closing it |
 | Cx4 (HG51B169, with the player's own data ROM): instructions, flags, multiplier, cache pages, DMA, the bus hold, IRQ | 🟡 Unit tests on hand-assembled HG51B programs; real games with the player's dump are the owner's |
-| ST018 | Not yet: such games get a message naming the chip |
+| ST018 (an ARM CPU, with the player's own program and data ROM): the ARM core in ARM state, the mailboxes, reset and ready | 🟡 Unit tests on ARM programs and the mailbox handshake; ares notes the chip's timings are unverified; the real game is the owner's |
 
 Real games are the owner's to try; see `docs/plans/phase-14.md`.
 

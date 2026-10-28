@@ -28,3 +28,4 @@
 | 25 | October 2026 | Super Nintendo: *Daikaijuu Monogatari II*'s clock (the S-RTC chip), set from your PC's time. |
 | 26 | October 2026 | Super Nintendo: games with the SPC7110 chip (*Far East of Eden Zero*, *Momotarou Dentetsu Happy*, *Super Power League 4*), and *Far East of Eden Zero*'s clock. |
 | 27 | October 2026 | Super Nintendo: *Mega Man X2* and *X3* (the Cx4 chip), with your own `cx4.rom`. |
+| 28 | October 2026 | Super Nintendo: *Hayazashi Nidan Morita Shogi 2* (the ST018 chip), with your own `st018.rom`. Every enhancement chip is now supported. |

@@ -64,9 +64,9 @@ public sealed class SnesChipCartridgeTests
     [Fact]
     public void Chips_gamevault_does_not_emulate_yet_are_refused_clearly()
     {
-        var act = () => new SnesCartridge(SnesTests.Rom([0x80, 0xFE], chip: 0xF5)); // the ST018's chipset, on a small ROM
+        var act = () => new SnesCartridge(SnesTests.Rom([0x80, 0xFE], chip: 0xE3)); // the Super Game Boy's
 
-        act.Should().Throw<UnsupportedChipException>().Which.Chip.Should().Contain("ST018");
+        act.Should().Throw<UnsupportedChipException>().Which.Chip.Should().Contain("Super Game Boy");
     }
 
     [Fact]
