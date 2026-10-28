@@ -10,10 +10,10 @@ namespace GameVault.Platform.Emulation;
 public sealed record SnesSetup(IReadOnlyDictionary<string, byte[]> ChipRoms)
 {
     /// <summary>The program ROM files GameVault looks for, by the names emulators use for them.</summary>
-    public static IReadOnlyList<string> ChipRomFiles { get; } = ["dsp1b.rom", "dsp1.rom", "dsp2.rom", "dsp3.rom", "dsp4.rom", "st010.rom", "st011.rom", "cx4.rom"];
+    public static IReadOnlyList<string> ChipRomFiles { get; } = ["dsp1b.rom", "dsp1.rom", "dsp2.rom", "dsp3.rom", "dsp4.rom", "st010.rom", "st011.rom", "cx4.rom", "st018.rom"];
 
     /// <summary>The largest chip ROM read (the µPD7725's are 8 KB; later chips' are up to 64 KB).</summary>
-    private const int MaxChipRomSize = 64 * 1024;
+    private const int MaxChipRomSize = 160 * 1024; // the ST018's, the largest
 
     public static SnesSetup None { get; } = new(new Dictionary<string, byte[]>());
 

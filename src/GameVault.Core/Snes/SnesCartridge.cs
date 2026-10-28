@@ -70,6 +70,7 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
                 0xF when chip == 0xF3 => CreateCx4(chipRoms),
                 0xF when IsSpc7110(chip) => new Spc7110(_rom, ramSize is > 0 and <= 8 ? 1024 << ramSize : 0, withRtc: chip == 0xF9,
                     Pal ? SnesConsole.PalMasterClock : SnesConsole.NtscMasterClock),
+                0xF when chip == 0xF5 => CreateSt018(chipRoms),
                 _ => throw new UnsupportedChipException(ChipName(chip)),
             };
         }
@@ -227,6 +228,17 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
         throw new MissingChipRomException(name, [file]);
     }
 
+    /// <summary>Seta's ST018 (chipset $F5 when it isn't an SPC7110 board), with the player's own program and data ROM.</summary>
+    private St018 CreateSt018(Func<string, byte[]?>? chipRoms)
+    {
+        if (chipRoms?.Invoke("st018.rom") is { Length: St018.DumpSize } dump)
+        {
+            return new St018(dump, Pal ? SnesConsole.PalMasterClock : SnesConsole.NtscMasterClock);
+        }
+
+        throw new MissingChipRomException("ST018", ["st018.rom"]);
+    }
+
     /// <summary>Capcom's Cx4 (chipset $F3), with the player's own data ROM.</summary>
     private Cx4 CreateCx4(Func<string, byte[]?>? chipRoms)
     {
@@ -283,7 +295,7 @@ public sealed class SnesCartridge : IStateful, IBatteryBacked
         0x4 => "S-DD1",
         0x5 => "S-RTC",
         0xE => "Super Game Boy or Satellaview",
-        _ => "ST018",
+        _ => "custom",
     };
 
     /// <summary>Reads the cartridge's part of the address space. Returns false where the cartridge doesn't answer.</summary>
