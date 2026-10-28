@@ -315,7 +315,13 @@ content is missing. **Low** = wrong text or a small inconsistency.
 - **To diagnose:** every PlayStation and PlayStation 2 game now writes its first minute to `logs\boot-ps1.log` or
   `logs\boot-ps2.log` (`BootLog`): once a second where the EE and the IOP are, the hardware registers each reads most
   (a stuck BIOS spins on one), PMODE/SMODE2, and the BIOS's own text output; on the PlayStation every CD-ROM command and
-  response. The next step is to read a log from the reporter's BIOS and disc.
+  response.
+- **First cause, from the reporter's `boot-ps2.log` (*GTA San Andreas*):** the BIOS printed "Initialize memory" and
+  then the EE read $1000F410 42 million times a second at $9FC41928, while the IOP waited on the SIF for it. That
+  register kept whatever was written to it; the BIOS waits for it to read 0, as PCSX2 returns. It now reads 0, and so
+  does the SIO status at $1000F130 (KPUTCHAR's wait), the only other register on that page that differed. Test:
+  `Ps2ConsoleTests.The_bioss_wait_registers_read_zero_whatever_was_written`. The BIOS may stop further on; the next
+  log will show where.
 
 ---
 

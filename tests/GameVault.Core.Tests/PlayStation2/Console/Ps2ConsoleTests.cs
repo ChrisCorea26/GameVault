@@ -100,6 +100,20 @@ public sealed class Ps2ConsoleTests(ITestOutputHelper log)
     }
 
     [Fact]
+    public void The_bioss_wait_registers_read_zero_whatever_was_written()
+    {
+        // The BIOS spins on $1000F410 after "Initialize memory" until it reads 0 (a player's boot log: GV-024), and
+        // KPUTCHAR waits on the SIO's status at $1000F130; neither keeps what is written (PCSX2's hwRead32, read for
+        // facts only).
+        var console = new Ps2Console(Ps2Boot.FromElf(MakeElf([Loop, Nop])));
+        console.Write32(0x1000_F410, 0x0001_0000);
+        console.Write32(0x1000_F130, 0xFFFF_FFFF);
+
+        console.Read32(0x1000_F410).Should().Be(0);
+        console.Read32(0x1000_F130).Should().Be(0);
+    }
+
+    [Fact]
     public void The_memory_map_reaches_vu_memory_the_gs_and_the_iop_ram()
     {
         var console = new Ps2Console(Ps2Boot.FromElf(MakeElf([Loop, Nop])));

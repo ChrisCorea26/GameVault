@@ -361,6 +361,8 @@ public sealed partial class Ps2Console : IR5900Bus, IPs2VuHost
                 return Sif.EeReadCtrl();
             case 0x1000_F260:
                 return Sif.Bd6;
+            case 0x1000_F130: // SIO_ISR: nothing to receive, and the transmitter is never busy, so KPUTCHAR never waits
+            case 0x1000_F410: // the BIOS waits for 0 here after "Initialize memory" (PCSX2's hwRead32 returns 0)
             case 0x1000_F430:
                 return 0;
             case 0x1000_F440:
