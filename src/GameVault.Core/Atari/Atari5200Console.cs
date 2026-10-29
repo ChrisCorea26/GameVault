@@ -209,8 +209,16 @@ public sealed class Atari5200Console : IEmulatedConsole, ICpuBus, IAnticBus
         return Peek(address);
     }
 
+    /// <summary>Each read of a chip's registers ($C000–$F7FF) by the CPU (the host's boot log; null while unused).</summary>
+    public Action<ushort>? IoReadProbe { get; set; }
+
     private byte Peek(ushort address)
     {
+        if (IoReadProbe is { } probe && address is >= 0xC000 and < 0xF800)
+        {
+            probe(address);
+        }
+
         switch (address >> 12)
         {
             case < 0x4:

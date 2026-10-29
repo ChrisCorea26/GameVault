@@ -103,6 +103,31 @@ public sealed class BootLogTests : IDisposable
         return new StreamReader(stream).ReadToEnd();
     }
 
+    [Fact]
+    public void An_atari_5200_log_has_the_board_the_cpu_and_antic()
+    {
+        // A stand-in BIOS that loops at $F800 (its reset vector), and a 16 KB cartridge of zeros.
+        var bios = new byte[2048];
+        bios[0] = 0x4C; // JMP $F800
+        bios[1] = 0x00;
+        bios[2] = 0xF8;
+        bios[0x7FC] = 0x00;
+        bios[0x7FD] = 0xF8;
+        var console = new GameVault.Core.Atari.Atari5200Console(new GameVault.Core.Atari.Atari5200Cartridge(new byte[16384]), bios);
+        console.Power();
+        using (var log = BootLog.Start(console, _root.FullName, "Test Cart")!)
+        {
+            for (var frame = 0; frame < 60; frame++)
+            {
+                console.RunFrame();
+                log.OnFrame();
+            }
+        }
+
+        File.ReadAllText(Path.Combine(_root.FullName, "boot-5200.log")).Should()
+            .Contain("board Standard (calls into $4000-$7FFF: 0").And.Contain("pc F80").And.Contain("DMACTL 00").And.Contain("shadows: SDLST");
+    }
+
     /// <summary>A PS-EXE at $80010000 that loops: <c>b . ; nop</c>.</summary>
     private static byte[] LoopExe()
     {

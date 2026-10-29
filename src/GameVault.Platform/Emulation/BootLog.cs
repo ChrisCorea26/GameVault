@@ -58,7 +58,7 @@ internal sealed class BootLog : IDisposable
         _watchdog = new Timer(_ => Watch(), null, tick, tick);
     }
 
-    /// <summary>Starts a log for a PlayStation or PlayStation 2 game; null for other systems or when the file can't be written.</summary>
+    /// <summary>Starts a log for a PlayStation, PlayStation 2 or Atari 5200 game; null for other systems or when the file can't be written.</summary>
     /// <param name="tick">How often the watchdog looks (tests shorten it); a second by default.</param>
     /// <param name="stallTicks">Ticks without a frame before it reports a stall.</param>
     /// <param name="keyPresses">The key presses the game picture has passed to the input service so far.</param>
@@ -69,6 +69,7 @@ internal sealed class BootLog : IDisposable
         {
             PlayStationConsole => "boot-ps1.log",
             Ps2Console => "boot-ps2.log",
+            GameVault.Core.Atari.Atari5200Console => "boot-5200.log",
             _ => null,
         };
         if (name is null || logsDirectory is null)
@@ -123,6 +124,12 @@ internal sealed class BootLog : IDisposable
                 ps2.Iop.DeviceWriteProbe = _iopWrites.Add;
                 ps2.DebugOutput = Print;
                 break;
+            case GameVault.Core.Atari.Atari5200Console a5200:
+                var rom = a5200.Cartridge.Rom;
+                var (low, high) = GameVault.Core.Atari.Atari5200Cartridge.CallTargets(rom);
+                _writer.WriteLine($"Atari 5200, cartridge {rom.Length / 1024} KB, board {a5200.Cartridge.Board} (calls into $4000-$7FFF: {low}, into $8000-$BFFF: {high}), start ${rom[^1]:X2}{rom[^2]:X2}, $BFFD = {rom[^3]:X2}");
+                a5200.IoReadProbe = address => Count(_mainReads, address);
+                break;
         }
     }
 
@@ -142,6 +149,9 @@ internal sealed class BootLog : IDisposable
                 ps2.RegisterWriteProbe = null;
                 ps2.Iop.DeviceWriteProbe = null;
                 ps2.DebugOutput = null;
+                break;
+            case GameVault.Core.Atari.Atari5200Console a5200:
+                a5200.IoReadProbe = null;
                 break;
         }
     }
@@ -230,6 +240,12 @@ internal sealed class BootLog : IDisposable
                     _keysAtLastSecond = keys;
                     _padsHeld = ControllerState.None;
                     _padPolls = 0;
+                    break;
+                case GameVault.Core.Atari.Atari5200Console a5200:
+                    var (dmactl, nmien, dlist) = a5200.Antic.Registers;
+                    line.Append($"pc {a5200.Cpu.PC:X4}{(a5200.Cpu.IsJammed ? " JAMMED" : "")}  DMACTL {dmactl:X2} NMIEN {nmien:X2} DLIST {dlist:X4}  reads {Top(_mainReads)}");
+                    var ram = a5200.Ram;
+                    line.Append($"\n      shadows: SDLST {ram[6]:X2}{ram[5]:X2} SDMCTL {ram[7]:X2}  vectors $0200: {Convert.ToHexString(ram.Slice(0x200, 12))}");
                     break;
                 case Ps2Console ps2:
                     line.Append($"EE pc {ps2.Cpu.Pc:X8}  IOP pc {ps2.Iop.Cpu.Pc:X8}  PMODE {ps2.Gs.ReadPrivileged(Ps2Gs.PrivPmode):X}  SMODE2 {ps2.Gs.ReadPrivileged(Ps2Gs.PrivSmode2):X}");
