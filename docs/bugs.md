@@ -35,7 +35,7 @@ content is missing. **Low** = wrong text or a small inconsistency.
 | [GV-023](#gv-023) | High | PlayStation | Discs stop on the BIOS's white Sony logo | Fixed (b3c1816; pending a check with a retail BIOS) |
 | [GV-024](#gv-024) | High | PlayStation 2 | Discs stay on a black screen with the player's BIOS | Open |
 | [GV-025](#gv-025) | High | PlayStation | Games run slowly and ignore the keyboard at their menu | Open |
-| [GV-026](#gv-026) | High | Atari 5200 | Games show the BIOS's title and then a black screen | Fixed (pending a check with the game) |
+| [GV-026](#gv-026) | High | Atari 5200 | Games show the BIOS's title and then a black screen | Open (Pac-Man still black) |
 
 ---
 
@@ -369,7 +369,7 @@ content is missing. **Low** = wrong text or a small inconsistency.
 
 ### GV-026
 
-**Games show the BIOS's title and then a black screen** · High · Atari 5200 · **Fixed (pending a check with the game)**
+**Games show the BIOS's title and then a black screen** · High · Atari 5200 · **Open**
 
 - **Reported:** a 5200 game shows the Atari logo with its name, then a black screen.
 - **Cause found:** a 16 KB cartridge is either one 16 KB chip (code at $8000–$BFFF, mirrored at $4000) or two 8 KB
@@ -383,6 +383,10 @@ content is missing. **Low** = wrong text or a small inconsistency.
   (`two-chip`, or the new `one-chip`) still wins. Test:
   `Atari5200Tests.A_16k_games_board_is_told_from_where_its_code_calls_unless_the_profile_names_it`. Not yet checked
   with the reporter's game.
+- **Still black with *Pac-Man*:** so the board isn't (or isn't the only) cause there. The boot log now covers the
+  5200 too (`logs\boot-5200.log`): the board and the call counts that chose it, the start address and $BFFD; once a
+  second the CPU's PC (and whether it jammed on an illegal opcode), ANTIC's DMACTL, NMIEN and display list, the
+  BIOS's shadow registers and RAM vectors, and the chip registers read most.
 
 ---
 

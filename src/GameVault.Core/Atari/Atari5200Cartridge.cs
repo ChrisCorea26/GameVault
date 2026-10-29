@@ -54,11 +54,13 @@ public sealed class Atari5200Cartridge : IStateful
     /// </summary>
     public static bool LooksTwoChip(ReadOnlySpan<byte> rom)
     {
-        if (rom.Length != 16384)
-        {
-            return false;
-        }
+        var (low, high) = CallTargets(rom);
+        return rom.Length == 16384 && low >= 16 && low * 2 >= high;
+    }
 
+    /// <summary>How many JSR and JMP look-alikes in the ROM point into $4000–$7FFF and into $8000–$BFFF.</summary>
+    public static (int Low, int High) CallTargets(ReadOnlySpan<byte> rom)
+    {
         int low = 0, high = 0;
         for (var i = 0; i + 2 < rom.Length; i++)
         {
@@ -78,7 +80,7 @@ public sealed class Atari5200Cartridge : IStateful
             }
         }
 
-        return low >= 16 && low * 2 >= high;
+        return (low, high);
     }
 
     public Atari5200Board Board { get; }

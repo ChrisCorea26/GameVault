@@ -22,7 +22,7 @@ files are read from where you put them.
 | `Profiles\<id>\` | The same files for each extra family profile |
 | `bios\` | Copies of the BIOS files you chose with **Choose…** (`fds\`, `ps1\`, `ps2\`), shared by every family profile |
 | `logs\crash.log` | Details of any crash |
-| `logs\boot-ps1.log`, `logs\boot-ps2.log` | The first minute of the last PlayStation or PlayStation 2 game you started: what the console was doing while its BIOS started the game |
+| `logs\boot-ps1.log`, `logs\boot-ps2.log`, `logs\boot-5200.log` | The first minute of the last PlayStation, PlayStation 2 or Atari 5200 game you started: what the console was doing while its BIOS started the game |
 
 Cover pictures stay where you chose them; only their location is stored, so don't move or delete them.
 

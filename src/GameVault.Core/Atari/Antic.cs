@@ -85,6 +85,9 @@ public sealed class Antic : IStateful
 
     public int Line => _line;
 
+    /// <summary>DMACTL, NMIEN and the display list's address, as last written (the host's boot log).</summary>
+    public (byte Dmactl, byte Nmien, ushort DisplayList) Registers => (_dmactl, _nmien, _dlist);
+
     public int Cycle => _cycle;
 
     /// <summary>The CPU can't use the bus this cycle: ANTIC's DMA has it, or WSYNC holds the CPU until the line's end.</summary>
