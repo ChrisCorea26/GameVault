@@ -239,6 +239,15 @@ public sealed class Atari5200Tests
         new Atari5200Cartridge(twoChip, "one-chip").Board.Should().Be(Atari5200Board.Standard, "the profile's model wins");
         new Atari5200Cartridge(oneChip, "two-chip").Board.Should().Be(Atari5200Board.TwoChip16K);
         Atari5200Cartridge.LooksTwoChip(new byte[32768]).Should().BeFalse("only 16 KB games come in two chips");
+
+        // Pac-Man's shape: the first chip mostly data, so far fewer calls into it than into the second (59 to 179),
+        // but still well above the noise; and a one-chip game whose data makes many look-alikes everywhere.
+        var mostlyData = SixteenK(240, n => n % 4 == 0 ? 0x4000 + (n * 37 % 0x2000) : 0xA000 + (n * 37 % 0x2000));
+        Atari5200Cartridge.CallTargets(mostlyData).Low.Should().BeLessThan(Atari5200Cartridge.CallTargets(mostlyData).High / 2);
+        Atari5200Cartridge.LooksTwoChip(mostlyData).Should().BeTrue();
+        var noisyOneChip = new byte[16384];
+        new Random(19).NextBytes(noisyOneChip);
+        Atari5200Cartridge.LooksTwoChip(noisyOneChip).Should().BeFalse("random data points everywhere alike");
     }
 
     [Fact]
