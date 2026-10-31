@@ -125,7 +125,7 @@ public sealed class BootLogTests : IDisposable
         }
 
         File.ReadAllText(Path.Combine(_root.FullName, "boot-5200.log")).Should()
-            .Contain("board Standard (calls into $4000-$7FFF: 0").And.Contain("pc F80").And.Contain("DMACTL 00").And.Contain("shadows: SDLST");
+            .Contain("board Standard (calls into $4000-$7FFF: 0, into $8000-$BFFF: 0, look-alikes into $C000-$F7FF: 0)").And.Contain("pc F80").And.Contain("DMACTL 00").And.Contain("shadows: SDLST");
     }
 
     /// <summary>A PS-EXE at $80010000 that loops: <c>b . ; nop</c>.</summary>

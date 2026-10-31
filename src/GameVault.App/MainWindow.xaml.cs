@@ -64,9 +64,26 @@ public sealed partial class MainWindow : Window
 
         if (App.TryGetService<ControllerManager>() is { } controllers)
         {
+            if (SynchronizationContext.Current is { } ui)
+            {
+                controllers.UseContext(ui);
+            }
+
             var padNavigation = App.GetService<PadNavigation>();
             padNavigation.Attach(this, ContentFrame, NavView);
-            controllers.Navigate += (_, action) => padNavigation.Handle(action);
+            controllers.Navigate += (_, action) =>
+            {
+                // WinUI must only be called on its own thread; anything else ends the app with a fail-fast (GV-027).
+                if (DispatcherQueue.HasThreadAccess)
+                {
+                    padNavigation.Handle(action);
+                }
+                else
+                {
+                    UiTrace.Write($"pad navigation {action} arrived off the UI thread; moved to it", onUiThread: false);
+                    DispatcherQueue.TryEnqueue(() => padNavigation.Handle(action));
+                }
+            };
             await controllers.StartAsync();
         }
     }

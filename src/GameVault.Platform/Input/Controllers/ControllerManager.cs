@@ -23,7 +23,7 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
     private readonly InputService _input;
     private readonly IControllerBackend _backend;
     private readonly ISettingsStore? _settings;
-    private readonly SynchronizationContext? _context;
+    private SynchronizationContext? _context;
     private readonly InputDevicesModel _model = new(new PortAssignmentPolicy());
     private readonly Dictionary<int, PadState> _pads = [];
     private bool _started;
@@ -883,6 +883,12 @@ public sealed class ControllerManager : IInputDevicesService, IControllerEvents,
             Raise(() => Notice?.Invoke(this, notice));
         }
     }
+
+    /// <summary>
+    /// The UI thread's context, from the window, for when the manager was first made on another thread: every event then
+    /// still reaches its handlers on the UI thread (calling WinUI from the pads' thread ends the app; GV-027).
+    /// </summary>
+    public void UseContext(SynchronizationContext context) => _context = context;
 
     private void Raise(Action action)
     {

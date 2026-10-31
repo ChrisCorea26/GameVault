@@ -126,8 +126,8 @@ internal sealed class BootLog : IDisposable
                 break;
             case GameVault.Core.Atari.Atari5200Console a5200:
                 var rom = a5200.Cartridge.Rom;
-                var (low, high) = GameVault.Core.Atari.Atari5200Cartridge.CallTargets(rom);
-                _writer.WriteLine($"Atari 5200, cartridge {rom.Length / 1024} KB, board {a5200.Cartridge.Board} (calls into $4000-$7FFF: {low}, into $8000-$BFFF: {high}), start ${rom[^1]:X2}{rom[^2]:X2}, $BFFD = {rom[^3]:X2}");
+                var (low, high, noise) = GameVault.Core.Atari.Atari5200Cartridge.CallTargets(rom);
+                _writer.WriteLine($"Atari 5200, cartridge {rom.Length / 1024} KB, board {a5200.Cartridge.Board} (calls into $4000-$7FFF: {low}, into $8000-$BFFF: {high}, look-alikes into $C000-$F7FF: {noise}), start ${rom[^1]:X2}{rom[^2]:X2}, $BFFD = {rom[^3]:X2}");
                 a5200.IoReadProbe = address => Count(_mainReads, address);
                 break;
         }
@@ -245,7 +245,7 @@ internal sealed class BootLog : IDisposable
                     var (dmactl, nmien, dlist) = a5200.Antic.Registers;
                     line.Append($"pc {a5200.Cpu.PC:X4}{(a5200.Cpu.IsJammed ? " JAMMED" : "")}  DMACTL {dmactl:X2} NMIEN {nmien:X2} DLIST {dlist:X4}  reads {Top(_mainReads)}");
                     var ram = a5200.Ram;
-                    line.Append($"\n      shadows: SDLST {ram[6]:X2}{ram[5]:X2} SDMCTL {ram[7]:X2}  vectors $0200: {Convert.ToHexString(ram.Slice(0x200, 12))}");
+                    line.Append($"\n      shadows: SDLST {ram[6]:X2}{ram[5]:X2} SDMCTL {ram[7]:X2}  vectors $0200: {Convert.ToHexString(ram.Slice(0x200, 28))}");
                     break;
                 case Ps2Console ps2:
                     line.Append($"EE pc {ps2.Cpu.Pc:X8}  IOP pc {ps2.Iop.Cpu.Pc:X8}  PMODE {ps2.Gs.ReadPrivileged(Ps2Gs.PrivPmode):X}  SMODE2 {ps2.Gs.ReadPrivileged(Ps2Gs.PrivSmode2):X}");

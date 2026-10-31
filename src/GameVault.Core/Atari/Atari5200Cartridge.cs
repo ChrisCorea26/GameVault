@@ -48,20 +48,26 @@ public sealed class Atari5200Cartridge : IStateful
 
     /// <summary>
     /// Whether a 16 KB ROM's code is built for two 8 KB chips. A one-chip game is linked for $8000–$BFFF (the window's
-    /// lower half only mirrors it), so its JSRs and JMPs hardly ever point below $8000; a two-chip game keeps half its
-    /// code in the first chip at $4000–$7FFF and calls into it. Data that happens to look like a JSR or JMP points
-    /// anywhere, so a one-chip game still shows a few, far fewer than its calls into $8000–$BFFF.
+    /// lower half only mirrors it), so none of its JSRs and JMPs point below $8000; a two-chip game has code in the
+    /// first chip at $4000–$7FFF and calls into it, however much of the chip is data. Data that happens to look like a
+    /// JSR or JMP points anywhere, so the look-alikes pointing at the chips' registers ($C000–$F7FF, where no code
+    /// ever jumps) measure that noise: two chips when $4000–$7FFF gets over twice its share of it (a one-chip game's gets
+    /// about its share). (Pac-Man,
+    /// two chips: 59 calls into $4000–$7FFF beside 179 into $8000–$BFFF.)
     /// </summary>
     public static bool LooksTwoChip(ReadOnlySpan<byte> rom)
     {
-        var (low, high) = CallTargets(rom);
-        return rom.Length == 16384 && low >= 16 && low * 2 >= high;
+        var (low, _, noise) = CallTargets(rom);
+        return rom.Length == 16384 && low >= 16 && low * 14 > (noise * 16 * 2) + (14 * 8);
     }
 
-    /// <summary>How many JSR and JMP look-alikes in the ROM point into $4000–$7FFF and into $8000–$BFFF.</summary>
-    public static (int Low, int High) CallTargets(ReadOnlySpan<byte> rom)
+    /// <summary>
+    /// How many JSR and JMP look-alikes in the ROM point into $4000–$7FFF, into $8000–$BFFF, and into the chips'
+    /// registers at $C000–$F7FF (14 KB where only data's look-alikes point).
+    /// </summary>
+    public static (int Low, int High, int Noise) CallTargets(ReadOnlySpan<byte> rom)
     {
-        int low = 0, high = 0;
+        int low = 0, high = 0, noise = 0;
         for (var i = 0; i + 2 < rom.Length; i++)
         {
             if (rom[i] is not (0x20 or 0x4C))
@@ -78,9 +84,13 @@ public sealed class Atari5200Cartridge : IStateful
             {
                 high++;
             }
+            else if (target is >= 0xC000 and < 0xF800)
+            {
+                noise++;
+            }
         }
 
-        return (low, high);
+        return (low, high, noise);
     }
 
     public Atari5200Board Board { get; }

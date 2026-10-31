@@ -35,7 +35,8 @@ content is missing. **Low** = wrong text or a small inconsistency.
 | [GV-023](#gv-023) | High | PlayStation | Discs stop on the BIOS's white Sony logo | Fixed (b3c1816; pending a check with a retail BIOS) |
 | [GV-024](#gv-024) | High | PlayStation 2 | Discs stay on a black screen with the player's BIOS | Open |
 | [GV-025](#gv-025) | High | PlayStation | Games run slowly and ignore the keyboard at their menu | Open |
-| [GV-026](#gv-026) | High | Atari 5200 | Games show the BIOS's title and then a black screen | Open (Pac-Man still black) |
+| [GV-026](#gv-026) | High | Atari 5200 | Games show the BIOS's title and then a black screen | Fixed (pending a check with Pac-Man) |
+| [GV-027](#gv-027) | High | Player | Esc with a controller connected closes the app, with no crash.log | Open |
 
 ---
 
@@ -369,7 +370,7 @@ content is missing. **Low** = wrong text or a small inconsistency.
 
 ### GV-026
 
-**Games show the BIOS's title and then a black screen** · High · Atari 5200 · **Open**
+**Games show the BIOS's title and then a black screen** · High · Atari 5200 · **Fixed (pending a check with Pac-Man)**
 
 - **Reported:** a 5200 game shows the Atari logo with its name, then a black screen.
 - **Cause found:** a 16 KB cartridge is either one 16 KB chip (code at $8000–$BFFF, mirrored at $4000) or two 8 KB
@@ -387,6 +388,34 @@ content is missing. **Low** = wrong text or a small inconsistency.
   5200 too (`logs\boot-5200.log`): the board and the call counts that chose it, the start address and $BFFD; once a
   second the CPU's PC (and whether it jammed on an illegal opcode), ANTIC's DMACTL, NMIEN and display list, the
   BIOS's shadow registers and RAM vectors, and the chip registers read most.
+- **From that log (*Pac-Man*):** board Standard, with 59 calls into $4000–$7FFF beside 179 into $8000–$BFFF. The
+  BIOS's title ran normally; once the game started, the CPU read IRQST thousands of times, wrote DMACTL $44 (display
+  list DMA off) and jammed at $0003: the game was running data, the sign of the wrong board. The rule (twice as many
+  calls into $4000–$7FFF as half the calls into $8000–$BFFF) was too strict for a two-chip game whose first chip is
+  mostly data. It now compares the calls into $4000–$7FFF with the look-alikes that point at the chips' registers
+  ($C000–$F7FF, where no code jumps), which measure the data's noise: two chips when $4000–$7FFF gets over twice its
+  share. The log gives that count too, and the vectors to $021B.
+
+### GV-027
+
+**Esc with a controller connected closes the app, with no crash.log** · High · Player · **Open**
+
+- **Reported:** with a controller connected, pressing Esc in a game closes GameVault, more than once, and
+  `logs\crash.log` stays empty.
+- **What that says:** `App` writes crash.log for every managed exception that reaches `AppDomain.UnhandledException`
+  or `Application.UnhandledException`. Nothing is written when the process ends without them: a stack overflow (.NET
+  ends the process at once), a native crash (SDL, Direct3D, WinUI), or a WinUI fail-fast. Esc on the Player is
+  `Pause_Invoked` (pause, or leave full screen); paused, the controller goes to `PadNavigation`, which turns presses
+  into focus moves and key presses. No loop between them shows in the code.
+- **Event Viewer (two crashes):** both *Application Error*, exception code 0xC0000409 (a fail-fast) in WinUI itself:
+  `Microsoft.UI.Input.dll` (offset 0xEAC6A) and `Microsoft.UI.Windowing.Core.dll` (offset 0x3752D), version
+  10.0.27200.1054. WinUI fails fast like that when it's called from a thread other than its own, or re-entered while
+  it dispatches input.
+- **Done so far:** the pads' events can reach WinUI from the pads' thread when `ControllerManager` was made before the
+  UI's synchronization context existed; the window now hands it that context (`UseContext`), pad navigation and the
+  pad's pause request check `DispatcherQueue.HasThreadAccess` and move to the UI thread if needed, and
+  `logs\ui-trace.log` (new each run, flushed per line) records every Esc, pad pause and pad navigation step with its
+  thread, the focused element and the step planned. If the crash remains, its last lines show what WinUI was doing.
 
 ---
 
