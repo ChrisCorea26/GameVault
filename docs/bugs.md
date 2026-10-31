@@ -407,8 +407,15 @@ content is missing. **Low** = wrong text or a small inconsistency.
   ends the process at once), a native crash (SDL, Direct3D, WinUI), or a WinUI fail-fast. Esc on the Player is
   `Pause_Invoked` (pause, or leave full screen); paused, the controller goes to `PadNavigation`, which turns presses
   into focus moves and key presses. No loop between them shows in the code.
-- **Next:** Windows' Event Viewer (Windows Logs → Application) records such a crash: an *Application Error* event
-  naming the faulting module and code, and for a .NET crash a *.NET Runtime* event with the stack.
+- **Event Viewer (two crashes):** both *Application Error*, exception code 0xC0000409 (a fail-fast) in WinUI itself:
+  `Microsoft.UI.Input.dll` (offset 0xEAC6A) and `Microsoft.UI.Windowing.Core.dll` (offset 0x3752D), version
+  10.0.27200.1054. WinUI fails fast like that when it's called from a thread other than its own, or re-entered while
+  it dispatches input.
+- **Done so far:** the pads' events can reach WinUI from the pads' thread when `ControllerManager` was made before the
+  UI's synchronization context existed; the window now hands it that context (`UseContext`), pad navigation and the
+  pad's pause request check `DispatcherQueue.HasThreadAccess` and move to the UI thread if needed, and
+  `logs\ui-trace.log` (new each run, flushed per line) records every Esc, pad pause and pad navigation step with its
+  thread, the focused element and the step planned. If the crash remains, its last lines show what WinUI was doing.
 
 ---
 

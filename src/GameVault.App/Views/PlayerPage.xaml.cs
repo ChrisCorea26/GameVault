@@ -1,3 +1,4 @@
+using GameVault.App.Services;
 using GameVault.Platform.Input.Controllers;
 using GameVault.ViewModels;
 using Microsoft.UI.Xaml;
@@ -97,7 +98,18 @@ public sealed partial class PlayerPage : Page
         }
     }
 
-    private void OnPauseRequested(object? sender, EventArgs e) => ViewModel.TogglePauseCommand.Execute(null);
+    private void OnPauseRequested(object? sender, EventArgs e)
+    {
+        UiTrace.Write("the pad asked to pause", DispatcherQueue.HasThreadAccess);
+        if (DispatcherQueue.HasThreadAccess)
+        {
+            ViewModel.TogglePauseCommand.Execute(null);
+        }
+        else
+        {
+            DispatcherQueue.TryEnqueue(() => ViewModel.TogglePauseCommand.Execute(null));
+        }
+    }
 
     // Coming back to the window resumes a game that paused itself and gives the keyboard back to the game
     // (input.md §4.4), unless the password box is being typed into.
@@ -137,6 +149,7 @@ public sealed partial class PlayerPage : Page
 
     private void Pause_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
+        UiTrace.Write($"Esc: {(ViewModel.IsFullScreen ? "leave full screen" : "pause or resume")}", DispatcherQueue.HasThreadAccess);
         if (!ViewModel.ExitFullScreen())
         {
             ViewModel.TogglePauseCommand.Execute(null);

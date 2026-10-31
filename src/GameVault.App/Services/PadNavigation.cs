@@ -59,6 +59,7 @@ public sealed partial class PadNavigation(INavigationService navigation)
             CanSwitchPage: navigation.CurrentPage != AppPage.Player);
 
         var step = PadFocusPlanner.Plan(action, context);
+        UiTrace.Write($"pad {action}: focus on {focused?.GetType().Name ?? "nothing"} ({kind}{(context.InPopup ? ", in a popup" : "")}) → {step.Kind}", onUiThread: true);
         var searchRoot = popupRoot ?? content;
         switch (step.Kind)
         {
