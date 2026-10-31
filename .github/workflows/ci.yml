@@ -1,9 +1,27 @@
 name: CI
 
+# To keep Actions minutes down, each change runs once: pull requests run CI, pushes only on main (a merge), and
+# documentation-only changes run nothing. The processor test suites run when their core changes, once a week, and
+# when started by hand (workflow_dispatch).
 on:
   push:
+    branches: [main]
+    paths-ignore: ['docs/**', '**/*.md']
   pull_request:
+    paths-ignore: ['docs/**', '**/*.md']
+  schedule:
+    - cron: '23 9 * * 0' # Sundays: the processor suites, whatever changed
   workflow_dispatch:
+
+# A newer push to the same pull request (or branch) cancels the run it replaces.
+# The path filter reads a pull request's changed files.
+permissions:
+  contents: read
+  pull-requests: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
 
 env:
   DOTNET_NOLOGO: true
@@ -12,8 +30,59 @@ env:
   GAMEVAULT_REQUIRE_TEST_ROMS: 1
 
 jobs:
+  changes:
+    name: Which processor suites a change touches
+    runs-on: ubuntu-latest
+    outputs:
+      z80: ${{ steps.filter.outputs.z80 }}
+      m68k: ${{ steps.filter.outputs.m68k }}
+      snes: ${{ steps.filter.outputs.snes }}
+      n64: ${{ steps.filter.outputs.n64 }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dorny/paths-filter@v3
+        id: filter
+        if: github.event_name == 'push' || github.event_name == 'pull_request'
+        with:
+          # Build settings and this workflow count for every suite.
+          filters: |
+            shared: &shared
+              - '.github/workflows/ci.yml'
+              - 'global.json'
+              - 'Directory.Build.props'
+              - 'Directory.Packages.props'
+              - 'src/GameVault.Core/GameVault.Core.csproj'
+              - 'tests/GameVault.Core.Tests/GameVault.Core.Tests.csproj'
+              - 'tests/GameVault.Core.Tests/Harness/**'
+              - 'tests/TestRoms/fetch-test-roms.*'
+            z80:
+              - *shared
+              - 'src/GameVault.Core/Cpu/Z80/**'
+              - 'tests/GameVault.Core.Tests/Z80/**'
+              - 'tests/TestRoms/manifest.tsv'
+            m68k:
+              - *shared
+              - 'src/GameVault.Core/Cpu/M68000/**'
+              - 'tests/GameVault.Core.Tests/M68000/**'
+              - 'tests/TestRoms/manifest-680x0.tsv'
+            snes:
+              - *shared
+              - 'src/GameVault.Core/Cpu/W65816/**'
+              - 'src/GameVault.Core/Snes/Spc700.cs'
+              - 'tests/GameVault.Core.Tests/W65816/**'
+              - 'tests/GameVault.Core.Tests/Snes/Spc700SingleStepTests.cs'
+              - 'tests/TestRoms/manifest-65816.tsv'
+              - 'tests/TestRoms/manifest-spc700.tsv'
+            n64:
+              - *shared
+              - 'src/GameVault.Core/Nintendo64/**'
+              - 'src/GameVault.Core/Cpu/R4300/**'
+              - 'tests/GameVault.Core.Tests/Nintendo64/**'
+              - 'tests/TestRoms/manifest-n64.tsv'
+
   windows:
     name: Build and test (Windows)
+    if: github.event_name != 'schedule'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v5
@@ -39,6 +108,13 @@ jobs:
           "DOTNET_ROOT=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
           "DOTNET_MULTILEVEL_LOOKUP=0" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
 
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
       - name: Fetch test ROMs
         shell: pwsh
         run: ./tests/TestRoms/fetch-test-roms.ps1
@@ -50,11 +126,11 @@ jobs:
         run: dotnet build GameVault.sln -c Debug --no-restore
 
       - name: Test
-        # One test project at a time (-m:1): the Core tests' PS2 programs keep every core busy for minutes, which starved
-        # the Platform tests that wait on the real-time frame loop (netplay, zero-config start, challenges).
+        # Only the Platform tests: Windows minutes count double, and the Core, Library, Dumper and ViewModels tests run in
+        # the Linux job. Here the Platform tests also exercise what only Windows has (Direct3D 11 through WARP, WASAPI).
         env:
           GAMEVAULT_REQUIRE_GPU: 1 # WARP: the GPU renderer tests must run, not return early
-        run: dotnet test GameVault.sln -c Debug --no-build -m:1 --logger trx --results-directory TestResults
+        run: dotnet test tests/GameVault.Platform.Tests -c Debug --no-build --logger trx --results-directory TestResults
 
       - name: Smoke test (app launches in real mode and every screen renders under --sample-data)
         shell: pwsh
@@ -91,6 +167,7 @@ jobs:
 
   cross-platform:
     name: Core, Library and ViewModels (Linux)
+    if: github.event_name != 'schedule'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -112,6 +189,13 @@ jobs:
           bash dotnet-install.sh --version "$version" --azure-feed "$feed" --install-dir "$dir"
           echo "$dir" >> "$GITHUB_PATH"
           echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       - name: Fetch test ROMs
         run: ./tests/TestRoms/fetch-test-roms.sh
@@ -127,6 +211,8 @@ jobs:
 
   z80-exerciser:
     name: Z80 exerciser (zexdoc, zexall; Linux, Release)
+    needs: changes
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.z80 == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -148,6 +234,13 @@ jobs:
           bash dotnet-install.sh --version "$version" --azure-feed "$feed" --install-dir "$dir"
           echo "$dir" >> "$GITHUB_PATH"
           echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       - name: Fetch test ROMs
         run: ./tests/TestRoms/fetch-test-roms.sh
@@ -160,6 +253,8 @@ jobs:
 
   m68000-tests:
     name: 68000 single-step tests (Linux, Release)
+    needs: changes
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.m68k == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -181,6 +276,13 @@ jobs:
           bash dotnet-install.sh --version "$version" --azure-feed "$feed" --install-dir "$dir"
           echo "$dir" >> "$GITHUB_PATH"
           echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       - name: Fetch the 68000 tests
         run: ./tests/TestRoms/fetch-test-roms.sh manifest-680x0.tsv
@@ -193,6 +295,8 @@ jobs:
 
   snes-cpu-tests:
     name: 65816 and SPC700 single-step tests (Linux, Release)
+    needs: changes
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.snes == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -214,6 +318,13 @@ jobs:
           bash dotnet-install.sh --version "$version" --azure-feed "$feed" --install-dir "$dir"
           echo "$dir" >> "$GITHUB_PATH"
           echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       # The 65816 suite is about 2.6 GB of JSON; keep it between runs.
       - name: Cache the 65816 tests
@@ -236,6 +347,8 @@ jobs:
 
   n64-tests:
     name: Nintendo 64 test programs (Linux, Release)
+    needs: changes
+    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch' || needs.changes.outputs.n64 == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -257,6 +370,13 @@ jobs:
           bash dotnet-install.sh --version "$version" --azure-feed "$feed" --install-dir "$dir"
           echo "$dir" >> "$GITHUB_PATH"
           echo "DOTNET_ROOT=$dir" >> "$GITHUB_ENV"
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('Directory.Packages.props', '**/*.csproj') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       # PeterLemon's N64 programs are 1 MB ROMs, about 270 MB in all; keep them between runs.
       - name: Cache the N64 test programs

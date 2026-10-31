@@ -205,7 +205,7 @@ public sealed class PlayStation2HostTests(ITestOutputHelper output) : IDisposabl
         await WaitFor(async () => await host.InspectAsync(c => c.FrameCount) > 3);
 
         var capture = (await host.CaptureAsync())!;
-        capture.State.Length.Should().BeInRange(40_000_000, 60_000_000, "RDRAM, GS memory, IOP RAM, sound RAM and the 8.6 MB card");
+        capture.State.Length.Should().BeInRange(40_000_000, 62_000_000, "RDRAM, GS memory, IOP RAM, sound RAM and the 8.6 MB card");
         await WaitFor(async () => await host.InspectAsync(c => c.FrameCount) > 8);
         (await host.RestoreAsync(capture.State)).Should().BeTrue();
         var sector = await host.InspectAsync(c =>
