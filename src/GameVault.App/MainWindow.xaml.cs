@@ -20,7 +20,7 @@ public sealed partial class MainWindow : Window
     {
         ViewModel = viewModel;
         _navigation = navigation;
-        window.FullScreenChanged += (_, _) => ShowChrome(!window.IsFullScreen);
+        window.FullScreenChanged += (_, _) => UiGuard.Run("Showing the window chrome", () => ShowChrome(!window.IsFullScreen));
 
         InitializeComponent();
 
@@ -76,12 +76,12 @@ public sealed partial class MainWindow : Window
                 // WinUI must only be called on its own thread; anything else ends the app with a fail-fast (GV-027).
                 if (DispatcherQueue.HasThreadAccess)
                 {
-                    padNavigation.Handle(action);
+                    UiGuard.Run($"Pad navigation {action}", () => padNavigation.Handle(action));
                 }
                 else
                 {
                     UiTrace.Write($"pad navigation {action} arrived off the UI thread; moved to it", onUiThread: false);
-                    DispatcherQueue.TryEnqueue(() => padNavigation.Handle(action));
+                    DispatcherQueue.TryEnqueue(() => UiGuard.Run($"Pad navigation {action}", () => padNavigation.Handle(action)));
                 }
             };
             await controllers.StartAsync();
@@ -89,9 +89,11 @@ public sealed partial class MainWindow : Window
     }
 
     // input.md §4.4 and §7: nothing stays held, and pads are ignored, while another window is active.
-    private void OnActivated(object sender, WindowActivatedEventArgs args)
+    private void OnActivated(object sender, WindowActivatedEventArgs args) =>
+        UiGuard.Run("Window activation", () => OnActivated(args.WindowActivationState != WindowActivationState.Deactivated));
+
+    private static void OnActivated(bool active)
     {
-        var active = args.WindowActivationState != WindowActivationState.Deactivated;
         if (App.TryGetService<ControllerManager>() is { } controllers)
         {
             controllers.AppActive = active;

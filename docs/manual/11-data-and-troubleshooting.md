@@ -22,7 +22,7 @@ files are read from where you put them.
 | `Profiles\<id>\` | The same files for each extra family profile |
 | `bios\` | Copies of the BIOS files you chose with **Choose…** (`fds\`, `ps1\`, `ps2\`), shared by every family profile |
 | `logs\crash.log` | Details of any crash |
-| `logs\ui-trace.log` | The last pauses and controller menu moves of this session, for crashes that leave nothing in `crash.log` |
+| `logs\ui-trace.log` | This session's Esc and full-screen presses, pauses, controller menu moves and every error the app ran into, for crashes that leave nothing in `crash.log`. It starts afresh each time GameVault starts |
 | `logs\boot-ps1.log`, `logs\boot-ps2.log`, `logs\boot-5200.log` | The first minute of the last PlayStation, PlayStation 2 or Atari 5200 game you started: what the console was doing while its BIOS started the game |
 
 Cover pictures stay where you chose them; only their location is stored, so don't move or delete them.
@@ -74,7 +74,7 @@ The RetroAchievements sign-in is tied to your Windows account, so sign in again 
 | A PlayStation or PlayStation 2 game stays on a BIOS screen or a black screen | Include `%LOCALAPPDATA%\GameVault\logs\boot-ps1.log` (PlayStation) or `boot-ps2.log` (PlayStation 2) when you report it: it shows where the console stopped. It's written again each time a game starts, so send it straight after trying the game. |
 | A PlayStation 2 game isn't in the library | Discs are recognised by their SYSTEM.CNF file; check the image isn't damaged. A `.bin` must come with its `.cue`. |
 | Settings are greyed out | The family profile is locked. A parent can unlock it with the PIN. |
-| GameVault crashed | Details are in `%LOCALAPPDATA%\GameVault\logs\crash.log`. Include that file when you report the problem. |
+| GameVault crashed | Details are in `%LOCALAPPDATA%\GameVault\logs\crash.log`. Include that file when you report the problem. If it's empty, include `logs\ui-trace.log` too, copied before you start GameVault again (each start replaces it). |
 
 ## Command-line options
 

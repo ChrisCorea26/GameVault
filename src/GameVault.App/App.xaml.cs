@@ -37,7 +37,9 @@ public partial class App : Application
 
     public App()
     {
-        // Hook these first so failures while loading XAML are logged too.
+        // Hook these first so failures while loading XAML are logged too. ui-trace.log also records every exception
+        // as it's thrown, for the WinUI fail-fasts that never reach the handlers below (GV-027).
+        UiTrace.Start();
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
             if (e.ExceptionObject is Exception ex)
