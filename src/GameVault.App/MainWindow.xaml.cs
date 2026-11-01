@@ -68,6 +68,9 @@ public sealed partial class MainWindow : Window
     {
         ViewModel.StartCommand.Execute(null);
 
+        // USER/GDI object counts in ui-trace.log, to find the leak behind the popup fail-fasts (GV-027).
+        new HandleMonitor(_navigation).Start(DispatcherQueue);
+
         if (App.TryGetService<LibraryService>() is { } library)
         {
             await library.StartWatchingAsync(); // folder changes rescan the library (SPEC §6.2)

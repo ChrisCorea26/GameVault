@@ -443,6 +443,15 @@ content is missing. **Low** = wrong text or a small inconsistency.
 - **Done next:** `PresentGate` stops both render threads (Win2D and Direct3D 11) drawing and presenting from just
   before `SetPresenter` until 300 ms after it, so the swap chain isn't presented while the window changes size and
   presenter. The Settings crash is still unexplained: it needs the Event Viewer entry or a WER crash dump.
+- **Root cause found (crash dump, Microsoft public symbols):** the UI thread fails fast in
+  `ContentSiteBridge::NotifyPopupDestroyed` (Microsoft.UI.Input.dll+0xEAC6A, FAST_FAIL_FATAL_APP_EXIT, E_UNEXPECTED),
+  called from `PopupWindowSiteBridge::Destroy` after `PopupWindowSiteBridge::DelayInitialize` failed with
+  **0x80070486, ERROR_NO_MORE_USER_HANDLES**. The process had used up Windows' 10,000 USER objects (windows, cursors,
+  menus, hooks…), so the next windowed popup (tooltip, flyout, drop-down, text box menu) couldn't be made, and WinUI
+  fails fast on cleaning it up. That's why the crash came at different places (Esc, starting a game, Settings) after a
+  few minutes. Something leaks USER objects; the full-screen and title bar changes above weren't the cause.
+- **Done next:** `HandleMonitor` writes the USER and GDI object counts to ui-trace.log every 5 seconds and on every
+  page change, with a warning past 8,000, to find what leaks them.
 
 ---
 
