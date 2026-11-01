@@ -483,59 +483,76 @@ public sealed partial class GameView : Control
                     break;
                 }
 
-                Size size;
-                float dpi;
-                int crop;
-                lock (_layoutGate)
+                if (!PresentGate.TryEnter())
                 {
-                    if (_resizePending)
-                    {
-                        _swapChain.ResizeBuffers((float)_size.Width, (float)_size.Height, _dpi);
-                        _resizePending = false;
-                    }
-
-                    size = _size;
-                    dpi = _dpi;
-                    crop = _crop;
+                    continue; // the window is switching full screen (GV-027)
                 }
 
-                if (_frames.TryGetVideoFrame(out var frame))
+                try
                 {
-                    if (frame.Width != _frameWidth || frame.Height != _frameHeight)
-                    {
-                        _frameWidth = frame.Width;
-                        _frameHeight = frame.Height;
-                        _bytes = new byte[_frameWidth * _frameHeight * 4];
-                        bitmap.Dispose();
-                        bitmap = CanvasBitmap.CreateFromBytes(
-                            _swapChain.Device, _bytes, _frameWidth, _frameHeight, DirectXPixelFormat.B8G8R8A8UIntNormalized);
-                    }
-
-                    _pixelAspect = frame.PixelAspect;
-                    var count = frame.Width * frame.Height;
-                    if (_pixels.Length < count)
-                    {
-                        _pixels = new uint[count]; // a GPU renderer's larger picture
-                    }
-
-                    frame.ToArgb(_frames.Palette, _pixels);
-
-                    // ARGB as little-endian uint is BGRA in memory, which is the bitmap's format.
-                    MemoryMarshal.AsBytes(_pixels.AsSpan(0, count)).CopyTo(_bytes);
-                    bitmap.SetPixelBytes(_bytes);
+                    DrawAndPresent(ref bitmap);
                 }
-
-                using (var ds = _swapChain.CreateDrawingSession(Colors.Black))
+                finally
                 {
-                    var (destination, source) = Layout(size, dpi, crop);
-                    ds.DrawImage(bitmap, destination, source, 1f,
-                        _sharp ? CanvasImageInterpolation.NearestNeighbor : CanvasImageInterpolation.Linear);
+                    PresentGate.Exit();
                 }
-
-                _swapChain.Present();
             }
 
             bitmap.Dispose();
+        }
+
+        private void DrawAndPresent(ref CanvasBitmap bitmap)
+        {
+            Size size;
+            float dpi;
+            int crop;
+            lock (_layoutGate)
+            {
+                if (_resizePending)
+                {
+                    _swapChain.ResizeBuffers((float)_size.Width, (float)_size.Height, _dpi);
+                    _resizePending = false;
+                }
+
+                size = _size;
+                dpi = _dpi;
+                crop = _crop;
+            }
+
+            if (_frames.TryGetVideoFrame(out var frame))
+            {
+                if (frame.Width != _frameWidth || frame.Height != _frameHeight)
+                {
+                    _frameWidth = frame.Width;
+                    _frameHeight = frame.Height;
+                    _bytes = new byte[_frameWidth * _frameHeight * 4];
+                    bitmap.Dispose();
+                    bitmap = CanvasBitmap.CreateFromBytes(
+                        _swapChain.Device, _bytes, _frameWidth, _frameHeight, DirectXPixelFormat.B8G8R8A8UIntNormalized);
+                }
+
+                _pixelAspect = frame.PixelAspect;
+                var count = frame.Width * frame.Height;
+                if (_pixels.Length < count)
+                {
+                    _pixels = new uint[count]; // a GPU renderer's larger picture
+                }
+
+                frame.ToArgb(_frames.Palette, _pixels);
+
+                // ARGB as little-endian uint is BGRA in memory, which is the bitmap's format.
+                MemoryMarshal.AsBytes(_pixels.AsSpan(0, count)).CopyTo(_bytes);
+                bitmap.SetPixelBytes(_bytes);
+            }
+
+            using (var ds = _swapChain.CreateDrawingSession(Colors.Black))
+            {
+                var (destination, source) = Layout(size, dpi, crop);
+                ds.DrawImage(bitmap, destination, source, 1f,
+                    _sharp ? CanvasImageInterpolation.NearestNeighbor : CanvasImageInterpolation.Linear);
+            }
+
+            _swapChain.Present();
         }
 
         /// <summary>Placement from <see cref="DisplayLayout"/> in physical pixels, converted to DIPs.</summary>
@@ -609,22 +626,34 @@ public sealed partial class GameView : Control
                     break;
                 }
 
-                lock (_layoutGate)
+                if (!PresentGate.TryEnter())
                 {
-                    if (_pendingResize is { } r)
+                    continue; // the window is switching full screen (GV-027)
+                }
+
+                try
+                {
+                    lock (_layoutGate)
                     {
-                        _renderer.Resize(r.Width, r.Height);
-                        _renderer.SetCompositionScale(r.ScaleX, r.ScaleY);
-                        _pendingResize = null;
+                        if (_pendingResize is { } r)
+                        {
+                            _renderer.Resize(r.Width, r.Height);
+                            _renderer.SetCompositionScale(r.ScaleX, r.ScaleY);
+                            _pendingResize = null;
+                        }
                     }
-                }
 
-                if (_frames.TryGetVideoFrame(out var frame))
+                    if (_frames.TryGetVideoFrame(out var frame))
+                    {
+                        _renderer.UploadFrame(frame, _frames.Palette);
+                    }
+
+                    _renderer.Render(_preset, _crop, _tvPixelShape);
+                }
+                finally
                 {
-                    _renderer.UploadFrame(frame, _frames.Palette);
+                    PresentGate.Exit();
                 }
-
-                _renderer.Render(_preset, _crop, _tvPixelShape);
             }
         }
     }

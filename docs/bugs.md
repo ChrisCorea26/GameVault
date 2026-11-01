@@ -436,6 +436,13 @@ content is missing. **Low** = wrong text or a small inconsistency.
   `AppWindow.Changed`. `WinUiWindowService.SetFullScreen` now always changes the presenter on the next dispatcher
   turn, so no caller (a game starting, Esc, F11, leaving the Player) does it from inside a XAML callback.
   ui-trace.log records each presenter change requested and each step of `ShowChrome`.
+- **Fourth report (with that build):** a crash in Settings with no game and no full screen (nothing in the log), and
+  an Esc crash *inside* `AppWindow.SetPresenter(Overlapped)`: `changing to Overlapped` is the last line, before
+  `AppWindow.Changed` or any GameVault code. The same change from Back, after the game had stopped, worked. Every
+  presenter-change crash so far was with a game drawing frames.
+- **Done next:** `PresentGate` stops both render threads (Win2D and Direct3D 11) drawing and presenting from just
+  before `SetPresenter` until 300 ms after it, so the swap chain isn't presented while the window changes size and
+  presenter. The Settings crash is still unexplained: it needs the Event Viewer entry or a WER crash dump.
 
 ---
 
