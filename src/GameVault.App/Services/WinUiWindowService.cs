@@ -32,9 +32,12 @@ public sealed class WinUiWindowService : IWindowService
         _watching = true;
         App.MainWindow.AppWindow.Changed += (_, args) =>
         {
+            // Raised by the Windows App SDK's native windowing code: an exception escaping here is a fail-fast in
+            // Microsoft.UI.Windowing.Core with no crash.log (GV-027), so it's caught and logged instead.
             if (args.DidPresenterChange)
             {
-                FullScreenChanged?.Invoke(this, EventArgs.Empty);
+                UiTrace.Write($"window presenter is now {App.MainWindow.AppWindow.Presenter.Kind}", onUiThread: true);
+                UiGuard.Run("Full screen change", () => FullScreenChanged?.Invoke(this, EventArgs.Empty));
             }
         };
     }

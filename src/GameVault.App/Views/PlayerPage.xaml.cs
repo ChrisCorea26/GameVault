@@ -103,19 +103,22 @@ public sealed partial class PlayerPage : Page
         UiTrace.Write("the pad asked to pause", DispatcherQueue.HasThreadAccess);
         if (DispatcherQueue.HasThreadAccess)
         {
-            ViewModel.TogglePauseCommand.Execute(null);
+            UiGuard.Run("Pad pause", () => ViewModel.TogglePauseCommand.Execute(null));
         }
         else
         {
-            DispatcherQueue.TryEnqueue(() => ViewModel.TogglePauseCommand.Execute(null));
+            DispatcherQueue.TryEnqueue(() => UiGuard.Run("Pad pause", () => ViewModel.TogglePauseCommand.Execute(null)));
         }
     }
 
     // Coming back to the window resumes a game that paused itself and gives the keyboard back to the game
     // (input.md §4.4), unless the password box is being typed into.
-    private void OnWindowActivated(object sender, WindowActivatedEventArgs args)
+    private void OnWindowActivated(object sender, WindowActivatedEventArgs args) =>
+        UiGuard.Run("Player window activation", () => OnWindowActivated(args.WindowActivationState));
+
+    private void OnWindowActivated(WindowActivationState state)
     {
-        if (args.WindowActivationState == WindowActivationState.Deactivated)
+        if (state == WindowActivationState.Deactivated)
         {
             ViewModel.OnWindowDeactivated();
             return;
@@ -147,21 +150,34 @@ public sealed partial class PlayerPage : Page
         }
     }
 
+    // Esc and F11 only mark the key handled here; the work runs once WinUI has finished dispatching the key press.
+    // Changing the window's presenter (full screen) or the page from inside the accelerator re-enters WinUI's input
+    // and windowing code, which ended the app with a fail-fast and no crash.log (docs/bugs.md GV-027).
     private void Pause_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        UiTrace.Write($"Esc: {(ViewModel.IsFullScreen ? "leave full screen" : "pause or resume")}", DispatcherQueue.HasThreadAccess);
-        if (!ViewModel.ExitFullScreen())
-        {
-            ViewModel.TogglePauseCommand.Execute(null);
-        }
-
         args.Handled = true;
+        UiTrace.Write("Esc pressed", DispatcherQueue.HasThreadAccess);
+        DispatcherQueue.TryEnqueue(() => UiGuard.Run("Esc", () =>
+        {
+            var fullScreen = ViewModel.IsFullScreen;
+            UiTrace.Write($"Esc: {(fullScreen ? "leave full screen" : "pause or resume")}", DispatcherQueue.HasThreadAccess);
+            if (!ViewModel.ExitFullScreen())
+            {
+                ViewModel.TogglePauseCommand.Execute(null);
+            }
+
+            UiTrace.Write($"Esc done: {ViewModel.Status}", DispatcherQueue.HasThreadAccess);
+        }));
     }
 
     private void FullScreen_Invoked(KeyboardAccelerator sender, KeyboardAcceleratorInvokedEventArgs args)
     {
-        ViewModel.ToggleFullScreenCommand.Execute(null);
-        ReturnFocusToGame();
         args.Handled = true;
+        UiTrace.Write("full screen key pressed", DispatcherQueue.HasThreadAccess);
+        DispatcherQueue.TryEnqueue(() => UiGuard.Run("Full screen key", () =>
+        {
+            ViewModel.ToggleFullScreenCommand.Execute(null);
+            ReturnFocusToGame();
+        }));
     }
 }

@@ -416,6 +416,15 @@ content is missing. **Low** = wrong text or a small inconsistency.
   pad's pause request check `DispatcherQueue.HasThreadAccess` and move to the UI thread if needed, and
   `logs\ui-trace.log` (new each run, flushed per line) records every Esc, pad pause and pad navigation step with its
   thread, the focused element and the step planned. If the crash remains, its last lines show what WinUI was doing.
+- **Reported again:** Esc still closes the app, and nothing is written to a log.
+- **Done next:** Esc and F11/Alt+Enter now only mark the key handled in their accelerator; pausing and leaving full
+  screen run from the dispatcher queue once WinUI has finished with the key press, so the presenter change
+  (`AppWindow.SetPresenter`) and the layout changes it sets off no longer happen inside WinUI's input dispatch.
+  Handlers that WinUI's native code calls (the Esc/F11 work, `AppWindow.Changed`, window activation, pad pause and
+  pad navigation) run through `UiGuard`, which writes an exception to crash.log and keeps the app running; WinUI fails
+  fast on an exception escaping such a handler, with no `Application.UnhandledException`. `ui-trace.log` is now opened
+  at start-up (so it always exists) and records every exception when it's thrown, with its stack, before anything can
+  end the process. Needs checking on Windows: if Esc still closes the app, the end of `ui-trace.log` names the cause.
 
 ---
 
