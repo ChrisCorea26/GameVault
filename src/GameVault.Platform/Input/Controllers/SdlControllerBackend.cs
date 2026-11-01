@@ -10,9 +10,15 @@ namespace GameVault.Platform.Input.Controllers;
 /// SDL2 GameController input via Silk.NET (SPEC §2, §5.4) on its own polling thread. SDL's built-in
 /// controller database covers Xbox, PlayStation, Switch Pro and 8BitDo pads with no setup screen.
 /// </summary>
-public sealed unsafe class SdlControllerBackend : IControllerBackend
+public sealed unsafe partial class SdlControllerBackend : IControllerBackend
 {
     private const int PollIntervalMs = 4;
+
+    /// <summary>Polls between USER-object checks (about 5 seconds); see <see cref="CheckUserObjects"/>.</summary>
+    private const int LeakCheckPolls = 1250;
+
+    /// <summary>Diagnostic lines for the app's trace log (ui-trace.log); called on the polling thread.</summary>
+    public Action<string>? Trace { get; init; }
 
     private Thread? _thread;
     private volatile bool _stop;
@@ -66,6 +72,11 @@ public sealed unsafe class SdlControllerBackend : IControllerBackend
         // There is no SDL window, so SDL can't tell whether we're in the foreground; ControllerManager does that.
         sdl.SetHint(Sdl.HintJoystickAllowBackgroundEvents, "1");
 
+        // No Windows.Gaming.Input backend: with it, every SDL_PollEvent on this thread left one more USER object behind
+        // (250 a second at our poll rate), until the process hit Windows' 10,000 limit and WinUI failed fast on its next
+        // popup (docs/bugs.md GV-027). XInput, raw input and HIDAPI still cover every pad.
+        sdl.SetHint("SDL_JOYSTICK_WGI", "0");
+
         if (sdl.Init(Sdl.InitGamecontroller | Sdl.InitJoystick | Sdl.InitEvents) != 0)
         {
             StartError = sdl.GetErrorS();
@@ -76,10 +87,19 @@ public sealed unsafe class SdlControllerBackend : IControllerBackend
         var clock = Stopwatch.StartNew();
         var events = _events!;
         Event e;
+        var polls = 0;
+        var userObjects = UserObjects();
+        Trace?.Invoke($"controllers: SDL started, USER objects {userObjects}");
         try
         {
             while (!_stop)
             {
+                if (++polls == LeakCheckPolls)
+                {
+                    polls = 0;
+                    userObjects = CheckUserObjects(userObjects);
+                }
+
                 while (sdl.PollEvent(&e) != 0)
                 {
                     switch ((EventType)e.Type)
@@ -128,6 +148,30 @@ public sealed unsafe class SdlControllerBackend : IControllerBackend
             sdl.Quit();
         }
     }
+
+    /// <summary>
+    /// Reports when the process's USER objects grew by about one per poll since the last check, which means this loop
+    /// (SDL) is what leaks them (GV-027).
+    /// </summary>
+    private uint CheckUserObjects(uint before)
+    {
+        var now = UserObjects();
+        var grew = (int)now - (int)before;
+        if (grew >= LeakCheckPolls / 2)
+        {
+            Trace?.Invoke($"controllers: USER objects {before} -> {now} over {LeakCheckPolls} polls: SDL polling is leaking them");
+        }
+
+        return now;
+    }
+
+    private static uint UserObjects() => GetGuiResources(GetCurrentProcess(), 1 /* GR_USEROBJECTS */);
+
+    [LibraryImport("user32.dll")]
+    private static partial uint GetGuiResources(nint process, uint flags);
+
+    [LibraryImport("kernel32.dll")]
+    private static partial nint GetCurrentProcess();
 
     private readonly Dictionary<int, (float Level, long SentMs)> _rumbleSent = [];
 

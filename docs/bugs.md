@@ -452,6 +452,14 @@ content is missing. **Low** = wrong text or a small inconsistency.
   few minutes. Something leaks USER objects; the full-screen and title bar changes above weren't the cause.
 - **Done next:** `HandleMonitor` writes the USER and GDI object counts to ui-trace.log every 5 seconds and on every
   page change, with a warning past 8,000, to find what leaks them.
+- **Leak found (the reporter's ui-trace.log):** USER objects grew by a steady ~250 a second from launch, on every page
+  (Library, Game Details, Player), game or no game, and hit 10,000 within about 40 seconds; GDI stayed flat.
+  250 a second is the controller thread's rate (`SdlControllerBackend` polls every 4 ms), and its loop has only one
+  native call each pass, `SDL_PollEvent` (SDL 2.30.8, with Windows.Gaming.Input loaded). The crash.log of the same run
+  shows the file picker failing with the same 0x80070486.
+- **Done next:** SDL's Windows.Gaming.Input backend is off (`SDL_JOYSTICK_WGI=0`); XInput, raw input and HIDAPI
+  still drive every pad. The polling loop checks the process's USER objects every 1,250 polls and writes a
+  "SDL polling is leaking them" line to ui-trace.log if they grew by one a poll, so a remaining leak is pinned there.
 
 ---
 
