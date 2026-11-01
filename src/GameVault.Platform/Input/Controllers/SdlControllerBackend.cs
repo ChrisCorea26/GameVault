@@ -72,10 +72,12 @@ public sealed unsafe partial class SdlControllerBackend : IControllerBackend
         // There is no SDL window, so SDL can't tell whether we're in the foreground; ControllerManager does that.
         sdl.SetHint(Sdl.HintJoystickAllowBackgroundEvents, "1");
 
-        // No Windows.Gaming.Input backend: with it, every SDL_PollEvent on this thread left one more USER object behind
-        // (250 a second at our poll rate), until the process hit Windows' 10,000 limit and WinUI failed fast on its next
-        // popup (docs/bugs.md GV-027). XInput, raw input and HIDAPI still cover every pad.
-        sdl.SetHint("SDL_JOYSTICK_WGI", "0");
+        // SDL's raw input backend registers for the pads' WM_INPUT messages on a hidden window, and its HIDAPI backend for
+        // device changes on another. Without SDL video nothing pumps the Windows messages of the thread that owns them,
+        // so every input report (about 250 a second from a pad) stayed queued holding a raw input handle, a USER object,
+        // until the process hit Windows' 10,000 limit and WinUI failed fast on its next popup (docs/bugs.md GV-027).
+        // SDL's own joystick thread owns and pumps the device window; PumpWindowsMessages empties this thread's queue.
+        sdl.SetHint("SDL_JOYSTICK_THREAD", "1");
 
         if (sdl.Init(Sdl.InitGamecontroller | Sdl.InitJoystick | Sdl.InitEvents) != 0)
         {
@@ -100,6 +102,7 @@ public sealed unsafe partial class SdlControllerBackend : IControllerBackend
                     userObjects = CheckUserObjects(userObjects);
                 }
 
+                PumpWindowsMessages();
                 while (sdl.PollEvent(&e) != 0)
                 {
                     switch ((EventType)e.Type)
@@ -166,6 +169,42 @@ public sealed unsafe partial class SdlControllerBackend : IControllerBackend
     }
 
     private static uint UserObjects() => GetGuiResources(GetCurrentProcess(), 1 /* GR_USEROBJECTS */);
+
+    /// <summary>
+    /// Takes every Windows message queued for this thread and hands it to its window (SDL's hidden ones), which frees
+    /// WM_INPUT's raw input handle and lets SDL see device changes. SDL leaves this to its video system, which isn't used.
+    /// </summary>
+    private static void PumpWindowsMessages()
+    {
+        WindowsMessage message;
+        for (var i = 0; i < 1000 && PeekMessageW(&message, 0, 0, 0, 1 /* PM_REMOVE */) != 0; i++)
+        {
+            TranslateMessage(&message);
+            DispatchMessageW(&message);
+        }
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct WindowsMessage
+    {
+        public nint Window;
+        public uint Message;
+        public nuint WParam;
+        public nint LParam;
+        public uint Time;
+        public int X;
+        public int Y;
+        public uint Private;
+    }
+
+    [LibraryImport("user32.dll")]
+    private static partial int PeekMessageW(WindowsMessage* message, nint window, uint filterMin, uint filterMax, uint remove);
+
+    [LibraryImport("user32.dll")]
+    private static partial int TranslateMessage(WindowsMessage* message);
+
+    [LibraryImport("user32.dll")]
+    private static partial nint DispatchMessageW(WindowsMessage* message);
 
     [LibraryImport("user32.dll")]
     private static partial uint GetGuiResources(nint process, uint flags);
