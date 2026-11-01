@@ -243,7 +243,7 @@ public partial class App : Application
             services.AddSingleton<IConfirmationService, ContentDialogConfirmation>();
             services.AddSingleton(sp => new ControllerManager(
                 sp.GetRequiredService<InputService>(),
-                new SdlControllerBackend(),
+                new SdlControllerBackend { Trace = line => UiTrace.Write(line, onUiThread: false) },
                 sp.GetRequiredService<ISettingsStore>()));
             services.AddSingleton<IInputDevicesService>(sp => sp.GetRequiredService<ControllerManager>());
         }
