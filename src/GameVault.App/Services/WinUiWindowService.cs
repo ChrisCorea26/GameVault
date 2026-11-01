@@ -8,18 +8,40 @@ public sealed class WinUiWindowService : IWindowService
 {
     private bool _watching;
 
-    public bool IsFullScreen => App.MainWindow.AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen;
+    /// <summary>The presenter asked for and not yet applied; see <see cref="SetFullScreen"/>.</summary>
+    private bool? _wanted;
+
+    public bool IsFullScreen => _wanted ?? App.MainWindow.AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen;
 
     public event EventHandler? FullScreenChanged;
 
+    /// <summary>
+    /// The presenter changes on the next dispatcher turn, never inside the caller: callers run in XAML callbacks
+    /// (Loaded, key accelerators, a game starting), and changing the presenter from inside one re-enters WinUI's layout,
+    /// input and windowing code, which ends the app with a fail-fast (docs/bugs.md GV-027).
+    /// </summary>
     public void SetFullScreen(bool fullScreen)
     {
         Watch();
-        if (IsFullScreen != fullScreen)
+        var queued = _wanted is not null;
+        _wanted = fullScreen;
+        if (!queued)
         {
-            App.MainWindow.AppWindow.SetPresenter(fullScreen ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped);
+            App.MainWindow.DispatcherQueue.TryEnqueue(ApplyPresenter);
         }
     }
+
+    private void ApplyPresenter() => UiGuard.Run("Changing the window presenter", () =>
+    {
+        var wanted = _wanted;
+        _wanted = null;
+        var isFullScreen = App.MainWindow.AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen;
+        if (wanted is { } fullScreen && fullScreen != isFullScreen)
+        {
+            UiTrace.Write($"window presenter: changing to {(fullScreen ? "FullScreen" : "Overlapped")}", onUiThread: true);
+            App.MainWindow.AppWindow.SetPresenter(fullScreen ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped);
+        }
+    });
 
     // Windows can also change the presenter (for example Win+Shift+Enter), so follow the window itself.
     private void Watch()
