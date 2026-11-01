@@ -1,4 +1,6 @@
+using GameVault.App.Controls;
 using GameVault.ViewModels.Services;
+using Microsoft.UI.Dispatching;
 using Microsoft.UI.Windowing;
 
 namespace GameVault.App.Services;
@@ -10,6 +12,7 @@ public sealed class WinUiWindowService : IWindowService
 
     /// <summary>The presenter asked for and not yet applied; see <see cref="SetFullScreen"/>.</summary>
     private bool? _wanted;
+    private DispatcherQueueTimer? _releaseTimer;
 
     public bool IsFullScreen => _wanted ?? App.MainWindow.AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen;
 
@@ -38,10 +41,41 @@ public sealed class WinUiWindowService : IWindowService
         var isFullScreen = App.MainWindow.AppWindow.Presenter.Kind == AppWindowPresenterKind.FullScreen;
         if (wanted is { } fullScreen && fullScreen != isFullScreen)
         {
-            UiTrace.Write($"window presenter: changing to {(fullScreen ? "FullScreen" : "Overlapped")}", onUiThread: true);
-            App.MainWindow.AppWindow.SetPresenter(fullScreen ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped);
+            // No frame is drawn or presented while the window changes size and presenter; the game picture catches
+            // up (with the new size) once the window has settled (GV-027).
+            PresentGate.Hold();
+            UiTrace.Write($"window presenter: changing to {(fullScreen ? "FullScreen" : "Overlapped")} (frames held)", onUiThread: true);
+            try
+            {
+                App.MainWindow.AppWindow.SetPresenter(fullScreen ? AppWindowPresenterKind.FullScreen : AppWindowPresenterKind.Overlapped);
+            }
+            finally
+            {
+                ReleaseFramesSoon();
+            }
         }
     });
+
+    /// <summary>Lets frames through again once the layout that follows the presenter change has run.</summary>
+    private void ReleaseFramesSoon()
+    {
+        _releaseTimer ??= CreateReleaseTimer();
+        _releaseTimer.Stop();
+        _releaseTimer.Start();
+    }
+
+    private DispatcherQueueTimer CreateReleaseTimer()
+    {
+        var timer = App.MainWindow.DispatcherQueue.CreateTimer();
+        timer.Interval = TimeSpan.FromMilliseconds(300);
+        timer.IsRepeating = false;
+        timer.Tick += (_, _) =>
+        {
+            PresentGate.Release();
+            UiTrace.Write("window presenter: frames released", onUiThread: true);
+        };
+        return timer;
+    }
 
     // Windows can also change the presenter (for example Win+Shift+Enter), so follow the window itself.
     private void Watch()
