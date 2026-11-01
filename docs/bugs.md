@@ -36,7 +36,7 @@ content is missing. **Low** = wrong text or a small inconsistency.
 | [GV-024](#gv-024) | High | PlayStation 2 | Discs stay on a black screen with the player's BIOS | Open |
 | [GV-025](#gv-025) | High | PlayStation | Games run slowly and ignore the keyboard at their menu | Open |
 | [GV-026](#gv-026) | High | Atari 5200 | Games show the BIOS's title and then a black screen | Fixed (pending a check with Pac-Man) |
-| [GV-027](#gv-027) | High | Player | Esc with a controller connected closes the app, with no crash.log | Open |
+| [GV-027](#gv-027) | High | Player | Esc with a controller connected closes the app, with no crash.log | Fixed |
 
 ---
 
@@ -398,7 +398,7 @@ content is missing. **Low** = wrong text or a small inconsistency.
 
 ### GV-027
 
-**Esc with a controller connected closes the app, with no crash.log** · High · Player · **Open**
+**Esc with a controller connected closes the app, with no crash.log** · High · Player · **Fixed**
 
 - **Reported:** with a controller connected, pressing Esc in a game closes GameVault, more than once, and
   `logs\crash.log` stays empty.
@@ -460,6 +460,16 @@ content is missing. **Low** = wrong text or a small inconsistency.
 - **Done next:** SDL's Windows.Gaming.Input backend is off (`SDL_JOYSTICK_WGI=0`); XInput, raw input and HIDAPI
   still drive every pad. The polling loop checks the process's USER objects every 1,250 polls and writes a
   "SDL polling is leaking them" line to ui-trace.log if they grew by one a poll, so a remaining leak is pinned there.
+- **Next log:** the loop check fired ("USER objects 47 -> 1551 over 1250 polls: SDL polling is leaking them") with
+  Windows.Gaming.Input no longer loaded, so WGI wasn't it. **Cause (SDL 2.30.8 source):** without
+  `SDL_HINT_JOYSTICK_THREAD`, SDL creates its device-notification window on the thread that calls `SDL_Init` and
+  registers it for the pads' raw input (`RAWINPUT_RegisterNotifications`, `RIDEV_INPUTSINK`); HIDAPI makes another
+  hidden window there. SDL leaves pumping that thread's Windows messages to its video system, which GameVault doesn't
+  use, so every WM_INPUT report from a connected pad (~250 a second) stayed queued holding its HRAWINPUT, a USER object.
+- **Fixed:** `SDL_JOYSTICK_THREAD=1` (SDL's own joystick thread owns that window and pumps it, so raw input reaches
+  `RAWINPUT_WindowProc` and is freed), and the polling loop empties its own thread's message queue each pass
+  (`PeekMessage`/`DispatchMessage`, for HIDAPI's window). The Windows.Gaming.Input backend is back on. The USER-object
+  check and `handles:` lines stay in ui-trace.log.
 
 ---
 
