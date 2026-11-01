@@ -425,6 +425,17 @@ content is missing. **Low** = wrong text or a small inconsistency.
   fast on an exception escaping such a handler, with no `Application.UnhandledException`. `ui-trace.log` is now opened
   at start-up (so it always exists) and records every exception when it's thrown, with its stack, before anything can
   end the process. Needs checking on Windows: if Esc still closes the app, the end of `ui-trace.log` names the cause.
+- **Third report, with ui-trace.log:** Esc left full screen cleanly (the game kept running), and no .NET exception
+  was thrown before either crash: the only ones are Microsoft.Data.Sqlite probing `ApplicationData.Current` at
+  start-up, which it catches itself. The next start crashed just after `window presenter is now FullScreen` (the
+  game opened full screen on its resume screen), with nothing after it. So the fail-fast follows a presenter change
+  inside WinUI, and the one thing GameVault does then is `ShowChrome`, which collapsed the element given to
+  `SetTitleBar` while WinUI still tracked it for the caption and drag regions (both faulting DLLs handle those).
+- **Done next:** `ShowChrome` hands the title bar back (`SetTitleBar(null)`) before collapsing it and registers it
+  again only once it's visible, and runs on the dispatcher after the presenter change instead of inside
+  `AppWindow.Changed`. `WinUiWindowService.SetFullScreen` now always changes the presenter on the next dispatcher
+  turn, so no caller (a game starting, Esc, F11, leaving the Player) does it from inside a XAML callback.
+  ui-trace.log records each presenter change requested and each step of `ShowChrome`.
 
 ---
 

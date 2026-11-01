@@ -20,7 +20,9 @@ public sealed partial class MainWindow : Window
     {
         ViewModel = viewModel;
         _navigation = navigation;
-        window.FullScreenChanged += (_, _) => UiGuard.Run("Showing the window chrome", () => ShowChrome(!window.IsFullScreen));
+        // Run after WinUI has finished the presenter change that raised this, not inside its callback (GV-027).
+        window.FullScreenChanged += (_, _) => DispatcherQueue.TryEnqueue(() =>
+            UiGuard.Run("Showing the window chrome", () => ShowChrome(!window.IsFullScreen)));
 
         InitializeComponent();
 
@@ -34,11 +36,29 @@ public sealed partial class MainWindow : Window
     }
 
     /// <summary>Full-screen play hides the title bar and the navigation pane, leaving only the game.</summary>
+    /// <remarks>
+    /// The title bar element is handed back to WinUI (<c>SetTitleBar(null)</c>) before it's collapsed, and only given
+    /// to it again once it's visible: WinUI keeps the window's caption and drag regions in step with that element, and
+    /// collapsing it while WinUI still owns it is the likeliest cause of the fail-fasts in Microsoft.UI.Input and
+    /// Microsoft.UI.Windowing.Core just after the window entered or left full screen (docs/bugs.md GV-027).
+    /// </remarks>
     private void ShowChrome(bool visible)
     {
+        UiTrace.Write($"window chrome: {(visible ? "showing" : "hiding")}", onUiThread: true);
+        if (!visible)
+        {
+            SetTitleBar(null);
+        }
+
         AppTitleBar.Visibility = visible ? Visibility.Visible : Visibility.Collapsed;
         RootGrid.RowDefinitions[0].Height = visible ? new GridLength(48) : new GridLength(0);
         NavView.IsPaneVisible = visible;
+        if (visible)
+        {
+            SetTitleBar(AppTitleBar);
+        }
+
+        UiTrace.Write($"window chrome: {(visible ? "shown" : "hidden")}", onUiThread: true);
     }
 
     public ShellViewModel ViewModel { get; }
