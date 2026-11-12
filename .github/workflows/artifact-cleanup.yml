@@ -1,0 +1,35 @@
+name: artifact-cleanup
+
+# Keeps Actions storage under the free 500 MB: after any workflow finishes, delete every artifact except the newest one
+# of each name. Uses only the gh CLI that ships on the runner. About one billed Linux minute per run.
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types: [completed]
+  workflow_dispatch:
+
+permissions:
+  actions: write
+
+concurrency:
+  group: artifact-cleanup
+  cancel-in-progress: false
+
+jobs:
+  prune:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete all but the newest artifact of each name
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          gh api --paginate "repos/$REPO/actions/artifacts?per_page=100" \
+            --jq '.artifacts[] | select(.expired | not) | [.name, .created_at, (.id | tostring)] | @tsv' \
+            | sort -t $'\t' -k1,1 -k2,2r \
+            | awk -F '\t' 'seen[$1]++ { print $3 }' \
+            | while read -r id; do
+                echo "Deleting artifact $id"
+                gh api -X DELETE "repos/$REPO/actions/artifacts/$id"
+              done
