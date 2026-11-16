@@ -160,10 +160,13 @@ public sealed class EmulatorHostTests : IDisposable
 
         Thread.Sleep(1000);
 
-        // Pacing caps the rate near 60 fps. The lower bound only proves the game keeps running: a Debug
-        // build on a busy CI runner (other test classes run in parallel) can fall well below real time.
-        var fps = (_host.FrameCount - start) / clock.Elapsed.TotalSeconds;
-        fps.Should().BeInRange(10, 75, "frames are paced near 60 per second, never run uncapped");
+        // Pacing caps the rate near 60 fps; the upper bound is the check. The lower bound only proves the game
+        // keeps running: a Debug build on a busy CI runner (other test classes run in parallel, including the GPU
+        // renderer tests on the software Vulkan device) has measured under 4 fps, so any progress counts.
+        var frames = _host.FrameCount - start;
+        var fps = frames / clock.Elapsed.TotalSeconds;
+        frames.Should().BePositive("the game keeps running");
+        fps.Should().BeLessThan(75, "frames are paced near 60 per second, never run uncapped");
     }
 
     [Fact]
