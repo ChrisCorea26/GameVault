@@ -1,7 +1,8 @@
 name: artifact-cleanup
 
-# Keeps Actions storage under the free 500 MB: after any workflow finishes, delete every artifact except the newest one
-# of each name. Uses only the gh CLI that ships on the runner. About one billed Linux minute per run.
+# Keeps Actions storage under the free 500 MB: after a watched workflow fails, delete every artifact except the newest
+# one of each name. Uses only the gh CLI that ships on the runner. About one billed Linux minute per run, so it runs
+# only after a failed run (test results are uploaded only on failure) or by hand, never after a green one.
 on:
   workflow_run:
     workflows: ["CI"]
@@ -17,6 +18,7 @@ concurrency:
 
 jobs:
   prune:
+    if: github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'failure'
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
