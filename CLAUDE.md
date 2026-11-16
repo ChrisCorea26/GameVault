@@ -46,3 +46,7 @@ Users supply their own ROMs. The app never ships, downloads or links to commerci
   - Use `[MethodImpl(MethodImplOptions.AggressiveInlining)]` judiciously.
 - Hardware behavior follows the NESdev Wiki. Cite the relevant page in a comment where behavior is subtle.
 - Commit messages: `phase-N: <area>: <what changed>`.
+- CI (`.github/workflows/ci.yml`) is kept cheap in Actions minutes: non-draft pull requests only (not again on the merge
+  to `main`), docs-only changes run nothing, the Windows job (2x minutes) runs only when the PR has the `windows-ci`
+  label (add it once the PR is ready; required before merging code), processor suites monthly, test results uploaded
+  only on failure and kept 3 days.
